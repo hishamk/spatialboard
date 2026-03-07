@@ -1,0 +1,21 @@
+/* Google Fonts — system + professional */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lora:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&display=swap');
+/* Google Fonts — mono + display/funky */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Fira+Code:wght@400;600&family=Source+Code+Pro:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Pacifico&family=Lobster&family=Dancing+Script:wght@400;700&family=Comfortaa:wght@400;600&family=Bangers&family=Permanent+Marker&family=Satisfy&family=Kaushan+Script&family=Righteous&family=Amatic+SC:wght@400;700&family=Fredericka+the+Great&family=Shadows+Into+Light&display=swap');
+
+/* Global reset for the dev app */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

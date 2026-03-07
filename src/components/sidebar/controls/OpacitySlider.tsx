@@ -1,0 +1,33 @@
+import { rowStyle, labelStyle } from "../styles";
+import { useSBTheme } from "../ThemeContext";
+
+interface OpacitySliderProps {
+  value: number | undefined;
+  onChange: (opacity: number) => void;
+  mixed?: boolean;
+}
+
+export default function OpacitySlider({
+  value,
+  onChange,
+  mixed,
+}: OpacitySliderProps) {
+  const theme = useSBTheme();
+  const displayValue = mixed || value === undefined ? 100 : Math.round(value * 100);
+  return (
+    <div style={rowStyle}>
+      <span style={{ ...labelStyle, color: theme.textMuted }}>Opacity</span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={displayValue}
+        onChange={(e) => onChange(parseInt(e.target.value) / 100)}
+        style={{ flex: 1, accentColor: theme.accentColor }}
+      />
+      <span style={{ width: 28, textAlign: "right", fontSize: 10, color: mixed ? theme.textFaint : theme.text }}>
+        {mixed ? "--" : displayValue}
+      </span>
+    </div>
+  );
+}

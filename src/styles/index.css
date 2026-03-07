@@ -1,0 +1,73 @@
+/* spatialboard library styles */
+
+/* Editor area wrapper */
+.sb-editor-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+/* Transparent BlockNote editor for spatial canvas */
+.sb-editor-wrap .bn-editor {
+  background-color: transparent !important;
+}
+.sb-editor-wrap .bn-container {
+  background-color: transparent;
+}
+
+/* Force pointer-events: none on all children when content block is non-interactive.
+   BlockNote's CSS sets pointer-events: auto on inner elements which overrides inheritance. */
+.sb-block-inert .sb-editor-wrap * {
+  pointer-events: none !important;
+}
+
+/* Animated edge flow — flowing dash effects */
+@keyframes edge-flow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -20; }
+}
+@keyframes edge-flow-reverse {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 20; }
+}
+@keyframes edge-flow-both {
+  0%   { stroke-dashoffset: 0; }
+  50%  { stroke-dashoffset: -20; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Cycle edge pulsation — red warning pulse for dependency cycles */
+@keyframes edge-cycle-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Print: landscape, board content only */
+@page {
+  size: landscape;
+  margin: 0;
+}
+
+@media print {
+  /* Hide toolbar */
+  [data-sb-toolbar] {
+    display: none !important;
+  }
+
+  /* Hide selection overlays and marquee previews */
+  [data-sb-overlay] {
+    display: none !important;
+  }
+
+  /* Hide context menu */
+  [data-sb-context-menu] {
+    display: none !important;
+  }
+
+  /* Let the canvas fill the page */
+  html, body, #root {
+    overflow: visible !important;
+  }
+}
