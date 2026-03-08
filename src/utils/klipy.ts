@@ -37,7 +37,7 @@ export async function searchGifs(
   signal?: AbortSignal,
 ): Promise<KlipyResponse> {
   const url = `${baseUrl}/search?q=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}`;
-  const res = await fetch(url, { signal });
+  const res = await fetch(url, { signal, credentials: 'include' });
   return res.json();
 }
 
@@ -48,6 +48,6 @@ export async function trendingGifs(
   signal?: AbortSignal,
 ): Promise<KlipyResponse> {
   const url = `${baseUrl}/trending?page=${page}&per_page=${perPage}`;
-  const res = await fetch(url, { signal });
+  const res = await fetch(url, { signal, credentials: 'include' });
   return res.json();
 }
