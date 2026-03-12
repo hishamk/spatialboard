@@ -28,10 +28,7 @@ import type { NodeTypeRegistry } from "../nodes/registry";
 export type BoardBackground =
   | "plain-white"
   | "dot-grid"
-  | "graph-paper"
-  | "college-ruled"
   | "engineering"
-  | "isometric"
   | "blueprint"
   | "dark-grid"
   | "japanese-stationery"

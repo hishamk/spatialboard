@@ -1,6 +1,6 @@
 import type { SpatialNode, Viewport, Mode, ActiveTool, NodeType } from "./types";
 import type { NodeTypeRegistry } from "../nodes/registry";
-export type BoardBackground = "plain-white" | "dot-grid" | "graph-paper" | "college-ruled" | "engineering" | "isometric" | "blueprint" | "dark-grid" | "japanese-stationery" | "kraft";
+export type BoardBackground = "plain-white" | "dot-grid" | "engineering" | "blueprint" | "dark-grid" | "japanese-stationery" | "kraft";
 export interface AlignGuide {
     axis: 'x' | 'y';
     position: number;

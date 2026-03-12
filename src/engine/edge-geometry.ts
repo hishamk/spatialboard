@@ -185,13 +185,130 @@ function borderPointWithSide(
   return { x: wx, y: wy, side: local.side };
 }
 
+/**
+ * Which of the four sides is most in the direction (dx, dy), normalised by
+ * the node's half-extents (a, b) so that the aspect ratio is respected.
+ */
+function dominantSide(dx: number, dy: number, a: number, b: number): HandleSide {
+  if (Math.abs(dx) / a >= Math.abs(dy) / b) {
+    return dx >= 0 ? "right" : "left";
+  }
+  return dy >= 0 ? "bottom" : "top";
+}
+
+/**
+ * Ellipse perimeter intersection: finds the point on the ellipse
+ * (cx ± a, cy ± b semi-axes) along the ray from center toward (targetX, targetY).
+ */
+function ellipseBorderPointWithSide(
+  node: SpatialNode,
+  h: number,
+  targetX: number,
+  targetY: number
+): { x: number; y: number; side: HandleSide } {
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+  const a = node.w / 2;
+  const b = h / 2;
+
+  // Work in local (unrotated) space
+  const θ = node.rotation ? (-node.rotation * Math.PI) / 180 : 0;
+  const [tx, ty] = node.rotation
+    ? rotatePoint(targetX, targetY, cx, cy, θ)
+    : [targetX, targetY];
+
+  const dx = tx - cx;
+  const dy = ty - cy;
+
+  if (dx === 0 && dy === 0) {
+    return { x: cx + a, y: cy, side: "right" };
+  }
+
+  // Parametric: point on ellipse at t along (dx, dy) satisfies
+  //   (t·dx / a)² + (t·dy / b)² = 1  →  t = 1 / √((dx/a)² + (dy/b)²)
+  const t = 1 / Math.sqrt((dx / a) ** 2 + (dy / b) ** 2);
+  let px = cx + dx * t;
+  let py = cy + dy * t;
+
+  const side = dominantSide(dx, dy, a, b);
+
+  if (node.rotation) {
+    [px, py] = rotatePoint(px, py, cx, cy, -θ) as [number, number];
+  }
+
+  return { x: px, y: py, side };
+}
+
+/**
+ * Diamond perimeter intersection: finds the point on the diamond
+ * (rhombus with vertices at the midpoints of the bounding box sides)
+ * along the ray from center toward (targetX, targetY).
+ *
+ * The diamond satisfies |x−cx|/a + |y−cy|/b = 1.
+ * For a ray (cx + t·dx, cy + t·dy):
+ *   t · (|dx|/a + |dy|/b) = 1  →  t = 1 / (|dx|/a + |dy|/b)
+ */
+function diamondBorderPointWithSide(
+  node: SpatialNode,
+  h: number,
+  targetX: number,
+  targetY: number
+): { x: number; y: number; side: HandleSide } {
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+  const a = node.w / 2;
+  const b = h / 2;
+
+  const θ = node.rotation ? (-node.rotation * Math.PI) / 180 : 0;
+  const [tx, ty] = node.rotation
+    ? rotatePoint(targetX, targetY, cx, cy, θ)
+    : [targetX, targetY];
+
+  const dx = tx - cx;
+  const dy = ty - cy;
+
+  if (dx === 0 && dy === 0) {
+    return { x: cx + a, y: cy, side: "right" };
+  }
+
+  const t = 1 / (Math.abs(dx) / a + Math.abs(dy) / b);
+  let px = cx + dx * t;
+  let py = cy + dy * t;
+
+  const side = dominantSide(dx, dy, a, b);
+
+  if (node.rotation) {
+    [px, py] = rotatePoint(px, py, cx, cy, -θ) as [number, number];
+  }
+
+  return { x: px, y: py, side };
+}
+
+/**
+ * Shape-aware border intersection: dispatches to the appropriate
+ * perimeter function based on the node's actual shape.
+ */
+function shapeBorderPointWithSide(
+  node: SpatialNode,
+  h: number,
+  targetX: number,
+  targetY: number
+): { x: number; y: number; side: HandleSide } {
+  if (node.type === "shape") {
+    const shape = (node.data as { shape?: string })?.shape;
+    if (shape === "ellipse") return ellipseBorderPointWithSide(node, h, targetX, targetY);
+    if (shape === "diamond") return diamondBorderPointWithSide(node, h, targetX, targetY);
+  }
+  return borderPointWithSide(node, h, targetX, targetY);
+}
+
 function borderPoint(
   node: SpatialNode,
   h: number,
   targetX: number,
   targetY: number
 ): { x: number; y: number } {
-  const result = borderPointWithSide(node, h, targetX, targetY);
+  const result = shapeBorderPointWithSide(node, h, targetX, targetY);
   return { x: result.x, y: result.y };
 }
 
@@ -271,6 +388,17 @@ export interface EdgePathResult {
 }
 
 /**
+ * Returns true for shapes whose perimeter is non-rectangular (ellipse, diamond).
+ * These shapes use the actual radial direction as the bezier tangent instead of
+ * a snapped cardinal direction, so curves flow naturally out of the drawn shape.
+ */
+function isRadialShape(node: SpatialNode): boolean {
+  if (node.type !== "shape") return false;
+  const shape = (node.data as { shape?: string })?.shape;
+  return shape === "ellipse" || shape === "diamond";
+}
+
+/**
  * Compute the full edge path between two nodes.
  *
  * When `sourcePortPos` or `targetPortPos` are provided, the edge endpoints
@@ -299,6 +427,7 @@ export function computeEdgePath(
 
   // Compute endpoint + side for source
   let x1: number, y1: number, sourceSide: HandleSide;
+  let sourceExitDir: { dx: number; dy: number } | undefined;
   if (sourcePortPos) {
     x1 = sourcePortPos.x; y1 = sourcePortPos.y;
     sourceSide = sourceHandle ?? "right";
@@ -306,12 +435,19 @@ export function computeEdgePath(
     const p = handlePoint(fromNode, fh, sourceHandle);
     x1 = p.x; y1 = p.y; sourceSide = sourceHandle;
   } else {
-    const p = borderPointWithSide(fromNode, fh, tcx, tcy);
+    const p = shapeBorderPointWithSide(fromNode, fh, tcx, tcy);
     x1 = p.x; y1 = p.y; sourceSide = p.side;
+    // For curved shapes, use the actual radial direction as the bezier exit tangent
+    // so the curve flows naturally outward rather than snapping to a cardinal axis.
+    if (isRadialShape(fromNode)) {
+      const len = Math.hypot(tcx - fcx, tcy - fcy);
+      if (len > 0) sourceExitDir = { dx: (tcx - fcx) / len, dy: (tcy - fcy) / len };
+    }
   }
 
   // Compute endpoint + side for target
   let x2: number, y2: number, targetSide: HandleSide;
+  let targetEntryDir: { dx: number; dy: number } | undefined;
   if (targetPortPos) {
     x2 = targetPortPos.x; y2 = targetPortPos.y;
     targetSide = targetHandle ?? "left";
@@ -319,15 +455,20 @@ export function computeEdgePath(
     const p = handlePoint(toNode, th, targetHandle);
     x2 = p.x; y2 = p.y; targetSide = targetHandle;
   } else {
-    const p = borderPointWithSide(toNode, th, fcx, fcy);
+    const p = shapeBorderPointWithSide(toNode, th, fcx, fcy);
     x2 = p.x; y2 = p.y; targetSide = p.side;
+    // Entry tangent points inward toward the target center (opposite to exit)
+    if (isRadialShape(toNode)) {
+      const len = Math.hypot(fcx - tcx, fcy - tcy);
+      if (len > 0) targetEntryDir = { dx: (fcx - tcx) / len, dy: (fcy - tcy) / len };
+    }
   }
 
   switch (edgeType) {
     case "straight":
       return makeStraightPath(x1, y1, x2, y2, sourceSide, targetSide);
     case "bezier":
-      return makeBezierPath(x1, y1, x2, y2, sourceSide, targetSide, curveOffset);
+      return makeBezierPath(x1, y1, x2, y2, sourceSide, targetSide, curveOffset, sourceExitDir, targetEntryDir);
     case "smoothstep":
       return makeSmoothStepPath(x1, y1, x2, y2, sourceSide, targetSide, midpointOffset);
     case "step":
@@ -359,13 +500,15 @@ function makeStraightPath(
 function makeBezierPath(
   x1: number, y1: number, x2: number, y2: number,
   sourceSide: HandleSide, targetSide: HandleSide,
-  curveOffset?: [number, number]
+  curveOffset?: [number, number],
+  sourceExitDir?: { dx: number; dy: number },
+  targetEntryDir?: { dx: number; dy: number }
 ): EdgePathResult {
   const dist = Math.hypot(x2 - x1, y2 - y1);
   const offset = Math.min(dist * 0.5, Math.max(50, dist * 0.25));
 
-  const sd = sideDirection(sourceSide);
-  const td = sideDirection(targetSide);
+  const sd = sourceExitDir ?? sideDirection(sourceSide);
+  const td = targetEntryDir ?? sideDirection(targetSide);
 
   // Apply curveOffset: shift both control points by offset * 4/3
   const curveDx = curveOffset ? curveOffset[0] * (4 / 3) : 0;

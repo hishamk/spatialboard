@@ -28,6 +28,10 @@ function parseAttributes(line: string): Record<string, string> {
 const BG_ALIASES: Record<string, BoardBackground> = {
   "default": "dot-grid",
   "cutting-board": "blueprint",
+  // Removed grid-as-paper types → nearest color equivalent
+  "graph-paper": "plain-white",
+  "college-ruled": "plain-white",
+  "isometric": "plain-white",
 };
 
 export interface SBDParseResult {

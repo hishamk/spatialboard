@@ -6,7 +6,6 @@ export interface PaperTypeConfig {
     group: PaperGroup;
     canvasBg: string;
     swatchColor: string;
-    hasGrid: boolean;
 }
 export declare const PAPER_TYPES: PaperTypeConfig[];
 export declare function getPaperType(key: BoardBackground): PaperTypeConfig;
