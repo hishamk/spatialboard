@@ -26,7 +26,6 @@ const MODES: { key: Mode; label: string; shortcut: string; num: string }[] = [
 
 const btnBase: React.CSSProperties = {
   border: "none",
-  borderRadius: 6,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
@@ -206,10 +205,10 @@ function PaperPicker({
               top: rect.top,
               background: theme.panelBg,
               border: `1px solid ${theme.border}`,
-              borderRadius: 8,
+              borderRadius: theme.panelBorderRadius,
               padding: 8,
               zIndex: 99999,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+              boxShadow: theme.panelShadow,
               width: 180,
               maxHeight: 400,
               overflowY: "auto",
@@ -247,7 +246,7 @@ function PaperPicker({
                         width: "100%",
                         padding: "5px 6px",
                         border: "none",
-                        borderRadius: 4,
+                        borderRadius: theme.controlBorderRadius,
                         background: background === paper.key ? theme.controlBgActive : "transparent",
                         color: theme.text,
                         cursor: "pointer",
@@ -284,15 +283,10 @@ function PaperPicker({
         title="Paper type"
         onClick={() => setOpen((v) => !v)}
         style={{
-          border: "none",
-          borderRadius: 6,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 0,
+          ...btnBase,
           width: 36,
           height: 36,
+          borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
           position: "relative",
@@ -392,7 +386,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
                     width: "100%",
                     padding: "6px 6px",
                     border: "none",
-                    borderRadius: 4,
+                    borderRadius: theme.controlBorderRadius,
                     background: "transparent",
                     color: theme.text,
                     cursor: "pointer",
@@ -425,6 +419,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
           ...btnBase,
           width: 36,
           height: 36,
+          borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
         }}
@@ -468,6 +463,7 @@ function LibraryPicker({ engine }: { engine: SpatialEngine }) {
           ...btnBase,
           width: 36,
           height: 36,
+          borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
         }}
@@ -527,6 +523,7 @@ function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string
           ...btnBase,
           width: 36,
           height: 36,
+          borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
         }}
@@ -569,8 +566,10 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
       data-sb-toolbar
       style={{
         width: TOOL_STRIP_WIDTH,
+        height: "100%",
         flexShrink: 0,
-        background: theme.panelBg,
+        background: theme.toolbarBg,
+        borderRight: `1px solid ${theme.border}`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -597,6 +596,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
             ...btnBase,
             width: 36,
             height: 36,
+            borderRadius: theme.controlBorderRadius,
             background: isActive ? theme.controlBgActive : "transparent",
             color: theme.text,
             position: "relative",
@@ -642,6 +642,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
           ...btnBase,
           width: 36,
           height: 36,
+          borderRadius: theme.controlBorderRadius,
           background: lassoActive ? theme.controlBgActive : "transparent",
           color: theme.text,
           position: "relative",

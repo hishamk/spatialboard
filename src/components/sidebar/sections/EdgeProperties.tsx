@@ -96,7 +96,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
             step={1}
             value={data.arrowHeadSize ?? Math.max(8, data.strokeWidth * 3)}
             onChange={(e) => update({ arrowHeadSize: Number(e.target.value) })}
-            style={{ flex: 1 }}
+            style={{ flex: 1, accentColor: theme.accentColor }}
           />
           <span style={{ color: theme.textMuted, fontSize: 11, minWidth: 24, textAlign: "right" }}>
             {data.arrowHeadSize ?? Math.max(8, data.strokeWidth * 3)}
@@ -135,7 +135,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
             step={1}
             value={data.arrowTailSize ?? Math.max(8, data.strokeWidth * 3)}
             onChange={(e) => update({ arrowTailSize: Number(e.target.value) })}
-            style={{ flex: 1 }}
+            style={{ flex: 1, accentColor: theme.accentColor }}
           />
           <span style={{ color: theme.textMuted, fontSize: 11, minWidth: 24, textAlign: "right" }}>
             {data.arrowTailSize ?? Math.max(8, data.strokeWidth * 3)}

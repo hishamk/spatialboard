@@ -149,6 +149,7 @@ export default function SpatialBoard({
           top: 0,
           right: 0,
           bottom: 0,
+          overflow: "hidden",
         }}
       >
         <SpatialCanvas engine={engine} schema={schema} registry={registry} dataFlow={dataFlow} />

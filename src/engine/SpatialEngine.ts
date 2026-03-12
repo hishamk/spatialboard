@@ -887,11 +887,13 @@ export class SpatialEngine {
   /** Save the current viewport as the origin view (restored on next load). */
   setOriginView(): void {
     this.originView = { ...this.viewport };
+    this.emit("background");
   }
 
   /** Clear the saved origin view. */
   clearOriginView(): void {
     this.originView = null;
+    this.emit("background");
   }
 
   /** Jump to the saved origin view, or fit-to-content if none is saved. */

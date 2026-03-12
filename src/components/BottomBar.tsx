@@ -18,10 +18,9 @@ function zoomOut(engine: SpatialEngine) {
   engine.pan(0, 0);
 }
 
-const pill: React.CSSProperties = {
+const pillBase: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  borderRadius: 8,
   overflow: "hidden",
 };
 
@@ -75,8 +74,9 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
       )}
       {name === "slides" && (
         <>
-          <rect x="3" y="3" width="18" height="18" rx="2" {...sp} strokeDasharray="4,2" />
-          <path d="M8 9h8M8 13h5" {...sp} opacity={0.5} />
+          <rect x="2" y="6" width="20" height="12" rx="1" {...sp} />
+          <path d="M6 6V18M18 6V18" {...sp} />
+          <path d="M2 9h4M2 12h4M2 15h4M18 9h4M18 12h4M18 15h4" {...sp} />
         </>
       )}
       {name === "home" && (
@@ -84,6 +84,12 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <path d="M3 12l9-8 9 8" {...sp} fill="none" />
           <path d="M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7" {...sp} fill="none" />
         </>
+      )}
+      {name === "bookmark" && (
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" {...sp} fill="none" />
+      )}
+      {name === "bookmark-fill" && (
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="currentColor" />
       )}
     </svg>
   );
@@ -101,7 +107,6 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [hasOriginView, setHasOriginView] = useState(() => engine.originView != null);
-  const [originPressed, setOriginPressed] = useState(false);
   const [frameCount, setFrameCount] = useState(
     () => engine.getAllNodes().filter((n) => n.type === "frame").length,
   );
@@ -132,6 +137,10 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
 
   const pillBg = theme.panelBg;
   const border = `1px solid ${theme.border}`;
+  const pill: React.CSSProperties = {
+    ...pillBase,
+    borderRadius: theme.panelBorderRadius,
+  };
   const sep: React.CSSProperties = {
     width: 1,
     height: 20,
@@ -155,7 +164,7 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Zoom controls */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title="Zoom out"
           onClick={() => zoomOut(engine)}
@@ -194,7 +203,7 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
       </div>
 
       {/* Fit to content + Origin view */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title="Fit to content (Ctrl+0)"
           onClick={() => engine.fitToContent()}
@@ -204,19 +213,8 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
         </button>
         <div style={sep} />
         <button
-          title={hasOriginView ? "Go to origin view (click) · Right-click to clear" : "Set current view as origin"}
+          title={hasOriginView ? "Clear saved view" : "Save current view as origin"}
           onClick={() => {
-            if (hasOriginView) {
-              engine.goToOriginView();
-            } else {
-              engine.setOriginView();
-              setHasOriginView(true);
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setOriginPressed(true);
-            setTimeout(() => setOriginPressed(false), 150);
             if (hasOriginView) {
               engine.clearOriginView();
               setHasOriginView(false);
@@ -225,21 +223,23 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
               setHasOriginView(true);
             }
           }}
-          style={{
-            ...btn,
-            width: 32,
-            height: 32,
-            color: hasOriginView ? theme.text : theme.textFaint,
-            transform: originPressed ? "scale(0.85)" : undefined,
-            transition: "transform 0.1s ease",
-          }}
+          style={{ ...btn, width: 32, height: 32, color: hasOriginView ? theme.accentColor : theme.textFaint }}
+        >
+          <Icon name={hasOriginView ? "bookmark-fill" : "bookmark"} />
+        </button>
+        <div style={sep} />
+        <button
+          title="Go to saved view"
+          onClick={() => { if (hasOriginView) engine.goToOriginView(); }}
+          disabled={!hasOriginView}
+          style={{ ...btn, width: 32, height: 32, color: hasOriginView ? theme.text : theme.textFaint }}
         >
           <Icon name="home" />
         </button>
       </div>
 
       {/* Present & Slides */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title="Present (frames as slides)"
           onClick={() => engine.enterPresentation()}
@@ -284,7 +284,7 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
       </div>
 
       {/* Undo / Redo */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title="Undo (Ctrl+Z)"
           onClick={() => engine.undo()}

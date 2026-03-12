@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react";
 
 export interface SpatialBoardTheme {
+  /** Toolbar/sidebar background (app chrome) */
+  toolbarBg: string;
   /** Panel/toolbar background */
   panelBg: string;
   /** Floating panel box-shadow */
@@ -36,6 +38,7 @@ export interface SpatialBoardTheme {
 }
 
 export const DEFAULT_SB_THEME: SpatialBoardTheme = {
+  toolbarBg: "#1e1e2e",
   panelBg: "#1e1e2e",
   panelShadow: "0 4px 24px rgba(0,0,0,0.4)",
   panelBorderRadius: 12,

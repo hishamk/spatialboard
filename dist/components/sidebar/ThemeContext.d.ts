@@ -1,4 +1,6 @@
 export interface SpatialBoardTheme {
+    /** Toolbar/sidebar background (app chrome) */
+    toolbarBg: string;
     /** Panel/toolbar background */
     panelBg: string;
     /** Floating panel box-shadow */
