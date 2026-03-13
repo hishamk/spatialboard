@@ -1,6 +1,7 @@
+import { useContext } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { ShapeNode } from "../../../engine/types";
-import { useBatchUpdate } from "../MultiNodeContext";
+import { MultiNodeContext, useBatchUpdate } from "../MultiNodeContext";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
@@ -64,14 +65,30 @@ function ShapeTypeIcon({ name, size = 16 }: { name: string; size?: number }) {
   );
 }
 
+/** Returns true if the given property differs across all nodes in the group. */
+function isMixed<T>(nodes: ShapeNode[], get: (n: ShapeNode) => T): boolean {
+  if (nodes.length < 2) return false;
+  const first = get(nodes[0]);
+  return !nodes.every((n) => get(n) === first);
+}
+
 export default function ShapeProperties({ engine, node, fontsInScene }: ShapePropertiesProps) {
   const theme = useSBTheme();
   const update = useBatchUpdate<ShapeNode["data"]>(engine, node);
+  const allNodes = (useContext(MultiNodeContext) ?? [node]) as ShapeNode[];
 
   const { data } = node;
   const fillColor = data.fill ?? null;
   const fillStyle = data.fillStyle ?? "hachure";
   const strokeStyle = data.strokeStyle ?? "solid";
+
+  const mixedStroke      = isMixed(allNodes, (n) => n.data.stroke);
+  const mixedFill        = isMixed(allNodes, (n) => n.data.fill ?? null);
+  const mixedFillStyle   = isMixed(allNodes, (n) => n.data.fillStyle ?? "hachure");
+  const mixedStrokeStyle = isMixed(allNodes, (n) => n.data.strokeStyle ?? "solid");
+  const mixedStrokeWidth = isMixed(allNodes, (n) => n.data.strokeWidth);
+  const mixedRoughness   = isMixed(allNodes, (n) => n.data.roughness);
+  const mixedOpacity     = isMixed(allNodes, (n) => n.data.opacity ?? 1);
 
   return (
     <>
@@ -211,7 +228,8 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       <PaletteColorPicker
         label="Stroke"
         palettes={STROKE_PALETTES}
-        value={data.stroke}
+        value={mixedStroke ? undefined : data.stroke}
+        mixed={mixedStroke}
         onChange={(c) => update({ stroke: c! })}
       />
 
@@ -219,13 +237,14 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       <PaletteColorPicker
         label="Fill"
         palettes={FILL_PALETTES}
-        value={fillColor}
+        value={mixedFill ? undefined : fillColor}
+        mixed={mixedFill}
         onChange={(c) => update({ fill: c ?? undefined })}
         allowNull
       />
 
-      {/* Fill style (only when fill is set) */}
-      {fillColor && (
+      {/* Fill style (only when fill is set and not mixed) */}
+      {fillColor && !mixedFill && (
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>Fill pattern</span>
           {FILL_STYLES.map((f) => (
@@ -237,7 +256,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
                 ...btnBase,
                 width: 36,
                 height: 28,
-                background: fillStyle === f.key ? theme.controlBgActive : theme.controlBg,
+                background: !mixedFillStyle && fillStyle === f.key ? theme.controlBgActive : theme.controlBg,
                 color: theme.text,
                 fontSize: 9,
                 borderRadius: theme.controlBorderRadius,
@@ -253,6 +272,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       <StrokeStylePicker
         label="Stroke style"
         value={strokeStyle}
+        mixed={mixedStrokeStyle}
         onChange={(s) => update({ strokeStyle: s })}
       />
 
@@ -260,6 +280,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       <WidthPicker
         label="Stroke width"
         value={data.strokeWidth}
+        mixed={mixedStrokeWidth}
         onChange={(w) => update({ strokeWidth: w })}
       />
 
@@ -275,7 +296,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
               ...btnBase,
               height: 28,
               padding: "0 8px",
-              background: data.roughness === r.value ? theme.controlBgActive : theme.controlBg,
+              background: !mixedRoughness && data.roughness === r.value ? theme.controlBgActive : theme.controlBg,
               color: theme.text,
               fontSize: 9,
               borderRadius: theme.controlBorderRadius,
@@ -289,6 +310,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       {/* Opacity */}
       <OpacitySlider
         value={data.opacity ?? 1}
+        mixed={mixedOpacity}
         onChange={(o) => update({ opacity: o })}
       />
     </>

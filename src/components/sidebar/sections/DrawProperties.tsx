@@ -1,6 +1,7 @@
+import { useContext } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { DrawNode } from "../../../engine/types";
-import { useBatchUpdate } from "../MultiNodeContext";
+import { MultiNodeContext, useBatchUpdate } from "../MultiNodeContext";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
@@ -21,14 +22,29 @@ interface DrawPropertiesProps {
   node: DrawNode;
 }
 
+/** Returns true if the given property differs across all nodes in the group. */
+function isMixed<T>(nodes: DrawNode[], get: (n: DrawNode) => T): boolean {
+  if (nodes.length < 2) return false;
+  const first = get(nodes[0]);
+  return !nodes.every((n) => get(n) === first);
+}
+
 export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
   const theme = useSBTheme();
   const update = useBatchUpdate<DrawNode["data"]>(engine, node);
+  const allNodes = (useContext(MultiNodeContext) ?? [node]) as DrawNode[];
 
   const { data } = node;
   const fillColor = data.fill ?? null;
   const fillStyle = data.fillStyle ?? "hachure";
   const strokeStyle = data.strokeStyle ?? "solid";
+
+  const mixedColor       = isMixed(allNodes, (n) => n.data.color);
+  const mixedFill        = isMixed(allNodes, (n) => n.data.fill ?? null);
+  const mixedFillStyle   = isMixed(allNodes, (n) => n.data.fillStyle ?? "hachure");
+  const mixedStrokeStyle = isMixed(allNodes, (n) => n.data.strokeStyle ?? "solid");
+  const mixedStrokeWidth = isMixed(allNodes, (n) => n.data.strokeWidth);
+  const mixedOpacity     = isMixed(allNodes, (n) => n.data.opacity ?? 1);
 
   return (
     <>
@@ -36,7 +52,8 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       <PaletteColorPicker
         label="Stroke"
         palettes={STROKE_PALETTES}
-        value={data.color}
+        value={mixedColor ? undefined : data.color}
+        mixed={mixedColor}
         onChange={(c) => update({ color: c! })}
       />
 
@@ -44,13 +61,14 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       <PaletteColorPicker
         label="Fill"
         palettes={FILL_PALETTES}
-        value={fillColor}
+        value={mixedFill ? undefined : fillColor}
+        mixed={mixedFill}
         onChange={(c) => update({ fill: c ?? undefined })}
         allowNull
       />
 
-      {/* Fill style (only when fill is set) */}
-      {fillColor && (
+      {/* Fill style (only when fill is set and not mixed) */}
+      {fillColor && !mixedFill && (
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>Fill pattern</span>
           {FILL_STYLES.map((f) => (
@@ -62,7 +80,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
                 ...btnBase,
                 width: 36,
                 height: 28,
-                background: fillStyle === f.key ? theme.controlBgActive : theme.controlBg,
+                background: !mixedFillStyle && fillStyle === f.key ? theme.controlBgActive : theme.controlBg,
                 color: theme.text,
                 fontSize: 9,
                 borderRadius: theme.controlBorderRadius,
@@ -78,6 +96,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       <StrokeStylePicker
         label="Stroke style"
         value={strokeStyle}
+        mixed={mixedStrokeStyle}
         onChange={(s) => update({ strokeStyle: s })}
       />
 
@@ -85,12 +104,14 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       <WidthPicker
         label="Stroke width"
         value={data.strokeWidth}
+        mixed={mixedStrokeWidth}
         onChange={(w) => update({ strokeWidth: w })}
       />
 
       {/* Opacity */}
       <OpacitySlider
         value={data.opacity ?? 1}
+        mixed={mixedOpacity}
         onChange={(o) => update({ opacity: o })}
       />
     </>
