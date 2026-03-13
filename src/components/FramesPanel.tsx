@@ -384,6 +384,9 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
   const dragIndexRef = useRef<number | null>(null);
   const dropIndexRef = useRef<number | null>(null);
   const dragStartYRef = useRef(0);
+  // True once the pointer has moved enough to commit to drag mode.
+  // Keeps double-click from activating the reorder visual.
+  const dragActiveRef = useRef(false);
   const framesRef = useRef(frames);
   framesRef.current = frames;
   const isReorderingRef = useRef(false);
@@ -473,9 +476,9 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
       dragStartYRef.current = e.clientY;
       dragIndexRef.current = index;
       dropIndexRef.current = index;
-      setDragIndex(index);
-      setDropIndex(index);
-      setDragOffset(0);
+      dragActiveRef.current = false;
+      // Don't set drag visual state yet — wait for actual movement so that
+      // double-click (which also fires pointerdown) doesn't trigger the reorder UI.
     },
     [],
   );
@@ -484,6 +487,16 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
     const handleMove = (e: PointerEvent) => {
       if (dragIndexRef.current === null) return;
       const dy = e.clientY - dragStartYRef.current;
+
+      // Only commit to drag mode once the pointer has moved enough —
+      // this prevents a double-click from activating the reorder visual.
+      if (!dragActiveRef.current) {
+        if (Math.abs(dy) < 4) return;
+        dragActiveRef.current = true;
+        setDragIndex(dragIndexRef.current);
+        setDropIndex(dragIndexRef.current);
+      }
+
       setDragOffset(dy);
 
       const heights = cardHeightsRef.current;
@@ -552,6 +565,7 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
 
       dragIndexRef.current = null;
       dropIndexRef.current = null;
+      dragActiveRef.current = false;
       setDragIndex(null);
       setDropIndex(null);
       setDragOffset(0);
