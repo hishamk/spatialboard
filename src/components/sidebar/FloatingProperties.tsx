@@ -198,13 +198,13 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         boxShadow: theme.panelShadow,
       }}
       onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={handleDragPointerMove}
+      onPointerUp={handleDragPointerUp}
+      onPointerCancel={handleDragPointerUp}
     >
       {/* Drag handle */}
       <div
         onPointerDown={handleDragPointerDown}
-        onPointerMove={handleDragPointerMove}
-        onPointerUp={handleDragPointerUp}
-        onPointerCancel={handleDragPointerUp}
         style={{
           cursor: isDragging ? "grabbing" : "grab",
           padding: "8px 16px",

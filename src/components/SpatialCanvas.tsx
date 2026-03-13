@@ -1647,9 +1647,14 @@ export default function SpatialCanvas({
           longPressOriginRef.current = null;
         }
 
+        // Snapshot both pointer positions NOW — the synthetic pointerup below
+        // fires synchronously (dispatchEvent is sync), which would trigger the
+        // global cleanup and delete the first pointer from activeTouchesRef.
+        // Using a local map for pinch tracking avoids that race.
+        const pinchMap = new Map(activeTouchesRef.current);
+
         // Abort in-flight single-pointer drag by synthetic pointerup for the first pointer
-        const pointerIds = [...activeTouchesRef.current.keys()];
-        const firstId = pointerIds.find((id) => id !== e.pointerId);
+        const firstId = [...activeTouchesRef.current.keys()].find((id) => id !== e.pointerId);
         if (firstId !== undefined) {
           ownerDoc().dispatchEvent(
             new PointerEvent("pointerup", {
@@ -1661,15 +1666,14 @@ export default function SpatialCanvas({
           );
         }
 
-        const entries = [...activeTouchesRef.current.values()];
-        const pA = entries[0];
-        const pB = entries[1] ?? entries[0];
-        let prev = pinchMetrics(pA, pB);
+        // Re-populate from snapshot so both pointers are present for calculation
+        const entries = [...pinchMap.values()];
+        let prev = pinchMetrics(entries[0], entries[1] ?? entries[0]);
 
         const onPinchMove = (me: PointerEvent) => {
-          if (!activeTouchesRef.current.has(me.pointerId)) return;
-          activeTouchesRef.current.set(me.pointerId, { x: me.clientX, y: me.clientY });
-          const vals = [...activeTouchesRef.current.values()];
+          if (!pinchMap.has(me.pointerId)) return;
+          pinchMap.set(me.pointerId, { x: me.clientX, y: me.clientY });
+          const vals = [...pinchMap.values()];
           if (vals.length < 2) return;
           const curr = pinchMetrics(vals[0], vals[1]);
           engine.pan(curr.mx - prev.mx, curr.my - prev.my);
@@ -1682,8 +1686,9 @@ export default function SpatialCanvas({
 
         const onPinchEnd = (me: PointerEvent) => {
           activeTouchesRef.current.delete(me.pointerId);
+          pinchMap.delete(me.pointerId);
           if (me.pointerType === "pen") activePenRef.current = false;
-          if (activeTouchesRef.current.size < 2 && !activePenRef.current) {
+          if (pinchMap.size < 2 && !activePenRef.current) {
             isPinchingRef.current = false;
             ownerDoc().removeEventListener("pointermove", onPinchMove);
             ownerDoc().removeEventListener("pointerup", onPinchEnd);
