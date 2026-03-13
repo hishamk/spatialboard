@@ -1768,6 +1768,17 @@ export default function SpatialCanvas({
 
       const { x: cx, y: cy } = engine.screenToCanvas(e.clientX, e.clientY);
 
+      // If touching a node, cancel long-press immediately — dragging a node should
+      // never be interrupted by the context-menu timer. Long-press is only for empty canvas.
+      if (e.pointerType === "touch" && longPressTimerRef.current) {
+        const touchHit = engine.hitTest(cx, cy, measuredHeights);
+        if (touchHit) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+          longPressOriginRef.current = null;
+        }
+      }
+
       if (engine.mode === "select") {
         // Right-click selection is handled by handleContextMenu — skip here
         if (e.button !== 0) return;

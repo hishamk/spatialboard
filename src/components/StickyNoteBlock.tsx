@@ -262,6 +262,7 @@ function StickyNoteBlock({
           padding: 12,
           height: "100%",
           overflow: "auto",
+          touchAction: editing ? "pan-y" : "none",
           cursor: editing ? "text" : "move",
           userSelect: editing ? "text" : "none",
         }}

@@ -166,6 +166,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
             overflowY: "auto",
             padding: "0 16px 24px",
             flex: 1,
+            touchAction: "pan-y",
           }}
         >
           <PropertiesContent
@@ -230,6 +231,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           display: "flex",
           flexDirection: "column",
           gap: 8,
+          touchAction: "pan-y",
         }}
       >
         <PropertiesContent
