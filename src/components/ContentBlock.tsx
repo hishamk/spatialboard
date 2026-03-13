@@ -67,6 +67,10 @@ interface ContentBlockProps {
   interactive: boolean;
   zoom: number;
   onMeasuredHeight?: (nodeId: string, height: number) => void;
+  /** Only true on the machine that just created this block locally. Prevents
+   *  remote observers from auto-entering edit mode for a collaborator's new block,
+   *  which would cause them to skip incoming Yjs syncs (editing=true guard). */
+  autoEdit?: boolean;
 }
 
 const CHROME_HEIGHT = 0;
@@ -103,9 +107,13 @@ function ContentBlock({
   interactive,
   zoom,
   onMeasuredHeight,
+  autoEdit,
 }: ContentBlockProps) {
   const blockRef = useRef<HTMLDivElement>(null);
-  const justCreated = useRef(node.data.blocks.length === 0);
+  // Only auto-enter edit mode when the block was created locally (autoEdit=true).
+  // Without this guard, remote observers would also auto-enter edit mode when they
+  // receive a new empty block via Yjs, causing them to skip all incoming syncs.
+  const justCreated = useRef(autoEdit === true);
   const autoFocusRef = useRef(false);
   const isAdjustingRef = useRef(false);
   const isDraggingRef = useRef(false);
@@ -667,6 +675,7 @@ function ContentBlock({
   return (
     <div
       ref={blockRef}
+      data-node-id={node.id}
       className={interactive ? undefined : "sb-block-inert"}
       style={{
         position: "absolute",

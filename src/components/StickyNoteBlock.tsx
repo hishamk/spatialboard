@@ -235,6 +235,7 @@ function StickyNoteBlock({
   return (
     <div
       ref={blockRef}
+      data-node-id={node.id}
       className={interactive ? undefined : "sb-block-inert"}
       onPointerDown={interactive ? handlePointerDown : undefined}
       onDoubleClick={handleDoubleClick}
@@ -274,7 +275,7 @@ function StickyNoteBlock({
             onInput={() => {
               if (textRef.current) {
                 latestTextRef.current = textRef.current.innerText;
-                // Debounced sync for real-time collab
+                // Sync immediately for real-time collab
                 if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
                 syncTimerRef.current = setTimeout(() => {
                   const n = nodeRef.current;
@@ -284,7 +285,7 @@ function StickyNoteBlock({
                       data: { ...n.data, text },
                     } as Partial<StickyNoteNode>);
                   }
-                }, 300);
+                }, 0);
               }
             }}
             onKeyDown={(e) => {

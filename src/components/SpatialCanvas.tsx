@@ -392,13 +392,16 @@ function ShapeLabelEditor({
   const latestRef = useRef(node.data.label ?? "");
   const nodeRef = useRef(node);
   nodeRef.current = node;
+  // Track initial label so we can push history when editing ends, even if real-time
+  // sync has already brought node.data.label up to date.
+  const initialLabelRef = useRef(node.data.label ?? "");
 
   // Commit label when this component unmounts (editing ends).
   useEffect(() => {
     return () => {
       const cur = nodeRef.current;
       const val = latestRef.current.trim();
-      if (val !== (cur.data.label ?? "")) {
+      if (val !== initialLabelRef.current) {
         const newData = { ...cur.data, label: val || undefined };
         const updates: Partial<ShapeNode> = { data: newData };
         // Auto-grow height
@@ -423,6 +426,7 @@ function ShapeLabelEditor({
 
   return (
     <div
+      data-node-id={node.id}
       style={{
         position: "absolute",
         left: node.x,
@@ -452,6 +456,11 @@ function ShapeLabelEditor({
         onInput={(e) => {
           const ta = e.currentTarget as HTMLTextAreaElement;
           latestRef.current = ta.value;
+          // Sync label text in real-time for collaboration
+          const cur = nodeRef.current;
+          engine.updateNode(cur.id, {
+            data: { ...cur.data, label: ta.value || undefined },
+          } as Partial<ShapeNode>);
           // Auto-resize textarea
           ta.style.height = "auto";
           ta.style.height = ta.scrollHeight + "px";
@@ -1094,15 +1103,10 @@ export default function SpatialCanvas({
 
   const editingNodeId = editingTextId || editingStickyId || editingFrameLabelId || editingShapeLabelId || croppingImageId || editingYouTubeId;
 
-  // Ghost text input — Excalidraw-style: just a cursor on the canvas,
-  // no bounding box. Node is created only when the user commits.
-  const [pendingText, setPendingText] = useState<{
-    x: number;
-    y: number;
-    w: number | "auto";
-  } | null>(null);
-  const pendingTextRef = useRef<HTMLDivElement>(null);
-  const pendingCommittedRef = useRef(false);
+  // Track newly-created text nodes so we can delete them if the user commits empty text
+  const newlyCreatedTextRef = useRef<string | null>(null);
+  // Track the last content block created locally so only the creator auto-enters edit mode
+  const newlyCreatedContentIdRef = useRef<string | null>(null);
 
   // Eraser tool state — tracks elements marked for deletion during drag
   const [eraserMarkedIds, setEraserMarkedIds] = useState<Set<string>>(new Set());
@@ -1124,18 +1128,13 @@ export default function SpatialCanvas({
   // After a text node is created in text mode, require double-click for the next one
   const textCreatedOnceRef = useRef(false);
 
-  // Auto-focus the ghost text input when it appears
-  useLayoutEffect(() => {
-    if (pendingText && pendingTextRef.current) {
-      pendingCommittedRef.current = false;
-      pendingTextRef.current.focus();
-    }
-  }, [pendingText]);
-
   const createContentBlock = useCallback(
     (x: number, y: number, w: number, h: number | "auto" = "auto") => {
+      const id = nanoid(10);
+      // Set ref BEFORE addNode so it's in place when ContentBlock first renders
+      newlyCreatedContentIdRef.current = id;
       engine.addNode({
-        id: nanoid(10),
+        id,
         type: "content",
         x,
         y,
@@ -1460,44 +1459,34 @@ export default function SpatialCanvas({
     [engine, buildContextMenuSections]
   );
 
-  // Commit the ghost text input → create a TextNode (or discard if empty)
-  const commitPendingText = useCallback(() => {
-    if (pendingCommittedRef.current) return;
-    const pt = pendingText;
-    const el = pendingTextRef.current;
-    if (!pt) return;
-    pendingCommittedRef.current = true;
-    const text = el?.innerText?.trim() ?? "";
-    if (text) {
-      // Measure actual rendered width when auto (no drag box)
-      const measuredW = pt.w === "auto" && el
-        ? Math.ceil(el.scrollWidth) + 2
-        : pt.w as number;
-      const node: TextNode = {
-        id: nanoid(10),
+  // Create a TextNode in the engine and immediately enter editing mode.
+  // Used by both the text tool and double-click-on-canvas flows.
+  const createTextNodeAndEdit = useCallback(
+    (x: number, y: number, w: number) => {
+      const id = nanoid(10);
+      engine.addNode({
+        id,
         type: "text",
-        x: pt.x,
-        y: pt.y,
-        w: measuredW,
+        x,
+        y,
+        w,
         h: "auto",
         z: engine.nextZ(),
         data: {
-          text,
+          text: "",
           fontSize: engine.activeTool.fontSize ?? 20,
           fontFamily: engine.activeTool.fontFamily ?? DEFAULT_FONT,
           color: engine.activeTool.color,
           align: engine.activeTool.textAlign ?? "left",
           opacity: engine.activeTool.opacity,
         },
-      };
-      engine.addNode(node);
-      engine.pushHistorySnapshot();
-      // After the first text node is created, require double-click for the next
-      textCreatedOnceRef.current = true;
-      if (containerRef.current) containerRef.current.style.cursor = "crosshair";
-    }
-    setPendingText(null);
-  }, [pendingText, engine]);
+      } as TextNode);
+      engine.select(id);
+      newlyCreatedTextRef.current = id;
+      setEditingTextId(id);
+    },
+    [engine]
+  );
 
   // Double-click on draw/shape: collapse to single selection; text: enter edit mode
   const handleDoubleClick = useCallback(
@@ -1505,15 +1494,11 @@ export default function SpatialCanvas({
       if (engine.presentationMode) return;
       // Double-click in text mode: allow creating a new text node after the first
       if (engine.mode === "text" && textCreatedOnceRef.current) {
-        // Commit any in-progress ghost text
-        if (pendingText && pendingTextRef.current) {
-          commitPendingText();
-        }
         textCreatedOnceRef.current = false;
         if (containerRef.current) containerRef.current.style.cursor = "text";
         engine.deselectAll();
         const { x: cx, y: cy } = engine.screenToCanvas(e.clientX, e.clientY);
-        setPendingText({ x: cx, y: cy, w: "auto" });
+        createTextNodeAndEdit(cx, cy, 300);
         return;
       }
       if (engine.mode !== "select") return;
@@ -1597,13 +1582,13 @@ export default function SpatialCanvas({
         }
       }
 
-      // Double-click empty canvas in select mode → open ghost text input
+      // Double-click empty canvas in select mode → create text node and enter edit mode
       if (!hit) {
         engine.deselectAll();
-        setPendingText({ x: cx, y: cy, w: "auto" });
+        createTextNodeAndEdit(cx, cy, 300);
       }
     },
-    [engine, measuredHeights, pendingText, commitPendingText]
+    [engine, measuredHeights, createTextNodeAndEdit]
   );
 
   const handlePointerDown = useCallback(
@@ -1620,12 +1605,6 @@ export default function SpatialCanvas({
       // Close context menu on any click
       if (contextMenu) {
         setContextMenu(null);
-      }
-
-      // Commit any in-progress ghost text input (clicking elsewhere = blur)
-      // The text mode branch handles its own commit before opening a new one.
-      if (pendingText && engine.mode !== "text") {
-        commitPendingText();
       }
 
       // Middle mouse button OR Space+left-click → pan (any mode)
@@ -1943,10 +1922,6 @@ export default function SpatialCanvas({
           }
         }
       } else if (engine.mode === "text") {
-        // Commit any in-progress ghost text before starting a new one
-        if (pendingText && pendingTextRef.current) {
-          commitPendingText();
-        }
         // After the first text node, require double-click for the next one
         if (textCreatedOnceRef.current) return;
         engine.deselectAll();
@@ -1975,12 +1950,14 @@ export default function SpatialCanvas({
           ownerDoc().removeEventListener("pointerup", onUp);
           setTextPreview(null);
 
-          const w = dragged ? Math.max(Math.abs(preview.endX - preview.startX), 60) : "auto" as const;
+          const w = dragged ? Math.max(Math.abs(preview.endX - preview.startX), 60) : 300;
           const x = dragged ? Math.min(preview.startX, preview.endX) : startCx;
           const y = dragged ? Math.min(preview.startY, preview.endY) : startCy;
 
-          // Show ghost text input — no node created yet, just a cursor
-          setPendingText({ x, y, w });
+          // Create the node immediately so collaboration sync works from the start
+          createTextNodeAndEdit(x, y, w);
+          textCreatedOnceRef.current = true;
+          if (containerRef.current) containerRef.current.style.cursor = "crosshair";
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -2574,13 +2551,12 @@ export default function SpatialCanvas({
     [
       engine,
       createContentBlock,
+      createTextNodeAndEdit,
       contextMenu,
       selBounds,
       measuredHeights,
       getNodeAABB,
       getNodesInMarqueeRect,
-      pendingText,
-      commitPendingText,
     ]
   );
 
@@ -3934,6 +3910,7 @@ export default function SpatialCanvas({
                     interactive={mode === "select" || mode === "text" || mode === "note"}
                     zoom={viewport.zoom}
                     onMeasuredHeight={handleMeasuredHeight}
+                    autoEdit={newlyCreatedContentIdRef.current === cNode.id}
                   />
                 );
               } else if (node.type === "text") {
@@ -3944,7 +3921,19 @@ export default function SpatialCanvas({
                     engine={engine}
                     editing={editingTextId === node.id}
                     editClickPos={editingTextId === node.id ? editClickRef.current : null}
-                    onStopEdit={() => setEditingTextId(null)}
+                    onStopEdit={() => {
+                      if (newlyCreatedTextRef.current === node.id) {
+                        newlyCreatedTextRef.current = null;
+                        const textNode = engine.getNode(node.id) as TextNode | undefined;
+                        if (!textNode || !textNode.data.text.trim()) {
+                          engine.deleteNode(node.id);
+                          setEditingTextId(null);
+                          return;
+                        }
+                        engine.pushHistorySnapshot();
+                      }
+                      setEditingTextId(null);
+                    }}
                     onMeasuredHeight={handleMeasuredHeight}
                   />
                 );
@@ -4112,51 +4101,6 @@ export default function SpatialCanvas({
           );
         })()}
 
-        {/* Ghost text input — Excalidraw-style: just a cursor, no bounding box */}
-        {pendingText && (
-          <div
-            style={{
-              position: "absolute",
-              left: pendingText.x,
-              top: pendingText.y,
-              width: pendingText.w === "auto" ? undefined : pendingText.w,
-              zIndex: 999999,
-              pointerEvents: "auto",
-            }}
-          >
-            <div
-              ref={pendingTextRef}
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={commitPendingText}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  pendingTextRef.current?.blur();
-                }
-                e.stopPropagation();
-              }}
-              onInput={() => {
-                // no-op: text is read on commit from the DOM
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-              style={{
-                fontFamily: getFontFamilyCSS(engine.activeTool.fontFamily ?? DEFAULT_FONT),
-                fontSize: engine.activeTool.fontSize ?? 20,
-                color: engine.activeTool.color,
-                textAlign: engine.activeTool.textAlign ?? "left",
-                opacity: engine.activeTool.opacity ?? 1,
-                lineHeight: 1,
-                outline: "none",
-                whiteSpace: pendingText.w === "auto" ? "pre" : "pre-wrap",
-                wordBreak: pendingText.w === "auto" ? undefined : "break-word",
-                minWidth: 1,
-                minHeight: engine.activeTool.fontSize ?? 20,
-                cursor: "text",
-              }}
-            />
-          </div>
-        )}
       </div>
 
       <SVGLayer

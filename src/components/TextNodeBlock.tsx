@@ -153,7 +153,7 @@ function TextNodeBlock({
       const text = divRef.current.innerText;
       setLocalText(text);
       latestTextRef.current = text;
-      // Debounced sync for real-time collab
+      // Sync immediately for real-time collab
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => {
         const n = nodeRef.current;
@@ -162,7 +162,7 @@ function TextNodeBlock({
             data: { ...n.data, text },
           } as Partial<TextNode>);
         }
-      }, 300);
+      }, 0);
     }
   }, []);
 
@@ -189,6 +189,7 @@ function TextNodeBlock({
 
   return (
     <div
+      data-node-id={node.id}
       style={{
         position: "absolute",
         left: node.x,
