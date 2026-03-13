@@ -193,6 +193,7 @@ export declare class SpatialEngine {
     setBoardBackground(bg: BoardBackground): void;
     pan(dx: number, dy: number): void;
     zoomByWheel(delta: number, screenX: number, screenY: number): void;
+    zoomByFactor(factor: number, screenX: number, screenY: number): void;
     zoomTo(level: number, anchor?: {
         x: number;
         y: number;

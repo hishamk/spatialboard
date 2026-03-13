@@ -9,3 +9,4 @@ export declare function canvasToScreen(viewport: Viewport, cx: number, cy: numbe
     y: number;
 };
 export declare function applyZoom(viewport: Viewport, delta: number, anchorScreenX: number, anchorScreenY: number): Viewport;
+export declare function applyZoomFactor(viewport: Viewport, factor: number, anchorScreenX: number, anchorScreenY: number): Viewport;

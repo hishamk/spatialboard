@@ -239,7 +239,7 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
       </div>
 
       {/* Present & Slides */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+      <div style={{ ...pill, overflow: "visible", background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title="Present (frames as slides)"
           onClick={() => engine.enterPresentation()}
@@ -266,12 +266,18 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
                 <span
                   style={{
                     position: "absolute",
-                    top: 2,
-                    right: 2,
-                    fontSize: 8,
-                    lineHeight: 1,
+                    top: -4,
+                    right: -4,
+                    minWidth: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    background: theme.accentColor,
+                    color: "#fff",
+                    fontSize: 9,
                     fontWeight: 700,
-                    color: theme.textMuted,
+                    lineHeight: "14px",
+                    textAlign: "center",
+                    padding: "0 3px",
                     pointerEvents: "none",
                   }}
                 >
