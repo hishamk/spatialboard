@@ -80,14 +80,18 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         startLeft: left,
         startTop: top,
       };
+      // Explicit capture routes all subsequent pointermove/pointerup to this
+      // element, enabling React's onPointerMove/onPointerUp below to fire
+      // reliably on touch (not just desktop).
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
     [position, getDefaultPosition]
   );
 
-  useEffect(() => {
-    const handleMove = (e: PointerEvent) => {
+  const handleDragPointerMove = useCallback(
+    (e: React.PointerEvent) => {
       if (!dragRef.current) return;
+      e.stopPropagation();
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       const { width: cw, height: ch } = getContainerSize();
@@ -100,20 +104,13 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         Math.min(ch - 100, dragRef.current.startTop + dy)
       );
       setPosition({ x: newX, y: newY });
-    };
-    const handleUp = () => {
-      dragRef.current = null;
-      setIsDragging(false);
-    };
-    const doc = panelRef.current?.ownerDocument ?? document;
-    doc.addEventListener("pointermove", handleMove);
-    doc.addEventListener("pointerup", handleUp);
-    doc.addEventListener("pointercancel", handleUp);
-    return () => {
-      doc.removeEventListener("pointermove", handleMove);
-      doc.removeEventListener("pointerup", handleUp);
-      doc.removeEventListener("pointercancel", handleUp);
-    };
+    },
+    [getContainerSize]
+  );
+
+  const handleDragPointerUp = useCallback(() => {
+    dragRef.current = null;
+    setIsDragging(false);
   }, []);
 
   if (!visible) return null;
@@ -205,10 +202,14 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       {/* Drag handle */}
       <div
         onPointerDown={handleDragPointerDown}
+        onPointerMove={handleDragPointerMove}
+        onPointerUp={handleDragPointerUp}
+        onPointerCancel={handleDragPointerUp}
         style={{
           cursor: isDragging ? "grabbing" : "grab",
           padding: "8px 16px",
           userSelect: "none",
+          touchAction: "none",
           display: "flex",
           alignItems: "center",
           gap: 6,

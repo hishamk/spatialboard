@@ -130,6 +130,10 @@ function StickyNoteBlock({
 
       if (editing) return; // Let contentEditable handle interactions
 
+      // Capture pointer so pointermove/pointerup always reach document listeners
+      // even when the finger moves off the element on touch devices
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
       if (e.shiftKey) {
         engine.toggleSelect(node.id);
       } else if (!engine.selection.has(node.id)) {
