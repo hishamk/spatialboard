@@ -1,4 +1,4 @@
-export const TOOL_STRIP_WIDTH = 48;
+export const TOOL_STRIP_WIDTH = 52;
 export const PROPERTIES_WIDTH = 270;
 export const SIDEBAR_WIDTH = TOOL_STRIP_WIDTH + PROPERTIES_WIDTH;
 

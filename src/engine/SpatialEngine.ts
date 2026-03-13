@@ -18,6 +18,7 @@ import {
   screenToCanvas,
   canvasToScreen,
   applyZoom,
+  applyZoomFactor,
   clamp,
 } from "./viewport";
 import { serializeToSBD } from "../serialization/sbd-serializer";
@@ -797,6 +798,16 @@ export class SpatialEngine {
       delta,
       screenX - this.containerOffset.x,
       screenY - this.containerOffset.y
+    );
+    this.emit("viewport");
+  }
+
+  zoomByFactor(factor: number, screenX: number, screenY: number): void {
+    this.viewport = applyZoomFactor(
+      this.viewport,
+      factor,
+      screenX - this.containerOffset.x,
+      screenY - this.containerOffset.y,
     );
     this.emit("viewport");
   }

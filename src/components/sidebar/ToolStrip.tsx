@@ -284,8 +284,8 @@ function PaperPicker({
         onClick={() => setOpen((v) => !v)}
         style={{
           ...btnBase,
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
@@ -417,8 +417,8 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
         onClick={() => setOpen((v) => !v)}
         style={{
           ...btnBase,
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
@@ -461,8 +461,8 @@ function LibraryPicker({ engine }: { engine: SpatialEngine }) {
         onClick={handleOpen}
         style={{
           ...btnBase,
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
@@ -521,8 +521,8 @@ function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string
         onClick={handleOpen}
         style={{
           ...btnBase,
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           borderRadius: theme.controlBorderRadius,
           background: open ? theme.controlBgActive : "transparent",
           color: theme.text,
@@ -594,8 +594,8 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
           }}
           style={{
             ...btnBase,
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             borderRadius: theme.controlBorderRadius,
             background: isActive ? theme.controlBgActive : "transparent",
             color: theme.text,
@@ -640,8 +640,8 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
         }}
         style={{
           ...btnBase,
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           borderRadius: theme.controlBorderRadius,
           background: lassoActive ? theme.controlBgActive : "transparent",
           color: theme.text,

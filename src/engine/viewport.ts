@@ -41,3 +41,18 @@ export function applyZoom(
     zoom: newZoom,
   };
 }
+
+export function applyZoomFactor(
+  viewport: Viewport,
+  factor: number,
+  anchorScreenX: number,
+  anchorScreenY: number
+): Viewport {
+  const newZoom = clamp(viewport.zoom * factor, 0.1, 5);
+  const canvasPoint = screenToCanvas(viewport, anchorScreenX, anchorScreenY);
+  return {
+    x: anchorScreenX - canvasPoint.x * newZoom,
+    y: anchorScreenY - canvasPoint.y * newZoom,
+    zoom: newZoom,
+  };
+}

@@ -305,6 +305,12 @@ function getCursorForMode(mode: Mode): string {
 }
 
 // Lasso cursor — a small lasso loop icon
+function pinchMetrics(a: { x: number; y: number }, b: { x: number; y: number }) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return { dist: Math.sqrt(dx * dx + dy * dy), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+}
+
 const LASSO_CURSOR = (() => {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='%23e0e0e0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3a7 7 0 0 1 4.5 12.4l-2 2'/><path d='M14.5 15.4q.5 1.5.5 2.6c0 2-1.5 3-3 3s-2-1-2-2c0-.8.5-1.5 1-2'/><circle cx='12' cy='3' r='1.5' fill='%23e0e0e0' stroke='none'/></svg>`;
   return `url("data:image/svg+xml,${svg}") 12 3, crosshair`;
@@ -526,6 +532,15 @@ export default function SpatialCanvas({
   const spaceHeldRef = useRef(false);
   const spacePanActiveRef = useRef(false);
 
+  // Multi-touch / pinch-to-zoom tracking
+  const activeTouchesRef = useRef(new Map<number, { x: number; y: number }>());
+  const isPinchingRef = useRef(false);
+  const activePenRef = useRef(false);
+
+  // Long-press context menu (touch)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressOriginRef = useRef<{ clientX: number; clientY: number } | null>(null);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === " " && !e.repeat && !spaceHeldRef.current) {
@@ -554,6 +569,26 @@ export default function SpatialCanvas({
       window.removeEventListener("keyup", onKeyUp);
     };
   }, []);
+
+  // Global cleanup for multi-touch pointers (handles pointerup/pointercancel outside React synthetic events)
+  useEffect(() => {
+    const cleanup = (e: PointerEvent) => {
+      activeTouchesRef.current.delete(e.pointerId);
+      if (e.pointerType === "pen") activePenRef.current = false;
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+        longPressOriginRef.current = null;
+      }
+    };
+    const doc = ownerDoc();
+    doc.addEventListener("pointerup", cleanup);
+    doc.addEventListener("pointercancel", cleanup);
+    return () => {
+      doc.removeEventListener("pointerup", cleanup);
+      doc.removeEventListener("pointercancel", cleanup);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drawing state
   const [activeStroke, setActiveStroke] = useState<{
@@ -1593,6 +1628,77 @@ export default function SpatialCanvas({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      // Track all active pointers for multi-touch detection
+      activeTouchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.pointerType === "pen") activePenRef.current = true;
+
+      // Two-finger gesture: second touch OR any touch while Apple Pencil is active
+      const isSecondTouch =
+        e.pointerType === "touch" &&
+        (activeTouchesRef.current.size >= 2 || activePenRef.current);
+
+      if (isSecondTouch) {
+        isPinchingRef.current = true;
+
+        // Cancel any pending long-press
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+          longPressOriginRef.current = null;
+        }
+
+        // Abort in-flight single-pointer drag by synthetic pointerup for the first pointer
+        const pointerIds = [...activeTouchesRef.current.keys()];
+        const firstId = pointerIds.find((id) => id !== e.pointerId);
+        if (firstId !== undefined) {
+          ownerDoc().dispatchEvent(
+            new PointerEvent("pointerup", {
+              pointerId: firstId,
+              bubbles: true,
+              clientX: e.clientX,
+              clientY: e.clientY,
+            })
+          );
+        }
+
+        const entries = [...activeTouchesRef.current.values()];
+        const pA = entries[0];
+        const pB = entries[1] ?? entries[0];
+        let prev = pinchMetrics(pA, pB);
+
+        const onPinchMove = (me: PointerEvent) => {
+          if (!activeTouchesRef.current.has(me.pointerId)) return;
+          activeTouchesRef.current.set(me.pointerId, { x: me.clientX, y: me.clientY });
+          const vals = [...activeTouchesRef.current.values()];
+          if (vals.length < 2) return;
+          const curr = pinchMetrics(vals[0], vals[1]);
+          engine.pan(curr.mx - prev.mx, curr.my - prev.my);
+          if (prev.dist > 1) {
+            const factor = Math.min(Math.max(curr.dist / prev.dist, 0.9), 1.1);
+            engine.zoomByFactor(factor, curr.mx, curr.my);
+          }
+          prev = curr;
+        };
+
+        const onPinchEnd = (me: PointerEvent) => {
+          activeTouchesRef.current.delete(me.pointerId);
+          if (me.pointerType === "pen") activePenRef.current = false;
+          if (activeTouchesRef.current.size < 2 && !activePenRef.current) {
+            isPinchingRef.current = false;
+            ownerDoc().removeEventListener("pointermove", onPinchMove);
+            ownerDoc().removeEventListener("pointerup", onPinchEnd);
+            ownerDoc().removeEventListener("pointercancel", onPinchEnd);
+          }
+        };
+
+        ownerDoc().addEventListener("pointermove", onPinchMove);
+        ownerDoc().addEventListener("pointerup", onPinchEnd);
+        ownerDoc().addEventListener("pointercancel", onPinchEnd);
+        return; // Skip all mode logic
+      }
+
+      if (isPinchingRef.current) return; // pinch still active, ignore new pointers
+
       // In presentation mode, only allow panning (middle mouse / space+click)
       if (engine.presentationMode) {
         if (e.button === 1 || (e.button === 0 && spaceHeldRef.current)) {
@@ -1605,6 +1711,31 @@ export default function SpatialCanvas({
       // Close context menu on any click
       if (contextMenu) {
         setContextMenu(null);
+      }
+
+      // Long-press context menu for touch
+      if (e.pointerType === "touch") {
+        const touchClientX = e.clientX;
+        const touchClientY = e.clientY;
+        const touchPointerId = e.pointerId;
+        longPressOriginRef.current = { clientX: touchClientX, clientY: touchClientY };
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          if (!longPressOriginRef.current) return;
+          if (isPinchingRef.current) return;
+          const sections = buildContextMenuSections(touchClientX, touchClientY, false);
+          setContextMenu({ x: touchClientX, y: touchClientY, sections });
+          // Cancel ongoing drag via synthetic pointerup
+          ownerDoc().dispatchEvent(
+            new PointerEvent("pointerup", {
+              pointerId: touchPointerId,
+              bubbles: true,
+              clientX: touchClientX,
+              clientY: touchClientY,
+            })
+          );
+          longPressOriginRef.current = null;
+        }, 500);
       }
 
       // Middle mouse button OR Space+left-click → pan (any mode)
@@ -2553,6 +2684,7 @@ export default function SpatialCanvas({
       createContentBlock,
       createTextNodeAndEdit,
       contextMenu,
+      buildContextMenuSections,
       selBounds,
       measuredHeights,
       getNodeAABB,
@@ -3577,6 +3709,16 @@ export default function SpatialCanvas({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      // Cancel long-press if finger moves more than 8px
+      if (longPressTimerRef.current && e.pointerType === "touch" && longPressOriginRef.current) {
+        const dx = e.clientX - longPressOriginRef.current.clientX;
+        const dy = e.clientY - longPressOriginRef.current.clientY;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+          longPressOriginRef.current = null;
+        }
+      }
       if (engine.mode !== "select" && engine.mode !== "edge") return;
       pointerMovePendingRef.current = { clientX: e.clientX, clientY: e.clientY };
       if (pointerMoveRafRef.current !== null) return;
@@ -3777,6 +3919,7 @@ export default function SpatialCanvas({
         overflow: "hidden",
         position: "relative",
         userSelect: "none",
+        touchAction: "none",
         background: getPaperType(boardBackground).canvasBg,
       }}
       onPointerDown={handlePointerDown}

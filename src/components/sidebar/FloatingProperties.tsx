@@ -16,6 +16,8 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
   const { target, commonProps } = useMultiSelection(engine);
   const visible = target.kind !== "none";
 
+  const [isMobile, setIsMobile] = useState(false);
+
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{
@@ -52,6 +54,19 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       }
     }
   });
+
+  // Detect narrow containers for bottom-sheet layout
+  useEffect(() => {
+    const container = panelRef.current?.offsetParent as HTMLElement | null ?? panelRef.current?.ownerDocument.body;
+    if (!container) return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? container.clientWidth;
+      setIsMobile(width < 600);
+    });
+    ro.observe(container);
+    setIsMobile(container.clientWidth < 600);
+    return () => ro.disconnect();
+  }, []);
 
   const handleDragPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -102,6 +117,67 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
   }, []);
 
   if (!visible) return null;
+
+  // On narrow screens (mobile/tablet), render a bottom sheet
+  if (isMobile) {
+    return (
+      <div
+        ref={panelRef}
+        data-sb-props-panel
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "45vh",
+          minHeight: 200,
+          background: theme.panelBg,
+          borderRadius: "12px 12px 0 0",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.25)",
+          zIndex: 200,
+          display: "flex",
+          flexDirection: "column",
+          color: theme.text,
+          fontSize: 12,
+        }}
+      >
+        {/* Drag pill */}
+        <div
+          style={{
+            height: 36,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              background: theme.border,
+            }}
+          />
+        </div>
+        <div
+          style={{
+            overflowY: "auto",
+            padding: "0 16px 24px",
+            flex: 1,
+          }}
+        >
+          <PropertiesContent
+            engine={engine}
+            registry={registry}
+            target={target}
+            commonProps={commonProps}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
