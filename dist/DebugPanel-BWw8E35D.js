@@ -1,6 +1,6 @@
 import { jsxs as p, jsx as r } from "react/jsx-runtime";
 import { useState as b, useEffect as E } from "react";
-import { n as S } from "./index-iwZuGPyo.js";
+import { n as S } from "./index-BIxOH7yN.js";
 const v = "```", F = `<!--@meta canvas_w="4000" canvas_h="3000" grid="20" snap="false" -->
 
 <!--@text id="title" x="60" y="40" w="600" z="50" fontSize="48" fontFamily="sans-serif" color="#1e1e2e" align="left" -->

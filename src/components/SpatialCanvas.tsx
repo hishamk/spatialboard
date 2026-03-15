@@ -81,6 +81,27 @@ function pointInPolygon(px: number, py: number, polygon: Array<[number, number]>
   return inside;
 }
 
+function isExactEdgeConnectionDuplicate(
+  data: EdgeNode["data"],
+  candidate: {
+    fromId: string;
+    toId: string;
+    sourceHandle?: HandleSide;
+    targetHandle?: HandleSide;
+    sourcePort?: string;
+    targetPort?: string;
+  },
+): boolean {
+  return (
+    data.fromId === candidate.fromId &&
+    data.toId === candidate.toId &&
+    (data.sourceHandle ?? null) === (candidate.sourceHandle ?? null) &&
+    (data.targetHandle ?? null) === (candidate.targetHandle ?? null) &&
+    (data.sourcePort ?? null) === (candidate.sourcePort ?? null) &&
+    (data.targetPort ?? null) === (candidate.targetPort ?? null)
+  );
+}
+
 /**
  * Read the system clipboard and paste appropriately.
  * Falls back to the engine's internal clipboard on error or if
@@ -2432,20 +2453,21 @@ export default function SpatialCanvas({
           )
             return;
 
-          // Don't create duplicate edges between the same pair
-          const exists = engine.getAllNodes().some(
-            (n) =>
-              n.type === "edge" &&
-              (((n as EdgeNode).data.fromId === sourceNode.id &&
-                (n as EdgeNode).data.toId === targetNode.id) ||
-                ((n as EdgeNode).data.fromId === targetNode.id &&
-                  (n as EdgeNode).data.toId === sourceNode.id))
-          );
-          if (exists) return;
-
           // Determine which handles the edge connects to
           const sourceHandle = nearestHandle(sourceNode, cx, cy, measuredHeights);
           const targetHandle = nearestHandle(targetNode, x, y, measuredHeights);
+
+          // Allow parallel edges between the same nodes, but block exact duplicates.
+          const duplicate = engine.getAllNodes().some((n) => {
+            if (n.type !== "edge") return false;
+            return isExactEdgeConnectionDuplicate((n as EdgeNode).data, {
+              fromId: sourceNode.id,
+              toId: targetNode.id,
+              sourceHandle,
+              targetHandle,
+            });
+          });
+          if (duplicate) return;
 
           const edgeNode: EdgeNode = {
             id: nanoid(10),
@@ -3025,18 +3047,18 @@ export default function SpatialCanvas({
         )
           return;
 
-        // Prevent duplicate edges between the same pair
-        const exists = engine.getAllNodes().some(
-          (n) =>
-            n.type === "edge" &&
-            (((n as EdgeNode).data.fromId === sourceNode.id &&
-              (n as EdgeNode).data.toId === targetNode.id) ||
-              ((n as EdgeNode).data.fromId === targetNode.id &&
-                (n as EdgeNode).data.toId === sourceNode.id))
-        );
-        if (exists) return;
-
         const targetHandle = nearestHandle(targetNode, x, y, measuredHeights);
+        // Allow parallel edges between the same nodes, but block exact duplicates.
+        const duplicate = engine.getAllNodes().some((n) => {
+          if (n.type !== "edge") return false;
+          return isExactEdgeConnectionDuplicate((n as EdgeNode).data, {
+            fromId: sourceNode.id,
+            toId: targetNode.id,
+            sourceHandle: side,
+            targetHandle,
+          });
+        });
+        if (duplicate) return;
 
         const edgeNode: EdgeNode = {
           id: nanoid(10),
@@ -3389,19 +3411,32 @@ export default function SpatialCanvas({
         const originalEndNodeId = endpoint === "source" ? fromId : toId;
         if (targetNode.id === originalEndNodeId) return;
 
-        // Prevent duplicate edges (exclude current edge from check)
-        const wouldDuplicate = engine.getAllNodes().some((n) => {
-          if (n.type !== "edge" || n.id === edgeId) return false;
-          const d = (n as EdgeNode).data;
-          return (
-            (d.fromId === newFromId && d.toId === newToId) ||
-            (d.fromId === newToId && d.toId === newFromId)
-          );
-        });
-        if (wouldDuplicate) return;
-
         // Compute new handle for the reconnected endpoint
         const newHandle = nearestHandle(targetNode, x, y, measuredHeights);
+        const candidate = endpoint === "source"
+          ? {
+            fromId: newFromId,
+            toId: newToId,
+            sourceHandle: newHandle,
+            targetHandle,
+            sourcePort: edgeNode.data.sourcePort,
+            targetPort: edgeNode.data.targetPort,
+          }
+          : {
+            fromId: newFromId,
+            toId: newToId,
+            sourceHandle,
+            targetHandle: newHandle,
+            sourcePort: edgeNode.data.sourcePort,
+            targetPort: edgeNode.data.targetPort,
+          };
+
+        // Allow parallel edges, but block reconnecting into an exact duplicate.
+        const wouldDuplicate = engine.getAllNodes().some((n) => {
+          if (n.type !== "edge" || n.id === edgeId) return false;
+          return isExactEdgeConnectionDuplicate((n as EdgeNode).data, candidate);
+        });
+        if (wouldDuplicate) return;
 
         // Apply with history (Ctrl+Z undoes reconnection)
         const dataPatch: Partial<EdgeNode["data"]> = endpoint === "source"

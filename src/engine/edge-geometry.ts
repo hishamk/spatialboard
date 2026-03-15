@@ -345,7 +345,8 @@ function drawBorderPointWithSide(
 
 /**
  * Draw-node anchor for explicit side handles.
- * Uses the furthest stroke sample along that side normal, instead of bbox midpoint.
+ * Uses the nearest point on the actual stroke path to the selected handle midpoint,
+ * then pushes outward by half the stroke width.
  */
 function drawHandlePoint(
   node: DrawNode,
@@ -360,18 +361,45 @@ function drawHandlePoint(
   const cx = node.x + node.w / 2;
   const cy = node.y + h / 2;
   const dir = sideDirection(side);
+  const targetMidX = side === "left" || side === "right" ? node.x + (side === "right" ? node.w : 0) : node.x + node.w / 2;
+  const targetMidY = side === "top" || side === "bottom" ? node.y + (side === "bottom" ? h : 0) : node.y + h / 2;
+
+  const nearestPointOnSegment = (
+    px: number,
+    py: number,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ): [number, number] => {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return [ax, ay];
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+    return [ax + t * dx, ay + t * dy];
+  };
 
   let bestX = node.x + points[0][0];
   let bestY = node.y + points[0][1];
-  let bestProj = (bestX - cx) * dir.dx + (bestY - cy) * dir.dy;
-  for (let i = 1; i < points.length; i++) {
-    const px = node.x + points[i][0];
-    const py = node.y + points[i][1];
-    const proj = (px - cx) * dir.dx + (py - cy) * dir.dy;
-    if (proj > bestProj) {
-      bestProj = proj;
-      bestX = px;
-      bestY = py;
+  let bestDistSq = (bestX - targetMidX) ** 2 + (bestY - targetMidY) ** 2;
+
+  if (points.length === 1) {
+    bestX = node.x + points[0][0];
+    bestY = node.y + points[0][1];
+  } else {
+    for (let i = 0; i < points.length - 1; i++) {
+      const ax = node.x + points[i][0];
+      const ay = node.y + points[i][1];
+      const bx = node.x + points[i + 1][0];
+      const by = node.y + points[i + 1][1];
+      const [nx, ny] = nearestPointOnSegment(targetMidX, targetMidY, ax, ay, bx, by);
+      const distSq = (nx - targetMidX) ** 2 + (ny - targetMidY) ** 2;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestX = nx;
+        bestY = ny;
+      }
     }
   }
 
