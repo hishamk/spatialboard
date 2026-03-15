@@ -25,6 +25,7 @@ import { serializeToSBD } from "../serialization/sbd-serializer";
 import { parseSBD } from "../serialization/sbd-parser";
 import { computeEdgePath } from "./edge-geometry";
 import type { NodeTypeRegistry } from "../nodes/registry";
+import { spatialPerf } from "../perf/spatial-perf";
 
 export type BoardBackground =
   | "plain-white"
@@ -1514,6 +1515,8 @@ export class SpatialEngine {
   // --- Spatial Queries ---
 
   hitTest(cx: number, cy: number, measuredHeights?: Record<string, number>): SpatialNode | null {
+    const shouldProfile = spatialPerf.isEnabled();
+    const t0 = shouldProfile ? performance.now() : 0;
     // Narrow phase with QuadTree
     const tolerance = 50; // generous internal search bounds
     const candidates = this.quadTree.retrieve([], {
@@ -1526,11 +1529,15 @@ export class SpatialEngine {
     const candidateMap = new Map<string, SpatialNode>();
     for (const node of candidates) candidateMap.set(node.id, node);
 
-    return hitTest(candidateMap, cx, cy, this.viewport.zoom, measuredHeights, this._containerTypes);
+    const result = hitTest(candidateMap, cx, cy, this.viewport.zoom, measuredHeights, this._containerTypes);
+    if (shouldProfile) spatialPerf.recordHitTest(performance.now() - t0);
+    return result;
   }
 
   /** Returns all nodes at a point, sorted highest-z first */
   hitTestAll(cx: number, cy: number, measuredHeights?: Record<string, number>): SpatialNode[] {
+    const shouldProfile = spatialPerf.isEnabled();
+    const t0 = shouldProfile ? performance.now() : 0;
     const tolerance = 50;
     const candidates = this.quadTree.retrieve([], {
       x: cx - tolerance,
@@ -1542,7 +1549,9 @@ export class SpatialEngine {
     const candidateMap = new Map<string, SpatialNode>();
     for (const node of candidates) candidateMap.set(node.id, node);
 
-    return hitTestAll(candidateMap, cx, cy, this.viewport.zoom, measuredHeights, this._containerTypes);
+    const result = hitTestAll(candidateMap, cx, cy, this.viewport.zoom, measuredHeights, this._containerTypes);
+    if (shouldProfile) spatialPerf.recordHitTest(performance.now() - t0);
+    return result;
   }
 
   getNodesInRect(rect: {

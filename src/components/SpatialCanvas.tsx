@@ -47,7 +47,6 @@ import {
   hitTestEdge,
   hitTestAllEdges,
   computeEdgeEndpoints,
-  segmentIntersectsRect,
   nearestHandle,
   getNodeHandlePositions,
   computeEdgePath,
@@ -57,6 +56,7 @@ import type { PortPositionResolver } from "../engine/edge-geometry";
 import { isPointInShapeNode } from "../engine/spatial-index";
 import { exportBoard } from "../export/canvas-export";
 import { getPreset, getAspectRatio } from "./sidebar/devicePresets";
+import { spatialPerf } from "../perf/spatial-perf";
 
 /** Return black or white depending on which contrasts better with `hex`. */
 function contrastingTextColor(hex: string): string {
@@ -897,8 +897,9 @@ export default function SpatialCanvas({
     return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
   }, [activeGroupId, nodes, measuredHeights, getNodeAABB, engine]);
 
-  // Viewport culling: only render nodes in (or near) the visible area to reduce DOM when zooming/panning
-  const visibleNodes = useMemo(() => {
+  // Viewport culling + virtualization for large boards.
+  const virtualizedView = useMemo(() => {
+    const t0 = performance.now();
     const renderable = nodes.filter(
       (n) => {
         if (registry) {
@@ -916,17 +917,17 @@ export default function SpatialCanvas({
         );
       }
     );
-    const threshold =
-      viewport.zoom < 0.5 ? 15 : viewport.zoom < 1 ? 25 : 30;
     if (
       containerSize.w <= 0 ||
-      containerSize.h <= 0 ||
-      renderable.length < threshold
+      containerSize.h <= 0
     )
       return null;
 
     const { zoom, x: vx, y: vy } = viewport;
-    const buffer = 500; // px in canvas coords
+    // Screen-space culling buffer (converted to canvas units) to prevent
+    // high-zoom over-inclusion and low-zoom pop-in.
+    const BUFFER_SCREEN_PX = 280;
+    const buffer = Math.min(500, BUFFER_SCREEN_PX / Math.max(zoom, 0.1));
     const rect = {
       x: -vx / zoom - buffer,
       y: -vy / zoom - buffer,
@@ -937,51 +938,216 @@ export default function SpatialCanvas({
     // Use QuadTree for O(log N) query
     const inViewNodes = engine.getNodesInRect(rect);
 
-    // Resolve latest references from the engine Map (QuadTree holds stale refs after data-only updates)
+    // Resolve latest references from the engine map (QuadTree can hold stale refs after data-only updates).
     const visibleMap = new Map<string, SpatialNode>();
+    const visibleNodeIds = new Set<string>();
+    const domVisibleNodeIds = new Set<string>();
+    const visibleEdgeIds = new Set<string>();
+    let seedVisibleNodes = 0;
+    let nodesAddedByAdjacency = 0;
+    let nodesAddedByEdgeEndpoints = 0;
+    let edgesAddedByAdjacency = 0;
+    let edgesAddedByCrossing = 0;
+    const pushNode = (id: string, includeInDom = false) => {
+      const latest = engine.getNode(id);
+      if (!latest) return;
+      const alreadyVisible = visibleMap.has(latest.id);
+      visibleMap.set(latest.id, latest);
+      if (latest.type === "edge") visibleEdgeIds.add(latest.id);
+      else {
+        if (!alreadyVisible) visibleNodeIds.add(latest.id);
+        if (includeInDom) domVisibleNodeIds.add(latest.id);
+      }
+    };
+
     for (const n of inViewNodes) {
-      const latest = engine.getNode(n.id);
-      if (latest) visibleMap.set(n.id, latest);
+      const before = domVisibleNodeIds.size;
+      pushNode(n.id, true);
+      if (domVisibleNodeIds.size > before) seedVisibleNodes += 1;
     }
-    // Add selected nodes (to ensure they are rendered even if off-screen)
+
+    // Keep selected nodes/edges visible even if off-screen.
     for (const id of selection) {
-      const node = engine.getNode(id);
-      if (node) visibleMap.set(node.id, node);
+      pushNode(id, true);
     }
-    // Edge nodes have x:0,y:0,w:0,h:0 so spatial queries miss them.
-    // Include any edge whose endpoint is visible OR whose line crosses the viewport.
-    // Also add endpoint nodes so SVGLayer can resolve fromNode/toNode.
+
+    // If connecting/reconnecting edges, keep nearby potential targets visible.
+    const liveCursor = edgeReconnect
+      ? { x: edgeReconnect.cursorX, y: edgeReconnect.cursorY }
+      : edgePreview
+        ? { x: edgePreview.cursorX, y: edgePreview.cursorY }
+        : null;
+    if (liveCursor) {
+      const snapRadius = 200 / Math.max(0.2, viewport.zoom);
+      const nearby = engine.getNodesInRect({
+        x: liveCursor.x - snapRadius,
+        y: liveCursor.y - snapRadius,
+        w: snapRadius * 2,
+        h: snapRadius * 2,
+      });
+      for (const n of nearby) {
+        if (n.type !== "edge") pushNode(n.id, true);
+      }
+    }
+
+    // Include connected edges for initially visible nodes via adjacency (fast path).
+    // IMPORTANT: iterate a snapshot so adding endpoint nodes below does not
+    // recursively expand through the whole connected component.
+    const adjacencySeedNodeIds = Array.from(domVisibleNodeIds);
+    for (const nodeId of adjacencySeedNodeIds) {
+      const connectedEdges = engine.getEdgesForNode(nodeId);
+      for (const edge of connectedEdges) {
+        const edgeData = (edge as EdgeNode).data;
+        const wasEdgeVisible = visibleEdgeIds.has(edge.id);
+        visibleMap.set(edge.id, edge);
+        visibleEdgeIds.add(edge.id);
+        if (!wasEdgeVisible) edgesAddedByAdjacency += 1;
+        const beforeFrom = visibleNodeIds.size;
+        pushNode(edgeData.fromId, false);
+        if (visibleNodeIds.size > beforeFrom) nodesAddedByAdjacency += 1;
+        const beforeTo = visibleNodeIds.size;
+        pushNode(edgeData.toId, false);
+        if (visibleNodeIds.size > beforeTo) nodesAddedByAdjacency += 1;
+      }
+    }
+
+    // Fallback: include long crossing edges whose endpoints are both off-screen.
     for (const n of nodes) {
       if (n.type !== "edge") continue;
-      if (visibleMap.has(n.id)) continue;
+      if (visibleEdgeIds.has(n.id)) continue;
       const data = (n as EdgeNode).data;
       const from = engine.getNode(data.fromId);
       const to = engine.getNode(data.toId);
       if (!from || !to) continue;
-      let include = visibleMap.has(data.fromId) || visibleMap.has(data.toId);
+      let include = domVisibleNodeIds.has(data.fromId) || domVisibleNodeIds.has(data.toId);
       if (!include) {
-        const { x1, y1, x2, y2 } = computeEdgeEndpoints(from, to, measuredHeights);
-        include = segmentIntersectsRect(x1, y1, x2, y2, rect);
+        // Use actual path bounds (bezier/step/smoothstep aware) instead of a
+        // straight-line endpoint check, so curved edges do not disappear at high zoom.
+        const path = computeEdgePath(
+          from,
+          to,
+          data.edgeType || "bezier",
+          measuredHeights,
+          data.sourceHandle,
+          data.targetHandle,
+          data.midpointOffset,
+          data.curveOffset,
+        );
+        include =
+          path.bounds.x < rect.x + rect.w &&
+          path.bounds.x + path.bounds.w > rect.x &&
+          path.bounds.y < rect.y + rect.h &&
+          path.bounds.y + path.bounds.h > rect.y;
       }
       if (include) {
         visibleMap.set(n.id, n);
-        // Ensure both endpoint nodes are present so SVGLayer can render the edge
-        if (!visibleMap.has(from.id)) visibleMap.set(from.id, from);
-        if (!visibleMap.has(to.id)) visibleMap.set(to.id, to);
+        visibleEdgeIds.add(n.id);
+        edgesAddedByCrossing += 1;
+        // Ensure both endpoints are present for edge rendering.
+        const beforeFrom = visibleNodeIds.size;
+        pushNode(from.id, false);
+        if (visibleNodeIds.size > beforeFrom) nodesAddedByEdgeEndpoints += 1;
+        const beforeTo = visibleNodeIds.size;
+        pushNode(to.id, false);
+        if (visibleNodeIds.size > beforeTo) nodesAddedByEdgeEndpoints += 1;
       }
     }
 
-    return Array.from(visibleMap.values());
-  }, [viewport, containerSize, nodes, selection, engine]); // 'nodes' triggers update
+    const source = Array.from(visibleMap.values());
+    const domNodes = source.filter((n) => {
+      if (n.type === "edge") return false;
+      if (!domVisibleNodeIds.has(n.id)) return false;
+      if (registry) {
+        const def = registry.get(n.type);
+        return !!def && !def.isSVGOnly;
+      }
+      return (
+        n.type === "content" ||
+        n.type === "draw" ||
+        n.type === "shape" ||
+        n.type === "image" ||
+        n.type === "text" ||
+        n.type === "frame" ||
+        n.type === "sticky"
+      );
+    });
 
-  // SVG layer nodes: filtered from the optimized visible set
-  const svgLayerNodes = useMemo(() => {
-    const source = visibleNodes || nodes;
+    return {
+      domNodes,
+      svgNodes: source,
+      visibleNodeCount: domVisibleNodeIds.size,
+      visibleEdgeCount: visibleEdgeIds.size,
+      seedVisibleNodes,
+      nodesAddedByAdjacency,
+      nodesAddedByEdgeEndpoints,
+      edgesAddedByAdjacency,
+      edgesAddedByCrossing,
+      cullingMs: performance.now() - t0,
+    };
+  }, [viewport, containerSize, nodes, selection, engine, registry, measuredHeights, edgePreview, edgeReconnect]);
 
-    // Filter just by type (edges always included if in source, along with svg types)
-    // Note: If using visibleNodes (QuadTree), it already contains spatially relevant edges
-    return source;
-  }, [nodes, visibleNodes]);
+  const domLayerNodes = virtualizedView?.domNodes ?? nodes.filter((n) => {
+    if (registry) {
+      const def = registry.get(n.type);
+      return !!def && !def.isSVGOnly;
+    }
+    return (
+      n.type === "content" ||
+      n.type === "draw" ||
+      n.type === "shape" ||
+      n.type === "image" ||
+      n.type === "text" ||
+      n.type === "frame" ||
+      n.type === "sticky"
+    );
+  });
+  // Keep edges fully reliable: always provide full node set to SVGLayer.
+  // Node virtualization still applies to the heavier DOM layer above.
+  const svgLayerNodes = nodes;
+
+  useEffect(() => {
+    if (!spatialPerf.isEnabled()) return;
+    const totalEdges = nodes.reduce((acc, n) => acc + (n.type === "edge" ? 1 : 0), 0);
+    const totalNonEdges = nodes.length - totalEdges;
+    spatialPerf.recordCulling(virtualizedView?.cullingMs ?? 0);
+    spatialPerf.setVisibilityCounts({
+      visibleNodes: virtualizedView?.visibleNodeCount ?? totalNonEdges,
+      totalNodes: totalNonEdges,
+      // SVG layer currently renders all edges for correctness.
+      visibleEdges: totalEdges,
+      totalEdges,
+      virtualizationActive: !!virtualizedView,
+      seedVisibleNodes: virtualizedView?.seedVisibleNodes ?? totalNonEdges,
+      nodesAddedByAdjacency: virtualizedView?.nodesAddedByAdjacency ?? 0,
+      nodesAddedByEdgeEndpoints: virtualizedView?.nodesAddedByEdgeEndpoints ?? 0,
+      edgesAddedByAdjacency: virtualizedView?.edgesAddedByAdjacency ?? 0,
+      edgesAddedByCrossing: virtualizedView?.edgesAddedByCrossing ?? 0,
+    });
+  }, [nodes, virtualizedView]);
+
+  const perfDebugLogRef = useRef(0);
+  useEffect(() => {
+    if (!spatialPerf.isEnabled()) return;
+    if (!virtualizedView) return;
+    const now = performance.now();
+    if (now - perfDebugLogRef.current < 1000) return;
+    perfDebugLogRef.current = now;
+    const totalEdges = nodes.reduce((acc, n) => acc + (n.type === "edge" ? 1 : 0), 0);
+    const totalNonEdges = nodes.length - totalEdges;
+    // Throttled debug output to diagnose culling/virtualization decisions.
+    console.debug("[SpatialBoard.Virtualization]", {
+      visibleNodes: virtualizedView.visibleNodeCount,
+      totalNodes: totalNonEdges,
+      visibleEdges: virtualizedView.visibleEdgeCount,
+      totalEdges,
+      seedVisibleNodes: virtualizedView.seedVisibleNodes,
+      nodesAddedByAdjacency: virtualizedView.nodesAddedByAdjacency,
+      nodesAddedByEdgeEndpoints: virtualizedView.nodesAddedByEdgeEndpoints,
+      edgesAddedByAdjacency: virtualizedView.edgesAddedByAdjacency,
+      edgesAddedByCrossing: virtualizedView.edgesAddedByCrossing,
+      cullingMs: virtualizedView.cullingMs,
+    });
+  }, [nodes, virtualizedView, viewport]);
 
   // Subscribe to engine events
   useEffect(() => {
@@ -4017,22 +4183,7 @@ export default function SpatialCanvas({
           pointerEvents: "none",
         }}
       >
-        {(visibleNodes || nodes)
-          .filter((n) => {
-            if (registry) {
-              const def = registry.get(n.type);
-              return def && !def.isSVGOnly;
-            }
-            return (
-              n.type === "content" ||
-              n.type === "draw" ||
-              n.type === "shape" ||
-              n.type === "image" ||
-              n.type === "text" ||
-              n.type === "frame" ||
-              n.type === "sticky"
-            );
-          })
+        {domLayerNodes
           .sort((a, b) => a.z - b.z)
           .map((node) => {
             const isEraserMarked = eraserMarkedIds.has(node.id);

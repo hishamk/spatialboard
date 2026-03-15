@@ -6,6 +6,21 @@ const HIT_TOLERANCE = 4;
 /** Border hit zone thickness for frame nodes (canvas pixels, divided by zoom). */
 const FRAME_BORDER_TOLERANCE = 8;
 
+/**
+ * Minimum screen-space pick radius for precise geometry (draw/shape).
+ * Keeps thin/cartoon strokes selectable even at tiny stroke widths.
+ */
+const MIN_PRECISE_HIT_RADIUS_PX = 6;
+
+/** Minimum screen-space pick radius for generic bbox node hits. */
+const MIN_BOX_HIT_RADIUS_PX = 6;
+
+/** Minimum screen-space frame border hit zone. */
+const MIN_FRAME_BORDER_HIT_PX = 10;
+
+/** Extra frame border hit zone when zoomed out. */
+const LOW_ZOOM_FRAME_BORDER_HIT_PX = 14;
+
 /** Height of the frame label area above the frame. */
 const FRAME_LABEL_HEIGHT = 24;
 
@@ -33,6 +48,14 @@ export function toLocal(
 function resolveH(node: SpatialNode, measured?: Record<string, number>): number {
   if (node.h !== "auto") return node.h;
   return measured?.[node.id] ?? 100;
+}
+
+function zoomSafe(zoom: number): number {
+  return Math.max(0.01, zoom);
+}
+
+function screenPxToCanvas(px: number, zoom: number): number {
+  return px / zoomSafe(zoom);
 }
 
 export function hitTest(
@@ -78,7 +101,7 @@ export function hitTest(
       }
     } else {
       const h = resolveH(node, measuredHeights);
-      const tolerance = HIT_TOLERANCE / zoom;
+      const tolerance = screenPxToCanvas(Math.max(HIT_TOLERANCE, MIN_BOX_HIT_RADIUS_PX), zoom);
       const [lx, ly] = toLocal(node, canvasX, canvasY, h);
       if (
         lx >= node.x - tolerance &&
@@ -106,7 +129,8 @@ function isPointOnFrameBorder(
 ): boolean {
   const h = measuredH ?? (node.h === "auto" ? 100 : (node.h as number));
   const [lx, ly] = toLocal(node, canvasX, canvasY, h);
-  const tol = FRAME_BORDER_TOLERANCE / zoom;
+  const minFrameHitPx = zoom < 0.8 ? LOW_ZOOM_FRAME_BORDER_HIT_PX : MIN_FRAME_BORDER_HIT_PX;
+  const tol = screenPxToCanvas(Math.max(FRAME_BORDER_TOLERANCE, minFrameHitPx), zoom);
 
   // Check label area above the frame
   const frameData = (node as FrameNode).data;
@@ -204,7 +228,7 @@ export function isPointInShapeNode(
   const [lx, ly] = toLocal(node, canvasX, canvasY, h);
   const shape = (node as ShapeNode).data;
   const sw = shape.strokeWidth ?? 2;
-  const tol = (sw / 2) / zoom;
+  const tol = screenPxToCanvas(Math.max(sw / 2, MIN_PRECISE_HIT_RADIUS_PX), zoom);
   const treatAsFilled = !!shape.fill || !!interior;
 
   switch (shape.shape) {
@@ -308,7 +332,7 @@ export function isPointInDrawNode(
   zoom: number
 ): boolean {
   const sw = node.data.strokeWidth;
-  const tol = (sw / 2) / zoom;
+  const tol = screenPxToCanvas(Math.max(sw / 2, MIN_PRECISE_HIT_RADIUS_PX), zoom);
   const tolSq = tol * tol;
   const h = node.h === "auto" ? 100 : (node.h as number);
   const [lx, ly] = toLocal(node, canvasX, canvasY, h);
@@ -390,7 +414,7 @@ export function hitTestAll(
       }
     } else {
       const h = resolveH(node, measuredHeights);
-      const tolerance = HIT_TOLERANCE / zoom;
+      const tolerance = screenPxToCanvas(Math.max(HIT_TOLERANCE, MIN_BOX_HIT_RADIUS_PX), zoom);
       const [lx, ly] = toLocal(node, canvasX, canvasY, h);
       if (
         lx >= node.x - tolerance &&

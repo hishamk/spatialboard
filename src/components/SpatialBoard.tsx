@@ -17,6 +17,8 @@ import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./BottomBar";
 import FramesPanel from "./FramesPanel";
 import PresentationOverlay from "./PresentationOverlay";
+import PerformanceOverlay from "./PerformanceOverlay";
+import { spatialPerf } from "../perf/spatial-perf";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -118,6 +120,11 @@ export default function SpatialBoard({
 
   const [presenting, setPresenting] = useState(false);
   const [framesPanelOpen, setFramesPanelOpen] = useState(false);
+  const [showPerfOverlay, setShowPerfOverlay] = useState(false);
+
+  useEffect(() => {
+    spatialPerf.setEnabled(showPerfOverlay);
+  }, [showPerfOverlay]);
 
   useEffect(() => {
     const handlePresentation = () => {
@@ -158,8 +165,11 @@ export default function SpatialBoard({
             engine={engine}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
+            showPerfOverlay={showPerfOverlay}
+            onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
         )}
+        {!presenting && showPerfOverlay && <PerformanceOverlay />}
         {!presenting && (
           <FramesPanel
             engine={engine}

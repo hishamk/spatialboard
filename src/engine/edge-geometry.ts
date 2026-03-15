@@ -1,5 +1,6 @@
 import type { SpatialNode, DrawNode, EdgeNode, EdgeType, HandleSide } from "./types";
 import type { PortDefinition } from "./data-flow-types";
+import { spatialPerf } from "../perf/spatial-perf";
 
 function resolveH(node: SpatialNode, measured?: Record<string, number>): number {
   if (node.h !== "auto") return node.h;
@@ -1220,6 +1221,8 @@ export function hitTestAllEdges(
   measuredHeights?: Record<string, number>,
   resolvePortPositions?: PortPositionResolver
 ): SpatialNode[] {
+  const shouldProfile = spatialPerf.isEnabled();
+  const t0 = shouldProfile ? performance.now() : 0;
   const tolerance = 8 / zoom;
   const results: SpatialNode[] = [];
 
@@ -1235,6 +1238,7 @@ export function hitTestAllEdges(
     if (dist < tolerance) results.push(node);
   }
 
+  if (shouldProfile) spatialPerf.recordEdgeHit(performance.now() - t0);
   return results;
 }
 
@@ -1249,6 +1253,8 @@ export function hitTestEdge(
   measuredHeights?: Record<string, number>,
   resolvePortPositions?: PortPositionResolver
 ): SpatialNode | null {
+  const shouldProfile = spatialPerf.isEnabled();
+  const t0 = shouldProfile ? performance.now() : 0;
   const tolerance = 8 / zoom;
   let closest: SpatialNode | null = null;
   let minDist = tolerance;
@@ -1268,5 +1274,6 @@ export function hitTestEdge(
     }
   }
 
+  if (shouldProfile) spatialPerf.recordEdgeHit(performance.now() - t0);
   return closest;
 }

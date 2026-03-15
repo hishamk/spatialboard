@@ -79,6 +79,13 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <path d="M2 9h4M2 12h4M2 15h4M18 9h4M18 12h4M18 15h4" {...sp} />
         </>
       )}
+      {name === "gauge" && (
+        <>
+          <path d="M4 15a8 8 0 1 1 16 0" {...sp} />
+          <path d="M12 15l4-4" {...sp} />
+          <circle cx="12" cy="15" r="1.5" fill="currentColor" />
+        </>
+      )}
       {name === "home" && (
         <>
           <path d="M3 12l9-8 9 8" {...sp} fill="none" />
@@ -99,9 +106,17 @@ interface BottomBarProps {
   engine: SpatialEngine;
   framesPanelOpen?: boolean;
   onToggleFramesPanel?: () => void;
+  showPerfOverlay?: boolean;
+  onTogglePerfOverlay?: () => void;
 }
 
-export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel }: BottomBarProps) {
+export default function BottomBar({
+  engine,
+  framesPanelOpen,
+  onToggleFramesPanel,
+  showPerfOverlay,
+  onTogglePerfOverlay,
+}: BottomBarProps) {
   const theme = useSBTheme();
   const [zoom, setZoom] = useState(engine.viewport.zoom);
   const [canUndo, setCanUndo] = useState(false);
@@ -284,6 +299,23 @@ export default function BottomBar({ engine, framesPanelOpen, onToggleFramesPanel
                   {frameCount}
                 </span>
               )}
+            </button>
+          </>
+        )}
+        {onTogglePerfOverlay && (
+          <>
+            <div style={sep} />
+            <button
+              title="Toggle performance overlay"
+              onClick={onTogglePerfOverlay}
+              style={{
+                ...btn,
+                width: 32,
+                height: 32,
+                color: showPerfOverlay ? theme.accentColor : theme.textMuted,
+              }}
+            >
+              <Icon name="gauge" />
             </button>
           </>
         )}
