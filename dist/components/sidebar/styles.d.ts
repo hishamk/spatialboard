@@ -16,6 +16,9 @@ export declare const ROUGHNESS_LEVELS: {
     value: number;
     label: string;
 }[];
+export declare const WIDTHS_DRAW: number[];
+export declare const WIDTHS_SHAPE: number[];
+export declare const WIDTHS_EDGE: number[];
 export declare const WIDTHS: number[];
 export declare const FONT_SIZES: number[];
 export declare const TEXT_ALIGNS: {

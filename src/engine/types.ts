@@ -90,7 +90,7 @@ export interface EdgeNode extends SpatialNode {
     arrowTailSize?: number;
     edgeType?: EdgeType;
     animated?: boolean;
-    animatedDirection?: "forward" | "reverse" | "both";
+    animatedDirection?: "forward" | "reverse" | "both" | "bop";
     sourceHandle?: HandleSide;
     targetHandle?: HandleSide;
     /** Port ID on the source node (for data-flow edges). */

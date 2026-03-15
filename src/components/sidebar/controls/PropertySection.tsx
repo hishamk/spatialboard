@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useSBTheme } from "../ThemeContext";
 
@@ -32,11 +32,25 @@ export default function PropertySection({
   });
   const isOpen = open ?? internalOpen;
   const isGroup = variant === "group";
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
 
   useEffect(() => {
     if (!persistKey || open !== undefined) return;
     persistedOpenState.set(persistKey, isOpen);
   }, [persistKey, open, isOpen]);
+
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const measure = () => setContentHeight(el.scrollHeight);
+    measure();
+
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [children]);
 
   return (
     <section
@@ -44,7 +58,7 @@ export default function PropertySection({
         border: `1px solid ${theme.border}`,
         borderRadius: theme.controlBorderRadius,
         background: isGroup ? theme.panelBg : theme.controlBg,
-        overflow: "visible",
+        overflow: "hidden",
         flexShrink: 0,
         alignSelf: "stretch",
       }}
@@ -72,10 +86,29 @@ export default function PropertySection({
         }}
       >
         <span>{title}</span>
-        <span style={{ color: theme.textMuted }}>{isOpen ? "−" : "+"}</span>
+        <span
+          style={{
+            color: theme.textMuted,
+            display: "inline-block",
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 170ms ease",
+            lineHeight: 1,
+          }}
+        >
+          ▸
+        </span>
       </button>
-      {isOpen && (
+      <div
+        style={{
+          maxHeight: isOpen ? contentHeight : 0,
+          opacity: isOpen ? 1 : 0,
+          transition: "max-height 200ms ease, opacity 140ms ease",
+          overflow: "hidden",
+          pointerEvents: isOpen ? "auto" : "none",
+        }}
+      >
         <div
+          ref={contentRef}
           style={{
             padding: "8px 10px 10px",
             borderTop: `1px solid ${theme.border}`,
@@ -87,7 +120,7 @@ export default function PropertySection({
         >
           {children}
         </div>
-      )}
+      </div>
     </section>
   );
 }

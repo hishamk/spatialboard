@@ -397,14 +397,24 @@ const EdgeRenderer = memo(function EdgeRenderer({
     const name =
       edge.data.animatedDirection === "reverse" ? "edge-flow-reverse" :
       edge.data.animatedDirection === "both" ? "edge-flow-both" :
+      edge.data.animatedDirection === "bop" ? "edge-flow-bop" :
       "edge-flow";
-    const dur = edge.data.animatedDirection === "both" ? "2s" : "1s";
-    return { animation: `${name} ${dur} linear infinite` };
+    const dur =
+      edge.data.animatedDirection === "both" ? "2s" :
+      edge.data.animatedDirection === "bop" ? "3.4s" :
+      "1s";
+    const timing = edge.data.animatedDirection === "bop" ? "ease-in-out" : "linear";
+    return { animation: `${name} ${dur} ${timing} infinite` };
   }, [isAnimated, edge.data.animatedDirection]);
 
   const cycleAndFlowStyle = useMemo(
-    () => ({ animation: "edge-cycle-pulse 1.5s ease-in-out infinite, edge-flow 1s linear infinite" }),
-    []
+    () => ({
+      animation:
+        edge.data.animatedDirection === "bop"
+          ? "edge-cycle-pulse 1.5s ease-in-out infinite, edge-flow-bop 3.4s ease-in-out infinite"
+          : "edge-cycle-pulse 1.5s ease-in-out infinite, edge-flow 1s linear infinite",
+    }),
+    [edge.data.animatedDirection]
   );
 
   const eraserStyle = useMemo(

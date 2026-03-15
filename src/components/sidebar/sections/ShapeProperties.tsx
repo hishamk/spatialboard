@@ -20,6 +20,7 @@ import {
   FILL_STYLES,
   ROUGHNESS_LEVELS,
   TEXT_ALIGNS,
+  WIDTHS_SHAPE,
 } from "../styles";
 
 interface ShapePropertiesProps {
@@ -270,6 +271,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
 
         <WidthPicker
           label="Stroke width"
+          widths={WIDTHS_SHAPE}
           value={data.strokeWidth}
           mixed={mixedStrokeWidth}
           onChange={(w) => update({ strokeWidth: w })}

@@ -15,6 +15,7 @@ import {
   STROKE_PALETTES,
   FILL_PALETTES,
   FILL_STYLES,
+  WIDTHS_DRAW,
 } from "../styles";
 
 interface DrawPropertiesProps {
@@ -103,6 +104,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       {/* Stroke width */}
       <WidthPicker
         label="Stroke width"
+        widths={WIDTHS_DRAW}
         value={data.strokeWidth}
         mixed={mixedStrokeWidth}
         onChange={(w) => update({ strokeWidth: w })}

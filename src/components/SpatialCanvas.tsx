@@ -538,6 +538,9 @@ export default function SpatialCanvas({
   // Long-press context menu (touch)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressOriginRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const emitCanvasInteraction = useCallback((active: boolean) => {
+    ownerDoc().dispatchEvent(new CustomEvent("sb:canvas-interaction", { detail: { active } }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -573,6 +576,9 @@ export default function SpatialCanvas({
     const cleanup = (e: PointerEvent) => {
       activeTouchesRef.current.delete(e.pointerId);
       if (e.pointerType === "pen") activePenRef.current = false;
+      if (activeTouchesRef.current.size === 0) {
+        emitCanvasInteraction(false);
+      }
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -586,7 +592,7 @@ export default function SpatialCanvas({
       doc.removeEventListener("pointerup", cleanup);
       doc.removeEventListener("pointercancel", cleanup);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [emitCanvasInteraction]);
 
   // Drawing state
   const [activeStroke, setActiveStroke] = useState<{
@@ -1113,6 +1119,19 @@ export default function SpatialCanvas({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const hoveredNodeIdRef = useRef<string | null>(null);
 
+  const boppingNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const n of nodes) {
+      if (n.type !== "edge") continue;
+      const edge = n as EdgeNode;
+      if (edge.data.animated && edge.data.animatedDirection === "bop") {
+        ids.add(edge.data.fromId);
+        ids.add(edge.data.toId);
+      }
+    }
+    return ids;
+  }, [nodes]);
+
   // Text node inline editing state
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const editClickRef = useRef<{ clientX: number; clientY: number } | null>(null);
@@ -1495,7 +1514,6 @@ export default function SpatialCanvas({
     },
     [engine, buildContextMenuSections]
   );
-
   // Create a TextNode in the engine and immediately enter editing mode.
   // Used by both the text tool and double-click-on-canvas flows.
   const createTextNodeAndEdit = useCallback(
@@ -1633,6 +1651,10 @@ export default function SpatialCanvas({
       // Track all active pointers for multi-touch detection
       activeTouchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (e.pointerType === "pen") activePenRef.current = true;
+      // Don't hide inspector for right-click context menu open on desktop.
+      if (e.button !== 2) {
+        emitCanvasInteraction(true);
+      }
 
       // Two-finger gesture: second touch OR any touch while Apple Pencil is active
       const isSecondTouch =
@@ -2707,6 +2729,7 @@ export default function SpatialCanvas({
       measuredHeights,
       getNodeAABB,
       getNodesInMarqueeRect,
+      emitCanvasInteraction,
     ]
   );
 
@@ -3978,6 +4001,9 @@ export default function SpatialCanvas({
           .sort((a, b) => a.z - b.z)
           .map((node) => {
             const isEraserMarked = eraserMarkedIds.has(node.id);
+            const shouldBop = boppingNodeIds.has(node.id);
+            const bopSeed = node.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+            const bopDelay = -((bopSeed % 240) / 100);
             let el: React.ReactNode;
 
             if (registry) {
@@ -4221,9 +4247,19 @@ export default function SpatialCanvas({
               }
             }
 
-            if (isEraserMarked) {
+            if (isEraserMarked || shouldBop) {
               return (
-                <div key={node.id} style={{ opacity: 0.25, filter: "saturate(0)" }}>
+                <div
+                  key={node.id}
+                  style={{
+                    opacity: isEraserMarked ? 0.25 : undefined,
+                    filter: isEraserMarked ? "saturate(0)" : undefined,
+                    animation: shouldBop ? "sb-node-bop 3.4s ease-in-out infinite" : undefined,
+                    animationDelay: shouldBop ? `${bopDelay}s` : undefined,
+                    transformOrigin: "center center",
+                    willChange: shouldBop ? "transform" : undefined,
+                  }}
+                >
                   {el}
                 </div>
               );

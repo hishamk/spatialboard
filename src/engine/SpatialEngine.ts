@@ -158,7 +158,7 @@ export class SpatialEngine {
   activeTool: ActiveTool = {
     tool: "pen",
     color: "#1e1e2e",
-    width: 2.5,
+    width: 3,
     shapeType: "rect",
     strokeStyle: "solid",
     roughness: 1,

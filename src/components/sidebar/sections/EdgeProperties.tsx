@@ -6,7 +6,7 @@ import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
-import { rowStyle, labelStyle, btnBase, STROKE_PALETTES, ROUGHNESS_LEVELS } from "../styles";
+import { rowStyle, labelStyle, btnBase, STROKE_PALETTES, ROUGHNESS_LEVELS, WIDTHS_EDGE } from "../styles";
 
 interface EdgePropertiesProps {
   engine: SpatialEngine;
@@ -37,6 +37,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
 
         <WidthPicker
           label="Width"
+          widths={WIDTHS_EDGE}
           value={data.strokeWidth}
           onChange={(w) => update({ strokeWidth: w })}
         />
@@ -170,7 +171,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         {data.animated && (
           <div style={rowStyle}>
             <span style={{ ...labelStyle, color: theme.textMuted }}>Direction</span>
-            {(["forward", "reverse", "both"] as const).map((v) => (
+            {(["forward", "reverse", "both", "bop"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => update({ animatedDirection: v })}
@@ -184,7 +185,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
                   borderRadius: theme.controlBorderRadius,
                 }}
               >
-                {v === "forward" ? "\u2192" : v === "reverse" ? "\u2190" : "\u21C6"}
+                {v === "forward" ? "\u2192" : v === "reverse" ? "\u2190" : v === "both" ? "\u21C6" : "~"}
               </button>
             ))}
           </div>

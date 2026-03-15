@@ -36,6 +36,22 @@
   50%  { stroke-dashoffset: -20; }
   100% { stroke-dashoffset: 0; }
 }
+@keyframes edge-flow-bop {
+  0%   { stroke-dashoffset: 0; transform: translateY(0px); }
+  25%  { stroke-dashoffset: -6; transform: translateY(-1px); }
+  50%  { stroke-dashoffset: -12; transform: translateY(-2px); }
+  75%  { stroke-dashoffset: -6; transform: translateY(-1px); }
+  100% { stroke-dashoffset: 0; transform: translateY(0px); }
+}
+
+/* Linked-node "helium bop" (visual only) */
+@keyframes sb-node-bop {
+  0%   { transform: translateY(0px) rotate(0deg); }
+  25%  { transform: translateY(-1px) rotate(-0.2deg); }
+  50%  { transform: translateY(-2px) rotate(0.25deg); }
+  75%  { transform: translateY(-1px) rotate(-0.15deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
 
 /* Cycle edge pulsation — red warning pulse for dependency cycles */
 @keyframes edge-cycle-pulse {

@@ -19,6 +19,8 @@ import {
   ROUGHNESS_LEVELS,
   FONT_SIZES,
   TEXT_ALIGNS,
+  WIDTHS_DRAW,
+  WIDTHS_SHAPE,
 } from "../styles";
 
 interface ToolModePropertiesProps {
@@ -262,6 +264,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       {/* Stroke width */}
       <WidthPicker
         label="Stroke width"
+        widths={isShapeMode ? WIDTHS_SHAPE : WIDTHS_DRAW}
         value={strokeWidth}
         onChange={(w) => {
           tool.width = w;

@@ -367,6 +367,111 @@ function CommonProperties({
   );
 }
 
+function TouchSelectionActionsSection({
+  engine,
+  target,
+}: {
+  engine: SpatialEngine;
+  target: SelectionTarget;
+}) {
+  const theme = useSBTheme();
+  if (target.kind !== "single" && target.kind !== "multi") return null;
+
+  const selectionIds = Array.from(engine.selection);
+  const hasSel = selectionIds.length > 0;
+  const hasGroupOps = selectionIds.length >= 2 || engine.selectionHasGroup();
+  const anyLocked = selectionIds.some((id) => engine.getNode(id)?.locked);
+  const anyUnlocked = selectionIds.some((id) => !engine.getNode(id)?.locked);
+
+  const actions: Array<{
+    label: string;
+    disabled?: boolean;
+    danger?: boolean;
+    action: () => void;
+  }> = [
+    {
+      label: "Cut",
+      disabled: !hasSel,
+      action: () => engine.cutSelected(),
+    },
+    {
+      label: "Copy",
+      disabled: !hasSel,
+      action: () => engine.copySelected(),
+    },
+    {
+      label: "Paste",
+      disabled: !engine.hasClipboard(),
+      action: () => engine.pasteClipboard(),
+    },
+    {
+      label: "Duplicate",
+      disabled: !hasSel,
+      action: () => engine.duplicateSelected(),
+    },
+    {
+      label: "Group",
+      disabled: !hasGroupOps || selectionIds.length < 2,
+      action: () => engine.groupSelected(),
+    },
+    {
+      label: "Ungroup",
+      disabled: !hasGroupOps || !engine.selectionHasGroup(),
+      action: () => engine.ungroupSelected(),
+    },
+    {
+      label: "Lock",
+      disabled: !anyUnlocked,
+      action: () => {
+        for (const id of selectionIds) engine.updateNode(id, { locked: true });
+      },
+    },
+    {
+      label: "Unlock",
+      disabled: !anyLocked,
+      action: () => {
+        for (const id of selectionIds) engine.updateNode(id, { locked: undefined });
+      },
+    },
+    {
+      label: "Delete",
+      disabled: !hasSel,
+      danger: true,
+      action: () => engine.deleteSelected(),
+    },
+  ];
+
+  return (
+    <PropertySection title="Actions" defaultOpen variant="group" persistKey="touch-actions">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {actions.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            disabled={item.disabled}
+            onClick={item.action}
+            style={{
+              border: `1px solid ${theme.border}`,
+              borderRadius: 999,
+              background: item.disabled ? theme.controlBg : theme.controlBgActive,
+              color: item.danger ? "#fecaca" : theme.text,
+              opacity: item.disabled ? 0.45 : 0.95,
+              padding: "5px 10px",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.01em",
+              cursor: item.disabled ? "default" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </PropertySection>
+  );
+}
+
 function TypeGroupSection({
   engine,
   group,
@@ -435,6 +540,20 @@ export default function PropertiesContent({
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
   const headerLabel = getHeaderLabel(target);
   const [openMultiSection, setOpenMultiSection] = useState<string>("shared");
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      setIsTouchDevice(
+        window.matchMedia("(pointer: coarse)").matches ||
+        window.matchMedia("(hover: none)").matches ||
+        navigator.maxTouchPoints > 0
+      );
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => {
     if (target.kind !== "multi") {
@@ -456,6 +575,10 @@ export default function PropertiesContent({
         open={target.kind === "multi" ? openMultiSection === "canvas" : undefined}
         onToggle={target.kind === "multi" ? () => setOpenMultiSection((cur) => (cur === "canvas" ? "" : "canvas")) : undefined}
       />
+
+      {isTouchDevice && (
+        <TouchSelectionActionsSection engine={engine} target={target} />
+      )}
 
       {target.kind === "tool" && (
         <ToolModeProperties engine={engine} mode={target.mode} fontsInScene={fontsInScene} />

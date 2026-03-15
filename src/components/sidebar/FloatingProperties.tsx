@@ -16,7 +16,51 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
   const { target, commonProps } = useMultiSelection(engine);
   const visible = target.kind !== "none";
 
+  const withAlpha = useCallback((color: string, alpha: number) => {
+    const c = color.trim();
+    if (c.startsWith("#")) {
+      const hex = c.slice(1);
+      const expanded = hex.length === 3 ? hex.split("").map((ch) => ch + ch).join("") : hex;
+      if (expanded.length === 6) {
+        const r = parseInt(expanded.slice(0, 2), 16);
+        const g = parseInt(expanded.slice(2, 4), 16);
+        const b = parseInt(expanded.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+    }
+    if (c.startsWith("rgb(")) {
+      const values = c.slice(4, -1);
+      return `rgba(${values}, ${alpha})`;
+    }
+    if (c.startsWith("rgba(")) return c;
+    return c;
+  }, []);
+
   const [isMobile, setIsMobile] = useState(false);
+  const [isCompactScreen, setIsCompactScreen] = useState(false);
+  const [canvasInteracting, setCanvasInteracting] = useState(false);
+  const [autoHideEnabled, setAutoHideEnabled] = useState(false);
+  const interactionClearTimerRef = useRef<number | null>(null);
+  const autoHideInitializedRef = useRef(false);
+
+  const isTouchDevice = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.matchMedia("(hover: none)").matches ||
+      navigator.maxTouchPoints > 0
+    );
+  }, []);
+
+  const computeCompactScreen = useCallback(
+    (width: number) => {
+      // Treat touch devices (iPad/tablets) as compact at larger widths because
+      // Safari often reports desktop-like layout widths.
+      const compactBreakpoint = isTouchDevice() ? 1366 : 1024;
+      return width <= compactBreakpoint;
+    },
+    [isTouchDevice]
+  );
 
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -62,10 +106,86 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
     const ro = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? container.clientWidth;
       setIsMobile(width < 600);
+      const compact = computeCompactScreen(width);
+      setIsCompactScreen(compact);
+      if (!autoHideInitializedRef.current) {
+        setAutoHideEnabled(compact);
+        autoHideInitializedRef.current = true;
+      }
     });
     ro.observe(container);
     setIsMobile(container.clientWidth < 600);
+    const initialCompact = computeCompactScreen(container.clientWidth);
+    setIsCompactScreen(initialCompact);
+    if (!autoHideInitializedRef.current) {
+      setAutoHideEnabled(initialCompact);
+      autoHideInitializedRef.current = true;
+    }
     return () => ro.disconnect();
+  }, [computeCompactScreen]);
+
+  // On compact screens (iPad + smaller), auto-hide inspector while user is actively
+  // interacting with the canvas (draw/select/drag/edit), then restore shortly after.
+  useEffect(() => {
+    const doc = panelRef.current?.ownerDocument ?? document;
+
+    const clearInteractionSoon = () => {
+      if (interactionClearTimerRef.current !== null) {
+        window.clearTimeout(interactionClearTimerRef.current);
+      }
+      interactionClearTimerRef.current = window.setTimeout(() => {
+        setCanvasInteracting(false);
+        interactionClearTimerRef.current = null;
+      }, 200);
+    };
+
+    const markInteracting = () => {
+      if (interactionClearTimerRef.current !== null) {
+        window.clearTimeout(interactionClearTimerRef.current);
+        interactionClearTimerRef.current = null;
+      }
+      setCanvasInteracting(true);
+    };
+
+    const inCanvas = (target: EventTarget | null): boolean => {
+      return !!(target instanceof Element && target.closest("[data-sb-canvas]"));
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button === 2) return; // keep inspector visible for desktop context menu
+      if (inCanvas(e.target)) markInteracting();
+    };
+    const onPointerUp = () => clearInteractionSoon();
+    const onPointerCancel = () => clearInteractionSoon();
+    const onFocusIn = (e: FocusEvent) => {
+      if (inCanvas(e.target)) markInteracting();
+    };
+    const onFocusOut = () => clearInteractionSoon();
+    const onCanvasInteraction = (e: Event) => {
+      const active = (e as CustomEvent<{ active?: boolean }>).detail?.active;
+      if (active) markInteracting();
+      else clearInteractionSoon();
+    };
+
+    doc.addEventListener("pointerdown", onPointerDown, true);
+    doc.addEventListener("pointerup", onPointerUp, true);
+    doc.addEventListener("pointercancel", onPointerCancel, true);
+    doc.addEventListener("focusin", onFocusIn, true);
+    doc.addEventListener("focusout", onFocusOut, true);
+    doc.addEventListener("sb:canvas-interaction", onCanvasInteraction as EventListener);
+
+    return () => {
+      doc.removeEventListener("pointerdown", onPointerDown, true);
+      doc.removeEventListener("pointerup", onPointerUp, true);
+      doc.removeEventListener("pointercancel", onPointerCancel, true);
+      doc.removeEventListener("focusin", onFocusIn, true);
+      doc.removeEventListener("focusout", onFocusOut, true);
+      doc.removeEventListener("sb:canvas-interaction", onCanvasInteraction as EventListener);
+      if (interactionClearTimerRef.current !== null) {
+        window.clearTimeout(interactionClearTimerRef.current);
+        interactionClearTimerRef.current = null;
+      }
+    };
   }, []);
 
   const handleDragPointerDown = useCallback(
@@ -113,6 +233,9 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
     setIsDragging(false);
   }, []);
 
+  const shouldHideForInteraction = autoHideEnabled && canvasInteracting;
+  const translucentPanelBg = withAlpha(theme.panelBg, 0.9);
+
   if (!visible) return null;
 
   // On narrow screens (mobile/tablet), render a bottom sheet
@@ -129,7 +252,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           right: 0,
           height: "45vh",
           minHeight: 200,
-          background: theme.panelBg,
+          background: translucentPanelBg,
           borderRadius: "12px 12px 0 0",
           boxShadow: "0 -4px 24px rgba(0,0,0,0.25)",
           zIndex: 200,
@@ -137,6 +260,12 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           flexDirection: "column",
           color: theme.text,
           fontSize: 12,
+          backdropFilter: "blur(8px) saturate(120%)",
+          WebkitBackdropFilter: "blur(8px) saturate(120%)",
+          opacity: shouldHideForInteraction ? 0 : 1,
+          transform: shouldHideForInteraction ? "translateY(8px)" : "translateY(0)",
+          transition: "opacity 140ms ease, transform 160ms ease",
+          pointerEvents: shouldHideForInteraction ? "none" : "auto",
         }}
       >
         {/* Drag pill */}
@@ -145,10 +274,30 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
             height: 36,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "space-between",
             flexShrink: 0,
+            padding: "0 12px",
           }}
         >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: theme.textMuted,
+              fontSize: 11,
+              userSelect: "none",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span>Auto-hide</span>
+            <input
+              type="checkbox"
+              checked={autoHideEnabled}
+              onChange={(e) => setAutoHideEnabled(e.target.checked)}
+              style={{ accentColor: theme.accentColor }}
+            />
+          </label>
           <div
             style={{
               width: 36,
@@ -186,7 +335,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         left: panelPos.x,
         top: panelPos.y,
         width: PROPERTIES_WIDTH,
-        background: theme.panelBg,
+        background: translucentPanelBg,
         borderRadius: theme.panelBorderRadius,
         padding: "0 0 12px",
         display: "flex",
@@ -196,6 +345,13 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         fontSize: 11,
         maxHeight: "calc(100% - 40px)",
         boxShadow: theme.panelShadow,
+        backdropFilter: "blur(8px) saturate(120%)",
+        WebkitBackdropFilter: "blur(8px) saturate(120%)",
+        opacity: shouldHideForInteraction ? 0 : 1,
+        transform: shouldHideForInteraction ? "translateY(-4px) scale(0.995)" : "translateY(0) scale(1)",
+        transformOrigin: "top right",
+        transition: "opacity 140ms ease, transform 160ms ease",
+        pointerEvents: shouldHideForInteraction ? "none" : "auto",
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerMove={handleDragPointerMove}
@@ -212,7 +368,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           touchAction: "none",
           display: "flex",
           alignItems: "center",
-          gap: 6,
+          justifyContent: "space-between",
           borderBottom: `1px solid ${theme.border}`,
           color: theme.textMuted,
           fontSize: 10,
@@ -220,6 +376,26 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         }}
       >
         <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>Inspector</span>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            color: theme.textMuted,
+            fontSize: 10,
+            userSelect: "none",
+            cursor: "default",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <span>Auto-hide</span>
+          <input
+            type="checkbox"
+            checked={autoHideEnabled}
+            onChange={(e) => setAutoHideEnabled(e.target.checked)}
+            style={{ accentColor: theme.accentColor }}
+          />
+        </label>
       </div>
 
       {/* Scrollable content */}

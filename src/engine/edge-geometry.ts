@@ -1,4 +1,4 @@
-import type { SpatialNode, EdgeNode, EdgeType, HandleSide } from "./types";
+import type { SpatialNode, DrawNode, EdgeNode, EdgeType, HandleSide } from "./types";
 import type { PortDefinition } from "./data-flow-types";
 
 function resolveH(node: SpatialNode, measured?: Record<string, number>): number {
@@ -285,6 +285,109 @@ function diamondBorderPointWithSide(
 }
 
 /**
+ * Draw-node anchor: project toward target and pick the furthest sampled stroke point
+ * in that direction, then push out by half the stroke width.
+ */
+function drawBorderPointWithSide(
+  node: DrawNode,
+  h: number,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number; side: HandleSide } {
+  const points = node.data.points;
+  if (!points || points.length === 0) {
+    return borderPointWithSide(node, h, targetX, targetY);
+  }
+
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+
+  // Work in node's unrotated space for robust direction + projection.
+  const θ = node.rotation ? (-node.rotation * Math.PI) / 180 : 0;
+  const [tx, ty] = node.rotation
+    ? rotatePoint(targetX, targetY, cx, cy, θ)
+    : [targetX, targetY];
+
+  const dirX = tx - cx;
+  const dirY = ty - cy;
+  const dirLen = Math.hypot(dirX, dirY);
+  if (dirLen === 0) {
+    return borderPointWithSide(node, h, targetX, targetY);
+  }
+  const ux = dirX / dirLen;
+  const uy = dirY / dirLen;
+
+  let bestX = node.x + points[0][0];
+  let bestY = node.y + points[0][1];
+  let bestProj = (bestX - cx) * ux + (bestY - cy) * uy;
+  for (let i = 1; i < points.length; i++) {
+    const px = node.x + points[i][0];
+    const py = node.y + points[i][1];
+    const proj = (px - cx) * ux + (py - cy) * uy;
+    if (proj > bestProj) {
+      bestProj = proj;
+      bestX = px;
+      bestY = py;
+    }
+  }
+
+  const radius = Math.max(0.5, (node.data.strokeWidth ?? 1) / 2);
+  let anchorX = bestX + ux * radius;
+  let anchorY = bestY + uy * radius;
+  const side = dominantSide(dirX, dirY, node.w / 2, h / 2);
+
+  if (node.rotation) {
+    [anchorX, anchorY] = rotatePoint(anchorX, anchorY, cx, cy, -θ) as [number, number];
+  }
+
+  return { x: anchorX, y: anchorY, side };
+}
+
+/**
+ * Draw-node anchor for explicit side handles.
+ * Uses the furthest stroke sample along that side normal, instead of bbox midpoint.
+ */
+function drawHandlePoint(
+  node: DrawNode,
+  h: number,
+  side: HandleSide,
+): { x: number; y: number } {
+  const points = node.data.points;
+  if (!points || points.length === 0) {
+    return handlePoint(node, h, side);
+  }
+
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+  const dir = sideDirection(side);
+
+  let bestX = node.x + points[0][0];
+  let bestY = node.y + points[0][1];
+  let bestProj = (bestX - cx) * dir.dx + (bestY - cy) * dir.dy;
+  for (let i = 1; i < points.length; i++) {
+    const px = node.x + points[i][0];
+    const py = node.y + points[i][1];
+    const proj = (px - cx) * dir.dx + (py - cy) * dir.dy;
+    if (proj > bestProj) {
+      bestProj = proj;
+      bestX = px;
+      bestY = py;
+    }
+  }
+
+  const radius = Math.max(0.5, (node.data.strokeWidth ?? 1) / 2);
+  let anchorX = bestX + dir.dx * radius;
+  let anchorY = bestY + dir.dy * radius;
+
+  if (node.rotation) {
+    const θ = (node.rotation * Math.PI) / 180;
+    [anchorX, anchorY] = rotatePoint(anchorX, anchorY, cx, cy, θ) as [number, number];
+  }
+
+  return { x: anchorX, y: anchorY };
+}
+
+/**
  * Shape-aware border intersection: dispatches to the appropriate
  * perimeter function based on the node's actual shape.
  */
@@ -294,6 +397,9 @@ function shapeBorderPointWithSide(
   targetX: number,
   targetY: number
 ): { x: number; y: number; side: HandleSide } {
+  if (node.type === "draw") {
+    return drawBorderPointWithSide(node as DrawNode, h, targetX, targetY);
+  }
   if (node.type === "shape") {
     const shape = (node.data as { shape?: string })?.shape;
     if (shape === "ellipse") return ellipseBorderPointWithSide(node, h, targetX, targetY);
@@ -432,7 +538,10 @@ export function computeEdgePath(
     x1 = sourcePortPos.x; y1 = sourcePortPos.y;
     sourceSide = sourceHandle ?? "right";
   } else if (sourceHandle) {
-    const p = handlePoint(fromNode, fh, sourceHandle);
+    const p =
+      fromNode.type === "draw"
+        ? drawHandlePoint(fromNode as DrawNode, fh, sourceHandle)
+        : handlePoint(fromNode, fh, sourceHandle);
     x1 = p.x; y1 = p.y; sourceSide = sourceHandle;
   } else {
     const p = shapeBorderPointWithSide(fromNode, fh, tcx, tcy);
@@ -452,7 +561,10 @@ export function computeEdgePath(
     x2 = targetPortPos.x; y2 = targetPortPos.y;
     targetSide = targetHandle ?? "left";
   } else if (targetHandle) {
-    const p = handlePoint(toNode, th, targetHandle);
+    const p =
+      toNode.type === "draw"
+        ? drawHandlePoint(toNode as DrawNode, th, targetHandle)
+        : handlePoint(toNode, th, targetHandle);
     x2 = p.x; y2 = p.y; targetSide = targetHandle;
   } else {
     const p = shapeBorderPointWithSide(toNode, th, fcx, fcy);

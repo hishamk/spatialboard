@@ -43,7 +43,16 @@ export const ROUGHNESS_LEVELS: { value: number; label: string }[] = [
   { value: 2, label: "Cartoonist" },
 ];
 
-export const WIDTHS = [1, 2.5, 5, 10, 20];
+// Tool-specific stroke width presets
+// - Draw: expressive freehand steps
+// - Shape: tighter structural line steps
+// - Edge: slightly narrower for connectors
+export const WIDTHS_DRAW = [1, 2, 3, 5, 8, 12];
+export const WIDTHS_SHAPE = [1, 2, 3, 4, 6, 8];
+export const WIDTHS_EDGE = [1, 2, 3, 4, 6];
+
+// Backward-compatible default for generic width pickers.
+export const WIDTHS = WIDTHS_SHAPE;
 
 export const FONT_SIZES = [14, 20, 28, 36];
 
