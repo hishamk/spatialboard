@@ -319,10 +319,19 @@ export class SpatialEngine {
 
   toggleSnapToGrid(): void {
     this.snapToGrid = !this.snapToGrid;
+    this.emit("guides");
   }
 
   toggleSmartGuides(): void {
     this.smartGuides = !this.smartGuides;
+    this.emit("guides");
+  }
+
+  setGridSize(size: number): void {
+    const next = Math.max(1, Math.round(size));
+    if (this.gridSize === next) return;
+    this.gridSize = next;
+    this.emit("guides");
   }
 
   toggleLassoSelect(): void {

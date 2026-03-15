@@ -219,8 +219,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           flexShrink: 0,
         }}
       >
-        <span style={{ opacity: 0.6 }}>{"\u22EE\u22EE"}</span>
-        <span>Drag to move</span>
+        <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>Inspector</span>
       </div>
 
       {/* Scrollable content */}

@@ -38,6 +38,12 @@ interface ParsedSequence {
         step: number;
         note: SequenceNote;
     }>;
+    loops: Array<{
+        label?: string;
+        startStep: number;
+        endStep: number;
+        participants: string[];
+    }>;
     groups: Array<{
         label?: string;
         color?: string;

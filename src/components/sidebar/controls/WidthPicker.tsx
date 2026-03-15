@@ -20,29 +20,31 @@ export default function WidthPicker({
   return (
     <div style={rowStyle}>
       <span style={{ ...labelStyle, color: theme.textMuted }}>{label}</span>
-      {widths.map((w) => (
-        <button
-          key={w}
-          title={`${w}px`}
-          onClick={() => onChange(w)}
-          style={{
-            ...btnBase,
-            width: 36,
-            height: 24,
-            background: !mixed && value === w ? theme.controlBgActive : theme.controlBg,
-            borderRadius: theme.controlBorderRadius,
-          }}
-        >
-          <div
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+        {widths.map((w) => (
+          <button
+            key={w}
+            title={`${w}px`}
+            onClick={() => onChange(w)}
             style={{
-              width: 20,
-              height: Math.max(w, 1),
-              background: theme.text,
-              borderRadius: w / 2,
+              ...btnBase,
+              width: 30,
+              height: 24,
+              background: !mixed && value === w ? theme.controlBgActive : theme.controlBg,
+              borderRadius: theme.controlBorderRadius,
             }}
-          />
-        </button>
-      ))}
+          >
+            <div
+              style={{
+                width: 16,
+                height: Math.max(w, 1),
+                background: theme.text,
+                borderRadius: w / 2,
+              }}
+            />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

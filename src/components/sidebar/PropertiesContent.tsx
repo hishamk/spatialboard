@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { MultiNodeContext } from "./MultiNodeContext";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type {
@@ -15,10 +15,11 @@ import type {
 } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import type { SelectionTarget, TypeGroup, MergedCommonProps } from "./useMultiSelection";
-import { sectionHeader, rowStyle, labelStyle } from "./styles";
+import { rowStyle, labelStyle } from "./styles";
 import { useSBTheme } from "./ThemeContext";
 import OpacitySlider from "./controls/OpacitySlider";
 import BorderControls from "./controls/BorderControls";
+import PropertySection from "./controls/PropertySection";
 import ShapeProperties from "./sections/ShapeProperties";
 import DrawProperties from "./sections/DrawProperties";
 import TextProperties from "./sections/TextProperties";
@@ -30,6 +31,7 @@ import StickyProperties from "./sections/StickyProperties";
 import YouTubeProperties from "./sections/YouTubeProperties";
 import ToolModeProperties from "./sections/ToolModeProperties";
 import CustomNodeProperties from "./sections/CustomNodeProperties";
+import { PAPER_TYPES } from "../paper-types";
 
 const TYPE_LABELS: Record<string, string> = {
   shape: "Shape",
@@ -79,6 +81,127 @@ function SelectionHeader({ label }: { label: string }) {
     >
       {label}
     </div>
+  );
+}
+
+function CanvasSettingsSection({
+  engine,
+  open,
+  onToggle,
+}: {
+  engine: SpatialEngine;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
+  const theme = useSBTheme();
+  const [gridOn, setGridOn] = useState(engine.snapToGrid);
+  const [gridSize, setGridSize] = useState(engine.gridSize);
+  const [smartGuides, setSmartGuides] = useState(engine.smartGuides);
+  const [paper, setPaper] = useState(engine.boardBackground);
+
+  useEffect(() => {
+    const syncGuides = () => {
+      setGridOn(engine.snapToGrid);
+      setGridSize(engine.gridSize);
+      setSmartGuides(engine.smartGuides);
+    };
+    const syncBackground = () => setPaper(engine.boardBackground);
+    engine.on("guides", syncGuides);
+    engine.on("background", syncBackground);
+    return () => {
+      engine.off("guides", syncGuides);
+      engine.off("background", syncBackground);
+    };
+  }, [engine]);
+
+  const gridSizes = [10, 20, 40, 80];
+
+  return (
+    <PropertySection title="Canvas" defaultOpen={false} variant="group" open={open} onToggle={onToggle}>
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>Grid</span>
+        <button
+          onClick={() => engine.toggleSnapToGrid()}
+          style={{
+            border: "none",
+            borderRadius: theme.controlBorderRadius,
+            background: gridOn ? theme.controlBgActive : theme.controlBg,
+            color: theme.text,
+            fontSize: 10,
+            padding: "4px 10px",
+            cursor: "pointer",
+          }}
+        >
+          {gridOn ? "On" : "Off"}
+        </button>
+      </div>
+
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>Grid size</span>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
+          {gridSizes.map((s) => (
+            <button
+              key={s}
+              onClick={() => engine.setGridSize(s)}
+              style={{
+                border: "none",
+                borderRadius: theme.controlBorderRadius,
+                background: gridSize === s ? theme.controlBgActive : theme.controlBg,
+                color: theme.text,
+                fontSize: 10,
+                padding: "4px 8px",
+                cursor: "pointer",
+              }}
+            >
+              {s}px
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>Guides</span>
+        <button
+          onClick={() => engine.toggleSmartGuides()}
+          style={{
+            border: "none",
+            borderRadius: theme.controlBorderRadius,
+            background: smartGuides ? theme.controlBgActive : theme.controlBg,
+            color: theme.text,
+            fontSize: 10,
+            padding: "4px 10px",
+            cursor: "pointer",
+          }}
+        >
+          {smartGuides ? "On" : "Off"}
+        </button>
+      </div>
+
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>Paper</span>
+        <select
+          value={paper}
+          onChange={(e) => engine.setBoardBackground(e.target.value as typeof paper)}
+          style={{
+            flex: 1,
+            height: 28,
+            border: `1px solid ${theme.border}`,
+            borderRadius: theme.controlBorderRadius,
+            background: theme.controlBg,
+            color: theme.text,
+            fontSize: 11,
+            padding: "0 8px",
+            outline: "none",
+          }}
+        >
+          {PAPER_TYPES.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </PropertySection>
   );
 }
 
@@ -249,23 +372,23 @@ function TypeGroupSection({
   group,
   registry,
   fontsInScene,
+  open,
+  onToggle,
 }: {
   engine: SpatialEngine;
   group: TypeGroup;
   registry?: NodeTypeRegistry;
   fontsInScene: string[];
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const label = TYPE_LABELS[group.type] ?? group.type;
   const count = group.nodes.length;
   const primaryNode = group.nodes[0];
-
-  const theme = useSBTheme();
+  const title = `${label} (${count})`;
 
   return (
-    <>
-      <div style={{ ...sectionHeader, color: theme.textFaint, borderTop: `1px solid ${theme.border}` }}>
-        {label} ({count})
-      </div>
+    <PropertySection title={title} defaultOpen={false} variant="group" open={open} onToggle={onToggle}>
       <MultiNodeContext.Provider value={group.nodes}>
         <SingleNodeProperties
           engine={engine}
@@ -274,7 +397,7 @@ function TypeGroupSection({
           fontsInScene={fontsInScene}
         />
       </MultiNodeContext.Provider>
-    </>
+    </PropertySection>
   );
 }
 
@@ -311,10 +434,28 @@ export default function PropertiesContent({
 }: PropertiesContentProps) {
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
   const headerLabel = getHeaderLabel(target);
+  const [openMultiSection, setOpenMultiSection] = useState<string>("shared");
+
+  useEffect(() => {
+    if (target.kind !== "multi") {
+      setOpenMultiSection("shared");
+      return;
+    }
+    // Keep current selection section if it still exists, otherwise reset to shared.
+    const keys = new Set(["canvas", "shared", ...target.typeGroups.map((g) => g.type)]);
+    if (!keys.has(openMultiSection)) {
+      setOpenMultiSection("shared");
+    }
+  }, [target, openMultiSection]);
 
   return (
     <>
       <SelectionHeader label={headerLabel} />
+      <CanvasSettingsSection
+        engine={engine}
+        open={target.kind === "multi" ? openMultiSection === "canvas" : undefined}
+        onToggle={target.kind === "multi" ? () => setOpenMultiSection((cur) => (cur === "canvas" ? "" : "canvas")) : undefined}
+      />
 
       {target.kind === "tool" && (
         <ToolModeProperties engine={engine} mode={target.mode} fontsInScene={fontsInScene} />
@@ -334,8 +475,16 @@ export default function PropertiesContent({
 
       {target.kind === "multi" && (
         <>
-          <CommonProperties engine={engine} nodes={target.nodes} commonProps={commonProps} />
-          <RotationInput engine={engine} nodes={target.nodes} />
+          <PropertySection
+            title="Shared"
+            defaultOpen
+            variant="group"
+            open={openMultiSection === "shared"}
+            onToggle={() => setOpenMultiSection((cur) => (cur === "shared" ? "" : "shared"))}
+          >
+            <CommonProperties engine={engine} nodes={target.nodes} commonProps={commonProps} />
+            <RotationInput engine={engine} nodes={target.nodes} />
+          </PropertySection>
           {target.typeGroups.map((group) => (
             <TypeGroupSection
               key={group.type}
@@ -343,6 +492,8 @@ export default function PropertiesContent({
               group={group}
               registry={registry}
               fontsInScene={fontsInScene}
+              open={openMultiSection === group.type}
+              onToggle={() => setOpenMultiSection((cur) => (cur === group.type ? "" : group.type))}
             />
           ))}
         </>

@@ -538,8 +538,7 @@ export default function PropertiesPanel({
           fontSize: 10,
         }}
       >
-        <span style={{ opacity: 0.6 }}>⋮⋮</span>
-        <span>Drag to move</span>
+        <span style={{ fontWeight: 600, letterSpacing: "0.02em", color: "white" }}>Inspector</span>
       </div>
       {/* Text-specific properties */}
       {showTextProps && (

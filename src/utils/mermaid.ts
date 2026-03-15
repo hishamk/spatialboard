@@ -43,6 +43,12 @@ interface ParsedSequence {
   participants: string[];
   messages: SequenceMessage[];
   notes: Array<{ step: number; note: SequenceNote }>;
+  loops: Array<{
+    label?: string;
+    startStep: number;
+    endStep: number;
+    participants: string[];
+  }>;
   groups: Array<{
     label?: string;
     color?: string;
@@ -350,8 +356,12 @@ export function parseMermaidSequence(input: string): ParsedSequence {
   const participantsOrder: string[] = [];
   const messages: SequenceMessage[] = [];
   const notes: Array<{ step: number; note: SequenceNote }> = [];
+  const loops: Array<{ label?: string; startStep: number; endStep: number; participants: Set<string> }> = [];
   const groups: Array<{ label?: string; color?: string; participants: Set<string> }> = [];
-  const openGroups: Array<{ label?: string; color?: string; participants: Set<string> }> = [];
+  const blockStack: Array<
+    | { type: "box"; label?: string; color?: string; participants: Set<string> }
+    | { type: "loop"; label?: string; startStep: number; participants: Set<string> }
+  > = [];
   let step = 0;
 
   const addParticipant = (id: string) => {
@@ -359,7 +369,7 @@ export function parseMermaidSequence(input: string): ParsedSequence {
       participantsSet.add(id);
       participantsOrder.push(id);
     }
-    for (const g of openGroups) g.participants.add(id);
+    for (const b of blockStack) b.participants.add(id);
   };
 
   for (let i = 1; i < lines.length; i++) {
@@ -368,12 +378,32 @@ export function parseMermaidSequence(input: string): ParsedSequence {
 
     const box = parseBoxHeader(line);
     if (box) {
-      openGroups.push({ label: box.label, color: box.color, participants: new Set<string>() });
+      blockStack.push({ type: "box", label: box.label, color: box.color, participants: new Set<string>() });
+      continue;
+    }
+
+    const loopHeader = line.match(/^loop(?:\s+([\s\S]+))?$/i);
+    if (loopHeader) {
+      blockStack.push({
+        type: "loop",
+        label: loopHeader[1] ? decodeLabel(loopHeader[1]) : undefined,
+        startStep: step,
+        participants: new Set<string>(),
+      });
       continue;
     }
     if (/^end\b/i.test(line)) {
-      const done = openGroups.pop();
-      if (done) groups.push(done);
+      const done = blockStack.pop();
+      if (done?.type === "box") {
+        groups.push(done);
+      } else if (done?.type === "loop") {
+        loops.push({
+          label: done.label,
+          startStep: done.startStep,
+          endStep: step,
+          participants: done.participants,
+        });
+      }
       continue;
     }
 
@@ -400,9 +430,18 @@ export function parseMermaidSequence(input: string): ParsedSequence {
     }
   }
 
-  while (openGroups.length > 0) {
-    const done = openGroups.pop()!;
-    groups.push(done);
+  while (blockStack.length > 0) {
+    const done = blockStack.pop()!;
+    if (done.type === "box") {
+      groups.push(done);
+    } else {
+      loops.push({
+        label: done.label,
+        startStep: done.startStep,
+        endStep: step,
+        participants: done.participants,
+      });
+    }
   }
 
   const participants = participantsOrder;
@@ -417,6 +456,14 @@ export function parseMermaidSequence(input: string): ParsedSequence {
     participants,
     messages,
     notes,
+    loops: loops
+      .map((l) => ({
+        label: l.label,
+        startStep: l.startStep,
+        endStep: l.endStep,
+        participants: Array.from(l.participants),
+      }))
+      .filter((l) => l.endStep >= l.startStep),
     groups: groups
       .map((g) => ({
         label: g.label,
@@ -496,6 +543,10 @@ function buildSequenceSketchNodes(
   const seq = parseMermaidSequence(input);
   const out: SpatialNode[] = [];
   const shapeNodeIds: string[] = [];
+  const lifelineWidth = 6;
+  const lifelineColor = "#94a3b8";
+  const messageStroke = 3;
+  const messageColor = "#475569";
 
   const participantW = 180;
   const participantH = 64;
@@ -607,23 +658,24 @@ function buildSequenceSketchNodes(
     const lineNode: ShapeNode = {
       id: nanoid(10),
       type: "shape",
-      x: x - 1,
+      x: x - lifelineWidth / 2,
       y: lifelineTop,
-      w: 2,
+      w: lifelineWidth,
       h: lifelineBottom - lifelineTop,
       z: getNextZ(),
       data: {
-        shape: "line",
-        stroke: "#94a3b8",
-        strokeWidth: 2,
-        strokeStyle: "dashed",
+        shape: "rect",
+        stroke: lifelineColor,
+        strokeWidth: 1,
+        strokeStyle: "solid",
         roughness: 0,
-        startPoint: [1, 0],
-        endPoint: [1, lifelineBottom - lifelineTop],
+        fill: lifelineColor,
+        fillStyle: "solid",
+        opacity: 0.3,
+        edgeStyle: "round",
       },
     };
     out.push(lineNode);
-    shapeNodeIds.push(lineNode.id);
 
     // Bottom participant box (Mermaid sequence style mirrors headers at footer).
     const footerNode: ShapeNode = {
@@ -652,6 +704,61 @@ function buildSequenceSketchNodes(
     shapeNodeIds.push(footerNode.id);
   }
 
+  // Loop blocks (e.g. `loop HealthCheck ... end`) behind messages.
+  for (const loop of seq.loops) {
+    const participantXs = loop.participants
+      .map((id) => centers.get(id))
+      .filter((v): v is number => typeof v === "number");
+    if (participantXs.length === 0) continue;
+    const left = Math.min(...participantXs) - 130;
+    const right = Math.max(...participantXs) + 130;
+    const startMsg = loop.startStep + 1;
+    const endMsg = Math.max(startMsg, loop.endStep);
+    const top = lifelineTop + (startMsg - 1) * stepGap + 16;
+    const bottom = lifelineTop + endMsg * stepGap + 34;
+
+    const loopBox: ShapeNode = {
+      id: nanoid(10),
+      type: "shape",
+      x: left,
+      y: top,
+      w: right - left,
+      h: Math.max(90, bottom - top),
+      z: getNextZ(),
+      data: {
+        shape: "rect",
+        stroke: "#c4b5fd",
+        strokeWidth: 1.5,
+        strokeStyle: "dotted",
+        roughness: 0,
+        fill: "#64748b",
+        fillStyle: "solid",
+        opacity: 0.08,
+        edgeStyle: "sharp",
+      },
+    };
+    out.push(loopBox);
+
+    const tagText = `loop${loop.label ? ` [${loop.label}]` : ""}`;
+    const loopLabel: TextNode = {
+      id: nanoid(10),
+      type: "text",
+      x: left + 10,
+      y: top + 8,
+      w: right - left - 20,
+      h: "auto",
+      z: getNextZ(),
+      data: {
+        text: tagText,
+        fontSize: 14,
+        fontFamily: "sans-serif",
+        color: "#1f2937",
+        align: "left",
+      },
+    };
+    out.push(loopLabel);
+  }
+
   for (let i = 0; i < seq.messages.length; i++) {
     const m = seq.messages[i];
     const y = lifelineTop + (i + 1) * stepGap;
@@ -659,6 +766,7 @@ function buildSequenceSketchNodes(
     const toX = centers.get(m.to);
     if (fromX == null || toX == null) continue;
 
+    const isSelf = fromX === toX;
     const left = Math.min(fromX, toX);
     const right = Math.max(fromX, toX);
     const width = Math.max(right - left, 40);
@@ -668,42 +776,103 @@ function buildSequenceSketchNodes(
     const isCross = m.arrow.toLowerCase().includes("x");
     const isOpenArrow = m.arrow.includes(">") || m.arrow.includes(")");
 
-    const arrowNode: ShapeNode = {
-      id: nanoid(10),
-      type: "shape",
-      x: left,
-      y: y - 14,
-      w: width,
-      h: 28,
-      z: getNextZ(),
-      data: {
-        shape: "arrow",
-        stroke: "#475569",
-        strokeWidth: 2,
-        strokeStyle: isDashed ? "dashed" : "solid",
-        roughness: 0,
-        startPoint: [start, 14],
-        endPoint: [end, 14],
-      },
-    };
-    out.push(arrowNode);
-    shapeNodeIds.push(arrowNode.id);
+    if (isSelf) {
+      const loopX = fromX + 6;
+      const loopY = y - 16;
+      const loopW = 92;
+      const loopH = 48;
+      const baseStyle = isDashed ? "dashed" as const : "solid" as const;
 
-    if (isOpenArrow) {
-      // Keep arrowhead visually explicit.
-      arrowNode.data.shape = "arrow";
+      const seg1: ShapeNode = {
+        id: nanoid(10),
+        type: "shape",
+        x: loopX,
+        y: loopY,
+        w: loopW,
+        h: messageStroke,
+        z: getNextZ(),
+        data: {
+          shape: "rect",
+          stroke: messageColor,
+          strokeWidth: 0,
+          strokeStyle: "solid",
+          roughness: 0,
+          fill: messageColor,
+          fillStyle: "solid",
+          opacity: 1,
+          edgeStyle: "sharp",
+        },
+      };
+      const seg2: ShapeNode = {
+        id: nanoid(10),
+        type: "shape",
+        x: loopX + loopW - messageStroke,
+        y: loopY,
+        w: messageStroke,
+        h: loopH,
+        z: getNextZ(),
+        data: {
+          shape: "rect",
+          stroke: messageColor,
+          strokeWidth: 0,
+          strokeStyle: "solid",
+          roughness: 0,
+          fill: messageColor,
+          fillStyle: "solid",
+          opacity: 1,
+          edgeStyle: "sharp",
+        },
+      };
+      const seg3: ShapeNode = {
+        id: nanoid(10),
+        type: "shape",
+        x: loopX,
+        y: loopY + loopH - messageStroke,
+        w: loopW,
+        h: messageStroke,
+        z: getNextZ(),
+        data: {
+          shape: isOpenArrow ? "arrow" : "line",
+          stroke: messageColor,
+          strokeWidth: messageStroke,
+          strokeStyle: baseStyle,
+          roughness: 0,
+          startPoint: [loopW, messageStroke / 2],
+          endPoint: [8, messageStroke / 2],
+        },
+      };
+      out.push(seg1, seg2, seg3);
     } else {
-      // Fallback to line for non-arrow tokens.
-      arrowNode.data.shape = "line";
+      const arrowNode: ShapeNode = {
+        id: nanoid(10),
+        type: "shape",
+        x: left,
+        y: y - 14,
+        w: width,
+        h: 28,
+        z: getNextZ(),
+        data: {
+          shape: isOpenArrow ? "arrow" : "line",
+          stroke: messageColor,
+          strokeWidth: messageStroke,
+          strokeStyle: isDashed ? "dashed" : "solid",
+          roughness: 0,
+          startPoint: [start, 14],
+          endPoint: [end, 14],
+        },
+      };
+      out.push(arrowNode);
     }
 
     // Message label as separate text node (linear shape labels are hidden).
+    const labelX = isSelf ? fromX + 18 : left;
+    const labelW = isSelf ? 170 : width;
     const labelNode: TextNode = {
       id: nanoid(10),
       type: "text",
-      x: left,
+      x: labelX,
       y: y - 46,
-      w: width,
+      w: labelW,
       h: "auto",
       z: getNextZ(),
       data: {

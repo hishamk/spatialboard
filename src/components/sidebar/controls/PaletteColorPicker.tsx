@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { rowStyle, labelStyle, btnBase } from "../styles";
 import type { ColorPalette } from "../styles";
 import { useSBTheme } from "../ThemeContext";
@@ -27,6 +28,9 @@ export default function PaletteColorPicker({
   const [activePalette, setActivePalette] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const [dropdownPlacement, setDropdownPlacement] = useState<"top" | "bottom">("bottom");
 
   const palette = palettes[activePalette] ?? palettes[0];
   const valueLower = value?.toLowerCase();
@@ -41,6 +45,33 @@ export default function PaletteColorPicker({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  // Position dropdown in viewport (portal) so parent overflow never clips it.
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const updatePos = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const rowHeight = 30;
+      const estimatedHeight = palettes.length * rowHeight + 10;
+      const spaceBelow = window.innerHeight - r.bottom;
+      const spaceAbove = r.top;
+      const placeTop = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+      setDropdownPlacement(placeTop ? "top" : "bottom");
+      setDropdownPos({
+        top: placeTop ? r.top - 4 : r.bottom + 4,
+        left: r.right,
+      });
+    };
+    updatePos();
+    window.addEventListener("resize", updatePos);
+    window.addEventListener("scroll", updatePos, true);
+    return () => {
+      window.removeEventListener("resize", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
+    };
   }, [dropdownOpen]);
 
   const commitHex = () => {
@@ -140,7 +171,7 @@ export default function PaletteColorPicker({
 
         {/* Palette selector dropdown */}
         {palettes.length > 1 && (
-          <div ref={dropdownRef} style={{ position: "relative", marginLeft: "auto" }}>
+          <div ref={triggerRef} style={{ position: "relative", marginLeft: "auto" }}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
               title="Switch palette"
@@ -160,67 +191,73 @@ export default function PaletteColorPicker({
               {palette.name}
               <span style={{ fontSize: 7 }}>{dropdownOpen ? "\u25B2" : "\u25BC"}</span>
             </button>
-            {dropdownOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: 2,
-                  background: theme.panelBg,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: theme.panelBorderRadius,
-                  padding: 4,
-                  zIndex: 100,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  minWidth: 120,
-                  boxShadow: theme.panelShadow,
-                }}
-              >
-                {palettes.map((p, i) => (
-                  <button
-                    key={p.name}
-                    onClick={() => {
-                      setActivePalette(i);
-                      setDropdownOpen(false);
-                    }}
-                    style={{
-                      ...btnBase,
-                      height: 28,
-                      padding: "0 8px",
-                      background: i === activePalette ? theme.controlBgActive : "transparent",
-                      color: theme.text,
-                      fontSize: 10,
-                      borderRadius: theme.controlBorderRadius,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      width: "100%",
-                      justifyContent: "flex-start",
-                    }}
-                  >
-                    {/* Mini preview swatches */}
-                    <span style={{ display: "flex", gap: 2 }}>
-                      {p.colors.slice(0, 6).map((c) => (
-                        <span
-                          key={c}
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: c,
-                            display: "inline-block",
-                          }}
-                        />
-                      ))}
-                    </span>
-                    <span>{p.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {dropdownOpen && dropdownPos &&
+              createPortal(
+                <div
+                  ref={dropdownRef}
+                  style={{
+                    position: "fixed",
+                    top: dropdownPos.top,
+                    left: dropdownPos.left,
+                    transform:
+                      dropdownPlacement === "top"
+                        ? "translate(-100%, -100%)"
+                        : "translateX(-100%)",
+                    background: theme.panelBg,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: theme.panelBorderRadius,
+                    padding: 4,
+                    zIndex: 20000,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    minWidth: 120,
+                    boxShadow: theme.panelShadow,
+                  }}
+                >
+                  {palettes.map((p, i) => (
+                    <button
+                      key={p.name}
+                      onClick={() => {
+                        setActivePalette(i);
+                        setDropdownOpen(false);
+                      }}
+                      style={{
+                        ...btnBase,
+                        height: 28,
+                        padding: "0 8px",
+                        background: i === activePalette ? theme.controlBgActive : "transparent",
+                        color: theme.text,
+                        fontSize: 10,
+                        borderRadius: theme.controlBorderRadius,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        width: "100%",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      {/* Mini preview swatches */}
+                      <span style={{ display: "flex", gap: 2 }}>
+                        {p.colors.slice(0, 6).map((c) => (
+                          <span
+                            key={c}
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              background: c,
+                              display: "inline-block",
+                            }}
+                          />
+                        ))}
+                      </span>
+                      <span>{p.name}</span>
+                    </button>
+                  ))}
+                </div>,
+                document.body
+              )}
           </div>
         )}
       </div>

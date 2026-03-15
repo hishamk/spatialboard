@@ -1,5 +1,5 @@
 export declare const TOOL_STRIP_WIDTH = 52;
-export declare const PROPERTIES_WIDTH = 270;
+export declare const PROPERTIES_WIDTH = 300;
 export declare const SIDEBAR_WIDTH: number;
 export declare const STROKE_COLORS: string[];
 export declare const FILL_COLORS: (string | null)[];

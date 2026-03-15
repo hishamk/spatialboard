@@ -148,6 +148,7 @@ export declare class SpatialEngine {
     requestImageCrop(nodeId: string): void;
     toggleSnapToGrid(): void;
     toggleSmartGuides(): void;
+    setGridSize(size: number): void;
     toggleLassoSelect(): void;
     enterPresentation(): void;
     exitPresentation(): void;

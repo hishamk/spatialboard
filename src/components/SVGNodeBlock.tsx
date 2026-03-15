@@ -536,6 +536,39 @@ function CleanShape({
 
   switch (shape) {
     case "rect": {
+      // Thin, unfilled rectangles visually collapse into "hollow pills" at low zoom.
+      // Render them as center lines so legacy Mermaid self-loop helper segments
+      // stay visible and crisp regardless of import version.
+      const hasFill = !!fill && fill !== "none";
+      const isThinH = h <= Math.max(strokeWidth * 2, 4);
+      const isThinW = w <= Math.max(strokeWidth * 2, 4);
+      if (!hasFill && (isThinH || isThinW)) {
+        if (isThinH && w >= h) {
+          return (
+            <line
+              x1={0}
+              y1={h / 2}
+              x2={w}
+              y2={h / 2}
+              stroke={stroke}
+              strokeWidth={Math.max(strokeWidth, h)}
+              strokeDasharray={dash}
+            />
+          );
+        }
+        return (
+          <line
+            x1={w / 2}
+            y1={0}
+            x2={w / 2}
+            y2={h}
+            stroke={stroke}
+            strokeWidth={Math.max(strokeWidth, w)}
+            strokeDasharray={dash}
+          />
+        );
+      }
+
       const r = rounded ? roundedRectRadius(w, h) : 0;
       return (
         <rect

@@ -3,7 +3,6 @@ import type { ShapeNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
 import { isPointInShapeNode } from "../engine/spatial-index";
 import SVGNodeBlock from "../components/SVGNodeBlock";
-import SVGNodeBlockPlaceholder from "../components/SVGNodeBlockPlaceholder";
 
 export type ShapeNodeData = ShapeNode["data"];
 
@@ -11,14 +10,6 @@ const ShapeNodeRenderer = memo(function ShapeNodeRenderer(
   props: NodeRendererProps<ShapeNodeData>,
 ) {
   const node = props.node as ShapeNode;
-  const sh = node.h === "auto" ? 100 : (node.h as number);
-  const screenW = node.w * props.zoom;
-  const screenH = sh * props.zoom;
-  const useShapePlaceholder = Math.min(screenW, screenH) < 2;
-
-  if (useShapePlaceholder) {
-    return <SVGNodeBlockPlaceholder node={node} />;
-  }
   return <SVGNodeBlock node={node} editingLabel={props.editing} />;
 });
 

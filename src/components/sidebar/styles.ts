@@ -1,5 +1,5 @@
 export const TOOL_STRIP_WIDTH = 52;
-export const PROPERTIES_WIDTH = 270;
+export const PROPERTIES_WIDTH = 300;
 export const SIDEBAR_WIDTH = TOOL_STRIP_WIDTH + PROPERTIES_WIDTH;
 
 export const STROKE_COLORS = [
@@ -88,11 +88,11 @@ export const STICKY_PALETTES: ColorPalette[] = [
 export const rowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 4,
+  gap: 6,
 };
 
 export const labelStyle: React.CSSProperties = {
-  width: 52,
+  width: 64,
   fontSize: 10,
   flexShrink: 0,
 };

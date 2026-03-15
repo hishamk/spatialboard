@@ -32,9 +32,7 @@ import { addPersonalItem, getPersonalItems } from "../store/personal-library";
 import PersonalLibraryPrompt from "./PersonalLibraryPrompt";
 import { extractSvgMarkup, placeSvgOnCanvas } from "../utils/svg-import";
 import ContentBlock from "./ContentBlock";
-import ContentBlockPlaceholder from "./ContentBlockPlaceholder";
 import SVGNodeBlock from "./SVGNodeBlock";
-import SVGNodeBlockPlaceholder from "./SVGNodeBlockPlaceholder";
 import ImageBlock from "./ImageBlock";
 import TextNodeBlock from "./TextNodeBlock";
 import StickyNoteBlock from "./StickyNoteBlock";
@@ -1000,7 +998,12 @@ export default function SpatialCanvas({
       if (engine.mode === "text") textCreatedOnceRef.current = false;
     };
     const handleBackground = () => setBoardBackground(engine.boardBackground);
-    const handleGuides = () => setAlignGuides([...engine.alignGuides]);
+    const handleGuides = () => {
+      setAlignGuides([...engine.alignGuides]);
+      setGridActive(engine.snapToGrid);
+      setGridSize(engine.gridSize);
+      setSmartGuidesActive(engine.smartGuides);
+    };
 
     engine.on("change", handleChange);
     engine.on("viewport", handleViewport);
@@ -1458,8 +1461,7 @@ export default function SpatialCanvas({
             label: `${size}px`,
             checked: engine.gridSize === size,
             action: () => {
-              engine.gridSize = size;
-              setGridSize(size);
+              engine.setGridSize(size);
             },
           })),
         ],
@@ -4214,18 +4216,7 @@ export default function SpatialCanvas({
                 if (svgNode.type === "draw") {
                   el = <SVGNodeBlock key={node.id} node={svgNode} />;
                 } else {
-                  const sh = svgNode.h === "auto" ? 100 : (svgNode.h as number);
-                  const screenW = svgNode.w * viewport.zoom;
-                  const screenH = sh * viewport.zoom;
-                  const useShapePlaceholder = Math.min(screenW, screenH) < 2;
-                  el = useShapePlaceholder ? (
-                    <SVGNodeBlockPlaceholder
-                      key={node.id}
-                      node={svgNode}
-                    />
-                  ) : (
-                    <SVGNodeBlock key={node.id} node={svgNode} editingLabel={editingShapeLabelId === node.id} />
-                  );
+                  el = <SVGNodeBlock key={node.id} node={svgNode} editingLabel={editingShapeLabelId === node.id} />;
                 }
               }
             }
