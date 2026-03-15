@@ -18,6 +18,14 @@ Versioning.
   - `CHANGELOG.md`
 - Package metadata for public registry/readability.
 - GitHub Actions workflow for `spatialboard` CI.
+- Mermaid sketch importer in sidebar:
+  - Flowchart parsing/layout (`flowchart`/`graph`, common shapes/edges)
+  - Sequence diagram parsing/layout (`sequenceDiagram`, participants/messages/notes)
+  - Group support:
+    - `subgraph ... end` for flowcharts
+    - `box ... end` for sequence diagrams
+  - Group containers rendered as normal rectangle `shape` nodes.
+- Dev-app mock GIF endpoints for local testing without external API dependency.
 
 ## [0.1.0]
 

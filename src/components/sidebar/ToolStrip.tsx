@@ -10,6 +10,7 @@ import { screenToCanvas } from "../../engine/viewport";
 import LibraryPanel from "./LibraryPanel";
 import LibraryDirectory from "./LibraryDirectory";
 import GifSearchPanel from "./GifSearchPanel";
+import MermaidPanel from "./MermaidPanel";
 
 const MODES: { key: Mode; label: string; shortcut: string; num: string }[] = [
   { key: "select", label: "Select", shortcut: "S", num: "" },
@@ -149,6 +150,16 @@ function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
         <>
           <rect x="2" y="4" width="20" height="16" rx="2" {...sp} />
           <text x="12" y="14.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor" stroke="none">GIF</text>
+        </>
+      )}
+      {name === "mermaid" && (
+        <>
+          <rect x="3" y="4" width="18" height="14" rx="2" {...sp} />
+          <path d="M6 8l2.6 3 2.1-2 2.2 3 2.2-2.5L18 13" {...sp} />
+          <circle cx="6" cy="8" r="1.1" fill="currentColor" stroke="none" />
+          <circle cx="10.7" cy="9" r="1.1" fill="currentColor" stroke="none" />
+          <circle cx="14.9" cy="9.5" r="1.1" fill="currentColor" stroke="none" />
+          <circle cx="18" cy="13" r="1.1" fill="currentColor" stroke="none" />
         </>
       )}
     </svg>
@@ -541,6 +552,50 @@ function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string
   );
 }
 
+function MermaidPicker({ engine }: { engine: SpatialEngine }) {
+  const theme = useSBTheme();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+
+  const handleOpen = useCallback(() => {
+    setOpen((v) => {
+      if (!v && triggerRef.current) {
+        setTriggerRect(triggerRef.current.getBoundingClientRect());
+      }
+      return !v;
+    });
+  }, []);
+
+  const handleClose = useCallback(() => setOpen(false), []);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        title="Mermaid Sketch"
+        onClick={handleOpen}
+        style={{
+          ...btnBase,
+          width: 40,
+          height: 40,
+          borderRadius: theme.controlBorderRadius,
+          background: open ? theme.controlBgActive : "transparent",
+          color: theme.text,
+        }}
+      >
+        <ToolIcon name="mermaid" />
+      </button>
+      <MermaidPanel
+        engine={engine}
+        open={open}
+        onClose={handleClose}
+        triggerRect={triggerRect}
+      />
+    </>
+  );
+}
+
 export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEngine; gifApiBaseUrl?: string }) {
   const theme = useSBTheme();
   const [mode, setMode] = useState<Mode>(engine.mode);
@@ -675,6 +730,9 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
 
       {/* Library picker */}
       <LibraryPicker engine={engine} />
+
+      {/* Mermaid sketch importer */}
+      <MermaidPicker engine={engine} />
 
       {/* GIF search */}
       {gifApiBaseUrl && <GifPicker engine={engine} baseUrl={gifApiBaseUrl} />}

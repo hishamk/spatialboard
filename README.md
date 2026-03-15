@@ -10,6 +10,7 @@ SpatialBoard ships with:
 - Optional data-flow engine for node ports
 - SBD serialization/parsing utilities
 - Presentation mode, frames, and themed sidebar UI
+- Mermaid sketch importer (flowchart + sequence diagram to native nodes)
 
 ## Installation
 
@@ -100,6 +101,30 @@ Expected endpoints:
 - `GET /trending?page=<n>&per_page=<n>`
 
 The responses should follow the Klipy-compatible shape used by `src/utils/klipy.ts`.
+
+## Mermaid Sketch Importer
+
+SpatialBoard includes a Mermaid importer in the sidebar that converts diagrams
+to editable native `shape`/`edge`/`text` nodes.
+
+Current support:
+
+- `flowchart` / `graph` with directions (`TB`, `BT`, `LR`, `RL`)
+- Common node syntaxes:
+  - `A[Rect]`
+  - `A(Rounded)`
+  - `A((Circle))`
+  - `A{Decision}`
+- Common edges:
+  - `A-->B`
+  - `A -- label --> B`
+  - `A-->>B`, `A-.->B`, `A==>B`, `A-xB`
+- Flowchart `subgraph ... end` groups (rendered as background rectangle shapes)
+- `sequenceDiagram` participants, messages, notes, and `box ... end` groups
+  (groups also rendered as background rectangle shapes)
+
+The importer is intentionally lightweight and aims for useful editable sketches
+rather than full Mermaid spec parity.
 
 ## Public API (Selected Exports)
 
