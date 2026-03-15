@@ -3022,18 +3022,26 @@ export default function SpatialCanvas({
           }
         }
 
-        // Enforce minimum size
-        const minSize = 10;
-        if (newW < minSize) {
-          newW = minSize;
+        // Enforce minimum size (with per-type overrides for embeddable custom nodes)
+        let minW = 10;
+        let minH = 10;
+        if (node.type === "legacy-voicenote") {
+          minW = 260;
+          minH = 120;
+        } else if (node.type === "legacy-canvas-link") {
+          minW = 220;
+          minH = 86;
+        }
+        if (newW < minW) {
+          newW = minW;
           if (handle === "nw" || handle === "w" || handle === "sw") {
-            newX = origX + origW - minSize;
+            newX = origX + origW - minW;
           }
         }
-        if (newH < minSize) {
-          newH = minSize;
+        if (newH < minH) {
+          newH = minH;
           if (handle === "nw" || handle === "n" || handle === "ne") {
-            newY = origY + origH - minSize;
+            newY = origY + origH - minH;
           }
         }
 
