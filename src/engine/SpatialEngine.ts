@@ -43,6 +43,10 @@ export interface AlignGuide {
   end: number;
 }
 
+interface DragSnapContext {
+  staticNodes: Array<{ x: number; y: number; w: number; h: number }>;
+}
+
 export type SpatialSearchField = "text" | "label" | "content";
 
 export interface SpatialSearchMatch {
@@ -908,6 +912,26 @@ export class SpatialEngine {
   }
 
   /**
+   * Precompute static guide candidates for a drag gesture.
+   * Reuse this context across pointermove frames to reduce QuadTree work.
+   */
+  createDragSnapContext(allDragIds: Set<string> | string[]): DragSnapContext {
+    const dragIdSet = allDragIds instanceof Set ? allDragIds : new Set(allDragIds);
+    const vx = -this.viewport.x / this.viewport.zoom;
+    const vy = -this.viewport.y / this.viewport.zoom;
+    const vw = this._containerWidth / this.viewport.zoom;
+    const vh = this._containerHeight / this.viewport.zoom;
+    const staticNodes: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const candidates = this.quadTree.retrieve([], { x: vx, y: vy, w: vw, h: vh });
+    for (const n of candidates) {
+      if (n.type === "edge" || dragIdSet.has(n.id)) continue;
+      const nh = this.resolveHeight(n);
+      staticNodes.push({ x: n.x, y: n.y, w: n.w, h: nh });
+    }
+    return { staticNodes };
+  }
+
+  /**
    * Compute smart guide alignment + grid snap for a drag operation.
    * Sets `this.alignGuides` and emits `guides` event.
    * Returns the adjusted delta to apply.
@@ -918,6 +942,7 @@ export class SpatialEngine {
     dx: number,
     dy: number,
     modKey: boolean,
+    dragSnapContext?: DragSnapContext,
   ): { finalDx: number; finalDy: number } {
     const shouldGridSnap = this.snapToGrid && !modKey;
     const shouldSmartGuide = this.smartGuides && !modKey;
@@ -943,20 +968,7 @@ export class SpatialEngine {
       }
       const dragBox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-      // Compute visible canvas rect from viewport
-      const vx = -this.viewport.x / this.viewport.zoom;
-      const vy = -this.viewport.y / this.viewport.zoom;
-      const vw = this._containerWidth / this.viewport.zoom;
-      const vh = this._containerHeight / this.viewport.zoom;
-
-      // Collect static nodes (non-dragged, non-edge, in view) via QuadTree
-      const staticNodes: Array<{ x: number; y: number; w: number; h: number }> = [];
-      const candidates = this.quadTree.retrieve([], { x: vx, y: vy, w: vw, h: vh });
-      for (const n of candidates) {
-        if (n.type === "edge" || dragIdSet.has(n.id)) continue;
-        const nh = this.resolveHeight(n);
-        staticNodes.push({ x: n.x, y: n.y, w: n.w, h: nh });
-      }
+      const staticNodes = dragSnapContext?.staticNodes ?? this.createDragSnapContext(dragIdSet).staticNodes;
 
       const result = computeAlignGuidesInternal(dragBox, staticNodes, 5);
       newGuides = result.guides;

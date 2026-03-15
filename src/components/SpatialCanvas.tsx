@@ -542,6 +542,7 @@ export default function SpatialCanvas({
   const [selection, setSelection] = useState<Set<string>>(
     new Set(engine.selection)
   );
+  const [isNodeDragging, setIsNodeDragging] = useState(false);
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(engine.activeGroupId);
   const [searchState, setSearchState] = useState<SpatialSearchState>(() => engine.getSearchState());
@@ -1019,44 +1020,47 @@ export default function SpatialCanvas({
     }
 
     // Fallback: include long crossing edges whose endpoints are both off-screen.
-    for (const n of nodes) {
-      if (n.type !== "edge") continue;
-      if (visibleEdgeIds.has(n.id)) continue;
-      const data = (n as EdgeNode).data;
-      const from = engine.getNode(data.fromId);
-      const to = engine.getNode(data.toId);
-      if (!from || !to) continue;
-      let include = domVisibleNodeIds.has(data.fromId) || domVisibleNodeIds.has(data.toId);
-      if (!include) {
-        // Use actual path bounds (bezier/step/smoothstep aware) instead of a
-        // straight-line endpoint check, so curved edges do not disappear at high zoom.
-        const path = computeEdgePath(
-          from,
-          to,
-          data.edgeType || "bezier",
-          measuredHeights,
-          data.sourceHandle,
-          data.targetHandle,
-          data.midpointOffset,
-          data.curveOffset,
-        );
-        include =
-          path.bounds.x < rect.x + rect.w &&
-          path.bounds.x + path.bounds.w > rect.x &&
-          path.bounds.y < rect.y + rect.h &&
-          path.bounds.y + path.bounds.h > rect.y;
-      }
-      if (include) {
-        visibleMap.set(n.id, n);
-        visibleEdgeIds.add(n.id);
-        edgesAddedByCrossing += 1;
-        // Ensure both endpoints are present for edge rendering.
-        const beforeFrom = visibleNodeIds.size;
-        pushNode(from.id, false);
-        if (visibleNodeIds.size > beforeFrom) nodesAddedByEdgeEndpoints += 1;
-        const beforeTo = visibleNodeIds.size;
-        pushNode(to.id, false);
-        if (visibleNodeIds.size > beforeTo) nodesAddedByEdgeEndpoints += 1;
+    // During active node drag, skip this expensive pass to prioritize interaction FPS.
+    if (!isNodeDragging) {
+      for (const n of nodes) {
+        if (n.type !== "edge") continue;
+        if (visibleEdgeIds.has(n.id)) continue;
+        const data = (n as EdgeNode).data;
+        const from = engine.getNode(data.fromId);
+        const to = engine.getNode(data.toId);
+        if (!from || !to) continue;
+        let include = domVisibleNodeIds.has(data.fromId) || domVisibleNodeIds.has(data.toId);
+        if (!include) {
+          // Use actual path bounds (bezier/step/smoothstep aware) instead of a
+          // straight-line endpoint check, so curved edges do not disappear at high zoom.
+          const path = computeEdgePath(
+            from,
+            to,
+            data.edgeType || "bezier",
+            measuredHeights,
+            data.sourceHandle,
+            data.targetHandle,
+            data.midpointOffset,
+            data.curveOffset,
+          );
+          include =
+            path.bounds.x < rect.x + rect.w &&
+            path.bounds.x + path.bounds.w > rect.x &&
+            path.bounds.y < rect.y + rect.h &&
+            path.bounds.y + path.bounds.h > rect.y;
+        }
+        if (include) {
+          visibleMap.set(n.id, n);
+          visibleEdgeIds.add(n.id);
+          edgesAddedByCrossing += 1;
+          // Ensure both endpoints are present for edge rendering.
+          const beforeFrom = visibleNodeIds.size;
+          pushNode(from.id, false);
+          if (visibleNodeIds.size > beforeFrom) nodesAddedByEdgeEndpoints += 1;
+          const beforeTo = visibleNodeIds.size;
+          pushNode(to.id, false);
+          if (visibleNodeIds.size > beforeTo) nodesAddedByEdgeEndpoints += 1;
+        }
       }
     }
 
@@ -1091,7 +1095,7 @@ export default function SpatialCanvas({
       edgesAddedByCrossing,
       cullingMs: performance.now() - t0,
     };
-  }, [viewport, containerSize, nodes, selection, engine, registry, measuredHeights, edgePreview, edgeReconnect]);
+  }, [viewport, containerSize, nodes, selection, engine, registry, measuredHeights, edgePreview, edgeReconnect, isNodeDragging]);
 
   const domLayerNodes = virtualizedView?.domNodes ?? nodes.filter((n) => {
     if (registry) {
@@ -1108,9 +1112,9 @@ export default function SpatialCanvas({
       n.type === "sticky"
     );
   });
-  // Keep edges fully reliable: always provide full node set to SVGLayer.
-  // Node virtualization still applies to the heavier DOM layer above.
-  const svgLayerNodes = nodes;
+  // Keep edges fully reliable by default; while actively dragging nodes, use
+  // virtualized SVG set for smoother interaction on very large boards.
+  const svgLayerNodes = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
 
   useEffect(() => {
     if (!spatialPerf.isEnabled()) return;
@@ -2111,13 +2115,14 @@ export default function SpatialCanvas({
           let lastModKey = false;
 
           const allDragIdSet = new Set(allDragIds);
+          const dragSnapContext = engine.createDragSnapContext(allDragIdSet);
 
           const applyMove = () => {
             rafId = null;
             const dx = (lastClientX - startX) / engine.viewport.zoom;
             const dy = (lastClientY - startY) / engine.viewport.zoom;
             const { finalDx, finalDy } = engine.computeDragSnap(
-              origPositions, allDragIdSet, dx, dy, lastModKey,
+              origPositions, allDragIdSet, dx, dy, lastModKey, dragSnapContext,
             );
             const updates = origPositions.map((orig) => ({
               id: orig.id,
@@ -2141,6 +2146,7 @@ export default function SpatialCanvas({
               if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                 didMove = true;
                 engine.pushHistorySnapshot();
+                setIsNodeDragging(true);
               } else {
                 return;
               }
@@ -2157,6 +2163,7 @@ export default function SpatialCanvas({
               cancelAnimationFrame(rafId);
               applyMove();
             }
+            setIsNodeDragging(false);
             engine.clearAlignGuides();
             ownerDoc().removeEventListener("pointermove", onMove);
             ownerDoc().removeEventListener("pointerup", onUp);
@@ -4173,8 +4180,9 @@ export default function SpatialCanvas({
 
   useLayoutEffect(() => {
     const root = containerRef.current;
-    if (!root || !searchState.query || searchState.matches.length === 0) {
-      setSearchTextRects([]);
+    // Avoid expensive text-range scanning while dragging nodes.
+    if (isNodeDragging || !root || !searchState.query || searchState.matches.length === 0) {
+      setSearchTextRects((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     const rootRect = root.getBoundingClientRect();
@@ -4234,8 +4242,19 @@ export default function SpatialCanvas({
       }
     }
 
-    setSearchTextRects(nextRects);
-  }, [searchState, nodes, viewport, activeSearchNodeId]);
+    setSearchTextRects((prev) => {
+      if (
+        prev.length === nextRects.length &&
+        prev.every((r, i) => {
+          const n = nextRects[i];
+          return r.x === n.x && r.y === n.y && r.w === n.w && r.h === n.h && r.active === n.active;
+        })
+      ) {
+        return prev;
+      }
+      return nextRects;
+    });
+  }, [searchState, nodes, viewport, activeSearchNodeId, isNodeDragging]);
 
   return (
     <div

@@ -7,6 +7,14 @@ export interface AlignGuide {
     start: number;
     end: number;
 }
+interface DragSnapContext {
+    staticNodes: Array<{
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }>;
+}
 export type SpatialSearchField = "text" | "label" | "content";
 export interface SpatialSearchMatch {
     nodeId: string;
@@ -213,6 +221,11 @@ export declare class SpatialEngine {
     /** Update the container dimensions (called from canvas resize observer). */
     setContainerSize(w: number, h: number): void;
     /**
+     * Precompute static guide candidates for a drag gesture.
+     * Reuse this context across pointermove frames to reduce QuadTree work.
+     */
+    createDragSnapContext(allDragIds: Set<string> | string[]): DragSnapContext;
+    /**
      * Compute smart guide alignment + grid snap for a drag operation.
      * Sets `this.alignGuides` and emits `guides` event.
      * Returns the adjusted delta to apply.
@@ -221,7 +234,7 @@ export declare class SpatialEngine {
         id: string;
         x: number;
         y: number;
-    }>, allDragIds: Set<string> | string[], dx: number, dy: number, modKey: boolean): {
+    }>, allDragIds: Set<string> | string[], dx: number, dy: number, modKey: boolean, dragSnapContext?: DragSnapContext): {
         finalDx: number;
         finalDy: number;
     };
