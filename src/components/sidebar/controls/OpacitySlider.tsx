@@ -1,5 +1,6 @@
 import { rowStyle, labelStyle } from "../styles";
 import { useSBTheme } from "../ThemeContext";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface OpacitySliderProps {
   value: number | undefined;
@@ -13,10 +14,11 @@ export default function OpacitySlider({
   mixed,
 }: OpacitySliderProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const displayValue = mixed || value === undefined ? 100 : Math.round(value * 100);
   return (
     <div style={rowStyle}>
-      <span style={{ ...labelStyle, color: theme.textMuted }}>Opacity</span>
+      <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorOpacity}</span>
       <input
         type="range"
         min={0}

@@ -10,6 +10,7 @@ import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, STROKE_PALETTES, STROKE_COLORS } from "../styles";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface FramePropertiesProps {
   engine: SpatialEngine;
@@ -22,10 +23,14 @@ function DurationInput({
   value,
   onChange,
   theme,
+  durationLabel,
+  msLabel,
 }: {
   value: number;
   onChange: (v: number) => void;
   theme: ReturnType<typeof useSBTheme>;
+  durationLabel: string;
+  msLabel: string;
 }) {
   const [local, setLocal] = useState(String(value));
   useEffect(() => setLocal(String(value)), [value]);
@@ -41,7 +46,7 @@ function DurationInput({
 
   return (
     <div style={rowStyle}>
-      <span style={{ ...labelStyle, color: theme.textMuted }}>Duration</span>
+      <span style={{ ...labelStyle, color: theme.textMuted }}>{durationLabel}</span>
       <input
         type="number"
         min={100}
@@ -62,13 +67,14 @@ function DurationInput({
           outline: "none",
         }}
       />
-      <span style={{ fontSize: 10, color: theme.textMuted }}>ms</span>
+      <span style={{ fontSize: 10, color: theme.textMuted }}>{msLabel}</span>
     </div>
   );
 }
 
 export default function FrameProperties({ engine, node }: FramePropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<FrameNode["data"]>(engine, node);
 
   const { data } = node;
@@ -119,16 +125,34 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
     return available;
   }, [engine, node]);
 
+  const transitionLabelByKey: Record<SlideTransition, string> = {
+    pan: labels.transitionPan,
+    fade: labels.transitionFadeToBlack,
+    dissolve: labels.transitionDissolve,
+    zoom: labels.transitionZoom,
+    fold: labels.transitionFold,
+    cube: labels.transitionCube,
+    none: labels.transitionNoneInstant,
+  };
+  const presetGroupLabelByEnglish: Record<string, string> = {
+    Phones: labels.deviceGroupPhones,
+    "Phones (Landscape)": labels.deviceGroupPhonesLandscape,
+    Tablets: labels.deviceGroupTablets,
+    "Tablets (Landscape)": labels.deviceGroupTabletsLandscape,
+    Devices: labels.deviceGroupDevices,
+    Standard: labels.deviceGroupStandard,
+  };
+
   return (
     <>
       {/* Label */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Label</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorLabel}</span>
         <input
           type="text"
           value={data.label ?? ""}
           onChange={(e) => update({ label: e.target.value || undefined })}
-          placeholder="Frame label..."
+          placeholder={labels.frameLabelPlaceholder}
           style={{
             flex: 1,
             background: theme.controlBg,
@@ -144,7 +168,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Device preset */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Device</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.frameDevice}</span>
         <select
           value={data.devicePreset ?? ""}
           onChange={(e) => onPresetChange(e.target.value)}
@@ -160,9 +184,9 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
             cursor: "pointer",
           }}
         >
-          <option value="">Freeform</option>
+          <option value="">{labels.frameFreeform}</option>
           {groupedPresets.map((group) => (
-            <optgroup key={group.label} label={group.label}>
+            <optgroup key={group.label} label={presetGroupLabelByEnglish[group.label] ?? group.label}>
               {group.presets.map((p) => (
                 <option key={p.key} value={p.key}>
                   {p.label} ({p.w}×{p.h})
@@ -175,7 +199,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Background color */}
       <PaletteColorPicker
-        label="Background"
+        label={labels.inspectorBackground}
         palettes={STROKE_PALETTES}
         value={(() => {
           const bg = data.backgroundColor;
@@ -195,7 +219,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Border color */}
       <PaletteColorPicker
-        label="Border"
+        label={labels.inspectorBorder}
         palettes={STROKE_PALETTES}
         value={data.borderColor}
         onChange={(c) => update({ borderColor: c! })}
@@ -203,14 +227,14 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Border style */}
       <StrokeStylePicker
-        label="Style"
+        label={labels.inspectorStyle}
         value={data.borderStyle ?? "dashed"}
         onChange={(s) => update({ borderStyle: s })}
       />
 
       {/* Border width */}
       <WidthPicker
-        label="Width"
+        label={labels.inspectorWidth}
         value={data.borderWidth ?? 1}
         onChange={(w) => update({ borderWidth: w })}
       />
@@ -223,7 +247,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Slide order */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Slide #</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.frameSlideNumber}</span>
         <select
           value={data.slideOrder ?? ""}
           onChange={(e) => {
@@ -242,7 +266,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
             cursor: "pointer",
           }}
         >
-          <option value="">Auto</option>
+          <option value="">{labels.frameAuto}</option>
           {slideOptions.map((n) => (
             <option key={n} value={n}>
               {n}
@@ -253,7 +277,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
 
       {/* Slide transition */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Transition</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.frameTransition}</span>
         <select
           value={data.transition ?? "pan"}
           onChange={(e) => {
@@ -272,13 +296,13 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
             cursor: "pointer",
           }}
         >
-          <option value="pan">Pan</option>
-          <option value="fade">Fade to Black</option>
-          <option value="dissolve">Dissolve</option>
-          <option value="zoom">Zoom</option>
-          <option value="fold">Fold</option>
-          <option value="cube">Cube</option>
-          <option value="none">None (instant)</option>
+          <option value="pan">{transitionLabelByKey.pan}</option>
+          <option value="fade">{transitionLabelByKey.fade}</option>
+          <option value="dissolve">{transitionLabelByKey.dissolve}</option>
+          <option value="zoom">{transitionLabelByKey.zoom}</option>
+          <option value="fold">{transitionLabelByKey.fold}</option>
+          <option value="cube">{transitionLabelByKey.cube}</option>
+          <option value="none">{transitionLabelByKey.none}</option>
         </select>
       </div>
 
@@ -288,6 +312,8 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
           value={data.transitionDuration ?? TRANSITION_DEFAULTS[data.transition ?? "pan"]}
           onChange={(v) => update({ transitionDuration: v === TRANSITION_DEFAULTS[data.transition ?? "pan"] ? undefined : v })}
           theme={theme}
+          durationLabel={labels.frameDuration}
+          msLabel={labels.frameMilliseconds}
         />
       )}
     </>

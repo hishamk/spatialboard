@@ -43,10 +43,27 @@ export interface AlignGuide {
   end: number;
 }
 
+export type SpatialSearchField = "text" | "label" | "content";
+
+export interface SpatialSearchMatch {
+  nodeId: string;
+  nodeType: string;
+  field: SpatialSearchField;
+  text: string;
+  matchCount: number;
+}
+
+export interface SpatialSearchState {
+  query: string;
+  matches: SpatialSearchMatch[];
+  activeIndex: number;
+}
+
 type EventMap = {
   change: () => void;
   viewport: () => void;
   selection: () => void;
+  search: () => void;
   mode: () => void;
   history: () => void;
   background: () => void;
@@ -214,6 +231,11 @@ export class SpatialEngine {
   private registry?: NodeTypeRegistry;
   /** Measured heights for auto-height nodes (canvas-coordinate units). */
   private _measuredHeights: Record<string, number> = {};
+  private _search: SpatialSearchState = {
+    query: "",
+    matches: [],
+    activeIndex: -1,
+  };
 
   /** Set the node type registry for lifecycle hooks. */
   setRegistry(registry: NodeTypeRegistry): void {
@@ -314,6 +336,196 @@ export class SpatialEngine {
   /** Request entering image crop mode (handled by the canvas component). */
   requestImageCrop(nodeId: string): void {
     this.emit("image:cropRequest", nodeId);
+  }
+
+  // --- Search ---
+
+  getSearchState(): SpatialSearchState {
+    return {
+      query: this._search.query,
+      matches: this._search.matches.map((m) => ({ ...m })),
+      activeIndex: this._search.activeIndex,
+    };
+  }
+
+  setSearchQuery(query: string): void {
+    const normalized = query.trim();
+    if (normalized.length === 0) {
+      this._search = { query: "", matches: [], activeIndex: -1 };
+      this.emit("search");
+      return;
+    }
+    const matches = this.computeSearchMatches(normalized);
+    this._search = {
+      query: normalized,
+      matches,
+      activeIndex: matches.length > 0 ? 0 : -1,
+    };
+    this.emit("search");
+  }
+
+  clearSearch(): void {
+    if (!this._search.query && this._search.matches.length === 0 && this._search.activeIndex === -1) return;
+    this._search = { query: "", matches: [], activeIndex: -1 };
+    this.emit("search");
+  }
+
+  setSearchActiveIndex(index: number): void {
+    if (this._search.matches.length === 0) {
+      if (this._search.activeIndex !== -1) {
+        this._search = { ...this._search, activeIndex: -1 };
+        this.emit("search");
+      }
+      return;
+    }
+    const clamped = Math.max(0, Math.min(this._search.matches.length - 1, index));
+    if (clamped === this._search.activeIndex) return;
+    this._search = { ...this._search, activeIndex: clamped };
+    this.emit("search");
+  }
+
+  searchNext(): void {
+    const total = this._search.matches.length;
+    if (total === 0) return;
+    const next = this._search.activeIndex < 0 ? 0 : (this._search.activeIndex + 1) % total;
+    this.setSearchActiveIndex(next);
+  }
+
+  searchPrev(): void {
+    const total = this._search.matches.length;
+    if (total === 0) return;
+    const prev = this._search.activeIndex < 0 ? 0 : (this._search.activeIndex - 1 + total) % total;
+    this.setSearchActiveIndex(prev);
+  }
+
+  focusSearchResult(index: number, options?: { select?: boolean; center?: boolean; minZoom?: number }): void {
+    if (this._search.matches.length === 0) return;
+    const clamped = Math.max(0, Math.min(this._search.matches.length - 1, index));
+    const match = this._search.matches[clamped];
+    if (!this.nodes.has(match.nodeId)) return;
+    this.setSearchActiveIndex(clamped);
+    if (options?.select !== false) this.select(match.nodeId);
+    if (options?.center !== false) {
+      const minZoom = options?.minZoom ?? 0.9;
+      this.zoomToNode(match.nodeId, Math.max(this.viewport.zoom, minZoom));
+    }
+  }
+
+  focusActiveSearchResult(options?: { select?: boolean; center?: boolean; minZoom?: number }): void {
+    if (this._search.activeIndex < 0) return;
+    this.focusSearchResult(this._search.activeIndex, options);
+  }
+
+  private refreshSearchIfNeeded(): void {
+    if (!this._search.query) return;
+    const previousActiveNodeId =
+      this._search.activeIndex >= 0 ? this._search.matches[this._search.activeIndex]?.nodeId : undefined;
+    const matches = this.computeSearchMatches(this._search.query);
+    let activeIndex = -1;
+    if (matches.length > 0) {
+      if (previousActiveNodeId) {
+        const sameNodeIndex = matches.findIndex((m) => m.nodeId === previousActiveNodeId);
+        activeIndex = sameNodeIndex >= 0 ? sameNodeIndex : 0;
+      } else {
+        activeIndex = 0;
+      }
+    }
+    this._search = {
+      query: this._search.query,
+      matches,
+      activeIndex,
+    };
+    this.emit("search");
+  }
+
+  private computeSearchMatches(query: string): SpatialSearchMatch[] {
+    const q = query.toLocaleLowerCase();
+    const matches: SpatialSearchMatch[] = [];
+    const sortedNodes = Array.from(this.nodes.values()).sort((a, b) => a.z - b.z);
+    for (const node of sortedNodes) {
+      const candidates = this.getNodeSearchCandidates(node);
+      for (const candidate of candidates) {
+        const count = this.countOccurrences(candidate.text.toLocaleLowerCase(), q);
+        if (count > 0) {
+          matches.push({
+            nodeId: node.id,
+            nodeType: node.type,
+            field: candidate.field,
+            text: candidate.text,
+            matchCount: count,
+          });
+        }
+      }
+    }
+    return matches;
+  }
+
+  private getNodeSearchCandidates(node: SpatialNode): Array<{ field: SpatialSearchField; text: string }> {
+    if (!node.data || typeof node.data !== "object") return [];
+    const data = node.data as Record<string, unknown>;
+    const out: Array<{ field: SpatialSearchField; text: string }> = [];
+    const push = (field: SpatialSearchField, value: unknown) => {
+      if (typeof value !== "string") return;
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      out.push({ field, text: trimmed });
+    };
+
+    switch (node.type) {
+      case "text":
+      case "sticky":
+        push("text", data.text);
+        break;
+      case "shape":
+      case "edge":
+      case "frame":
+        push("label", data.label);
+        break;
+      case "content": {
+        const blockText = this.extractBlockText(data.blocks);
+        push("content", blockText);
+        push("content", data.markdown);
+        break;
+      }
+      default:
+        break;
+    }
+    return out;
+  }
+
+  private extractBlockText(blocks: unknown): string {
+    if (!Array.isArray(blocks)) return "";
+    const walk = (items: unknown[]): string => {
+      return items
+        .map((item) => {
+          if (!item || typeof item !== "object") return "";
+          const b = item as { content?: Array<{ type?: string; text?: string }>; children?: unknown[] };
+          const inline = Array.isArray(b.content)
+            ? b.content
+                .filter((c) => c && typeof c === "object" && (c.type ?? "text") === "text")
+                .map((c) => (typeof c.text === "string" ? c.text : ""))
+                .join("")
+            : "";
+          const children = Array.isArray(b.children) && b.children.length > 0 ? walk(b.children) : "";
+          return children ? `${inline}\n${children}` : inline;
+        })
+        .filter(Boolean)
+        .join("\n");
+    };
+    return walk(blocks);
+  }
+
+  private countOccurrences(haystackLower: string, needleLower: string): number {
+    if (!needleLower) return 0;
+    let idx = 0;
+    let count = 0;
+    while (idx <= haystackLower.length - needleLower.length) {
+      const found = haystackLower.indexOf(needleLower, idx);
+      if (found < 0) break;
+      count += 1;
+      idx = found + needleLower.length;
+    }
+    return count;
   }
 
   // --- Grid Snapping ---
@@ -966,6 +1178,7 @@ export class SpatialEngine {
     this.registry?.get(node.type)?.onCreate?.(node, this);
     this.emit("node:create", node);
 
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("history");
   }
@@ -992,6 +1205,7 @@ export class SpatialEngine {
       .map((n) => n.id);
     if (nonEdgeIds.length > 0) this.updateFrameMembership(nonEdgeIds);
 
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("history");
   }
@@ -1057,6 +1271,7 @@ export class SpatialEngine {
     if (patch.data && existing.data !== updated.data) {
       this.registry?.get(updated.type)?.onDataChange?.(updated, existing.data, updated.data, this);
       this.emit("node:data", updated, existing.data, updated.data);
+      this.refreshSearchIfNeeded();
     }
 
     this.emit("change");
@@ -1070,6 +1285,7 @@ export class SpatialEngine {
     updates: Array<{ id: string; patch: Partial<SpatialNode> }>
   ): void {
     let changed = false;
+    let dataChanged = false;
     for (const { id, patch } of updates) {
       const existing = this.nodes.get(id);
       if (!existing) continue;
@@ -1085,6 +1301,7 @@ export class SpatialEngine {
           ...(existing as { data: Record<string, unknown> }).data,
           ...(patch as { data: Record<string, unknown> }).data,
         };
+        dataChanged = true;
       }
       this.nodes.set(id, updated);
 
@@ -1105,6 +1322,7 @@ export class SpatialEngine {
 
       changed = true;
     }
+    if (changed && dataChanged) this.refreshSearchIfNeeded();
     if (changed) this.emit("change");
   }
 
@@ -1193,6 +1411,7 @@ export class SpatialEngine {
         }
       }
     }
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("selection");
     this.emit("history");
@@ -1716,6 +1935,7 @@ export class SpatialEngine {
     // Clean up empty groups from groupParent
     this.cleanupEmptyGroups();
     for (const id of toDelete) this.selection.delete(id);
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("selection");
     this.emit("history");
@@ -1805,6 +2025,7 @@ export class SpatialEngine {
       }
     }
     this.selection.clear();
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("selection");
     this.emit("history");
@@ -2413,6 +2634,7 @@ export class SpatialEngine {
       this.rebuildQuadTree();
       this.rebuildFrameChildren();
       this.selection.clear();
+      this.refreshSearchIfNeeded();
       this.emit("change");
       this.emit("selection");
       this.emit("history");
@@ -2428,6 +2650,7 @@ export class SpatialEngine {
       this.rebuildQuadTree();
       this.rebuildFrameChildren();
       this.selection.clear();
+      this.refreshSearchIfNeeded();
       this.emit("change");
       this.emit("selection");
       this.emit("history");
@@ -2465,6 +2688,7 @@ export class SpatialEngine {
     if (node.z < this._minZ) this._minZ = node.z;
 
     this._suppressEvents = false;
+    this.refreshSearchIfNeeded();
   }
 
   /** Delete a remote node without emitting events or pushing history. */
@@ -2495,6 +2719,7 @@ export class SpatialEngine {
       }
     }
     this._suppressEvents = false;
+    this.refreshSearchIfNeeded();
   }
 
   /** Apply a remote node update without emitting events or pushing history. */
@@ -2531,6 +2756,7 @@ export class SpatialEngine {
 
       // Update z-counter
       if (updated.z >= this.nextZValue) this.nextZValue = updated.z + 1;
+      if (props.data) this.refreshSearchIfNeeded();
     }
     this._suppressEvents = false;
   }
@@ -2606,6 +2832,7 @@ export class SpatialEngine {
     this.nextZValue = maxZ + 1;
     this._minZ = minZ;
     this.selection.clear();
+    this.refreshSearchIfNeeded();
     // Apply origin view if saved, otherwise fit-to-content
     this.goToOriginView();
     this.emit("change");
@@ -2633,6 +2860,7 @@ export class SpatialEngine {
     this.rebuildFrameChildren();
     if (json.viewport) this.viewport = json.viewport;
     this.selection.clear();
+    this.refreshSearchIfNeeded();
     this.emit("change");
     this.emit("viewport");
     this.emit("selection");

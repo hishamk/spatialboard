@@ -8,6 +8,7 @@ import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import FillIcon from "../controls/FillIcon";
 import { useSBTheme } from "../ThemeContext";
+import { useSBI18n } from "../../LocalizationContext";
 import {
   rowStyle,
   labelStyle,
@@ -32,6 +33,7 @@ function isMixed<T>(nodes: DrawNode[], get: (n: DrawNode) => T): boolean {
 
 export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<DrawNode["data"]>(engine, node);
   const allNodes = (useContext(MultiNodeContext) ?? [node]) as DrawNode[];
 
@@ -51,7 +53,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
     <>
       {/* Stroke color */}
       <PaletteColorPicker
-        label="Stroke"
+        label={labels.inspectorStroke}
         palettes={STROKE_PALETTES}
         value={mixedColor ? undefined : data.color}
         mixed={mixedColor}
@@ -60,7 +62,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
 
       {/* Fill color */}
       <PaletteColorPicker
-        label="Fill"
+        label={labels.inspectorFill}
         palettes={FILL_PALETTES}
         value={mixedFill ? undefined : fillColor}
         mixed={mixedFill}
@@ -71,7 +73,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       {/* Fill style (only when fill is set and not mixed) */}
       {fillColor && !mixedFill && (
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Fill pattern</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFillPattern}</span>
           {FILL_STYLES.map((f) => (
             <button
               key={f.key}
@@ -95,7 +97,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
 
       {/* Stroke style */}
       <StrokeStylePicker
-        label="Stroke style"
+        label={labels.inspectorStrokeStyle}
         value={strokeStyle}
         mixed={mixedStrokeStyle}
         onChange={(s) => update({ strokeStyle: s })}
@@ -103,7 +105,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
 
       {/* Stroke width */}
       <WidthPicker
-        label="Stroke width"
+        label={labels.inspectorStrokeWidth}
         widths={WIDTHS_DRAW}
         value={data.strokeWidth}
         mixed={mixedStrokeWidth}

@@ -2,6 +2,7 @@ import PaletteColorPicker from "./PaletteColorPicker";
 import StrokeStylePicker from "./StrokeStylePicker";
 import WidthPicker from "./WidthPicker";
 import { STROKE_PALETTES } from "../styles";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface BorderControlsProps {
   borderColor: string | null | undefined;
@@ -22,10 +23,11 @@ export default function BorderControls({
   mixed,
   onChange,
 }: BorderControlsProps) {
+  const { labels } = useSBI18n();
   return (
     <>
       <PaletteColorPicker
-        label="Border"
+        label={labels.inspectorBorder}
         palettes={STROKE_PALETTES}
         value={borderColor}
         onChange={(c) => onChange("borderColor", c ?? undefined)}
@@ -35,13 +37,13 @@ export default function BorderControls({
       {(borderColor || mixed?.color) && (
         <>
           <StrokeStylePicker
-            label="Style"
+            label={labels.inspectorStyle}
             value={borderStyle ?? "solid"}
             onChange={(s) => onChange("borderStyle", s)}
             mixed={mixed?.style}
           />
           <WidthPicker
-            label="Width"
+            label={labels.inspectorWidth}
             value={borderWidth ?? 1}
             onChange={(w) => onChange("borderWidth", w)}
             mixed={mixed?.width}

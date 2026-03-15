@@ -7,10 +7,24 @@ export interface AlignGuide {
     start: number;
     end: number;
 }
+export type SpatialSearchField = "text" | "label" | "content";
+export interface SpatialSearchMatch {
+    nodeId: string;
+    nodeType: string;
+    field: SpatialSearchField;
+    text: string;
+    matchCount: number;
+}
+export interface SpatialSearchState {
+    query: string;
+    matches: SpatialSearchMatch[];
+    activeIndex: number;
+}
 type EventMap = {
     change: () => void;
     viewport: () => void;
     selection: () => void;
+    search: () => void;
     mode: () => void;
     history: () => void;
     background: () => void;
@@ -115,6 +129,7 @@ export declare class SpatialEngine {
     private registry?;
     /** Measured heights for auto-height nodes (canvas-coordinate units). */
     private _measuredHeights;
+    private _search;
     /** Set the node type registry for lifecycle hooks. */
     setRegistry(registry: NodeTypeRegistry): void;
     /** Enable collaborative mode. Disables local snapshot history. */
@@ -146,6 +161,27 @@ export declare class SpatialEngine {
     private emit;
     /** Request entering image crop mode (handled by the canvas component). */
     requestImageCrop(nodeId: string): void;
+    getSearchState(): SpatialSearchState;
+    setSearchQuery(query: string): void;
+    clearSearch(): void;
+    setSearchActiveIndex(index: number): void;
+    searchNext(): void;
+    searchPrev(): void;
+    focusSearchResult(index: number, options?: {
+        select?: boolean;
+        center?: boolean;
+        minZoom?: number;
+    }): void;
+    focusActiveSearchResult(options?: {
+        select?: boolean;
+        center?: boolean;
+        minZoom?: number;
+    }): void;
+    private refreshSearchIfNeeded;
+    private computeSearchMatches;
+    private getNodeSearchCandidates;
+    private extractBlockText;
+    private countOccurrences;
     toggleSnapToGrid(): void;
     toggleSmartGuides(): void;
     setGridSize(size: number): void;

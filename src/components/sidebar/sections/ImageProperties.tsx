@@ -6,6 +6,7 @@ import BorderControls from "../controls/BorderControls";
 import OpacitySlider from "../controls/OpacitySlider";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase } from "../styles";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface ImagePropertiesProps {
   engine: SpatialEngine;
@@ -14,6 +15,7 @@ interface ImagePropertiesProps {
 
 export default function ImageProperties({ engine, node }: ImagePropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [bgRemovalState, setBgRemovalState] = useState<"idle" | "loading" | "error">("idle");
   const update = useBatchUpdate<ImageNode["data"]>(engine, node);
 
@@ -32,7 +34,7 @@ export default function ImageProperties({ engine, node }: ImagePropertiesProps) 
 
       {/* Crop */}
       <div style={{ ...rowStyle, marginTop: 4 }}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Crop</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorCrop}</span>
         <button
           onClick={() => engine.requestImageCrop(node.id)}
           style={{
@@ -45,7 +47,7 @@ export default function ImageProperties({ engine, node }: ImagePropertiesProps) 
             borderRadius: theme.controlBorderRadius,
           }}
         >
-          Crop
+          {labels.inspectorCrop}
         </button>
         {hasCrop && (
           <button
@@ -60,14 +62,14 @@ export default function ImageProperties({ engine, node }: ImagePropertiesProps) 
               borderRadius: theme.controlBorderRadius,
             }}
           >
-            Reset
+            {labels.inspectorReset}
           </button>
         )}
       </div>
 
       {/* Background removal */}
       <div style={{ ...rowStyle, marginTop: 4 }}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Background</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorBackground}</span>
         <button
           onClick={async () => {
             if (bgRemovalState === "loading") return;
@@ -105,10 +107,10 @@ export default function ImageProperties({ engine, node }: ImagePropertiesProps) 
           }}
         >
           {bgRemovalState === "loading"
-            ? "Removing..."
+            ? labels.inspectorRemoving
             : bgRemovalState === "error"
-            ? "Failed"
-            : "Remove BG"}
+            ? labels.inspectorFailed
+            : labels.inspectorRemoveBg}
         </button>
       </div>
 

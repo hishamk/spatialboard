@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import { useSBTheme } from "./sidebar/ThemeContext";
+import { useSBI18n } from "./LocalizationContext";
 
 const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
@@ -86,6 +87,12 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <circle cx="12" cy="15" r="1.5" fill="currentColor" />
         </>
       )}
+      {name === "search" && (
+        <>
+          <circle cx="11" cy="11" r="6" {...sp} />
+          <path d="M16 16l5 5" {...sp} />
+        </>
+      )}
       {name === "home" && (
         <>
           <path d="M3 12l9-8 9 8" {...sp} fill="none" />
@@ -118,6 +125,7 @@ export default function BottomBar({
   onTogglePerfOverlay,
 }: BottomBarProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [zoom, setZoom] = useState(engine.viewport.zoom);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -181,7 +189,7 @@ export default function BottomBar({
       {/* Zoom controls */}
       <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
-          title="Zoom out"
+          title={labels.zoomOut}
           onClick={() => zoomOut(engine)}
           style={{ ...btn, width: 32, height: 32, color: theme.text }}
         >
@@ -189,7 +197,7 @@ export default function BottomBar({
         </button>
         <div style={sep} />
         <button
-          title="Reset zoom to 100%"
+          title={labels.resetZoom}
           onClick={() => {
             engine.viewport.zoom = 1;
             engine.pan(0, 0);
@@ -209,7 +217,7 @@ export default function BottomBar({
         </button>
         <div style={sep} />
         <button
-          title="Zoom in"
+          title={labels.zoomIn}
           onClick={() => zoomIn(engine)}
           style={{ ...btn, width: 32, height: 32, color: theme.text }}
         >
@@ -220,7 +228,7 @@ export default function BottomBar({
       {/* Fit to content + Origin view */}
       <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
-          title="Fit to content (Ctrl+0)"
+          title={labels.fitToContent}
           onClick={() => engine.fitToContent()}
           style={{ ...btn, width: 32, height: 32, color: theme.text }}
         >
@@ -228,7 +236,22 @@ export default function BottomBar({
         </button>
         <div style={sep} />
         <button
-          title={hasOriginView ? "Clear saved view" : "Save current view as origin"}
+          title={labels.canvasSearchOpen}
+          onClick={() => {
+            document.dispatchEvent(new CustomEvent("sb:search-open"));
+          }}
+          style={{
+            ...btn,
+            width: 32,
+            height: 32,
+            color: theme.textMuted,
+          }}
+        >
+          <Icon name="search" />
+        </button>
+        <div style={sep} />
+        <button
+          title={hasOriginView ? labels.clearOriginView : labels.saveOriginView}
           onClick={() => {
             if (hasOriginView) {
               engine.clearOriginView();
@@ -244,7 +267,7 @@ export default function BottomBar({
         </button>
         <div style={sep} />
         <button
-          title="Go to saved view"
+          title={labels.goToOriginView}
           onClick={() => { if (hasOriginView) engine.goToOriginView(); }}
           disabled={!hasOriginView}
           style={{ ...btn, width: 32, height: 32, color: hasOriginView ? theme.text : theme.textFaint }}
@@ -256,7 +279,7 @@ export default function BottomBar({
       {/* Present & Slides */}
       <div style={{ ...pill, overflow: "visible", background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
-          title="Present (frames as slides)"
+          title={labels.presentSlides}
           onClick={() => engine.enterPresentation()}
           style={{ ...btn, width: 32, height: 32, color: theme.text }}
         >
@@ -266,7 +289,7 @@ export default function BottomBar({
           <>
             <div style={sep} />
             <button
-              title="Toggle slides panel"
+              title={labels.toggleSlidesPanel}
               onClick={onToggleFramesPanel}
               style={{
                 ...btn,
@@ -306,7 +329,7 @@ export default function BottomBar({
           <>
             <div style={sep} />
             <button
-              title="Toggle performance overlay"
+              title={labels.togglePerformanceOverlay}
               onClick={onTogglePerfOverlay}
               style={{
                 ...btn,
@@ -324,7 +347,7 @@ export default function BottomBar({
       {/* Undo / Redo */}
       <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
-          title="Undo (Ctrl+Z)"
+          title={labels.undo}
           onClick={() => engine.undo()}
           disabled={!canUndo}
           style={{ ...btn, width: 32, height: 32, color: canUndo ? theme.text : theme.textFaint }}
@@ -333,7 +356,7 @@ export default function BottomBar({
         </button>
         <div style={sep} />
         <button
-          title="Redo (Ctrl+Shift+Z)"
+          title={labels.redo}
           onClick={() => engine.redo()}
           disabled={!canRedo}
           style={{ ...btn, width: 32, height: 32, color: canRedo ? theme.text : theme.textFaint }}

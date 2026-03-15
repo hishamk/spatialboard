@@ -6,6 +6,7 @@ import OpacitySlider from "../controls/OpacitySlider";
 import EdgeStyleIcon from "../controls/EdgeStyleIcon";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase, STICKY_PALETTES } from "../styles";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface StickyPropertiesProps {
   engine: SpatialEngine;
@@ -14,6 +15,7 @@ interface StickyPropertiesProps {
 
 export default function StickyProperties({ engine, node }: StickyPropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<StickyNoteNode["data"]>(engine, node);
 
   const { data } = node;
@@ -22,7 +24,7 @@ export default function StickyProperties({ engine, node }: StickyPropertiesProps
     <>
       {/* Color */}
       <PaletteColorPicker
-        label="Color"
+        label={labels.inspectorStroke}
         palettes={STICKY_PALETTES}
         value={data.color}
         onChange={(c) => { if (c) update({ color: c }); }}
@@ -30,7 +32,7 @@ export default function StickyProperties({ engine, node }: StickyPropertiesProps
 
       {/* Font size */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Size</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorSize}</span>
         {[12, 14, 16, 20, 24].map((s) => (
           <button
             key={s}
@@ -52,7 +54,7 @@ export default function StickyProperties({ engine, node }: StickyPropertiesProps
 
       {/* Edge style */}
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Edges</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorEdges}</span>
         {([
           { key: "sharp", label: "Sharp" },
           { key: "round", label: "Round" },

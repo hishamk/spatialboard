@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { nanoid } from "nanoid";
 import { SpatialEngine } from "../engine/SpatialEngine";
 import type { AlignGuide } from "../engine/SpatialEngine";
+import type { SpatialSearchState } from "../engine/SpatialEngine";
 import type {
   Viewport,
   SpatialNode,
@@ -57,6 +58,7 @@ import { isPointInShapeNode } from "../engine/spatial-index";
 import { exportBoard } from "../export/canvas-export";
 import { getPreset, getAspectRatio } from "./sidebar/devicePresets";
 import { spatialPerf } from "../perf/spatial-perf";
+import { useSBI18n } from "./LocalizationContext";
 
 /** Return black or white depending on which contrasts better with `hex`. */
 function contrastingTextColor(hex: string): string {
@@ -530,6 +532,7 @@ export default function SpatialCanvas({
   registry?: NodeTypeRegistry;
   dataFlow?: DataFlowEngine | null;
 }) {
+  const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   /** Get the ownerDocument of the canvas container (supports pop-out windows). */
   const ownerDoc = () => containerRef.current?.ownerDocument ?? document;
@@ -541,6 +544,10 @@ export default function SpatialCanvas({
   );
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(engine.activeGroupId);
+  const [searchState, setSearchState] = useState<SpatialSearchState>(() => engine.getSearchState());
+  const [searchTextRects, setSearchTextRects] = useState<
+    Array<{ x: number; y: number; w: number; h: number; active: boolean }>
+  >([]);
   const [gridActive, setGridActive] = useState(engine.snapToGrid);
   const [gridSize, setGridSize] = useState(engine.gridSize);
   const [smartGuidesActive, setSmartGuidesActive] = useState(engine.smartGuides);
@@ -757,7 +764,7 @@ export default function SpatialCanvas({
 
   const handleZoomToNode = useCallback(
     (nodeId: string) => engine.zoomToNode(nodeId),
-    [engine]
+    [engine, labels]
   );
 
   // Compute AABB of a node, accounting for rotation (axis-aligned box that fully contains the rotated rect)
@@ -1197,6 +1204,7 @@ export default function SpatialCanvas({
       setGridSize(engine.gridSize);
       setSmartGuidesActive(engine.smartGuides);
     };
+    const handleSearch = () => setSearchState(engine.getSearchState());
 
     engine.on("change", handleChange);
     engine.on("viewport", handleViewport);
@@ -1204,6 +1212,7 @@ export default function SpatialCanvas({
     engine.on("mode", handleMode);
     engine.on("background", handleBackground);
     engine.on("guides", handleGuides);
+    engine.on("search", handleSearch);
 
     const onGroupEnter = (groupId: string) => setActiveGroupId(groupId);
     const onGroupExit = () => setActiveGroupId(null);
@@ -1226,6 +1235,7 @@ export default function SpatialCanvas({
       engine.off("mode", handleMode);
       engine.off("background", handleBackground);
       engine.off("guides", handleGuides);
+      engine.off("search", handleSearch);
       engine.off("group:enter", onGroupEnter);
       engine.off("group:exit", onGroupExit);
       engine.off("lassoToggle", onLassoToggle);
@@ -1465,7 +1475,7 @@ export default function SpatialCanvas({
       sections.push({
         items: [
           {
-            label: "Cut",
+            label: labels.actionCut,
             shortcut: "Mod+X",
             disabled: !hasSel,
             action: () => {
@@ -1474,7 +1484,7 @@ export default function SpatialCanvas({
             },
           },
           {
-            label: "Copy",
+            label: labels.actionCopy,
             shortcut: "Mod+C",
             disabled: !hasSel,
             action: () => {
@@ -1483,7 +1493,7 @@ export default function SpatialCanvas({
             },
           },
           {
-            label: "Paste",
+            label: labels.actionPaste,
             shortcut: "Mod+V",
             disabled: false,
             action: () => {
@@ -1497,7 +1507,7 @@ export default function SpatialCanvas({
       sections.push({
         items: [
           {
-            label: "Duplicate",
+            label: labels.actionDuplicate,
             shortcut: "Mod+D",
             disabled: !hasSel,
             action: () => engine.duplicateSelected(),
@@ -1510,7 +1520,7 @@ export default function SpatialCanvas({
         sections.push({
           items: [
             {
-              label: "Add to Personal Library",
+              label: labels.actionAddToPersonalLibrary,
               action: () => {
                 const selectedNodes = selIds
                   .map((id) => engine.getNode(id))
@@ -1538,14 +1548,14 @@ export default function SpatialCanvas({
         const items: ContextMenuSection["items"] = [];
         if (selIds.length >= 2) {
           items.push({
-            label: "Group selection",
+            label: labels.actionGroupSelection,
             shortcut: "Mod+G",
             action: () => engine.groupSelected(),
           });
         }
         if (engine.selectionHasGroup()) {
           items.push({
-            label: "Ungroup selection",
+            label: labels.actionUngroupSelection,
             shortcut: "Mod+Shift+G",
             action: () => engine.ungroupSelected(),
           });
@@ -1563,12 +1573,12 @@ export default function SpatialCanvas({
           sections.push({
             items: [
               {
-                label: "Flip horizontal",
+                label: labels.actionFlipHorizontal,
                 shortcut: "Shift+H",
                 action: () => engine.flipSelectedHorizontal(),
               },
               {
-                label: "Flip vertical",
+                label: labels.actionFlipVertical,
                 shortcut: "Shift+V",
                 action: () => engine.flipSelectedVertical(),
               },
@@ -1582,22 +1592,22 @@ export default function SpatialCanvas({
         sections.push({
           items: [
             {
-              label: "Bring forward",
+              label: labels.actionBringForward,
               shortcut: "Mod+]",
               action: () => engine.bringForward(selIds),
             },
             {
-              label: "Send backward",
+              label: labels.actionSendBackward,
               shortcut: "Mod+[",
               action: () => engine.sendBackward(selIds),
             },
             {
-              label: "Bring to front",
+              label: labels.actionBringToFront,
               shortcut: "Mod+Alt+]",
               action: () => engine.bringToFront(selIds),
             },
             {
-              label: "Send to back",
+              label: labels.actionSendToBack,
               shortcut: "Mod+Alt+[",
               action: () => engine.sendToBack(selIds),
             },
@@ -1612,7 +1622,7 @@ export default function SpatialCanvas({
         const items: ContextMenuSection["items"] = [];
         if (anyUnlocked) {
           items.push({
-            label: "Lock",
+            label: labels.actionLock,
             action: () => {
               for (const id of selIds) engine.updateNode(id, { locked: true });
             },
@@ -1620,7 +1630,7 @@ export default function SpatialCanvas({
         }
         if (anyLocked) {
           items.push({
-            label: "Unlock",
+            label: labels.actionUnlock,
             action: () => {
               for (const id of selIds) engine.updateNode(id, { locked: undefined });
             },
@@ -1634,7 +1644,7 @@ export default function SpatialCanvas({
         sections.push({
           items: [
             {
-              label: "Delete",
+              label: labels.actionDelete,
               shortcut: "Delete",
               danger: true,
               action: () => engine.deleteSelected(),
@@ -1648,7 +1658,7 @@ export default function SpatialCanvas({
       sections.push({
         items: [
           {
-            label: "Toggle Grid",
+            label: labels.actionToggleGrid,
             checked: engine.snapToGrid,
             action: () => {
               engine.toggleSnapToGrid();
@@ -1656,7 +1666,7 @@ export default function SpatialCanvas({
             },
           },
           {
-            label: "Smart Guides",
+            label: labels.actionSmartGuides,
             checked: engine.smartGuides,
             action: () => {
               engine.toggleSmartGuides();
@@ -1677,11 +1687,11 @@ export default function SpatialCanvas({
       sections.push({
         items: [
           {
-            label: "Export as PNG",
+            label: labels.actionExportAsPng,
             action: () => exportBoard(engine, { format: "png" }),
           },
           {
-            label: "Export as SVG",
+            label: labels.actionExportAsSvg,
             action: () => exportBoard(engine, { format: "svg" }),
           },
         ],
@@ -2700,7 +2710,7 @@ export default function SpatialCanvas({
             h,
             z: engine.nextZ(),
             data: {
-              label: "Frame",
+              label: labels.typeFrame,
               backgroundColor: "rgba(0, 0, 0, 0.02)",
               borderColor: "#1e1e2e",
               borderWidth: 1,
@@ -4150,6 +4160,82 @@ export default function SpatialCanvas({
   );
 
   const viewportTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
+  const activeSearchNodeId =
+    searchState.activeIndex >= 0 ? searchState.matches[searchState.activeIndex]?.nodeId ?? null : null;
+  const searchHighlightNodeIds = useMemo(() => {
+    if (!searchState.query || searchState.matches.length === 0) return new Set<string>();
+    const ids = new Set<string>();
+    for (const match of searchState.matches) {
+      if (match.nodeType !== "edge") ids.add(match.nodeId);
+    }
+    return ids;
+  }, [searchState]);
+
+  useLayoutEffect(() => {
+    const root = containerRef.current;
+    if (!root || !searchState.query || searchState.matches.length === 0) {
+      setSearchTextRects([]);
+      return;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const queryLower = searchState.query.toLocaleLowerCase();
+    const nodeIds = Array.from(new Set(searchState.matches.map((m) => m.nodeId)));
+    const nextRects: Array<{ x: number; y: number; w: number; h: number; active: boolean }> = [];
+    const MAX_RECTS = 900;
+
+    for (const nodeId of nodeIds) {
+      if (nextRects.length >= MAX_RECTS) break;
+      const escapedNodeId = nodeId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      const nodeRoot = root.querySelector(`[data-node-id="${escapedNodeId}"]`) as HTMLElement | null;
+      if (!nodeRoot) continue;
+
+      const walker = document.createTreeWalker(
+        nodeRoot,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (parent.closest("script,style,textarea,input,[contenteditable='true'],[contenteditable=''],[data-sb-search-ignore='true']")) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        },
+      );
+
+      let current = walker.nextNode();
+      while (current && nextRects.length < MAX_RECTS) {
+        const textNode = current as Text;
+        const text = textNode.nodeValue ?? "";
+        const lower = text.toLocaleLowerCase();
+        let start = 0;
+        while (start <= lower.length - queryLower.length && nextRects.length < MAX_RECTS) {
+          const idx = lower.indexOf(queryLower, start);
+          if (idx < 0) break;
+          const range = document.createRange();
+          range.setStart(textNode, idx);
+          range.setEnd(textNode, idx + queryLower.length);
+          const rectList = range.getClientRects();
+          for (const r of rectList) {
+            if (r.width <= 0 || r.height <= 0) continue;
+            nextRects.push({
+              x: r.left - rootRect.left,
+              y: r.top - rootRect.top,
+              w: r.width,
+              h: r.height,
+              active: nodeId === activeSearchNodeId,
+            });
+          }
+          start = idx + queryLower.length;
+        }
+        current = walker.nextNode();
+      }
+    }
+
+    setSearchTextRects(nextRects);
+  }, [searchState, nodes, viewport, activeSearchNodeId]);
 
   return (
     <div
@@ -4367,7 +4453,7 @@ export default function SpatialCanvas({
                       <input
                         autoFocus
                         defaultValue={frameNode.data.label ?? ""}
-                        placeholder="Frame label..."
+                        placeholder={labels.frameLabelPlaceholder}
                         onBlur={(e) => {
                           const val = e.currentTarget.value.trim();
                           engine.updateNodeWithHistory(node.id, {
@@ -4451,6 +4537,31 @@ export default function SpatialCanvas({
               );
             }
             return el;
+          })}
+        {searchHighlightNodeIds.size > 0 &&
+          Array.from(searchHighlightNodeIds).map((id) => {
+            const node = engine.getNode(id);
+            if (!node || node.type === "edge") return null;
+            const h = node.h === "auto" ? (measuredHeights[node.id] ?? 100) : (node.h as number);
+            const isActive = activeSearchNodeId === id;
+            return (
+              <div
+                key={`search-highlight-${id}`}
+                style={{
+                  position: "absolute",
+                  left: node.x - 5,
+                  top: node.y - 5,
+                  width: node.w + 10,
+                  height: h + 10,
+                  borderRadius: 10,
+                  border: `2px solid ${isActive ? "#f59e0b" : "#60a5fa"}`,
+                  boxShadow: isActive ? "0 0 0 3px rgba(245, 158, 11, 0.25)" : "0 0 0 2px rgba(96, 165, 250, 0.18)",
+                  pointerEvents: "none",
+                  transform: node.rotation ? `rotate(${node.rotation}deg)` : undefined,
+                  transformOrigin: "center center",
+                }}
+              />
+            );
           })}
 
         {/* Hover overlay removed — precise hit-testing makes visual hover feedback unnecessary */}
@@ -4789,6 +4900,30 @@ export default function SpatialCanvas({
           </svg>
         );
       })()}
+
+      {/* Word-level search highlights (screen-space yellow boxes) */}
+      {searchTextRects.length > 0 && (
+        <div
+          data-sb-overlay
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+        >
+          {searchTextRects.map((r, i) => (
+            <div
+              key={`search-text-rect-${i}`}
+              style={{
+                position: "absolute",
+                left: r.x,
+                top: r.y,
+                width: r.w,
+                height: r.h,
+                borderRadius: 3,
+                background: r.active ? "rgba(250, 204, 21, 0.62)" : "rgba(250, 204, 21, 0.44)",
+                boxShadow: r.active ? "0 0 0 1px rgba(202, 138, 4, 0.85)" : "0 0 0 1px rgba(202, 138, 4, 0.45)",
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Right-click context menu */}
       {contextMenu && (

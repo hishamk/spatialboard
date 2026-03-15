@@ -2,6 +2,7 @@ import { SpatialEngine } from "../engine/SpatialEngine";
 import type { DebugBoardEntry } from "./DebugPanel";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
+import { type SpatialBoardDirection, type SpatialBoardLocalization } from "./LocalizationContext";
 export interface SpatialBoardProps {
     /** Node type definitions. Defaults to all built-in types. */
     nodeTypes?: NodeTypeDefinition<any>[];
@@ -27,5 +28,9 @@ export interface SpatialBoardProps {
     onPresentationChange?: (presenting: boolean) => void;
     /** Base URL for GIF search API proxy (e.g. "/api/v1/gifs"). */
     gifApiBaseUrl?: string;
+    /** Layout direction for board chrome (sidebar/panels): ltr, rtl, or auto (uses document direction). */
+    direction?: SpatialBoardDirection;
+    /** Override UI labels for board chrome. */
+    localization?: Partial<SpatialBoardLocalization>;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

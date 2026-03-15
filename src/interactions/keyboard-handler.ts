@@ -416,6 +416,13 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
 
     // Paste is fully handled by the paste event listener above.
 
+    // Open in-canvas search
+    if (mod && e.key.toLowerCase() === "f") {
+      e.preventDefault();
+      currentDoc.dispatchEvent(new CustomEvent("sb:search-open"));
+      return;
+    }
+
     // Duplicate
     if (mod && e.key === "d") {
       e.preventDefault();

@@ -15,10 +15,17 @@ import { loadGoogleFonts } from "../fonts";
 import { SBThemeContext, DEFAULT_SB_THEME } from "./sidebar/ThemeContext";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./BottomBar";
+import CanvasSearchBar from "./CanvasSearchBar";
 import FramesPanel from "./FramesPanel";
 import PresentationOverlay from "./PresentationOverlay";
 import PerformanceOverlay from "./PerformanceOverlay";
 import { spatialPerf } from "../perf/spatial-perf";
+import {
+  SBLocalizationContext,
+  useSBLocalizationValue,
+  type SpatialBoardDirection,
+  type SpatialBoardLocalization,
+} from "./LocalizationContext";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -46,6 +53,10 @@ export interface SpatialBoardProps {
   onPresentationChange?: (presenting: boolean) => void;
   /** Base URL for GIF search API proxy (e.g. "/api/v1/gifs"). */
   gifApiBaseUrl?: string;
+  /** Layout direction for board chrome (sidebar/panels): ltr, rtl, or auto (uses document direction). */
+  direction?: SpatialBoardDirection;
+  /** Override UI labels for board chrome. */
+  localization?: Partial<SpatialBoardLocalization>;
 }
 
 export default function SpatialBoard({
@@ -60,6 +71,8 @@ export default function SpatialBoard({
   theme,
   onPresentationChange,
   gifApiBaseUrl,
+  direction,
+  localization,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -117,6 +130,7 @@ export default function SpatialBoard({
     () => (theme ? { ...DEFAULT_SB_THEME, ...theme } : DEFAULT_SB_THEME),
     [theme],
   );
+  const localizationValue = useSBLocalizationValue(direction, localization);
 
   const [presenting, setPresenting] = useState(false);
   const [framesPanelOpen, setFramesPanelOpen] = useState(false);
@@ -137,9 +151,11 @@ export default function SpatialBoard({
   }, [engine, onPresentationChange]);
 
   return (
+    <SBLocalizationContext.Provider value={localizationValue}>
     <SBThemeContext.Provider value={resolvedTheme}>
     <div
       ref={boardRef}
+      dir={localizationValue.dir}
       style={{
         width: "100%",
         height: "100%",
@@ -152,14 +168,15 @@ export default function SpatialBoard({
       <div
         style={{
           position: "absolute",
-          left: showSidebar && !presenting ? TOOL_STRIP_WIDTH : 0,
+          left: showSidebar && !presenting && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           top: 0,
-          right: 0,
+          right: showSidebar && !presenting && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           bottom: 0,
           overflow: "hidden",
         }}
       >
         <SpatialCanvas engine={engine} schema={schema} registry={registry} dataFlow={dataFlow} />
+        {!presenting && <CanvasSearchBar engine={engine} />}
         {!presenting && (
           <BottomBar
             engine={engine}
@@ -181,5 +198,6 @@ export default function SpatialBoard({
       </div>
     </div>
     </SBThemeContext.Provider>
+    </SBLocalizationContext.Provider>
   );
 }

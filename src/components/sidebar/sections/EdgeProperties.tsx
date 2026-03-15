@@ -7,6 +7,7 @@ import WidthPicker from "../controls/WidthPicker";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase, STROKE_PALETTES, ROUGHNESS_LEVELS, WIDTHS_EDGE } from "../styles";
+import { useSBI18n } from "../../LocalizationContext";
 
 interface EdgePropertiesProps {
   engine: SpatialEngine;
@@ -15,37 +16,38 @@ interface EdgePropertiesProps {
 
 export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<EdgeNode["data"]>(engine, node);
 
   const { data } = node;
 
   return (
     <>
-      <PropertySection title="Line" persistKey="edge.line">
+      <PropertySection title={labels.edgeLineSection} persistKey="edge.line">
         <PaletteColorPicker
-          label="Color"
+          label={labels.edgeColor}
           palettes={STROKE_PALETTES}
           value={data.color}
           onChange={(c) => update({ color: c! })}
         />
 
         <StrokeStylePicker
-          label="Style"
+          label={labels.inspectorStyle}
           value={data.style}
           onChange={(s) => update({ style: s })}
         />
 
         <WidthPicker
-          label="Width"
+          label={labels.inspectorWidth}
           widths={WIDTHS_EDGE}
           value={data.strokeWidth}
           onChange={(w) => update({ strokeWidth: w })}
         />
       </PropertySection>
 
-      <PropertySection title="Arrows" persistKey="edge.arrows">
+      <PropertySection title={labels.edgeArrowsSection} persistKey="edge.arrows">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Head</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeHead}</span>
           {(["none", "arrow", "filled", "dot"] as const).map((v) => (
             <button
               key={v}
@@ -60,13 +62,13 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
                 borderRadius: theme.controlBorderRadius,
               }}
             >
-              {v === "none" ? "None" : v === "arrow" ? "\u25B7" : v === "filled" ? "\u25B6" : "\u25CF"}
+              {v === "none" ? labels.inspectorNone : v === "arrow" ? "\u25B7" : v === "filled" ? "\u25B6" : "\u25CF"}
             </button>
           ))}
         </div>
         {(data.arrowHead ?? "none") !== "none" && (
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Head size</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeHeadSize}</span>
             <input
               type="range"
               min={4}
@@ -83,7 +85,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         )}
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Tail</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeTail}</span>
           {(["none", "arrow", "filled", "dot"] as const).map((v) => (
             <button
               key={v}
@@ -98,13 +100,13 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
                 borderRadius: theme.controlBorderRadius,
               }}
             >
-              {v === "none" ? "None" : v === "arrow" ? "\u25C1" : v === "filled" ? "\u25C0" : "\u25CF"}
+              {v === "none" ? labels.inspectorNone : v === "arrow" ? "\u25C1" : v === "filled" ? "\u25C0" : "\u25CF"}
             </button>
           ))}
         </div>
         {(data.arrowTail ?? "none") !== "none" && (
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Tail size</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeTailSize}</span>
             <input
               type="range"
               min={4}
@@ -121,15 +123,15 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         )}
       </PropertySection>
 
-      <PropertySection title="Path & Motion" defaultOpen={false} persistKey="edge.path-motion">
+      <PropertySection title={labels.edgePathMotionSection} defaultOpen={false} persistKey="edge.path-motion">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Path</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgePath}</span>
           {(
             [
-              { key: "bezier", label: "Bezier" },
-              { key: "straight", label: "Straight" },
-              { key: "smoothstep", label: "Smooth" },
-              { key: "step", label: "Step" },
+              { key: "bezier", label: labels.edgeBezier },
+              { key: "straight", label: labels.edgeStraight },
+              { key: "smoothstep", label: labels.edgeSmooth },
+              { key: "step", label: labels.edgeStep },
             ] as const
           ).map((t) => (
             <button
@@ -152,7 +154,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         </div>
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Animate</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeAnimate}</span>
           <button
             onClick={() => update({ animated: !data.animated })}
             style={{
@@ -165,12 +167,12 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
               borderRadius: theme.controlBorderRadius,
             }}
           >
-            {data.animated ? "On" : "Off"}
+            {data.animated ? labels.inspectorOn : labels.inspectorOff}
           </button>
         </div>
         {data.animated && (
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Direction</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeDirection}</span>
             {(["forward", "reverse", "both", "bop"] as const).map((v) => (
               <button
                 key={v}
@@ -192,36 +194,44 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         )}
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Roughness</span>
-          {ROUGHNESS_LEVELS.map((r) => (
-            <button
-              key={r.value}
-              title={r.label}
-              onClick={() => update({ roughness: r.value })}
-              style={{
-                ...btnBase,
-                height: 28,
-                padding: "0 8px",
-                background: (data.roughness ?? 0) === r.value ? theme.controlBgActive : theme.controlBg,
-                color: theme.text,
-                fontSize: 9,
-                borderRadius: theme.controlBorderRadius,
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>
+          {ROUGHNESS_LEVELS.map((r) => {
+            const roughnessLabel =
+              r.value === 0
+                ? labels.roughnessArchitect
+                : r.value === 1
+                  ? labels.roughnessArtist
+                  : labels.roughnessCartoonist;
+            return (
+              <button
+                key={r.value}
+                title={roughnessLabel}
+                onClick={() => update({ roughness: r.value })}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: (data.roughness ?? 0) === r.value ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 9,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {roughnessLabel}
+              </button>
+            );
+          })}
         </div>
       </PropertySection>
 
-      <PropertySection title="Label" defaultOpen={false} persistKey="edge.label">
+      <PropertySection title={labels.inspectorLabel} defaultOpen={false} persistKey="edge.label">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Text</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeText}</span>
           <input
             type="text"
             value={data.label ?? ""}
             onChange={(e) => update({ label: e.target.value || undefined })}
-            placeholder="Edge label..."
+            placeholder={labels.edgeLabelPlaceholder}
             style={{
               flex: 1,
               background: theme.controlBg,

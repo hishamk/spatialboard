@@ -23,6 +23,7 @@ import {
   removePersonalItem,
   type PersonalLibraryItem,
 } from "../../store/personal-library";
+import { useSBI18n } from "../LocalizationContext";
 
 // ============================================================================
 // Placement helper — mirrors engine.applyTemplate logic
@@ -221,6 +222,7 @@ function DraggableItemButton({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   theme: any;
 }) {
+  const { labels } = useSBI18n();
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
       e.dataTransfer.setData(
@@ -234,7 +236,7 @@ function DraggableItemButton({
 
   return (
     <button
-      title={item.name || "Untitled"}
+      title={item.name || labels.librariesUntitled}
       onClick={onClick}
       draggable
       onDragStart={handleDragStart}
@@ -288,6 +290,7 @@ function DraggablePersonalItemButton({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   theme: any;
 }) {
+  const { labels } = useSBI18n();
   const [hovered, setHovered] = useState(false);
 
   const handleDragStart = useCallback(
@@ -329,7 +332,7 @@ function DraggablePersonalItemButton({
       </button>
       {hovered && (
         <button
-          title="Remove from Personal Library"
+          title={labels.librariesRemoveFromPersonal}
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
@@ -379,6 +382,7 @@ export default function LibraryPanel({
   onBrowseDirectory: () => void;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [libraries, setLibraries] = useState<InstalledLibrary[]>([]);
@@ -520,12 +524,12 @@ export default function LibraryPanel({
             marginBottom: 8,
           }}
         >
-          Libraries
+          {labels.librariesTitle}
         </div>
         {/* Search */}
         <input
           type="text"
-          placeholder="Search library..."
+          placeholder={labels.librariesSearchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{
@@ -562,7 +566,7 @@ export default function LibraryPanel({
                 padding: 20,
               }}
             >
-              No matching items
+              {labels.librariesNoMatchingItems}
             </div>
           ) : (
             <div
@@ -614,11 +618,11 @@ export default function LibraryPanel({
                   padding: "20px 10px",
                 }}
               >
-                No libraries installed.
+                {labels.librariesNoLibrariesInstalled}
                 <br />
-                Import an .excalidrawlib file
+                {labels.librariesImportHint}
                 <br />
-                or browse the community directory.
+                {labels.librariesBrowseHint}
               </div>
             ) : (
               libraries.map((lib) => {
@@ -664,7 +668,7 @@ export default function LibraryPanel({
             fontWeight: 500,
           }}
         >
-          Import file
+          {labels.librariesImportFile}
         </button>
         <button
           onClick={onBrowseDirectory}
@@ -680,7 +684,7 @@ export default function LibraryPanel({
             fontWeight: 500,
           }}
         >
-          Browse libraries
+          {labels.librariesBrowseLibraries}
         </button>
       </div>
       <input
@@ -715,6 +719,7 @@ function LibrarySection({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   theme: any;
 }) {
+  const { labels } = useSBI18n();
   const [items, setItems] = useState<ExcalidrawLibraryItem[] | null>(null);
 
   // Load items lazily on expand
@@ -778,7 +783,7 @@ function LibrarySection({
           {lib.itemCount}
         </span>
         <button
-          title="Uninstall library"
+          title={labels.librariesUninstall}
           onClick={(e) => {
             e.stopPropagation();
             onUninstall();
@@ -837,6 +842,7 @@ function PersonalLibrarySection({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   theme: any;
 }) {
+  const { labels } = useSBI18n();
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -879,7 +885,7 @@ function PersonalLibrarySection({
             letterSpacing: "0.03em",
           }}
         >
-          Personal
+          {labels.librariesPersonal}
         </span>
         <span
           style={{

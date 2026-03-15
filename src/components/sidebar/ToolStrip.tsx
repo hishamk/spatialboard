@@ -11,18 +11,19 @@ import LibraryPanel from "./LibraryPanel";
 import LibraryDirectory from "./LibraryDirectory";
 import GifSearchPanel from "./GifSearchPanel";
 import MermaidPanel from "./MermaidPanel";
+import { useSBI18n } from "../LocalizationContext";
 
-const MODES: { key: Mode; label: string; shortcut: string; num: string }[] = [
-  { key: "select", label: "Select", shortcut: "S", num: "" },
-  { key: "hand", label: "Hand", shortcut: "P", num: "" },
-  { key: "draw", label: "Draw", shortcut: "D", num: "" },
-  { key: "shape", label: "Shape", shortcut: "G", num: "" },
-  { key: "text", label: "Text", shortcut: "T", num: "" },
-  { key: "note", label: "Note", shortcut: "B", num: "" },
-  { key: "sticky", label: "Sticky", shortcut: "Y", num: "" },
-  { key: "frame", label: "Frame", shortcut: "F", num: "" },
-  { key: "erase", label: "Eraser", shortcut: "E", num: "" },
-  { key: "laser", label: "Laser", shortcut: "Z", num: "" },
+const MODE_KEYS: { key: Mode; shortcut: string; num: string }[] = [
+  { key: "select", shortcut: "S", num: "" },
+  { key: "hand", shortcut: "P", num: "" },
+  { key: "draw", shortcut: "D", num: "" },
+  { key: "shape", shortcut: "G", num: "" },
+  { key: "text", shortcut: "T", num: "" },
+  { key: "note", shortcut: "B", num: "" },
+  { key: "sticky", shortcut: "Y", num: "" },
+  { key: "frame", shortcut: "F", num: "" },
+  { key: "erase", shortcut: "E", num: "" },
+  { key: "laser", shortcut: "Z", num: "" },
 ];
 
 const btnBase: React.CSSProperties = {
@@ -41,7 +42,7 @@ const sp = {
   strokeLinejoin: "round" as const,
 };
 
-function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
+function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; size?: number; textGlyph?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {name === "select" && (
@@ -57,10 +58,17 @@ function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
         <rect x="4" y="4" width="16" height="16" rx="2" {...sp} />
       )}
       {name === "text" && (
-        <>
-          <path d="M7 4h10" {...sp} />
-          <path d="M12 4v16" {...sp} />
-        </>
+        <text
+          x="12"
+          y="16"
+          textAnchor="middle"
+          fontSize="16"
+          fontWeight="700"
+          fill="currentColor"
+          stroke="none"
+        >
+          {textGlyph}
+        </text>
       )}
       {name === "note" && (
         <>
@@ -166,12 +174,6 @@ function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
   );
 }
 
-const GROUP_LABELS: Record<PaperGroup, string> = {
-  light: "Light",
-  dark: "Dark",
-  textured: "Textured",
-};
-
 function PaperPicker({
   engine,
   background,
@@ -180,7 +182,23 @@ function PaperPicker({
   background: BoardBackground;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [open, setOpen] = useState(false);
+  const groupLabels: Record<PaperGroup, string> = {
+    light: labels.paperGroupLight,
+    dark: labels.paperGroupDark,
+    textured: labels.paperGroupTextured,
+  };
+  const paperLabelByKey: Record<string, string> = {
+    "plain-white": labels.paperWhite,
+    "dot-grid": labels.paperCream,
+    engineering: labels.paperWarm,
+    blueprint: labels.paperBlueprint,
+    "dark-grid": labels.paperNight,
+    "japanese-stationery": labels.paperJapaneseStationery,
+    kraft: labels.paperKraftPaper,
+  };
+
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -241,7 +259,7 @@ function PaperPicker({
                       padding: "4px 6px 2px",
                     }}
                   >
-                    {GROUP_LABELS[group]}
+                    {groupLabels[group]}
                   </div>
                   {items.map((paper) => (
                     <button
@@ -275,7 +293,7 @@ function PaperPicker({
                           flexShrink: 0,
                         }}
                       />
-                      {paper.label}
+                      {paperLabelByKey[paper.key] ?? paper.label}
                     </button>
                   ))}
                 </div>
@@ -291,7 +309,7 @@ function PaperPicker({
     <>
       <button
         ref={triggerRef}
-        title="Paper type"
+        title={labels.paperType}
         onClick={() => setOpen((v) => !v)}
         style={{
           ...btnBase,
@@ -324,6 +342,7 @@ function PaperPicker({
 
 function TemplatePicker({ engine }: { engine: SpatialEngine }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -375,7 +394,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
                   padding: "4px 6px 2px",
                 }}
               >
-                Templates
+                {labels.templatesTitle}
               </div>
               {TEMPLATES.map((t) => (
                 <button
@@ -424,7 +443,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
     <>
       <button
         ref={triggerRef}
-        title="Templates"
+        title={labels.templatesTitle}
         onClick={() => setOpen((v) => !v)}
         style={{
           ...btnBase,
@@ -444,6 +463,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
 
 function LibraryPicker({ engine }: { engine: SpatialEngine }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [open, setOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -468,7 +488,7 @@ function LibraryPicker({ engine }: { engine: SpatialEngine }) {
     <>
       <button
         ref={triggerRef}
-        title="Libraries"
+        title={labels.librariesTitle}
         onClick={handleOpen}
         style={{
           ...btnBase,
@@ -509,6 +529,7 @@ function LibraryPicker({ engine }: { engine: SpatialEngine }) {
 
 function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
@@ -528,7 +549,7 @@ function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string
     <>
       <button
         ref={triggerRef}
-        title="GIF Search"
+        title={labels.gifSearchTitle}
         onClick={handleOpen}
         style={{
           ...btnBase,
@@ -554,6 +575,7 @@ function GifPicker({ engine, baseUrl }: { engine: SpatialEngine; baseUrl: string
 
 function MermaidPicker({ engine }: { engine: SpatialEngine }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
@@ -573,7 +595,7 @@ function MermaidPicker({ engine }: { engine: SpatialEngine }) {
     <>
       <button
         ref={triggerRef}
-        title="Mermaid Sketch"
+        title={labels.mermaidSketchTitle}
         onClick={handleOpen}
         style={{
           ...btnBase,
@@ -598,6 +620,7 @@ function MermaidPicker({ engine }: { engine: SpatialEngine }) {
 
 export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEngine; gifApiBaseUrl?: string }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [background, setBackground] = useState<BoardBackground>(engine.boardBackground);
   const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
@@ -616,6 +639,21 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
     };
   }, [engine]);
 
+  const modes = MODE_KEYS.map((m) => ({
+    ...m,
+    label:
+      m.key === "select" ? labels.toolSelect :
+      m.key === "hand" ? labels.toolHand :
+      m.key === "draw" ? labels.toolDraw :
+      m.key === "shape" ? labels.toolShape :
+      m.key === "text" ? labels.toolText :
+      m.key === "note" ? labels.toolNote :
+      m.key === "sticky" ? labels.toolSticky :
+      m.key === "frame" ? labels.toolFrame :
+      m.key === "erase" ? labels.toolEraser :
+      labels.toolLaser,
+  }));
+
   return (
     <div
       data-sb-toolbar
@@ -633,7 +671,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
       }}
     >
       {/* Mode buttons */}
-      {MODES.map((m) => {
+      {modes.map((m) => {
         // When lasso is active, don't highlight the select button
         const isActive = mode === m.key && !(m.key === "select" && lassoActive);
         return (
@@ -657,7 +695,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
             position: "relative",
           }}
         >
-          <ToolIcon name={m.key} />
+          <ToolIcon name={m.key} textGlyph={labels.toolTextGlyph} />
           <span
             style={{
               position: "absolute",
@@ -680,7 +718,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
 
       {/* Lasso select toggle */}
       <button
-        title="Lasso Select (L)"
+        title={`${labels.toolLassoSelect} (L)`}
         onClick={() => {
           if (lassoActive) {
             // Turning lasso off — go back to normal select

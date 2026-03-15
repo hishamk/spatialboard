@@ -5,6 +5,7 @@ import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { ImageNode } from "../../engine/types";
 import { useSBTheme } from "./ThemeContext";
 import { searchGifs, trendingGifs, type KlipyItem } from "../../utils/klipy";
+import { useSBI18n } from "../LocalizationContext";
 
 /** MIME type for drag-and-drop of GIF items */
 export const GIF_ITEM_MIME = "application/x-spatialboard-gif-item";
@@ -53,6 +54,7 @@ export default function GifSearchPanel({
   baseUrl: string;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -190,11 +192,11 @@ export default function GifSearchPanel({
             marginBottom: 8,
           }}
         >
-          GIFs
+          {labels.gifPanelTitle}
         </div>
         <input
           type="text"
-          placeholder="Search KLIPY"
+          placeholder={labels.gifSearchPlaceholder}
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           style={{
@@ -232,7 +234,7 @@ export default function GifSearchPanel({
               padding: 20,
             }}
           >
-            {query.trim() ? "No results" : "Loading..."}
+            {query.trim() ? labels.gifNoResults : labels.gifLoading}
           </div>
         ) : (
           <div
@@ -262,7 +264,7 @@ export default function GifSearchPanel({
               padding: 12,
             }}
           >
-            Loading...
+            {labels.gifLoading}
           </div>
         )}
       </div>
@@ -278,7 +280,7 @@ export default function GifSearchPanel({
           flexShrink: 0,
         }}
       >
-        Powered by KLIPY
+        {labels.gifPoweredBy}
       </div>
     </div>,
     document.body,

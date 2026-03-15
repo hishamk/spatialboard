@@ -7,6 +7,7 @@ import OpacitySlider from "../controls/OpacitySlider";
 import FontPicker from "../../FontPicker";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
+import { useSBI18n } from "../../LocalizationContext";
 import {
   rowStyle,
   labelStyle,
@@ -24,15 +25,16 @@ interface TextPropertiesProps {
 
 export default function TextProperties({ engine, node, fontsInScene }: TextPropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<TextNode["data"]>(engine, node);
 
   const { data } = node;
 
   return (
     <>
-      <PropertySection title="Typography" persistKey="text.typography">
+      <PropertySection title={labels.inspectorTypography} persistKey="text.typography">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Font</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFont}</span>
           <FontPicker
             value={data.fontFamily}
             onChange={(f: string) => update({ fontFamily: f })}
@@ -41,7 +43,7 @@ export default function TextProperties({ engine, node, fontsInScene }: TextPrope
         </div>
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Size</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorSize}</span>
           {FONT_SIZES.map((s) => (
             <button
               key={s}
@@ -62,7 +64,7 @@ export default function TextProperties({ engine, node, fontsInScene }: TextPrope
         </div>
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Align</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorAlign}</span>
           {TEXT_ALIGNS.map((a) => (
             <button
               key={a.key}
@@ -84,9 +86,9 @@ export default function TextProperties({ engine, node, fontsInScene }: TextPrope
         </div>
       </PropertySection>
 
-      <PropertySection title="Appearance" persistKey="text.appearance">
+      <PropertySection title={labels.inspectorAppearance} persistKey="text.appearance">
         <PaletteColorPicker
-          label="Color"
+          label={labels.inspectorStroke}
           palettes={STROKE_PALETTES}
           value={data.color}
           onChange={(c) => update({ color: c! })}

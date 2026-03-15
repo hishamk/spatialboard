@@ -6,6 +6,7 @@ import {
   installFromUrl,
   getInstalled,
 } from "../../excalidraw/library-store";
+import { useSBI18n } from "../LocalizationContext";
 
 const DIRECTORY_URL = "https://libraries.excalidraw.com/libraries.json";
 const BASE_URL = "https://libraries.excalidraw.com/libraries";
@@ -18,6 +19,7 @@ export default function LibraryDirectory({
   onInstalled: () => void;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [entries, setEntries] = useState<ExcalidrawDirectoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +142,7 @@ export default function LibraryDirectory({
                 color: theme.text,
               }}
             >
-              Excalidraw Libraries
+              {labels.libraryDirectoryTitle}
             </span>
             <button
               onClick={onClose}
@@ -159,7 +161,7 @@ export default function LibraryDirectory({
           </div>
           <input
             type="text"
-            placeholder="Search libraries..."
+            placeholder={labels.libraryDirectorySearchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -194,7 +196,7 @@ export default function LibraryDirectory({
                 fontSize: 12,
               }}
             >
-              Loading libraries...
+              {labels.libraryDirectoryLoading}
             </div>
           )}
           {error && (
@@ -206,7 +208,7 @@ export default function LibraryDirectory({
                 fontSize: 12,
               }}
             >
-              Failed to load directory: {error}
+              {labels.libraryDirectoryFailedPrefix}: {error}
             </div>
           )}
           {!loading && !error && filtered.length === 0 && (
@@ -218,7 +220,7 @@ export default function LibraryDirectory({
                 fontSize: 12,
               }}
             >
-              No libraries match your search.
+              {labels.libraryDirectoryNoMatches}
             </div>
           )}
           {filtered.map((entry, idx) => {
@@ -250,7 +252,7 @@ export default function LibraryDirectory({
             flexShrink: 0,
           }}
         >
-          {filtered.length} libraries • Powered by Excalidraw Libraries
+          {filtered.length} {labels.libraryDirectoryLibrariesCountSuffix} • {labels.libraryDirectoryPoweredBy}
         </div>
       </div>
     </div>,
@@ -272,6 +274,7 @@ function DirectoryCard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   theme: any;
 }) {
+  const { labels } = useSBI18n();
   const previewUrl = entry.preview
     ? `${BASE_URL}/${entry.preview}`
     : null;
@@ -324,7 +327,7 @@ function DirectoryCard({
               marginBottom: 4,
             }}
           >
-            by {entry.authors.map((a) => a.name).join(", ")}
+            {labels.libraryDirectoryBy} {entry.authors.map((a) => a.name).join(", ")}
           </div>
         )}
         {entry.description && (
@@ -370,7 +373,7 @@ function DirectoryCard({
           opacity: isInstalling ? 0.7 : 1,
         }}
       >
-        {isInstalled ? "Installed" : isInstalling ? "Installing..." : "Install"}
+        {isInstalled ? labels.libraryDirectoryInstalled : isInstalling ? labels.libraryDirectoryInstalling : labels.libraryDirectoryInstall}
       </button>
     </div>
   );

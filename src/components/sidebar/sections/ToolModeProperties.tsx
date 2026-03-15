@@ -9,6 +9,7 @@ import FillIcon from "../controls/FillIcon";
 import FontPicker from "../../FontPicker";
 import { DEFAULT_FONT } from "../../../fonts";
 import { useSBTheme } from "../ThemeContext";
+import { useSBI18n } from "../../LocalizationContext";
 import {
   rowStyle,
   labelStyle,
@@ -62,6 +63,7 @@ const SHAPE_TYPES: { key: string; label: string }[] = [
 
 export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolModePropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [, forceUpdate] = useState(0);
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
 
@@ -77,7 +79,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       <>
         {/* Font family */}
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Font</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFont}</span>
           <FontPicker
             value={fontFamily}
             onChange={(f: string) => {
@@ -90,7 +92,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
         {/* Font size */}
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Size</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorSize}</span>
           {FONT_SIZES.map((s) => (
             <button
               key={s}
@@ -115,7 +117,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
         {/* Text align */}
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Align</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorAlign}</span>
           {TEXT_ALIGNS.map((a) => (
             <button
               key={a.key}
@@ -141,7 +143,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
         {/* Text color */}
         <PaletteColorPicker
-          label="Color"
+          label={labels.inspectorStroke}
           palettes={STROKE_PALETTES}
           value={textColor}
           onChange={(c) => {
@@ -176,7 +178,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       {/* Shape type selector */}
       {isShapeMode && (
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Shape</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorShape}</span>
           {SHAPE_TYPES.map((t) => (
             <button
               key={t.key}
@@ -202,7 +204,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
       {/* Stroke color */}
       <PaletteColorPicker
-        label="Stroke"
+        label={labels.inspectorStroke}
         palettes={STROKE_PALETTES}
         value={strokeColor}
         onChange={(c) => {
@@ -213,7 +215,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
       {/* Fill color */}
       <PaletteColorPicker
-        label="Fill"
+        label={labels.inspectorFill}
         palettes={FILL_PALETTES}
         value={fillColor}
         onChange={(c) => {
@@ -226,7 +228,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       {/* Fill style */}
       {fillColor && (
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Fill pattern</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFillPattern}</span>
           {FILL_STYLES.map((f) => (
             <button
               key={f.key}
@@ -253,7 +255,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
       {/* Stroke style */}
       <StrokeStylePicker
-        label="Stroke style"
+        label={labels.inspectorStrokeStyle}
         value={strokeStyle}
         onChange={(s) => {
           tool.strokeStyle = s;
@@ -263,7 +265,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
 
       {/* Stroke width */}
       <WidthPicker
-        label="Stroke width"
+        label={labels.inspectorStrokeWidth}
         widths={isShapeMode ? WIDTHS_SHAPE : WIDTHS_DRAW}
         value={strokeWidth}
         onChange={(w) => {
@@ -275,28 +277,36 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       {/* Roughness (shape mode only) */}
       {isShapeMode && (
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Roughness</span>
-          {ROUGHNESS_LEVELS.map((r) => (
-            <button
-              key={r.value}
-              title={r.label}
-              onClick={() => {
-                tool.roughness = r.value;
-                refresh();
-              }}
-              style={{
-                ...btnBase,
-                height: 28,
-                padding: "0 8px",
-                background: roughness === r.value ? theme.controlBgActive : theme.controlBg,
-                color: theme.text,
-                fontSize: 9,
-                borderRadius: theme.controlBorderRadius,
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>
+          {ROUGHNESS_LEVELS.map((r) => {
+            const roughnessLabel =
+              r.value === 0
+                ? labels.roughnessArchitect
+                : r.value === 1
+                  ? labels.roughnessArtist
+                  : labels.roughnessCartoonist;
+            return (
+              <button
+                key={r.value}
+                title={roughnessLabel}
+                onClick={() => {
+                  tool.roughness = r.value;
+                  refresh();
+                }}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: roughness === r.value ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 9,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {roughnessLabel}
+              </button>
+            );
+          })}
         </div>
       )}
 

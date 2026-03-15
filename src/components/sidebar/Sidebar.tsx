@@ -3,6 +3,7 @@ import type { NodeTypeRegistry } from "../../nodes/registry";
 import ToolStrip from "./ToolStrip";
 import FloatingProperties from "./FloatingProperties";
 import { TOOL_STRIP_WIDTH } from "./styles";
+import { useSBI18n } from "../LocalizationContext";
 
 export { TOOL_STRIP_WIDTH as SIDEBAR_WIDTH };
 
@@ -13,13 +14,15 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ engine, registry, gifApiBaseUrl }: SidebarProps) {
+  const { isRTL } = useSBI18n();
   return (
     <>
       <div
         data-sb-sidebar
         style={{
           position: "absolute",
-          left: 0,
+          left: isRTL ? undefined : 0,
+          right: isRTL ? 0 : undefined,
           top: 0,
           bottom: 0,
           width: TOOL_STRIP_WIDTH,

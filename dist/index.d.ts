@@ -1,5 +1,5 @@
 export { SpatialEngine } from "./engine/SpatialEngine";
-export type { BoardBackground } from "./engine/SpatialEngine";
+export type { BoardBackground, SpatialSearchField, SpatialSearchMatch, SpatialSearchState, } from "./engine/SpatialEngine";
 export type { SpatialNode, Viewport, ActiveTool, Mode, BuiltinNodeType, NodeType, ContentNode, DrawNode, ShapeNode, EdgeNode, ImageNode, TextNode, FrameNode, StickyNoteNode, AnySpatialNode, EdgeType, HandleSide, } from "./engine/types";
 export { NodeTypeRegistry } from "./nodes/registry";
 export type { NodeTypeDefinition, NodeRendererProps, NodeCallbacks, NodePropertiesPanelProps, } from "./nodes/registry";
@@ -24,6 +24,8 @@ export { default as PropertiesPanel } from "./components/PropertiesPanel";
 export type { DebugBoardEntry } from "./components/DebugPanel";
 export type { SpatialBoardTheme } from "./components/sidebar/ThemeContext";
 export { DEFAULT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext";
+export type { SpatialBoardDirection, SpatialBoardLocalization, } from "./components/LocalizationContext";
+export { DEFAULT_LOCALIZATION as DEFAULT_SB_LOCALIZATION, useSBI18n, } from "./components/LocalizationContext";
 export { DEFAULT_FONT } from "./fonts";
 export { PAPER_TYPES, getPaperType } from "./components/paper-types";
 export type { PaperTypeConfig, PaperGroup } from "./components/paper-types";

@@ -4,6 +4,7 @@ import type { FrameNode, SlideTransition } from "../engine/types";
 import { TRANSITION_DEFAULTS } from "../engine/types";
 import { renderFrameToSVG } from "../export/canvas-export";
 import { useSBTheme } from "./sidebar/ThemeContext";
+import { useSBI18n } from "./LocalizationContext";
 
 const PANEL_WIDTH = 240;
 const CARD_GAP = 6;
@@ -131,15 +132,7 @@ function FrameThumb({ engine, frameId, tick }: { engine: SpatialEngine; frameId:
 
 // ── Transition picker between slides ──────────────────────────────
 
-const TRANSITIONS: { key: SlideTransition; label: string }[] = [
-  { key: "pan", label: "Pan" },
-  { key: "fade", label: "Fade" },
-  { key: "dissolve", label: "Dissolve" },
-  { key: "zoom", label: "Zoom" },
-  { key: "fold", label: "Fold" },
-  { key: "cube", label: "Cube" },
-  { key: "none", label: "Cut" },
-];
+const TRANSITION_KEYS: SlideTransition[] = ["pan", "fade", "dissolve", "zoom", "fold", "cube", "none"];
 
 function TransitionIcon({ type, size = 12 }: { type: SlideTransition; size?: number }) {
   const p = { stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" };
@@ -194,12 +187,14 @@ function TransitionPicker({
   onChange,
   onDurationChange,
   theme,
+  labels,
 }: {
   value: SlideTransition;
   durationMs?: number;
   onChange: (t: SlideTransition) => void;
   onDurationChange: (ms: number | undefined) => void;
   theme: ReturnType<typeof useSBTheme>;
+  labels: ReturnType<typeof useSBI18n>["labels"];
 }) {
   const [typeOpen, setTypeOpen] = useState(false);
   const [durOpen, setDurOpen] = useState(false);
@@ -207,6 +202,15 @@ function TransitionPicker({
   const durRef = useRef<HTMLDivElement>(null);
   const showDuration = value !== "none";
   const effectiveDuration = durationMs ?? TRANSITION_DEFAULTS[value];
+  const transitionLabelByKey: Record<SlideTransition, string> = {
+    pan: labels.transitionPan,
+    fade: labels.transitionFadeToBlack,
+    dissolve: labels.transitionDissolve,
+    zoom: labels.transitionZoom,
+    fold: labels.transitionFold,
+    cube: labels.transitionCube,
+    none: labels.transitionNoneInstant,
+  };
 
   useEffect(() => {
     if (!typeOpen && !durOpen) return;
@@ -254,7 +258,7 @@ function TransitionPicker({
       <div ref={typeRef} style={{ position: "relative", zIndex: 1 }}>
         <button onClick={() => { setTypeOpen((o) => !o); setDurOpen(false); }} style={pillStyle}>
           <TransitionIcon type={value} />
-          <span>{TRANSITIONS.find((t) => t.key === value)?.label ?? "Pan"}</span>
+          <span>{transitionLabelByKey[value] ?? labels.transitionPan}</span>
           <span style={{ fontSize: 7 }}>{typeOpen ? "\u25B2" : "\u25BC"}</span>
         </button>
 
@@ -278,16 +282,16 @@ function TransitionPicker({
               boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
             }}
           >
-            {TRANSITIONS.map((t) => (
+            {TRANSITION_KEYS.map((t) => (
               <button
-                key={t.key}
+                key={t}
                 onClick={() => {
-                  onChange(t.key);
+                  onChange(t);
                   setTypeOpen(false);
                 }}
                 style={{
                   border: "none",
-                  background: t.key === value ? theme.controlBgActive : "transparent",
+                  background: t === value ? theme.controlBgActive : "transparent",
                   color: theme.text,
                   borderRadius: 4,
                   padding: "4px 8px",
@@ -299,8 +303,8 @@ function TransitionPicker({
                   width: "100%",
                 }}
               >
-                <TransitionIcon type={t.key} />
-                {t.label}
+                <TransitionIcon type={t} />
+                {transitionLabelByKey[t]}
               </button>
             ))}
           </div>
@@ -375,6 +379,7 @@ interface FramesPanelProps {
 
 export default function FramesPanel({ engine, open, onClose }: FramesPanelProps) {
   const theme = useSBTheme();
+  const { isRTL, labels } = useSBI18n();
   const [frames, setFrames] = useState<FrameEntry[]>(() => buildOrderedFrames(engine));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(engine.selection));
   // Tick counter bumped when thumbnails need refreshing
@@ -596,15 +601,21 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
       style={{
         position: "absolute",
         top: 0,
-        right: 0,
+        right: isRTL ? undefined : 0,
+        left: isRTL ? 0 : undefined,
         bottom: 0,
         width: PANEL_WIDTH,
         background: theme.panelBg,
-        borderLeft: `1px solid ${theme.border}`,
+        borderLeft: isRTL ? undefined : `1px solid ${theme.border}`,
+        borderRight: isRTL ? `1px solid ${theme.border}` : undefined,
         zIndex: 98,
         display: "flex",
         flexDirection: "column",
-        transform: open ? "translateX(0)" : `translateX(${PANEL_WIDTH}px)`,
+        transform: open
+          ? "translateX(0)"
+          : isRTL
+            ? `translateX(-${PANEL_WIDTH}px)`
+            : `translateX(${PANEL_WIDTH}px)`,
         transition: "transform 0.2s ease-in-out",
         pointerEvents: open ? "auto" : "none",
       }}
@@ -622,10 +633,10 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
         }}
       >
         <span style={{ fontSize: 12, fontWeight: 600, color: theme.text, letterSpacing: "0.02em" }}>
-          Slides ({frames.length})
+          {labels.slidesTitle} ({frames.length})
         </span>
         <button
-          title="Close slides panel"
+          title={labels.closeSlidesPanel}
           onClick={onClose}
           style={{
             border: "none",
@@ -660,7 +671,7 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
       >
         {frames.length === 0 && (
           <div style={{ padding: "20px 8px", textAlign: "center", color: theme.textMuted, fontSize: 11 }}>
-            No frames yet. Use the Frame tool (F) to create slides.
+            {labels.noFramesYet}
           </div>
         )}
 
@@ -707,6 +718,7 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
                   onChange={handleTransitionChange}
                   onDurationChange={handleDurationChange}
                   theme={theme}
+                  labels={labels}
                 />
               )}
               <div

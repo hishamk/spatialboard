@@ -5,6 +5,7 @@ import { useMultiSelection } from "./useMultiSelection";
 import { PROPERTIES_WIDTH, TOOL_STRIP_WIDTH } from "./styles";
 import { useSBTheme } from "./ThemeContext";
 import PropertiesContent from "./PropertiesContent";
+import { useSBI18n } from "../LocalizationContext";
 
 interface FloatingPropertiesProps {
   engine: SpatialEngine;
@@ -13,6 +14,7 @@ interface FloatingPropertiesProps {
 
 export default function FloatingProperties({ engine, registry }: FloatingPropertiesProps) {
   const theme = useSBTheme();
+  const { isRTL, labels } = useSBI18n();
   const { target, commonProps } = useMultiSelection(engine);
   const visible = target.kind !== "none";
 
@@ -81,8 +83,9 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
 
   const getDefaultPosition = useCallback(() => {
     const { width } = getContainerSize();
+    if (isRTL) return { x: TOOL_STRIP_WIDTH + 16, y: 12 };
     return { x: width - PROPERTIES_WIDTH - 16, y: 12 };
-  }, [getContainerSize]);
+  }, [getContainerSize, isRTL]);
 
   const panelPos = position ?? getDefaultPosition();
 
@@ -94,10 +97,14 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       hasSetInitial.current = true;
       const container = panelRef.current.offsetParent as HTMLElement | null;
       if (container) {
-        setPosition({ x: container.clientWidth - PROPERTIES_WIDTH - 16, y: 12 });
+        setPosition(
+          isRTL
+            ? { x: TOOL_STRIP_WIDTH + 16, y: 12 }
+            : { x: container.clientWidth - PROPERTIES_WIDTH - 16, y: 12 }
+        );
       }
     }
-  });
+  }, [position, isRTL]);
 
   // Detect narrow containers for bottom-sheet layout
   useEffect(() => {
@@ -189,8 +196,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
   }, []);
 
   const handleDragPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.stopPropagation();
+    (e: React.PointerEvent, dragSurface?: HTMLElement) => {
       setIsDragging(true);
       const left = position ? position.x : getDefaultPosition().x;
       const top = position ? position.y : getDefaultPosition().y;
@@ -203,9 +209,27 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       // Explicit capture routes all subsequent pointermove/pointerup to this
       // element, enabling React's onPointerMove/onPointerUp below to fire
       // reliably on touch (not just desktop).
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      (dragSurface ?? (e.currentTarget as HTMLElement)).setPointerCapture(e.pointerId);
     },
     [position, getDefaultPosition]
+  );
+
+  const isInteractiveInspectorTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+    return !!target.closest(
+      'input, textarea, select, button, label, a, [role="button"], [contenteditable="true"], [data-no-panel-drag]'
+    );
+  }, []);
+
+  const handlePanelPointerDownCapture = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (isMobile) return;
+      if (e.button !== 0) return;
+      if (isInteractiveInspectorTarget(e.target)) return;
+      e.stopPropagation();
+      handleDragPointerDown(e, e.currentTarget);
+    },
+    [isMobile, isInteractiveInspectorTarget, handleDragPointerDown]
   );
 
   const handleDragPointerMove = useCallback(
@@ -215,9 +239,13 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       const { width: cw, height: ch } = getContainerSize();
+      const minX = isRTL ? 8 : TOOL_STRIP_WIDTH;
+      const maxX = isRTL
+        ? cw - PROPERTIES_WIDTH - TOOL_STRIP_WIDTH - 8
+        : cw - PROPERTIES_WIDTH - 8;
       const newX = Math.max(
-        TOOL_STRIP_WIDTH,
-        Math.min(cw - PROPERTIES_WIDTH - 8, dragRef.current.startLeft + dx)
+        minX,
+        Math.min(maxX, dragRef.current.startLeft + dx)
       );
       const newY = Math.max(
         8,
@@ -225,7 +253,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       );
       setPosition({ x: newX, y: newY });
     },
-    [getContainerSize]
+    [getContainerSize, isRTL]
   );
 
   const handleDragPointerUp = useCallback(() => {
@@ -290,7 +318,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            <span>Auto-hide</span>
+            <span>{labels.autoHide}</span>
             <input
               type="checkbox"
               checked={autoHideEnabled}
@@ -349,10 +377,12 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         WebkitBackdropFilter: "blur(8px) saturate(120%)",
         opacity: shouldHideForInteraction ? 0 : 1,
         transform: shouldHideForInteraction ? "translateY(-4px) scale(0.995)" : "translateY(0) scale(1)",
-        transformOrigin: "top right",
+        transformOrigin: isRTL ? "top left" : "top right",
         transition: "opacity 140ms ease, transform 160ms ease",
         pointerEvents: shouldHideForInteraction ? "none" : "auto",
+        cursor: isDragging ? "grabbing" : "grab",
       }}
+      onPointerDownCapture={handlePanelPointerDownCapture}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
@@ -360,7 +390,6 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
     >
       {/* Drag handle */}
       <div
-        onPointerDown={handleDragPointerDown}
         style={{
           cursor: isDragging ? "grabbing" : "grab",
           padding: "8px 16px",
@@ -375,8 +404,9 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           flexShrink: 0,
         }}
       >
-        <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>Inspector</span>
+        <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>{labels.inspectorTitle}</span>
         <label
+          data-no-panel-drag
           style={{
             display: "flex",
             alignItems: "center",
@@ -388,7 +418,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <span>Auto-hide</span>
+          <span>{labels.autoHide}</span>
           <input
             type="checkbox"
             checked={autoHideEnabled}

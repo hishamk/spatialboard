@@ -11,6 +11,7 @@ import FontPicker from "../../FontPicker";
 import EdgeStyleIcon from "../controls/EdgeStyleIcon";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
+import { useSBI18n } from "../../LocalizationContext";
 import {
   rowStyle,
   labelStyle,
@@ -76,6 +77,7 @@ function isMixed<T>(nodes: ShapeNode[], get: (n: ShapeNode) => T): boolean {
 
 export default function ShapeProperties({ engine, node, fontsInScene }: ShapePropertiesProps) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const update = useBatchUpdate<ShapeNode["data"]>(engine, node);
   const allNodes = (useContext(MultiNodeContext) ?? [node]) as ShapeNode[];
 
@@ -94,9 +96,9 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
 
   return (
     <>
-      <PropertySection title="Structure" persistKey="shape.structure">
+      <PropertySection title={labels.inspectorStructure} persistKey="shape.structure">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Shape</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorShape}</span>
           {SHAPE_TYPES.map((t) => (
             <button
               key={t.key}
@@ -118,7 +120,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
 
         {(data.shape === "rect" || data.shape === "diamond") && (
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Edges</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorEdges}</span>
             {([
               { key: "sharp", label: "Sharp" },
               { key: "round", label: "Round" },
@@ -143,11 +145,11 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
         )}
 
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Label</span>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorLabel}</span>
           <input
             type="text"
             value={data.label ?? ""}
-            placeholder="Add label..."
+            placeholder={labels.inspectorLabel}
             onChange={(e) => update({ label: e.target.value || undefined })}
             style={{
               flex: 1,
@@ -164,9 +166,9 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
       </PropertySection>
 
       {data.label && (
-        <PropertySection title="Typography" defaultOpen={false} persistKey="shape.typography">
+        <PropertySection title={labels.inspectorTypography} defaultOpen={false} persistKey="shape.typography">
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Font</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFont}</span>
             <FontPicker
               value={data.labelFontFamily ?? "Excalifont"}
               onChange={(f: string) => update({ labelFontFamily: f === "Excalifont" ? undefined : f })}
@@ -175,7 +177,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
           </div>
 
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Size</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorSize}</span>
             {LABEL_FONT_SIZES.map((s) => (
               <button
                 key={s.size}
@@ -197,7 +199,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
           </div>
 
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Align</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorAlign}</span>
             {TEXT_ALIGNS.map((a) => (
               <button
                 key={a.key}
@@ -220,9 +222,9 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
         </PropertySection>
       )}
 
-      <PropertySection title="Appearance" persistKey="shape.appearance">
+      <PropertySection title={labels.inspectorAppearance} persistKey="shape.appearance">
         <PaletteColorPicker
-          label="Stroke"
+          label={labels.inspectorStroke}
           palettes={STROKE_PALETTES}
           value={mixedStroke ? undefined : data.stroke}
           mixed={mixedStroke}
@@ -230,7 +232,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
         />
 
         <PaletteColorPicker
-          label="Fill"
+          label={labels.inspectorFill}
           palettes={FILL_PALETTES}
           value={mixedFill ? undefined : fillColor}
           mixed={mixedFill}
@@ -240,7 +242,7 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
 
         {fillColor && !mixedFill && (
           <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>Fill pattern</span>
+            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFillPattern}</span>
             {FILL_STYLES.map((f) => (
               <button
                 key={f.key}
@@ -263,14 +265,14 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
         )}
 
         <StrokeStylePicker
-          label="Stroke style"
+          label={labels.inspectorStrokeStyle}
           value={strokeStyle}
           mixed={mixedStrokeStyle}
           onChange={(s) => update({ strokeStyle: s })}
         />
 
         <WidthPicker
-          label="Stroke width"
+          label={labels.inspectorStrokeWidth}
           widths={WIDTHS_SHAPE}
           value={data.strokeWidth}
           mixed={mixedStrokeWidth}
@@ -284,27 +286,35 @@ export default function ShapeProperties({ engine, node, fontsInScene }: ShapePro
         />
       </PropertySection>
 
-      <PropertySection title="Sketch" defaultOpen={false} persistKey="shape.sketch">
+      <PropertySection title={labels.inspectorSketch} defaultOpen={false} persistKey="shape.sketch">
         <div style={rowStyle}>
-          <span style={{ ...labelStyle, color: theme.textMuted }}>Roughness</span>
-          {ROUGHNESS_LEVELS.map((r) => (
-            <button
-              key={r.value}
-              title={r.label}
-              onClick={() => update({ roughness: r.value })}
-              style={{
-                ...btnBase,
-                height: 28,
-                padding: "0 8px",
-                background: !mixedRoughness && data.roughness === r.value ? theme.controlBgActive : theme.controlBg,
-                color: theme.text,
-                fontSize: 9,
-                borderRadius: theme.controlBorderRadius,
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>
+          {ROUGHNESS_LEVELS.map((r) => {
+            const roughnessLabel =
+              r.value === 0
+                ? labels.roughnessArchitect
+                : r.value === 1
+                  ? labels.roughnessArtist
+                  : labels.roughnessCartoonist;
+            return (
+              <button
+                key={r.value}
+                title={roughnessLabel}
+                onClick={() => update({ roughness: r.value })}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: !mixedRoughness && data.roughness === r.value ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 9,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {roughnessLabel}
+              </button>
+            );
+          })}
         </div>
       </PropertySection>
     </>

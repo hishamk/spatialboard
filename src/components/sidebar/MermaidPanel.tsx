@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { useSBTheme } from "./ThemeContext";
 import { buildMermaidSketchNodes } from "../../utils/mermaid";
+import { useSBI18n } from "../LocalizationContext";
 
 const STARTER = `flowchart LR
   A[Idea] --> B{Decision}
@@ -22,6 +23,7 @@ export default function MermaidPanel({
   triggerRect: DOMRect | null;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const [source, setSource] = useState(STARTER);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +41,8 @@ export default function MermaidPanel({
   }, [open, onClose]);
 
   const exampleHint = useMemo(
-    () => `Supported: flowchart/graph (TB/BT/LR/RL) and sequenceDiagram. Flowchart nodes: A[Text], A{Decision}, A((Start)). Edges: A-->B, A -- label --> B.`,
-    [],
+    () => labels.mermaidSupportedHint,
+    [labels.mermaidSupportedHint],
   );
 
   const onInsert = useCallback(() => {
@@ -50,19 +52,23 @@ export default function MermaidPanel({
       const pt = engine.screenToCanvas(cx, cy);
       const { nodes, shapeNodeIds } = buildMermaidSketchNodes(source, pt.x, pt.y, () => engine.nextZ());
       if (nodes.length === 0) {
-        throw new Error("No nodes were parsed.");
+        throw new Error(labels.mermaidNoNodesParsed);
       }
       engine.addNodes(nodes);
       if (shapeNodeIds.length > 0) {
         engine.selectMultiple(shapeNodeIds);
       }
       setError(null);
-      setSuccess(`Inserted ${shapeNodeIds.length} nodes and ${nodes.length - shapeNodeIds.length} edges.`);
+      setSuccess(
+        labels.mermaidInsertedSummary
+          .replace("{nodes}", String(shapeNodeIds.length))
+          .replace("{edges}", String(nodes.length - shapeNodeIds.length)),
+      );
     } catch (e) {
       setSuccess(null);
-      setError(e instanceof Error ? e.message : "Failed to parse Mermaid graph.");
+      setError(e instanceof Error ? e.message : labels.mermaidParseFailed);
     }
-  }, [engine, source]);
+  }, [engine, labels.mermaidInsertedSummary, labels.mermaidNoNodesParsed, labels.mermaidParseFailed, source]);
 
   if (!open || !triggerRect) return null;
 
@@ -87,7 +93,7 @@ export default function MermaidPanel({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div style={{ padding: "10px 12px 8px", borderBottom: `1px solid ${theme.border}` }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: theme.text }}>Mermaid Sketch</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: theme.text }}>{labels.mermaidSketchTitle}</div>
         <div style={{ marginTop: 4, fontSize: 10, color: theme.textMuted, lineHeight: 1.45 }}>{exampleHint}</div>
       </div>
 
@@ -132,7 +138,7 @@ export default function MermaidPanel({
               cursor: "pointer",
             }}
           >
-            Reset Example
+            {labels.mermaidResetExample}
           </button>
           <button
             onClick={onInsert}
@@ -147,7 +153,7 @@ export default function MermaidPanel({
               cursor: "pointer",
             }}
           >
-            Insert Diagram
+            {labels.mermaidInsertDiagram}
           </button>
         </div>
       </div>

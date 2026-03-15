@@ -32,21 +32,24 @@ import YouTubeProperties from "./sections/YouTubeProperties";
 import ToolModeProperties from "./sections/ToolModeProperties";
 import CustomNodeProperties from "./sections/CustomNodeProperties";
 import { PAPER_TYPES } from "../paper-types";
-
-const TYPE_LABELS: Record<string, string> = {
-  shape: "Shape",
-  draw: "Drawing",
-  text: "Text",
-  edge: "Edge",
-  image: "Image",
-  content: "Content",
-  frame: "Frame",
-  sticky: "Sticky Note",
-  youtube: "YouTube",
-};
+import { useSBI18n } from "../LocalizationContext";
 
 const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "content", "frame", "sticky", "youtube"]);
 const BORDER_TYPES = new Set(["text", "image", "content", "frame", "youtube"]);
+
+function buildTypeLabels(labels: ReturnType<typeof useSBI18n>["labels"]): Record<string, string> {
+  return {
+    shape: labels.typeShape,
+    draw: labels.typeDrawing,
+    text: labels.typeText,
+    edge: labels.typeEdge,
+    image: labels.typeImage,
+    content: labels.typeContent,
+    frame: labels.typeFrame,
+    sticky: labels.typeStickyNote,
+    youtube: labels.typeYouTube,
+  };
+}
 
 function getFontsInScene(engine: SpatialEngine): string[] {
   const seen = new Set<string>();
@@ -94,10 +97,20 @@ function CanvasSettingsSection({
   onToggle?: () => void;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   const [gridOn, setGridOn] = useState(engine.snapToGrid);
   const [gridSize, setGridSize] = useState(engine.gridSize);
   const [smartGuides, setSmartGuides] = useState(engine.smartGuides);
   const [paper, setPaper] = useState(engine.boardBackground);
+  const paperLabelByKey: Record<string, string> = {
+    "plain-white": labels.paperWhite,
+    "dot-grid": labels.paperCream,
+    engineering: labels.paperWarm,
+    blueprint: labels.paperBlueprint,
+    "dark-grid": labels.paperNight,
+    "japanese-stationery": labels.paperJapaneseStationery,
+    kraft: labels.paperKraftPaper,
+  };
 
   useEffect(() => {
     const syncGuides = () => {
@@ -117,9 +130,9 @@ function CanvasSettingsSection({
   const gridSizes = [10, 20, 40, 80];
 
   return (
-    <PropertySection title="Canvas" defaultOpen={false} variant="group" open={open} onToggle={onToggle}>
+    <PropertySection title={labels.inspectorCanvas} defaultOpen={false} variant="group" open={open} onToggle={onToggle}>
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Grid</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGrid}</span>
         <button
           onClick={() => engine.toggleSnapToGrid()}
           style={{
@@ -132,12 +145,12 @@ function CanvasSettingsSection({
             cursor: "pointer",
           }}
         >
-          {gridOn ? "On" : "Off"}
+          {gridOn ? labels.inspectorOn : labels.inspectorOff}
         </button>
       </div>
 
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Grid size</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGridSize}</span>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
           {gridSizes.map((s) => (
             <button
@@ -160,7 +173,7 @@ function CanvasSettingsSection({
       </div>
 
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Guides</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGuides}</span>
         <button
           onClick={() => engine.toggleSmartGuides()}
           style={{
@@ -173,12 +186,12 @@ function CanvasSettingsSection({
             cursor: "pointer",
           }}
         >
-          {smartGuides ? "On" : "Off"}
+          {smartGuides ? labels.inspectorOn : labels.inspectorOff}
         </button>
       </div>
 
       <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Paper</span>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorPaper}</span>
         <select
           value={paper}
           onChange={(e) => engine.setBoardBackground(e.target.value as typeof paper)}
@@ -196,7 +209,7 @@ function CanvasSettingsSection({
         >
           {PAPER_TYPES.map((p) => (
             <option key={p.key} value={p.key}>
-              {p.label}
+              {paperLabelByKey[p.key] ?? p.label}
             </option>
           ))}
         </select>
@@ -253,6 +266,7 @@ function RotationInput({
   nodes: SpatialNode[];
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   // node.rotation is already in degrees
   const firstDeg = Math.round(nodes[0].rotation ?? 0);
   const allSame = nodes.every(
@@ -279,7 +293,7 @@ function RotationInput({
 
   return (
     <div style={rowStyle}>
-      <span style={{ ...labelStyle, color: theme.textMuted }}>Rotation</span>
+      <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRotation}</span>
       <input
         type="number"
         min={-360}
@@ -306,6 +320,85 @@ function RotationInput({
         }}
       />
       <span style={{ fontSize: 10, color: theme.textMuted }}>°</span>
+    </div>
+  );
+}
+
+function ZOrderControls({
+  engine,
+  nodes,
+}: {
+  engine: SpatialEngine;
+  nodes: SpatialNode[];
+}) {
+  const theme = useSBTheme();
+  const { labels } = useSBI18n();
+  const ids = nodes.map((n) => n.id);
+  if (ids.length === 0) return null;
+
+  const actions = [
+    {
+      label: labels.actionBringForward,
+      action: () => engine.bringForward(ids),
+      icon: "\u2191+",
+    },
+    {
+      label: labels.actionSendBackward,
+      action: () => engine.sendBackward(ids),
+      icon: "\u2193-",
+    },
+    {
+      label: labels.actionBringToFront,
+      action: () => engine.bringToFront(ids),
+      icon: "\u21E1|",
+    },
+    {
+      label: labels.actionSendToBack,
+      action: () => engine.sendToBack(ids),
+      icon: "|\u21E3",
+    },
+  ];
+
+  return (
+    <div style={rowStyle}>
+      <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorStack}</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          flexWrap: "wrap",
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        {actions.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.action}
+            title={item.label}
+            aria-label={item.label}
+            style={{
+              border: "none",
+              borderRadius: theme.controlBorderRadius,
+              background: theme.controlBg,
+              color: theme.text,
+              width: 42,
+              height: 28,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+            }}
+          >
+            {item.icon}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -375,6 +468,7 @@ function TouchSelectionActionsSection({
   target: SelectionTarget;
 }) {
   const theme = useSBTheme();
+  const { labels } = useSBI18n();
   if (target.kind !== "single" && target.kind !== "multi") return null;
 
   const selectionIds = Array.from(engine.selection);
@@ -390,51 +484,71 @@ function TouchSelectionActionsSection({
     action: () => void;
   }> = [
     {
-      label: "Cut",
+      label: labels.actionCut,
       disabled: !hasSel,
       action: () => engine.cutSelected(),
     },
     {
-      label: "Copy",
+      label: labels.actionCopy,
       disabled: !hasSel,
       action: () => engine.copySelected(),
     },
     {
-      label: "Paste",
+      label: labels.actionPaste,
       disabled: !engine.hasClipboard(),
       action: () => engine.pasteClipboard(),
     },
     {
-      label: "Duplicate",
+      label: labels.actionDuplicate,
       disabled: !hasSel,
       action: () => engine.duplicateSelected(),
     },
     {
-      label: "Group",
+      label: labels.actionBringForward,
+      disabled: !hasSel,
+      action: () => engine.bringForward(selectionIds),
+    },
+    {
+      label: labels.actionSendBackward,
+      disabled: !hasSel,
+      action: () => engine.sendBackward(selectionIds),
+    },
+    {
+      label: labels.actionBringToFront,
+      disabled: !hasSel,
+      action: () => engine.bringToFront(selectionIds),
+    },
+    {
+      label: labels.actionSendToBack,
+      disabled: !hasSel,
+      action: () => engine.sendToBack(selectionIds),
+    },
+    {
+      label: labels.actionGroupSelection,
       disabled: !hasGroupOps || selectionIds.length < 2,
       action: () => engine.groupSelected(),
     },
     {
-      label: "Ungroup",
+      label: labels.actionUngroupSelection,
       disabled: !hasGroupOps || !engine.selectionHasGroup(),
       action: () => engine.ungroupSelected(),
     },
     {
-      label: "Lock",
+      label: labels.actionLock,
       disabled: !anyUnlocked,
       action: () => {
         for (const id of selectionIds) engine.updateNode(id, { locked: true });
       },
     },
     {
-      label: "Unlock",
+      label: labels.actionUnlock,
       disabled: !anyLocked,
       action: () => {
         for (const id of selectionIds) engine.updateNode(id, { locked: undefined });
       },
     },
     {
-      label: "Delete",
+      label: labels.actionDelete,
       disabled: !hasSel,
       danger: true,
       action: () => engine.deleteSelected(),
@@ -442,7 +556,7 @@ function TouchSelectionActionsSection({
   ];
 
   return (
-    <PropertySection title="Actions" defaultOpen variant="group" persistKey="touch-actions">
+    <PropertySection title={labels.inspectorActions} defaultOpen variant="group" persistKey="touch-actions">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {actions.map((item) => (
           <button
@@ -487,7 +601,9 @@ function TypeGroupSection({
   open?: boolean;
   onToggle?: () => void;
 }) {
-  const label = TYPE_LABELS[group.type] ?? group.type;
+  const { labels } = useSBI18n();
+  const typeLabels = buildTypeLabels(labels);
+  const label = typeLabels[group.type] ?? group.type;
   const count = group.nodes.length;
   const primaryNode = group.nodes[0];
   const title = `${label} (${count})`;
@@ -506,18 +622,22 @@ function TypeGroupSection({
   );
 }
 
-export function getHeaderLabel(target: SelectionTarget): string {
+export function getHeaderLabel(
+  target: SelectionTarget,
+  labels: ReturnType<typeof useSBI18n>["labels"],
+): string {
+  const typeLabels = buildTypeLabels(labels);
   switch (target.kind) {
     case "none":
-      return "No selection";
+      return labels.inspectorNoSelection;
     case "tool":
-      return `${target.mode.charAt(0).toUpperCase() + target.mode.slice(1)} tool`;
+      return `${target.mode.charAt(0).toUpperCase() + target.mode.slice(1)} ${labels.inspectorToolSuffix}`;
     case "single":
-      return TYPE_LABELS[target.node.type] ?? target.node.type;
+      return typeLabels[target.node.type] ?? target.node.type;
     case "multi": {
       const parts = target.typeGroups.map(
         (g) =>
-          `${g.nodes.length} ${(TYPE_LABELS[g.type] ?? g.type).toLowerCase()}${g.nodes.length > 1 ? "s" : ""}`
+          `${g.nodes.length} ${(typeLabels[g.type] ?? g.type).toLowerCase()}${g.nodes.length > 1 ? "s" : ""}`
       );
       return parts.join(", ");
     }
@@ -537,8 +657,9 @@ export default function PropertiesContent({
   target,
   commonProps,
 }: PropertiesContentProps) {
+  const { labels } = useSBI18n();
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
-  const headerLabel = getHeaderLabel(target);
+  const headerLabel = getHeaderLabel(target, labels);
   const [openMultiSection, setOpenMultiSection] = useState<string>("shared");
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
@@ -593,13 +714,14 @@ export default function PropertiesContent({
             fontsInScene={fontsInScene}
           />
           <RotationInput engine={engine} nodes={[target.node]} />
+          <ZOrderControls engine={engine} nodes={[target.node]} />
         </>
       )}
 
       {target.kind === "multi" && (
         <>
           <PropertySection
-            title="Shared"
+            title={labels.inspectorShared}
             defaultOpen
             variant="group"
             open={openMultiSection === "shared"}
@@ -607,6 +729,7 @@ export default function PropertiesContent({
           >
             <CommonProperties engine={engine} nodes={target.nodes} commonProps={commonProps} />
             <RotationInput engine={engine} nodes={target.nodes} />
+            <ZOrderControls engine={engine} nodes={target.nodes} />
           </PropertySection>
           {target.typeGroups.map((group) => (
             <TypeGroupSection
