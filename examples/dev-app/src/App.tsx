@@ -569,7 +569,13 @@ export default function App() {
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      <SpatialBoard engine={engine} nodeTypes={nodeTypes} debugPanel debugBoards={debugBoards} />
+      <SpatialBoard
+        engine={engine}
+        nodeTypes={nodeTypes}
+        debugPanel
+        debugBoards={debugBoards}
+        gifApiBaseUrl="/mock-gifs"
+      />
 
       {/* ── Horizontal draggable palette ── */}
       <div data-palette-root style={{ ...paletteStyle, pointerEvents: "none", fontFamily: "'Inter', system-ui, sans-serif", maxWidth: "90vw" }}>

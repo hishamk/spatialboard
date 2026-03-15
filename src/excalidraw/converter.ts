@@ -8,6 +8,10 @@ import type {
   FrameNode,
 } from "../engine/types";
 
+// NOTE:
+// This module is a format-compatibility adapter for Excalidraw element schemas.
+// It is implemented for interoperability and does not vendor Excalidraw runtime code.
+
 // ============================================================================
 // Property mapping helpers
 // ============================================================================

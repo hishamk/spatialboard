@@ -5,6 +5,10 @@ import type {
 } from "./types";
 import { nanoid } from "nanoid";
 
+// NOTE:
+// This store manages Excalidraw library-file compatibility (indexing/import/search)
+// for interoperability with community .excalidrawlib assets.
+
 // ============================================================================
 // Types
 // ============================================================================

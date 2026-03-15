@@ -1,6 +1,28 @@
 {
   "name": "spatialboard",
   "version": "0.1.0",
+  "description": "A React + TypeScript spatial canvas and node-board library for whiteboards, visual editors, and graph interfaces.",
+  "license": "MIT",
+  "author": "Hisham Khalifa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hishamk/spatialboard.git",
+    "directory": "spatialboard"
+  },
+  "homepage": "https://github.com/hishamk/spatialboard",
+  "bugs": {
+    "url": "https://github.com/hishamk/spatialboard/issues"
+  },
+  "keywords": [
+    "canvas",
+    "whiteboard",
+    "diagram",
+    "graph",
+    "react",
+    "typescript",
+    "node-editor",
+    "visual-editor"
+  ],
   "type": "module",
   "main": "./dist/spatialboard.js",
   "module": "./dist/spatialboard.js",
@@ -20,8 +42,12 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=examples/dev-app",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
     "preview": "npm run preview --workspace=examples/dev-app"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "peerDependencies": {
     "@blocknote/core": "^0.46",
