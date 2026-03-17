@@ -629,6 +629,7 @@ export default function SpatialCanvas({
     color: string;
     width: number;
     strokeStyle?: "solid" | "dashed" | "dotted";
+    opacity?: number;
   } | null>(null);
 
   // Shape preview state
@@ -2427,6 +2428,7 @@ export default function SpatialCanvas({
           color: engine.activeTool.color,
           width: engine.activeTool.width,
           strokeStyle: engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted" | undefined,
+          opacity: engine.activeTool.opacity,
         };
         setActiveStroke(stroke);
         engine.notifyDrawProgress(stroke);
@@ -2578,8 +2580,6 @@ export default function SpatialCanvas({
             },
           } as ShapeNode);
           setShapePreview(null);
-          engine.setMode("select");
-          engine.select(nodeId);
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -4627,6 +4627,11 @@ export default function SpatialCanvas({
               strokeWidth: engine.mode === "frame" ? 1 : engine.activeTool.width,
               roughness: engine.mode === "frame" ? 0 : (engine.activeTool.roughness ?? 1),
               shapeType: engine.mode === "frame" ? "rect" : (engine.activeTool.shapeType || "rect"),
+              fill: engine.mode === "frame" ? undefined : engine.activeTool.fillColor,
+              fillStyle: engine.mode === "frame" ? undefined : engine.activeTool.fillStyle,
+              strokeStyle: engine.mode === "frame" ? undefined : engine.activeTool.strokeStyle,
+              opacity: engine.mode === "frame" ? undefined : engine.activeTool.opacity,
+              edgeStyle: undefined,
             }
             : null
         }

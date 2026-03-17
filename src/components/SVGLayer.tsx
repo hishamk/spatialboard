@@ -7,7 +7,7 @@ import type {
   Mode,
 } from "../engine/types";
 import { getStrokePath } from "../rendering/freehand";
-import { strokeStyleToDash, getRoughPathPaths, getRoughLinePaths } from "../rendering/rough-shapes";
+import { strokeStyleToDash, getRoughPathPaths, getRoughLinePaths, getRoughRectPaths, getRoughEllipsePaths, getRoughDiamondPaths, getRoughArrowPaths, roundedRectRadius } from "../rendering/rough-shapes";
 import type { RoughPathData } from "../rendering/rough-shapes";
 import {
   computeEdgePath,
@@ -42,6 +42,7 @@ interface SVGLayerProps {
     color: string;
     width: number;
     strokeStyle?: "solid" | "dashed" | "dotted";
+    opacity?: number;
   } | null;
   shapePreview: {
     startX: number;
@@ -54,6 +55,11 @@ interface SVGLayerProps {
     strokeWidth: number;
     roughness: number;
     shapeType?: string;
+    fill?: string;
+    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    strokeStyle?: "solid" | "dashed" | "dotted";
+    opacity?: number;
+    edgeStyle?: "sharp" | "round";
   } | null;
   onResizeHandleDown?: (
     nodeId: string,
@@ -1164,6 +1170,7 @@ export default function SVGLayer({
         {/* Active stroke being drawn */}
         {activeStroke && activeStroke.points.length > 1 && (() => {
           const isDashed = activeStroke.strokeStyle === "dashed" || activeStroke.strokeStyle === "dotted";
+          const strokeOpacity = activeStroke.opacity ?? 1;
           if (isDashed) {
             const pts = activeStroke.points;
             const d: (string | number)[] = ["M", pts[0][0], pts[0][1]];
@@ -1184,6 +1191,7 @@ export default function SVGLayer({
                 strokeDasharray={dash?.map(v => v * Math.max(activeStroke.width, 1)).join(" ")}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                opacity={strokeOpacity}
               />
             );
           }
@@ -1193,6 +1201,7 @@ export default function SVGLayer({
                 size: activeStroke.width,
               })}
               fill={activeStroke.color}
+              opacity={strokeOpacity}
             />
           );
         })()}
@@ -1206,6 +1215,73 @@ export default function SVGLayer({
           if (w < 2 && h < 2) return null;
           const st = shapePreviewStyle;
           const type = st.shapeType || "rect";
+          const opacity = st.opacity ?? 1;
+          const dashArray = strokeStyleToDash(st.strokeStyle);
+          const isRounded = st.edgeStyle === "round";
+
+          // For line/arrow, use start/end directly (not min/max)
+          const sx = shapePreview.startX;
+          const sy = shapePreview.startY;
+          const ex = shapePreview.endX;
+          const ey = shapePreview.endY;
+
+          // Build rough paths if roughness > 0
+          const roughOpts = {
+            stroke: st.stroke,
+            fill: st.fill,
+            fillStyle: st.fillStyle,
+            roughness: st.roughness,
+            strokeWidth: st.strokeWidth,
+            strokeLineDash: dashArray,
+            seed: "__preview__",
+          };
+
+          let paths: RoughPathData[] | null = null;
+          if (st.roughness > 0) {
+            switch (type) {
+              case "rect":
+                paths = getRoughRectPaths(0, 0, w, h, roughOpts, isRounded);
+                break;
+              case "ellipse":
+                paths = getRoughEllipsePaths(w / 2, h / 2, w, h, roughOpts);
+                break;
+              case "diamond":
+                paths = getRoughDiamondPaths(0, 0, w, h, roughOpts, isRounded);
+                break;
+              case "line":
+                paths = getRoughLinePaths(0, ey - sy > 0 ? 0 : h, w, ey - sy > 0 ? h : 0, roughOpts);
+                break;
+              case "arrow":
+                paths = getRoughArrowPaths(0, ey - sy > 0 ? 0 : h, w, ey - sy > 0 ? h : 0, roughOpts);
+                break;
+            }
+          }
+
+          // Rough shapes (roughness > 0)
+          if (paths) {
+            const tx = (type === "line" || type === "arrow") ? Math.min(sx, ex) : x;
+            const ty = (type === "line" || type === "arrow") ? Math.min(sy, ey) : y;
+            return (
+              <g transform={`translate(${tx}, ${ty})`} opacity={opacity}>
+                {paths.map((p, i) => (
+                  <path
+                    key={i}
+                    d={p.d}
+                    stroke={p.stroke}
+                    strokeWidth={p.strokeWidth}
+                    fill={p.fill}
+                    strokeDasharray={p.strokeDasharray}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </g>
+            );
+          }
+
+          // Clean shapes (roughness === 0)
+          const dash = dashArray?.join(",");
+          const fill = st.fill || "none";
 
           if (type === "ellipse") {
             return (
@@ -1216,8 +1292,9 @@ export default function SVGLayer({
                 ry={h / 2}
                 stroke={st.stroke}
                 strokeWidth={st.strokeWidth}
-                fill="none"
-                strokeDasharray="4"
+                fill={fill}
+                strokeDasharray={dash}
+                opacity={opacity}
               />
             );
           }
@@ -1227,18 +1304,15 @@ export default function SVGLayer({
                 points={`${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`}
                 stroke={st.stroke}
                 strokeWidth={st.strokeWidth}
-                fill="none"
-                strokeDasharray="4"
+                fill={fill}
+                strokeDasharray={dash}
+                opacity={opacity}
               />
             );
           }
           if (type === "line" || type === "arrow") {
-            const sx = shapePreview.startX;
-            const sy = shapePreview.startY;
-            const ex = shapePreview.endX;
-            const ey = shapePreview.endY;
             return (
-              <>
+              <g opacity={opacity}>
                 <line
                   x1={sx}
                   y1={sy}
@@ -1246,7 +1320,7 @@ export default function SVGLayer({
                   y2={ey}
                   stroke={st.stroke}
                   strokeWidth={st.strokeWidth}
-                  strokeDasharray="4"
+                  strokeDasharray={dash}
                 />
                 {type === "arrow" && (() => {
                   const angle = Math.atan2(ey - sy, ex - sx);
@@ -1262,24 +1336,27 @@ export default function SVGLayer({
                       stroke={st.stroke}
                       strokeWidth={st.strokeWidth}
                       fill="none"
-                      strokeDasharray="4"
                     />
                   );
                 })()}
-              </>
+              </g>
             );
           }
           // Default: rect
+          const r = isRounded ? roundedRectRadius(w, h) : 0;
           return (
             <rect
               x={x}
               y={y}
               width={w}
               height={h}
+              rx={r || undefined}
+              ry={r || undefined}
               stroke={st.stroke}
               strokeWidth={st.strokeWidth}
-              fill="none"
-              strokeDasharray="4"
+              fill={fill}
+              strokeDasharray={dash}
+              opacity={opacity}
             />
           );
         })()}
