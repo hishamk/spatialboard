@@ -1199,8 +1199,15 @@ export default function SpatialCanvas({
       setSelection((prev) => {
         const next = new Set(engine.selection);
         if (prev.size !== next.size || [...prev].some((id) => !next.has(id))) {
-          // Clear text/frame-label editing when selection changes to a different node
-          setEditingTextId((cur) => (cur && !next.has(cur) ? null : cur));
+          // Clear text/frame-label editing when selection changes to a different node.
+          // For newly-created text nodes, keep edit mode briefly to survive pointer/selection churn
+          // until the contentEditable mounts and focus settles.
+          setEditingTextId((cur) => {
+            if (!cur || next.has(cur)) return cur;
+            const lock = textEditLockRef.current;
+            if (lock && lock.id === cur && performance.now() < lock.until) return cur;
+            return null;
+          });
           setEditingFrameLabelId((cur) => (cur && !next.has(cur) ? null : cur));
           setEditingStickyId((cur) => (cur && !next.has(cur) ? null : cur));
           setEditingShapeLabelId((cur) => (cur && !next.has(cur) ? null : cur));
@@ -1215,8 +1222,6 @@ export default function SpatialCanvas({
     };
     const handleMode = () => {
       setMode(engine.mode);
-      // Reset "first created" flag when entering text mode
-      if (engine.mode === "text") textCreatedOnceRef.current = false;
       // Clear selection when entering edge mode to hide bounding boxes
       if (engine.mode === "edge") engine.deselectAll();
     };
@@ -1383,6 +1388,8 @@ export default function SpatialCanvas({
 
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);
+  // Guard newly created text editing against immediate selection churn.
+  const textEditLockRef = useRef<{ id: string; until: number } | null>(null);
   // Track the last content block created locally so only the creator auto-enters edit mode
   const newlyCreatedContentIdRef = useRef<string | null>(null);
 
@@ -1403,8 +1410,100 @@ export default function SpatialCanvas({
   const laserTrailRef = useRef<Array<[number, number, number]>>([]);
   const laserFadeRafRef = useRef<number | null>(null);
 
-  // After a text node is created in text mode, require double-click for the next one
-  const textCreatedOnceRef = useRef(false);
+  // While editing canvas text, suppress input leakage to sibling editors
+  // (e.g. BlockNote/TipTap) that may retain global key/beforeinput handlers.
+  useEffect(() => {
+    if (!editingTextId) return;
+
+    const doc = ownerDoc();
+
+    const getCanvasEditable = (root: HTMLElement) =>
+      root.querySelector(
+        `[data-node-id="${editingTextId}"] [contenteditable="true"]`
+      ) as HTMLElement | null;
+
+    const isEditableEl = (el: Element | null): el is HTMLElement => {
+      if (!el || !(el instanceof HTMLElement)) return false;
+      return (
+        el.isContentEditable ||
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement
+      );
+    };
+
+    const shouldBlockKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return false;
+      if (e.key.length === 1) return true; // printable characters
+      return (
+        e.key === "Backspace" ||
+        e.key === "Delete" ||
+        e.key === "Enter" ||
+        e.key === "Tab" ||
+        e.key === " "
+      );
+    };
+
+    const shouldBlockBeforeInput = (e: InputEvent) => {
+      if (e.inputType.startsWith("insert")) return true;
+      if (e.inputType.startsWith("delete")) return true;
+      return false;
+    };
+
+    const blockAndRefocus = (e: Event) => {
+      const root = containerRef.current;
+      if (!root) return;
+      const target = e.target as Node | null;
+      if (target && root.contains(target)) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      if ("stopImmediatePropagation" in e && typeof e.stopImmediatePropagation === "function") {
+        e.stopImmediatePropagation();
+      }
+
+      const editable = getCanvasEditable(root);
+      if (editable) editable.focus();
+    };
+
+    const onKeyDownCapture = (e: KeyboardEvent) => {
+      if (!shouldBlockKey(e)) return;
+      blockAndRefocus(e);
+    };
+
+    const onBeforeInputCapture = (e: InputEvent) => {
+      if (!shouldBlockBeforeInput(e)) return;
+      blockAndRefocus(e);
+    };
+
+    const onFocusInCapture = (e: FocusEvent) => {
+      const root = containerRef.current;
+      if (!root) return;
+      const target = e.target as Element | null;
+      if (!target || root.contains(target)) return;
+      if (!isEditableEl(target)) return;
+
+      const editable = getCanvasEditable(root);
+      // Defer so we don't fight browser focus updates in the same tick.
+      requestAnimationFrame(() => {
+        try {
+          (target as HTMLElement).blur();
+        } catch {
+          // ignore
+        }
+        if (editable) editable.focus();
+      });
+    };
+
+    doc.addEventListener("keydown", onKeyDownCapture, true);
+    doc.addEventListener("beforeinput", onBeforeInputCapture as EventListener, true);
+    doc.addEventListener("focusin", onFocusInCapture, true);
+
+    return () => {
+      doc.removeEventListener("keydown", onKeyDownCapture, true);
+      doc.removeEventListener("beforeinput", onBeforeInputCapture as EventListener, true);
+      doc.removeEventListener("focusin", onFocusInCapture, true);
+    };
+  }, [editingTextId]);
 
   const createContentBlock = useCallback(
     (x: number, y: number, w: number, h: number | "auto" = "auto") => {
@@ -1739,6 +1838,25 @@ export default function SpatialCanvas({
   // Used by both the text tool and double-click-on-canvas flows.
   const createTextNodeAndEdit = useCallback(
     (x: number, y: number, w: number) => {
+      // If editors outside canvas currently own focus/state (TipTap/BlockNote),
+      // aggressively blur all external editables so key events don't leak cross-panel.
+      const blurExternalEditables = () => {
+        const root = containerRef.current;
+        const rootDoc = root?.ownerDocument ?? document;
+        const editables = Array.from(
+          rootDoc.querySelectorAll<HTMLElement>('input, textarea, [contenteditable="true"]')
+        );
+        for (const el of editables) {
+          if (root?.contains(el)) continue;
+          try {
+            el.blur();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+      blurExternalEditables();
+
       const id = nanoid(10);
       engine.addNode({
         id,
@@ -1759,7 +1877,30 @@ export default function SpatialCanvas({
       } as TextNode);
       engine.select(id);
       newlyCreatedTextRef.current = id;
+      textEditLockRef.current = { id, until: performance.now() + 1500 };
       setEditingTextId(id);
+
+      // Force-focus the freshly mounted contentEditable. In some render/orderings,
+      // React state + canvas pointer lifecycle can leave the new text node not focused
+      // on first click; retry for a few frames until the editable exists.
+      const focusEditable = (attempt = 0) => {
+        const root = containerRef.current;
+        if (!root) return;
+        const editable = root.querySelector(
+          `[data-node-id="${id}"] [contenteditable="true"]`
+        ) as HTMLElement | null;
+        if (editable) {
+          // Re-run external blur right before focus in case another panel reclaimed focus.
+          blurExternalEditables();
+          editable.focus();
+          textEditLockRef.current = null;
+          return;
+        }
+        if (attempt < 12) {
+          requestAnimationFrame(() => focusEditable(attempt + 1));
+        }
+      };
+      requestAnimationFrame(() => focusEditable(0));
     },
     [engine]
   );
@@ -1768,15 +1909,6 @@ export default function SpatialCanvas({
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
       if (engine.presentationMode) return;
-      // Double-click in text mode: allow creating a new text node after the first
-      if (engine.mode === "text" && textCreatedOnceRef.current) {
-        textCreatedOnceRef.current = false;
-        if (containerRef.current) containerRef.current.style.cursor = "text";
-        engine.deselectAll();
-        const { x: cx, y: cy } = engine.screenToCanvas(e.clientX, e.clientY);
-        createTextNodeAndEdit(cx, cy, 300);
-        return;
-      }
       if (engine.mode !== "select") return;
       const { x: cx, y: cy } = engine.screenToCanvas(e.clientX, e.clientY);
       const allHits = engine.hitTestAll(cx, cy, measuredHeights);
@@ -2317,8 +2449,6 @@ export default function SpatialCanvas({
           }
         }
       } else if (engine.mode === "text") {
-        // After the first text node, require double-click for the next one
-        if (textCreatedOnceRef.current) return;
         engine.deselectAll();
         const startCx = cx;
         const startCy = cy;
@@ -2351,8 +2481,6 @@ export default function SpatialCanvas({
 
           // Create the node immediately so collaboration sync works from the start
           createTextNodeAndEdit(x, y, w);
-          textCreatedOnceRef.current = true;
-          if (containerRef.current) containerRef.current.style.cursor = "crosshair";
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -4432,12 +4560,24 @@ export default function SpatialCanvas({
                         else if (n.type === "youtube") setEditingYouTubeId(id);
                       },
                       onEditEnd: () => {
-                        setEditingTextId(null);
-                        setEditingStickyId(null);
-                        setEditingFrameLabelId(null);
-                        setEditingShapeLabelId(null);
-                        setCroppingImageId(null);
-                        setEditingYouTubeId(null);
+                        if (node.type === "text") {
+                          setEditingTextId((cur) => {
+                            if (cur !== node.id) return cur;
+                            const lock = textEditLockRef.current;
+                            if (lock && lock.id === cur && performance.now() < lock.until) return cur;
+                            return null;
+                          });
+                        } else if (node.type === "sticky") {
+                          setEditingStickyId((cur) => (cur === node.id ? null : cur));
+                        } else if (node.type === "frame") {
+                          setEditingFrameLabelId((cur) => (cur === node.id ? null : cur));
+                        } else if (node.type === "shape") {
+                          setEditingShapeLabelId((cur) => (cur === node.id ? null : cur));
+                        } else if (node.type === "image") {
+                          setCroppingImageId((cur) => (cur === node.id ? null : cur));
+                        } else if (node.type === "youtube") {
+                          setEditingYouTubeId((cur) => (cur === node.id ? null : cur));
+                        }
                       },
                     }}
                     portValues={dataFlow && def.ports?.length && dataFlowVersion >= 0 ? dataFlow.getAllPortValues(node.id) : undefined}
@@ -4504,12 +4644,12 @@ export default function SpatialCanvas({
                         const textNode = engine.getNode(node.id) as TextNode | undefined;
                         if (!textNode || !textNode.data.text.trim()) {
                           engine.deleteNode(node.id);
-                          setEditingTextId(null);
+                          setEditingTextId((cur) => (cur === node.id ? null : cur));
                           return;
                         }
                         engine.pushHistorySnapshot();
                       }
-                      setEditingTextId(null);
+                      setEditingTextId((cur) => (cur === node.id ? null : cur));
                     }}
                     onMeasuredHeight={handleMeasuredHeight}
                   />
