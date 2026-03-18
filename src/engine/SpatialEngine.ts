@@ -192,6 +192,7 @@ export class SpatialEngine {
   snapToGrid = false;
   smartGuides = true;
   lassoSelect = false;
+  freeFormEdges = true;
   presentationMode = false;
   presentationSlides: string[] = [];
   presentationIndex = 0;
@@ -537,6 +538,11 @@ export class SpatialEngine {
   toggleSnapToGrid(): void {
     this.snapToGrid = !this.snapToGrid;
     this.emit("guides");
+  }
+
+  toggleFreeFormEdges(): void {
+    this.freeFormEdges = !this.freeFormEdges;
+    this.emit("change");
   }
 
   toggleSmartGuides(): void {
@@ -1359,7 +1365,12 @@ export class SpatialEngine {
           edgeNode.data.sourceHandle,
           edgeNode.data.targetHandle,
           edgeNode.data.midpointOffset,
-          edgeNode.data.curveOffset
+          edgeNode.data.curveOffset,
+          undefined,
+          undefined,
+          edgeNode.data.sourceT,
+          edgeNode.data.targetT,
+          edgeNode.data.attachmentGap,
         );
 
         const newEdge = { ...edgeNode, ...pathResult.bounds };

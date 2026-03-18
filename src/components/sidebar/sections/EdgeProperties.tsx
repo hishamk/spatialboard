@@ -1,5 +1,5 @@
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
-import type { EdgeNode } from "../../../engine/types";
+import type { EdgeNode, HandleSide } from "../../../engine/types";
 import { useBatchUpdate } from "../MultiNodeContext";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
@@ -8,6 +8,18 @@ import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase, STROKE_PALETTES, ROUGHNESS_LEVELS, WIDTHS_EDGE } from "../styles";
 import { useSBI18n } from "../../LocalizationContext";
+
+const HANDLE_TO_T: Record<HandleSide, number> = { top: 0, right: 0.25, bottom: 0.5, left: 0.75 };
+const T_TO_HANDLE: [number, HandleSide][] = [[0, "top"], [0.25, "right"], [0.5, "bottom"], [0.75, "left"]];
+function tToNearestHandle(t: number): HandleSide {
+  let best: HandleSide = "top";
+  let bestDist = Infinity;
+  for (const [tv, side] of T_TO_HANDLE) {
+    const d = Math.min(Math.abs(t - tv), Math.abs(t - tv - 1), Math.abs(t - tv + 1));
+    if (d < bestDist) { bestDist = d; best = side; }
+  }
+  return best;
+}
 
 interface EdgePropertiesProps {
   engine: SpatialEngine;
@@ -43,6 +55,51 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
           value={data.strokeWidth}
           onChange={(w) => update({ strokeWidth: w })}
         />
+
+        {/* Connection mode: Fixed (4 anchors) vs Free (any border point) */}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>Connect</span>
+          {(["fixed", "free"] as const).map((mode) => {
+            const isFree = data.sourceT !== undefined || data.targetT !== undefined;
+            const isActive = mode === "free" ? isFree : !isFree;
+            return (
+              <button
+                key={mode}
+                onClick={() => {
+                  if (mode === "free" && !isFree) {
+                    // Convert fixed → free
+                    update({
+                      sourceT: data.sourceHandle ? HANDLE_TO_T[data.sourceHandle] : 0,
+                      targetT: data.targetHandle ? HANDLE_TO_T[data.targetHandle] : 0.5,
+                      sourceHandle: undefined,
+                      targetHandle: undefined,
+                    } as any);
+                  } else if (mode === "fixed" && isFree) {
+                    // Convert free → fixed
+                    update({
+                      sourceHandle: data.sourceT !== undefined ? tToNearestHandle(data.sourceT) : "right",
+                      targetHandle: data.targetT !== undefined ? tToNearestHandle(data.targetT) : "left",
+                      sourceT: undefined,
+                      targetT: undefined,
+                    } as any);
+                  }
+                }}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: isActive ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 10,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {mode === "fixed" ? "Fixed" : "Free"}
+              </button>
+            );
+          })}
+        </div>
+
       </PropertySection>
 
       <PropertySection title={labels.edgeArrowsSection} persistKey="edge.arrows">
@@ -123,7 +180,7 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
         )}
       </PropertySection>
 
-      <PropertySection title={labels.edgePathMotionSection} defaultOpen={false} persistKey="edge.path-motion">
+      <PropertySection title={labels.edgePathMotionSection} persistKey="edge.path-motion">
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgePath}</span>
           {(

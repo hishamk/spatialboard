@@ -12,6 +12,7 @@ import type {
   DrawNode,
   ShapeNode,
   EdgeNode,
+  EdgeType,
   ImageNode,
   TextNode,
   FrameNode,
@@ -52,6 +53,9 @@ import {
   getNodeHandlePositions,
   computeEdgePath,
   getPortPosition,
+  nearestPerimeterPoint,
+  canvasPointToPerimeterT,
+  perimeterPoint,
 } from "../engine/edge-geometry";
 import type { PortPositionResolver } from "../engine/edge-geometry";
 import { isPointInShapeNode } from "../engine/spatial-index";
@@ -646,10 +650,18 @@ export default function SpatialCanvas({
     cursorX: number;
     cursorY: number;
     sourceHandle?: HandleSide;
+    /** Parametric position for free-form edge source. */
+    sourceT?: number;
     /** Port ID on the source node (for port-aware edge creation). */
     sourcePort?: string;
     /** Direction of the source port. */
     sourceDirection?: "input" | "output";
+    /** Edge style for realistic preview */
+    edgeColor?: string;
+    edgeStrokeWidth?: number;
+    edgeStyle?: "solid" | "dashed" | "dotted";
+    edgeType?: EdgeType;
+    attachmentGap?: number;
   } | null>(null);
 
   const [edgeReconnect, setEdgeReconnect] = useState<{
@@ -1043,6 +1055,10 @@ export default function SpatialCanvas({
             data.targetHandle,
             data.midpointOffset,
             data.curveOffset,
+            undefined, undefined,
+            data.sourceT,
+            data.targetT,
+            data.attachmentGap,
           );
           include =
             path.bounds.x < rect.x + rect.w &&
@@ -1201,6 +1217,8 @@ export default function SpatialCanvas({
       setMode(engine.mode);
       // Reset "first created" flag when entering text mode
       if (engine.mode === "text") textCreatedOnceRef.current = false;
+      // Clear selection when entering edge mode to hide bounding boxes
+      if (engine.mode === "edge") engine.deselectAll();
     };
     const handleBackground = () => setBoardBackground(engine.boardBackground);
     const handleGuides = () => {
@@ -1319,6 +1337,7 @@ export default function SpatialCanvas({
 
   // Hover state — tracked centrally for all node types
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [cursorCanvasPos, setCursorCanvasPos] = useState<{ x: number; y: number } | null>(null);
   const hoveredNodeIdRef = useRef<string | null>(null);
 
   const boppingNodeIds = useMemo(() => {
@@ -2588,7 +2607,16 @@ export default function SpatialCanvas({
         const sourceNode = engine.hitTest(cx, cy, measuredHeights);
         if (!sourceNode || sourceNode.type === "edge") return;
 
-        setEdgePreview({ fromNode: sourceNode, cursorX: cx, cursorY: cy });
+        const isFreeForm = engine.freeFormEdges;
+        const edgeSourceT = isFreeForm ? nearestPerimeterPoint(sourceNode, cx, cy, measuredHeights).t : undefined;
+        setEdgePreview({
+          fromNode: sourceNode, cursorX: cx, cursorY: cy, sourceT: edgeSourceT,
+          edgeColor: engine.activeTool.color,
+          edgeStrokeWidth: engine.activeTool.width || 2,
+          edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
+          edgeType: engine.activeTool.edgeType,
+          attachmentGap: engine.activeTool.attachmentGap,
+        });
 
         const onMove = (me: PointerEvent) => {
           const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
@@ -2604,7 +2632,7 @@ export default function SpatialCanvas({
           const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
           let targetNode = engine.hitTest(x, y, measuredHeights);
 
-          // Fallback: find the nearest node by handle midpoint distance.
+          // Fallback: find the nearest node by perimeter distance, then handle midpoints.
           if (!targetNode || targetNode.type === "edge" || engine.isContainerType(targetNode.type)) {
             const snapThreshold = 50 / engine.viewport.zoom;
             let bestDist = Infinity;
@@ -2613,13 +2641,13 @@ export default function SpatialCanvas({
             for (const n of engine.getAllNodes()) {
               if (n.type === "edge" || n.id === sourceNode.id) continue;
               const isFrame = engine.isContainerType(n.type);
-              const handlePositions = getNodeHandlePositions(n, measuredHeights);
-              for (const hp of handlePositions) {
-                const dist = Math.hypot(hp.x - x, hp.y - y);
-                if (dist >= snapThreshold) continue;
+              // Check perimeter distance (catches free-form snap points)
+              const pp = nearestPerimeterPoint(n, x, y, measuredHeights);
+              const perimDist = Math.hypot(pp.x - x, pp.y - y);
+              if (perimDist < snapThreshold) {
                 if (isFrame && !bestIsFrame && bestNode) continue;
-                if ((!isFrame && bestIsFrame) || dist < bestDist) {
-                  bestDist = dist;
+                if ((!isFrame && bestIsFrame) || perimDist < bestDist) {
+                  bestDist = perimDist;
                   bestIsFrame = isFrame;
                   bestNode = n;
                 }
@@ -2636,18 +2664,25 @@ export default function SpatialCanvas({
           )
             return;
 
-          // Determine which handles the edge connects to
-          const sourceHandle = nearestHandle(sourceNode, cx, cy, measuredHeights);
-          const targetHandle = nearestHandle(targetNode, x, y, measuredHeights);
+          // Determine which handles/t-values the edge connects to
+          const sourceHandle = isFreeForm ? undefined : nearestHandle(sourceNode, cx, cy, measuredHeights);
+          const targetHandle = isFreeForm ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
+          const edgeTargetT = isFreeForm ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
 
           // Allow parallel edges between the same nodes, but block exact duplicates.
           const duplicate = engine.getAllNodes().some((n) => {
             if (n.type !== "edge") return false;
-            return isExactEdgeConnectionDuplicate((n as EdgeNode).data, {
+            const ed = (n as EdgeNode).data;
+            if (isFreeForm) {
+              return ed.fromId === sourceNode.id && ed.toId === targetNode.id &&
+                ed.sourceT !== undefined && ed.targetT !== undefined &&
+                Math.abs(ed.sourceT - edgeSourceT!) < 0.02 && Math.abs(ed.targetT - edgeTargetT!) < 0.02;
+            }
+            return isExactEdgeConnectionDuplicate(ed, {
               fromId: sourceNode.id,
               toId: targetNode.id,
-              sourceHandle,
-              targetHandle,
+              sourceHandle: sourceHandle!,
+              targetHandle: targetHandle!,
             });
           });
           if (duplicate) return;
@@ -2663,18 +2698,21 @@ export default function SpatialCanvas({
             data: {
               fromId: sourceNode.id,
               toId: targetNode.id,
-              style: "solid",
+              style: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
               color: engine.activeTool.color,
-              strokeWidth: 2,
-              arrowHead: "arrow",
-              arrowTail: "none",
-              edgeType: "bezier",
+              strokeWidth: engine.activeTool.width || 2,
+              arrowHead: engine.activeTool.arrowHead ?? "arrow",
+              arrowTail: engine.activeTool.arrowTail ?? "none",
+              edgeType: engine.activeTool.edgeType ?? "bezier",
+              roughness: engine.activeTool.roughness ?? 0,
+              attachmentGap: engine.activeTool.attachmentGap,
               sourceHandle,
               targetHandle,
+              sourceT: edgeSourceT,
+              targetT: edgeTargetT,
             },
           };
           engine.addNode(edgeNode);
-          engine.select(edgeNode.id);
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -3190,7 +3228,16 @@ export default function SpatialCanvas({
       if (!sourceNode) return;
 
       const { x: startCX, y: startCY } = engine.screenToCanvas(e.clientX, e.clientY);
-      setEdgePreview({ fromNode: sourceNode, cursorX: startCX, cursorY: startCY, sourceHandle: side });
+      const isFreeForm = engine.freeFormEdges;
+      const sourceT = isFreeForm ? nearestPerimeterPoint(sourceNode, startCX, startCY, measuredHeights).t : undefined;
+      setEdgePreview({
+        fromNode: sourceNode, cursorX: startCX, cursorY: startCY,
+        sourceHandle: isFreeForm ? undefined : side,
+        sourceT,
+        edgeColor: engine.activeTool.color,
+        edgeStrokeWidth: engine.activeTool.width || 2,
+        edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
+      });
 
       const onMove = (me: PointerEvent) => {
         const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
@@ -3206,7 +3253,7 @@ export default function SpatialCanvas({
         const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
         let targetNode = engine.hitTest(x, y, measuredHeights);
 
-        // Fallback: find nearest node by handle midpoint distance.
+        // Fallback: find nearest node by perimeter distance.
         // Runs when hitTest missed or hit a frame (prefer children over frame).
         if (!targetNode || targetNode.type === "edge" || engine.isContainerType(targetNode.type)) {
           const snapThreshold = 50 / engine.viewport.zoom;
@@ -3216,16 +3263,14 @@ export default function SpatialCanvas({
           for (const n of engine.getAllNodes()) {
             if (n.type === "edge" || n.id === sourceNode.id) continue;
             const isFrame = engine.isContainerType(n.type);
-            const handlePositions = getNodeHandlePositions(n, measuredHeights);
-            for (const hp of handlePositions) {
-              const dist = Math.hypot(hp.x - x, hp.y - y);
-              if (dist >= snapThreshold) continue;
-              if (isFrame && !bestIsFrame && bestNode) continue;
-              if ((!isFrame && bestIsFrame) || dist < bestDist) {
-                bestDist = dist;
-                bestIsFrame = isFrame;
-                bestNode = n;
-              }
+            const pp = nearestPerimeterPoint(n, x, y, measuredHeights);
+            const dist = Math.hypot(pp.x - x, pp.y - y);
+            if (dist >= snapThreshold) continue;
+            if (isFrame && !bestIsFrame && bestNode) continue;
+            if ((!isFrame && bestIsFrame) || dist < bestDist) {
+              bestDist = dist;
+              bestIsFrame = isFrame;
+              bestNode = n;
             }
           }
           if (bestNode) targetNode = bestNode;
@@ -3238,15 +3283,23 @@ export default function SpatialCanvas({
         )
           return;
 
-        const targetHandle = nearestHandle(targetNode, x, y, measuredHeights);
+        const targetHandle = isFreeForm ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
+        const targetT = isFreeForm ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
         // Allow parallel edges between the same nodes, but block exact duplicates.
         const duplicate = engine.getAllNodes().some((n) => {
           if (n.type !== "edge") return false;
-          return isExactEdgeConnectionDuplicate((n as EdgeNode).data, {
+          const ed = (n as EdgeNode).data;
+          if (isFreeForm) {
+            // For free-form, check approximate t-value match
+            return ed.fromId === sourceNode.id && ed.toId === targetNode.id &&
+              ed.sourceT !== undefined && ed.targetT !== undefined &&
+              Math.abs(ed.sourceT - sourceT!) < 0.02 && Math.abs(ed.targetT - targetT!) < 0.02;
+          }
+          return isExactEdgeConnectionDuplicate(ed, {
             fromId: sourceNode.id,
             toId: targetNode.id,
             sourceHandle: side,
-            targetHandle,
+            targetHandle: targetHandle!,
           });
         });
         if (duplicate) return;
@@ -3258,18 +3311,21 @@ export default function SpatialCanvas({
           data: {
             fromId: sourceNode.id,
             toId: targetNode.id,
-            style: "solid",
+            style: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
             color: engine.activeTool.color,
-            strokeWidth: 2,
-            arrowHead: "arrow",
-            arrowTail: "none",
-            edgeType: "bezier",
-            sourceHandle: side,
+            strokeWidth: engine.activeTool.width || 2,
+            arrowHead: engine.activeTool.arrowHead ?? "arrow",
+            arrowTail: engine.activeTool.arrowTail ?? "none",
+            edgeType: engine.activeTool.edgeType ?? "bezier",
+            roughness: engine.activeTool.roughness ?? 0,
+            attachmentGap: engine.activeTool.attachmentGap,
+            sourceHandle: isFreeForm ? undefined : side,
             targetHandle,
+            sourceT,
+            targetT,
           },
         };
         engine.addNode(edgeNode);
-        engine.select(edgeNode.id);
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
@@ -3327,6 +3383,9 @@ export default function SpatialCanvas({
         sourceHandle,
         sourcePort: portId,
         sourceDirection: direction,
+        edgeColor: engine.activeTool.color,
+        edgeStrokeWidth: engine.activeTool.width || 2,
+        edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
       });
 
       const onMove = (me: PointerEvent) => {
@@ -3467,7 +3526,10 @@ export default function SpatialCanvas({
             fresh.data.edgeType || "bezier",
             measuredHeights,
             fresh.data.sourceHandle, fresh.data.targetHandle,
-            undefined, undefined // no offsets → natural midpoint
+            undefined, undefined, // no offsets → natural midpoint
+            undefined, undefined,
+            fresh.data.sourceT, fresh.data.targetT,
+            fresh.data.attachmentGap,
           );
           if (!naturalPath.kinkHandle) return;
           const dx = canvasPos.x - naturalPath.kinkHandle.x;
@@ -3483,7 +3545,10 @@ export default function SpatialCanvas({
             fresh.data.edgeType || "bezier",
             measuredHeights,
             fresh.data.sourceHandle, fresh.data.targetHandle,
-            0.5 // default to get range
+            0.5, undefined, // default to get range
+            undefined, undefined,
+            fresh.data.sourceT, fresh.data.targetT,
+            fresh.data.attachmentGap,
           );
           if (!pathResult.kinkHandle) return;
           const curMin = pathResult.kinkHandle.min;
@@ -3533,7 +3598,11 @@ export default function SpatialCanvas({
         fromNode, toNode,
         edgeNode.data.edgeType || "bezier",
         measuredHeights,
-        sourceHandle, targetHandle
+        sourceHandle, targetHandle,
+        undefined, undefined,
+        undefined, undefined,
+        edgeNode.data.sourceT, edgeNode.data.targetT,
+        edgeNode.data.attachmentGap,
       );
       const startCursor = endpoint === "source"
         ? { x: pathResult.x1, y: pathResult.y1 }
@@ -3562,7 +3631,7 @@ export default function SpatialCanvas({
 
         const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
 
-        // Find target node by hitTest, with handle-midpoint fallback.
+        // Find target node by hitTest, with perimeter-distance fallback.
         // Also search when hitting a frame — prefer children over the frame.
         let targetNode = engine.hitTest(x, y, measuredHeights);
         if (!targetNode || targetNode.type === "edge" || engine.isContainerType(targetNode.type)) {
@@ -3573,16 +3642,14 @@ export default function SpatialCanvas({
           for (const n of engine.getAllNodes()) {
             if (n.type === "edge") continue;
             const isFrame = engine.isContainerType(n.type);
-            const handlePositions = getNodeHandlePositions(n, measuredHeights);
-            for (const hp of handlePositions) {
-              const dist = Math.hypot(hp.x - x, hp.y - y);
-              if (dist >= snapThreshold) continue;
-              if (isFrame && !bestIsFrame && bestNode) continue;
-              if ((!isFrame && bestIsFrame) || dist < bestDist) {
-                bestDist = dist;
-                bestIsFrame = isFrame;
-                bestNode = n;
-              }
+            const pp = nearestPerimeterPoint(n, x, y, measuredHeights);
+            const dist = Math.hypot(pp.x - x, pp.y - y);
+            if (dist >= snapThreshold) continue;
+            if (isFrame && !bestIsFrame && bestNode) continue;
+            if ((!isFrame && bestIsFrame) || dist < bestDist) {
+              bestDist = dist;
+              bestIsFrame = isFrame;
+              bestNode = n;
             }
           }
           if (bestNode) targetNode = bestNode;
@@ -3602,14 +3669,19 @@ export default function SpatialCanvas({
         const originalEndNodeId = endpoint === "source" ? fromId : toId;
         if (targetNode.id === originalEndNodeId) return;
 
-        // Compute new handle for the reconnected endpoint
-        const newHandle = nearestHandle(targetNode, x, y, measuredHeights);
+        // Determine if this is a free-form edge
+        const isFreeFormEdge = edgeNode.data.sourceT !== undefined || edgeNode.data.targetT !== undefined;
+
+        // Compute new handle/t for the reconnected endpoint
+        const newHandle = isFreeFormEdge ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
+        const newT = isFreeFormEdge ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
+
         const candidate = endpoint === "source"
           ? {
             fromId: newFromId,
             toId: newToId,
-            sourceHandle: newHandle,
-            targetHandle,
+            sourceHandle: newHandle ?? sourceHandle,
+            targetHandle: targetHandle,
             sourcePort: edgeNode.data.sourcePort,
             targetPort: edgeNode.data.targetPort,
           }
@@ -3617,7 +3689,7 @@ export default function SpatialCanvas({
             fromId: newFromId,
             toId: newToId,
             sourceHandle,
-            targetHandle: newHandle,
+            targetHandle: newHandle ?? targetHandle,
             sourcePort: edgeNode.data.sourcePort,
             targetPort: edgeNode.data.targetPort,
           };
@@ -3630,9 +3702,16 @@ export default function SpatialCanvas({
         if (wouldDuplicate) return;
 
         // Apply with history (Ctrl+Z undoes reconnection)
-        const dataPatch: Partial<EdgeNode["data"]> = endpoint === "source"
-          ? { fromId: targetNode.id, sourceHandle: newHandle }
-          : { toId: targetNode.id, targetHandle: newHandle };
+        let dataPatch: Partial<EdgeNode["data"]>;
+        if (isFreeFormEdge) {
+          dataPatch = endpoint === "source"
+            ? { fromId: targetNode.id, sourceT: newT, sourceHandle: undefined }
+            : { toId: targetNode.id, targetT: newT, targetHandle: undefined };
+        } else {
+          dataPatch = endpoint === "source"
+            ? { fromId: targetNode.id, sourceHandle: newHandle }
+            : { toId: targetNode.id, targetHandle: newHandle };
+        }
 
         engine.updateNodeWithHistory(edgeId, { data: dataPatch } as Partial<EdgeNode>);
       };
@@ -4003,14 +4082,26 @@ export default function SpatialCanvas({
           return;
         }
 
-        // In edge mode, just track hover for connection handles
+        // In edge mode, find nearest node by perimeter proximity (not hitTest)
+        // so the attachment dot shows reliably even on thin strokes.
         if (engine.mode === "edge") {
-          const hit = engine.hitTest(cx, cy, measuredHeights);
-          const newHoveredId = (hit && hit.type !== "edge") ? hit.id : null;
-          if (newHoveredId !== hoveredNodeIdRef.current) {
-            hoveredNodeIdRef.current = newHoveredId;
-            setHoveredNodeId(newHoveredId);
+          const snapThreshold = 50 / engine.viewport.zoom;
+          let bestId: string | null = null;
+          let bestDist = snapThreshold;
+          for (const n of engine.getAllNodes()) {
+            if (n.type === "edge") continue;
+            const pp = nearestPerimeterPoint(n, cx, cy, measuredHeights);
+            const dist = Math.hypot(pp.x - cx, pp.y - cy);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestId = n.id;
+            }
           }
+          if (bestId !== hoveredNodeIdRef.current) {
+            hoveredNodeIdRef.current = bestId;
+            setHoveredNodeId(bestId);
+          }
+          setCursorCanvasPos({ x: cx, y: cy });
           return;
         }
 
@@ -4309,7 +4400,7 @@ export default function SpatialCanvas({
               const def = registry.get(node.type);
               if (def) {
                 const Component = def.component;
-                const isSelected = selection.has(node.id);
+                const isSelected = selection.has(node.id) && mode !== "edge";
                 const isInteractive = mode === "select" || mode === "text" || mode === "note" || mode === "sticky";
                 const componentEl = (
                   <Component
@@ -4385,7 +4476,7 @@ export default function SpatialCanvas({
                   <ContentBlock
                     key={node.id}
                     node={cNode}
-                    isSelected={selection.has(node.id)}
+                    isSelected={selection.has(node.id) && mode !== "edge"}
                     multiSelected={
                       selection.size > 1 &&
                       selection.has(node.id) &&
@@ -4428,7 +4519,7 @@ export default function SpatialCanvas({
                   <ImageBlock
                     key={node.id}
                     node={node as ImageNode}
-                    isSelected={selection.has(node.id)}
+                    isSelected={selection.has(node.id) && mode !== "edge"}
                     engine={engine}
                     interactive={mode === "select"}
                     zoom={viewport.zoom}
@@ -4443,7 +4534,7 @@ export default function SpatialCanvas({
                   <StickyNoteBlock
                     key={node.id}
                     node={node as StickyNoteNode}
-                    isSelected={selection.has(node.id)}
+                    isSelected={selection.has(node.id) && mode !== "edge"}
                     engine={engine}
                     interactive={mode === "select" || mode === "sticky"}
                     zoom={viewport.zoom}
@@ -4646,7 +4737,9 @@ export default function SpatialCanvas({
         eraserTrail={eraserTrail.length > 1 ? eraserTrail : undefined}
         laserTrail={laserTrail.length > 1 ? laserTrail : undefined}
         mode={mode}
+        freeFormEdges={engine.freeFormEdges}
         hoveredNodeId={hoveredNodeId}
+        cursorCanvasPos={cursorCanvasPos}
         registry={registry}
         onPortHandleDown={handlePortHandleDown}
         cycleNodeIds={dataFlow && dataFlowVersion >= 0 ? dataFlow.cycleNodeIds : undefined}
@@ -4655,7 +4748,7 @@ export default function SpatialCanvas({
       />
 
       {/* Unified multi-selection bounding box */}
-      {selBounds && (() => {
+      {selBounds && mode !== "edge" && !edgePreview && !edgeReconnect && (() => {
         // Check for persisted group rotation
         const singleGroupId = engine.selectionGroupId();
         const storedRot = singleGroupId ? engine.groupRotations.get(singleGroupId) : undefined;

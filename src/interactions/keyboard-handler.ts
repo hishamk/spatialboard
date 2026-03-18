@@ -476,6 +476,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
       if (e.key === "b") { engine.setMode("note"); return; }
       if (e.key === "y") { engine.setMode("sticky"); return; }
       if (e.key === "f") { engine.setMode("frame"); return; }
+      if (e.key === "c") { engine.setMode("edge"); return; }
       if (e.key === "e") { engine.setMode("erase"); return; }
       if (e.key === "l") {
         engine.toggleLassoSelect();

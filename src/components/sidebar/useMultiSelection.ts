@@ -102,7 +102,7 @@ export function useMultiSelection(engine: SpatialEngine): {
   // Compute on every render — node data can change via onChange without
   // selection/mode changing, so useMemo would return stale references.
   if (selection.size === 0) {
-    if (mode === "draw" || mode === "shape" || mode === "text") {
+    if (mode === "draw" || mode === "shape" || mode === "text" || mode === "edge") {
       return { target: { kind: "tool" as const, mode }, commonProps: {} };
     }
     return { target: { kind: "none" as const }, commonProps: {} };

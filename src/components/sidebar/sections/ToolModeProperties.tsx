@@ -22,6 +22,7 @@ import {
   TEXT_ALIGNS,
   WIDTHS_DRAW,
   WIDTHS_SHAPE,
+  WIDTHS_EDGE,
 } from "../styles";
 
 interface ToolModePropertiesProps {
@@ -164,6 +165,150 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
     );
   }
 
+  // Edge mode — all edge options
+  if (mode === "edge") {
+    const edgeRoughness = tool.roughness ?? 0;
+    return (
+      <>
+        {/* Stroke color */}
+        <PaletteColorPicker
+          label={labels.inspectorStroke}
+          palettes={STROKE_PALETTES}
+          value={tool.color}
+          onChange={(c) => {
+            tool.color = c!;
+            refresh();
+          }}
+        />
+
+        {/* Stroke style */}
+        <StrokeStylePicker
+          label={labels.inspectorStrokeStyle}
+          value={tool.strokeStyle ?? "solid"}
+          onChange={(s) => {
+            tool.strokeStyle = s;
+            refresh();
+          }}
+        />
+
+        {/* Stroke width */}
+        <WidthPicker
+          label={labels.inspectorStrokeWidth}
+          widths={WIDTHS_EDGE}
+          value={tool.width}
+          onChange={(w) => {
+            tool.width = w;
+            refresh();
+          }}
+        />
+
+        {/* Arrow head */}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeHead}</span>
+          {(["none", "arrow", "filled", "dot"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => { tool.arrowHead = v; refresh(); }}
+              style={{
+                ...btnBase,
+                height: 28,
+                padding: "0 6px",
+                background: (tool.arrowHead ?? "arrow") === v ? theme.controlBgActive : theme.controlBg,
+                color: theme.text,
+                fontSize: 11,
+                borderRadius: theme.controlBorderRadius,
+              }}
+            >
+              {v === "none" ? labels.inspectorNone : v === "arrow" ? "\u25B7" : v === "filled" ? "\u25B6" : "\u25CF"}
+            </button>
+          ))}
+        </div>
+
+        {/* Arrow tail */}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeTail}</span>
+          {(["none", "arrow", "filled", "dot"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => { tool.arrowTail = v; refresh(); }}
+              style={{
+                ...btnBase,
+                height: 28,
+                padding: "0 6px",
+                background: (tool.arrowTail ?? "none") === v ? theme.controlBgActive : theme.controlBg,
+                color: theme.text,
+                fontSize: 11,
+                borderRadius: theme.controlBorderRadius,
+              }}
+            >
+              {v === "none" ? labels.inspectorNone : v === "arrow" ? "\u25C1" : v === "filled" ? "\u25C0" : "\u25CF"}
+            </button>
+          ))}
+        </div>
+
+        {/* Edge type */}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgePath}</span>
+          {(
+            [
+              { key: "bezier", label: labels.edgeBezier },
+              { key: "straight", label: labels.edgeStraight },
+              { key: "smoothstep", label: labels.edgeSmooth },
+              { key: "step", label: labels.edgeStep },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.key}
+              title={t.label}
+              onClick={() => { tool.edgeType = t.key; refresh(); }}
+              style={{
+                ...btnBase,
+                height: 28,
+                padding: "0 6px",
+                background: (tool.edgeType ?? "bezier") === t.key ? theme.controlBgActive : theme.controlBg,
+                color: theme.text,
+                fontSize: 9,
+                borderRadius: theme.controlBorderRadius,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Roughness */}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>
+          {ROUGHNESS_LEVELS.map((r) => {
+            const roughnessLabel =
+              r.value === 0 ? labels.roughnessArchitect
+                : r.value === 1 ? labels.roughnessArtist
+                  : labels.roughnessCartoonist;
+            return (
+              <button
+                key={r.value}
+                title={roughnessLabel}
+                onClick={() => { tool.roughness = r.value; refresh(); }}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: edgeRoughness === r.value ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 9,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {roughnessLabel}
+              </button>
+            );
+          })}
+        </div>
+
+      </>
+    );
+  }
+
   // Draw or Shape mode
   const isShapeMode = mode === "shape";
   const strokeColor = tool.color;
@@ -274,7 +419,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
         }}
       />
 
-      {/* Roughness (shape mode only) */}
+      {/* Roughness (shape mode only — draw nodes don't support roughness) */}
       {isShapeMode && (
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>

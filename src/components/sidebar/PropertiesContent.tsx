@@ -101,6 +101,7 @@ function CanvasSettingsSection({
   const [gridOn, setGridOn] = useState(engine.snapToGrid);
   const [gridSize, setGridSize] = useState(engine.gridSize);
   const [smartGuides, setSmartGuides] = useState(engine.smartGuides);
+  const [freeFormEdges, setFreeFormEdges] = useState(engine.freeFormEdges);
   const [paper, setPaper] = useState(engine.boardBackground);
   const paperLabelByKey: Record<string, string> = {
     "plain-white": labels.paperWhite,
@@ -117,13 +118,17 @@ function CanvasSettingsSection({
       setGridOn(engine.snapToGrid);
       setGridSize(engine.gridSize);
       setSmartGuides(engine.smartGuides);
+      setFreeFormEdges(engine.freeFormEdges);
     };
+    const syncChange = () => setFreeFormEdges(engine.freeFormEdges);
+    engine.on("change", syncChange);
     const syncBackground = () => setPaper(engine.boardBackground);
     engine.on("guides", syncGuides);
     engine.on("background", syncBackground);
     return () => {
       engine.off("guides", syncGuides);
       engine.off("background", syncBackground);
+      engine.off("change", syncChange);
     };
   }, [engine]);
 
@@ -187,6 +192,24 @@ function CanvasSettingsSection({
           }}
         >
           {smartGuides ? labels.inspectorOn : labels.inspectorOff}
+        </button>
+      </div>
+
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>Free edges</span>
+        <button
+          onClick={() => engine.toggleFreeFormEdges()}
+          style={{
+            border: "none",
+            borderRadius: theme.controlBorderRadius,
+            background: freeFormEdges ? theme.controlBgActive : theme.controlBg,
+            color: theme.text,
+            fontSize: 10,
+            padding: "4px 10px",
+            cursor: "pointer",
+          }}
+        >
+          {freeFormEdges ? labels.inspectorOn : labels.inspectorOff}
         </button>
       </div>
 

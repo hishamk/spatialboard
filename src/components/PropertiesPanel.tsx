@@ -197,7 +197,7 @@ export default function PropertiesPanel({
         }
       }
     }
-    if (mode === "draw" || mode === "shape" || mode === "text") return { kind: "tool" };
+    if (mode === "draw" || mode === "shape" || mode === "text" || mode === "edge") return { kind: "tool" };
     return null;
   })();
 

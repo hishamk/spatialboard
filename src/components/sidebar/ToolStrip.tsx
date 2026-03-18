@@ -22,6 +22,7 @@ const MODE_KEYS: { key: Mode; shortcut: string; num: string }[] = [
   { key: "note", shortcut: "B", num: "" },
   { key: "sticky", shortcut: "Y", num: "" },
   { key: "frame", shortcut: "F", num: "" },
+  { key: "edge", shortcut: "C", num: "" },
   { key: "erase", shortcut: "E", num: "" },
   { key: "laser", shortcut: "Z", num: "" },
 ];
@@ -92,6 +93,14 @@ function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; size?: n
           <path d="M11 5.5v-2a1.5 1.5 0 0 1 3 0V12" {...sp} />
           <path d="M14 5.5a1.5 1.5 0 0 1 3 0V12" {...sp} />
           <path d="M17 7.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6V9.5a1.5 1.5 0 0 1 3 0" {...sp} />
+        </>
+      )}
+      {name === "edge" && (
+        <>
+          <circle cx="5" cy="5" r="2.5" {...sp} fill="currentColor" opacity={0.3} />
+          <circle cx="19" cy="19" r="2.5" {...sp} fill="currentColor" opacity={0.3} />
+          <line x1="7" y1="7" x2="17" y2="17" {...sp} />
+          <polyline points="14,17 17,17 17,14" {...sp} fill="none" />
         </>
       )}
       {name === "erase" && (

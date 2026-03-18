@@ -123,6 +123,10 @@ function computeContentBounds(
       edge.data.targetHandle,
       edge.data.midpointOffset,
       edge.data.curveOffset,
+      undefined, undefined,
+      edge.data.sourceT,
+      edge.data.targetT,
+      edge.data.attachmentGap,
     );
     minX = Math.min(minX, result.bounds.x);
     minY = Math.min(minY, result.bounds.y);
@@ -563,6 +567,10 @@ function renderEdgeNode(
     d.targetHandle,
     d.midpointOffset,
     d.curveOffset,
+    undefined, undefined,
+    d.sourceT,
+    d.targetT,
+    d.attachmentGap,
   );
 
   // Offset the path

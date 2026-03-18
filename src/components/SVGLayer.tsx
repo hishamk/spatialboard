@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import type {
   SpatialNode,
   EdgeNode,
+  EdgeType,
   Viewport,
   HandleSide,
   Mode,
@@ -16,6 +17,8 @@ import {
   filledArrowHeadPath,
   getNodeHandlePositions,
   getPortPosition,
+  perimeterPoint,
+  nearestPerimeterPoint,
 } from "../engine/edge-geometry";
 import type { NodeTypeRegistry } from "../nodes/registry";
 import type { PortDataType } from "../engine/data-flow-types";
@@ -80,8 +83,15 @@ interface SVGLayerProps {
     cursorX: number;
     cursorY: number;
     sourceHandle?: HandleSide;
+    sourceT?: number;
     sourcePort?: string;
     sourceDirection?: "input" | "output";
+    /** Edge style for realistic preview */
+    edgeColor?: string;
+    edgeStrokeWidth?: number;
+    edgeStyle?: "solid" | "dashed" | "dotted";
+    edgeType?: EdgeType;
+    attachmentGap?: number;
   } | null;
   onEdgeEndpointDown?: (
     edgeId: string,
@@ -107,7 +117,10 @@ interface SVGLayerProps {
   eraserTrail?: Array<[number, number, number]>; // [x, y, timestamp]
   laserTrail?: Array<[number, number, number]>; // [x, y, timestamp]
   mode?: Mode;
+  freeFormEdges?: boolean;
   hoveredNodeId?: string | null;
+  /** Canvas-space cursor position for edge mode hover dot */
+  cursorCanvasPos?: { x: number; y: number } | null;
   /** Node type registry — used to render port circles for nodes with ports. */
   registry?: NodeTypeRegistry;
   /** Called when a port handle is pressed (starts port-aware edge creation). */
@@ -333,7 +346,9 @@ const EdgeRenderer = memo(function EdgeRenderer({
     fromNode, toNode, edgeType, measuredHeights,
     edge.data.sourceHandle, edge.data.targetHandle,
     edge.data.midpointOffset, edge.data.curveOffset,
-    sourcePortPos, targetPortPos
+    sourcePortPos, targetPortPos,
+    edge.data.sourceT, edge.data.targetT,
+    edge.data.attachmentGap,
   );
   const { path, x1, y1, x2, y2, labelX, labelY, arrowAngle, tailAngle, kinkHandle } = pathResult;
 
@@ -430,6 +445,15 @@ const EdgeRenderer = memo(function EdgeRenderer({
 
   return (
     <g opacity={isReconnecting ? 0.15 : (isEraserMarked ? 0.25 : undefined)} style={eraserStyle}>
+      {/* Invisible wide hit area for easier clicking */}
+      <path
+        d={path}
+        stroke="transparent"
+        strokeWidth={Math.max(sw + 16 / viewport.zoom, 20 / viewport.zoom)}
+        strokeLinecap="round"
+        fill="none"
+        style={{ pointerEvents: "stroke", cursor: "pointer" }}
+      />
       {/* Cycle edge glow underlay */}
       {isCycleEdge && (
         <path
@@ -660,7 +684,9 @@ export default function SVGLayer({
   eraserTrail,
   laserTrail,
   mode,
+  freeFormEdges,
   hoveredNodeId,
+  cursorCanvasPos,
   registry,
   onPortHandleDown,
   cycleNodeIds,
@@ -718,6 +744,17 @@ export default function SVGLayer({
           );
         })}
 
+        {/* Edge mode: hover dot showing where edge would start */}
+        {mode === "edge" && !edgePreview && hoveredNodeId && cursorCanvasPos && (() => {
+          const hNode = nodeMap.get(hoveredNodeId);
+          if (!hNode || hNode.type === "edge") return null;
+          const pp = nearestPerimeterPoint(hNode, cursorCanvasPos.x, cursorCanvasPos.y, measuredHeights);
+          const r = 4 / viewport.zoom;
+          return (
+            <circle cx={pp.x} cy={pp.y} r={r} fill="#3b82f6" stroke="white" strokeWidth={1.5 / viewport.zoom} />
+          );
+        })()}
+
         {/* Connection handles — shown on selected nodes, or ALL nodes during edge drag */}
         {/* Nodes with ports use port circles instead (rendered below) */}
         {(() => {
@@ -730,6 +767,8 @@ export default function SVGLayer({
           // Find the nearest handle across all non-source nodes to highlight during drag
           let nearestTargetNodeId: string | null = null;
           let nearestTargetSide: HandleSide | null = null;
+          // For free-form mode: the perimeter snap point on the nearest target
+          let nearestTargetPerimeterPt: { x: number; y: number } | null = null;
           // Nodes whose cursor is within 20% expanded bounding box
           const nearbyNodeIds = new Set<string>();
           if (isDragging) {
@@ -765,17 +804,41 @@ export default function SVGLayer({
                 }
               }
             }
+            // In free-form mode, compute perimeter snap point on nearest target
+            if (freeFormEdges && nearestTargetNodeId) {
+              const targetNode = nodeMap.get(nearestTargetNodeId);
+              if (targetNode) {
+                const pp = nearestPerimeterPoint(targetNode, cursorX, cursorY, measuredHeights);
+                nearestTargetPerimeterPt = { x: pp.x, y: pp.y };
+              }
+            }
           }
 
-          return nodes
+          const elements: React.ReactNode[] = [];
+
+          // In free-form mode during drag, show a single snap dot on the nearest target
+          if (freeFormEdges && isDragging && nearestTargetPerimeterPt) {
+            elements.push(
+              <circle
+                key="freeform-snap-dot"
+                cx={nearestTargetPerimeterPt.x}
+                cy={nearestTargetPerimeterPt.y}
+                r={5 / viewport.zoom}
+                fill="#3b82f6"
+                stroke="white"
+                strokeWidth={1.5 / viewport.zoom}
+              />
+            );
+          }
+
+          // Render handles (fixed mode: 4 circles; free-form selected: single perimeter dot)
+          nodes
             .filter((n) => {
               if (n.type === "edge") return false;
-              // Skip nodes with ports — they get port circles instead
               if (registry?.get(n.type)?.ports?.length) return false;
-              // Multi-select: don't show individual handles (bounding box handles shown instead)
-              return (selection.size <= 1 && selection.has(n.id)) || (isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
+              return (selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
             })
-            .map((node) => {
+            .forEach((node) => {
               const handles = getNodeHandlePositions(node, measuredHeights);
               const handleR = 4 / viewport.zoom;
               const offset = 26 / viewport.zoom;
@@ -787,51 +850,91 @@ export default function SVGLayer({
                 (edgePreview && edgePreview.fromNode.id === node.id) ||
                 (edgeReconnect && edgeReconnect.anchorNodeId === node.id);
               const isInteractive = selection.has(node.id) && !isDragging;
-              return (
-                <g key={`conn-${node.id}`} transform={rotation ? `rotate(${rotation}, ${ncx}, ${ncy})` : undefined}>
-                  {handles.map(({ side }) => {
-                    const midpoints: Record<HandleSide, [number, number]> = {
-                      top:    [node.x + node.w / 2, node.y],
-                      bottom: [node.x + node.w / 2, node.y + nh],
-                      left:   [node.x, node.y + nh / 2],
-                      right:  [node.x + node.w, node.y + nh / 2],
-                    };
-                    const [mx, my] = midpoints[side];
-                    const sideOffset = side === "top" && selection.has(node.id) ? 42 / viewport.zoom : offset;
-                    let ox = mx, oy = my;
-                    switch (side) {
-                      case "top":    oy = my - sideOffset; break;
-                      case "bottom": oy = my + sideOffset; break;
-                      case "left":   ox = mx - sideOffset; break;
-                      case "right":  ox = mx + sideOffset; break;
-                    }
-                    // Highlight the nearest target handle during drag
-                    const isNearestTarget = isDragging &&
-                      nearestTargetNodeId === node.id && nearestTargetSide === side;
-                    return (
-                      <circle
-                        key={`ch-${node.id}-${side}`}
-                        cx={ox}
-                        cy={oy}
-                        r={isNearestTarget ? 5 / viewport.zoom : handleR}
-                        fill={isDragSource ? "#3b82f6" : isNearestTarget ? "#3b82f6" : "white"}
-                        stroke={isNearestTarget ? "white" : isDragging && !isDragSource ? "#3b82f6" : "#94a3b8"}
-                        strokeWidth={1.5 / viewport.zoom}
-                        opacity={isNearestTarget ? 1 : isDragging && !isDragSource ? 1 : 0.8}
-                        style={{
-                          cursor: isInteractive ? "crosshair" : "default",
-                          pointerEvents: isInteractive ? "auto" : "none",
-                        }}
-                        onPointerDown={isInteractive ? (e) => {
-                          e.stopPropagation();
-                          onConnectionHandleDown?.(node.id, side, e);
-                        } : undefined}
-                      />
-                    );
-                  })}
-                </g>
-              );
+
+              if (freeFormEdges) {
+                // Free-form mode: show 4 small handle dots ON the border (no offset)
+                // These serve as click targets for starting edge connections
+                if (isInteractive) {
+                  elements.push(
+                    <g key={`conn-${node.id}`} transform={rotation ? `rotate(${rotation}, ${ncx}, ${ncy})` : undefined}>
+                      {handles.map(({ side }) => {
+                        const midpoints: Record<HandleSide, [number, number]> = {
+                          top:    [node.x + node.w / 2, node.y],
+                          bottom: [node.x + node.w / 2, node.y + nh],
+                          left:   [node.x, node.y + nh / 2],
+                          right:  [node.x + node.w, node.y + nh / 2],
+                        };
+                        const [mx, my] = midpoints[side];
+                        return (
+                          <circle
+                            key={`ch-${node.id}-${side}`}
+                            cx={mx}
+                            cy={my}
+                            r={handleR}
+                            fill="white"
+                            stroke="#3b82f6"
+                            strokeWidth={1.5 / viewport.zoom}
+                            opacity={0.8}
+                            style={{ cursor: "crosshair", pointerEvents: "auto" }}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              onConnectionHandleDown?.(node.id, side, e);
+                            }}
+                          />
+                        );
+                      })}
+                    </g>
+                  );
+                }
+              } else {
+                // Fixed mode: original handle circles offset from the border
+                elements.push(
+                  <g key={`conn-${node.id}`} transform={rotation ? `rotate(${rotation}, ${ncx}, ${ncy})` : undefined}>
+                    {handles.map(({ side }) => {
+                      const midpoints: Record<HandleSide, [number, number]> = {
+                        top:    [node.x + node.w / 2, node.y],
+                        bottom: [node.x + node.w / 2, node.y + nh],
+                        left:   [node.x, node.y + nh / 2],
+                        right:  [node.x + node.w, node.y + nh / 2],
+                      };
+                      const [mx, my] = midpoints[side];
+                      const sideOffset = side === "top" && selection.has(node.id) ? 42 / viewport.zoom : offset;
+                      let ox = mx, oy = my;
+                      switch (side) {
+                        case "top":    oy = my - sideOffset; break;
+                        case "bottom": oy = my + sideOffset; break;
+                        case "left":   ox = mx - sideOffset; break;
+                        case "right":  ox = mx + sideOffset; break;
+                      }
+                      const isNearestTarget = isDragging &&
+                        nearestTargetNodeId === node.id && nearestTargetSide === side;
+                      return (
+                        <circle
+                          key={`ch-${node.id}-${side}`}
+                          cx={ox}
+                          cy={oy}
+                          r={isNearestTarget ? 5 / viewport.zoom : handleR}
+                          fill={isDragSource ? "#3b82f6" : isNearestTarget ? "#3b82f6" : "white"}
+                          stroke={isNearestTarget ? "white" : isDragging && !isDragSource ? "#3b82f6" : "#94a3b8"}
+                          strokeWidth={1.5 / viewport.zoom}
+                          opacity={isNearestTarget ? 1 : isDragging && !isDragSource ? 1 : 0.8}
+                          style={{
+                            cursor: isInteractive ? "crosshair" : "default",
+                            pointerEvents: isInteractive ? "auto" : "none",
+                          }}
+                          onPointerDown={isInteractive ? (e) => {
+                            e.stopPropagation();
+                            onConnectionHandleDown?.(node.id, side, e);
+                          } : undefined}
+                        />
+                      );
+                    })}
+                  </g>
+                );
+              }
             });
+
+          return elements;
         })()}
 
         {/* Port circles — for nodes with port definitions */}
@@ -1048,6 +1151,13 @@ export default function SVGLayer({
               const bp = computeSingleBorderPoint(node, edgePreview.cursorX, edgePreview.cursorY, measuredHeights);
               startX = bp.x; startY = bp.y;
             }
+          } else if (edgePreview.sourceT !== undefined) {
+            // Free-form: start from the parametric perimeter point
+            const node = edgePreview.fromNode;
+            const nh = node.h === "auto" ? (measuredHeights?.[node.id] ?? 100) : node.h;
+            const p = perimeterPoint(node, nh, edgePreview.sourceT);
+            startX = p.x;
+            startY = p.y;
           } else if (edgePreview.sourceHandle) {
             const node = edgePreview.fromNode;
             const nh = node.h === "auto" ? (measuredHeights?.[node.id] ?? 100) : node.h;
@@ -1086,15 +1196,92 @@ export default function SVGLayer({
             const bp = computeSingleBorderPoint(edgePreview.fromNode, edgePreview.cursorX, edgePreview.cursorY, measuredHeights);
             startX = bp.x; startY = bp.y;
           }
+          const curX = edgePreview.cursorX;
+          const curY = edgePreview.cursorY;
+          const color = edgePreview.edgeColor || "#3b82f6";
+          const sw = edgePreview.edgeStrokeWidth || 2;
+          const style = edgePreview.edgeStyle || "solid";
+          const dashArr = style === "dashed" ? `${8 * sw},${4 * sw}`
+            : style === "dotted" ? `${2 * sw},${3 * sw}` : undefined;
+          const headSize = Math.max(8, sw * 3);
+          const dotR = 4 / viewport.zoom;
+
+          // Find nearest target node to snap to
+          let snapTargetNode: SpatialNode | null = null;
+          let snapTargetT: number | undefined;
+          const snapThreshold = 50 / viewport.zoom;
+          for (const n of nodes) {
+            if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
+            const nh = n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : n.h;
+            const padX = n.w * 0.2;
+            const padY = nh * 0.2;
+            if (curX >= n.x - padX && curX <= n.x + n.w + padX &&
+                curY >= n.y - padY && curY <= n.y + nh + padY) {
+              const pp = nearestPerimeterPoint(n, curX, curY, measuredHeights);
+              if (Math.hypot(pp.x - curX, pp.y - curY) < snapThreshold) {
+                snapTargetNode = n;
+                snapTargetT = pp.t;
+                break;
+              }
+            }
+          }
+
+          // Compute path: use real target node when snapped, virtual point otherwise
+          let previewPath;
+          if (snapTargetNode) {
+            // Exact final path using the real target node
+            previewPath = computeEdgePath(
+              edgePreview.fromNode, snapTargetNode, edgePreview.edgeType || "bezier", measuredHeights,
+              edgePreview.sourceHandle, undefined,
+              undefined, undefined,
+              undefined, undefined,
+              edgePreview.sourceT, snapTargetT,
+              edgePreview.attachmentGap,
+            );
+          } else {
+            // Free cursor: virtual zero-size target at cursor
+            const virtualTarget: SpatialNode = {
+              id: "__preview__", type: "shape" as any,
+              x: curX, y: curY, w: 0, h: 0, z: 0,
+              data: { shape: "rect", stroke: "#000", strokeWidth: 1, roughness: 0 },
+            };
+            previewPath = computeEdgePath(
+              edgePreview.fromNode, virtualTarget, edgePreview.edgeType || "bezier", measuredHeights,
+              edgePreview.sourceHandle, undefined,
+              undefined, undefined,
+              undefined, undefined,
+              edgePreview.sourceT, undefined,
+              edgePreview.attachmentGap,
+            );
+          }
+
           return (
-            <line
-              x1={startX} y1={startY}
-              x2={edgePreview.cursorX} y2={edgePreview.cursorY}
-              stroke="#3b82f6"
-              strokeWidth={2 / viewport.zoom}
-              strokeDasharray={`${4 / viewport.zoom}`}
-              strokeLinecap="round"
-            />
+            <g>
+              <path
+                d={previewPath.path}
+                stroke={color}
+                strokeWidth={sw}
+                strokeDasharray={dashArr}
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d={arrowHeadPath(previewPath.x2, previewPath.y2, previewPath.arrowAngle, headSize)}
+                fill="none"
+                stroke={color}
+                strokeWidth={sw}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Source dot */}
+              <circle cx={previewPath.x1} cy={previewPath.y1} r={dotR}
+                fill={color} stroke="white" strokeWidth={1.5 / viewport.zoom} />
+              {/* Target snap dot */}
+              {snapTargetNode && (
+                <circle cx={previewPath.x2} cy={previewPath.y2} r={dotR}
+                  fill={color} stroke="white" strokeWidth={1.5 / viewport.zoom} />
+              )}
+            </g>
           );
         })()}
 
@@ -1153,7 +1340,7 @@ export default function SVGLayer({
         })()}
 
         {/* Selection boxes for SVG nodes (single selection only — multi uses unified bounding box) */}
-        {selection.size === 1 && svgNodes
+        {selection.size === 1 && mode !== "edge" && !edgePreview && !edgeReconnect && svgNodes
           .filter((n) => selection.has(n.id))
           .map((node) => (
             <SelectionBox
