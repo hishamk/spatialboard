@@ -96,6 +96,7 @@ export declare class SpatialEngine {
     snapToGrid: boolean;
     smartGuides: boolean;
     lassoSelect: boolean;
+    freeFormEdges: boolean;
     presentationMode: boolean;
     presentationSlides: string[];
     presentationIndex: number;
@@ -191,6 +192,7 @@ export declare class SpatialEngine {
     private extractBlockText;
     private countOccurrences;
     toggleSnapToGrid(): void;
+    toggleFreeFormEdges(): void;
     toggleSmartGuides(): void;
     setGridSize(size: number): void;
     toggleLassoSelect(): void;

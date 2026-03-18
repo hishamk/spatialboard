@@ -1,4 +1,4 @@
-import type { SpatialNode, Viewport, HandleSide, Mode } from "../engine/types";
+import type { SpatialNode, EdgeType, Viewport, HandleSide, Mode } from "../engine/types";
 import type { NodeTypeRegistry } from "../nodes/registry";
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 interface SVGLayerProps {
@@ -11,6 +11,7 @@ interface SVGLayerProps {
         color: string;
         width: number;
         strokeStyle?: "solid" | "dashed" | "dotted";
+        opacity?: number;
     } | null;
     shapePreview: {
         startX: number;
@@ -23,6 +24,11 @@ interface SVGLayerProps {
         strokeWidth: number;
         roughness: number;
         shapeType?: string;
+        fill?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        strokeStyle?: "solid" | "dashed" | "dotted";
+        opacity?: number;
+        edgeStyle?: "sharp" | "round";
     } | null;
     onResizeHandleDown?: (nodeId: string, handle: HandlePosition, e: React.PointerEvent<SVGRectElement>) => void;
     onRotateStart?: (nodeId: string, e: React.PointerEvent<SVGCircleElement>) => void;
@@ -32,8 +38,15 @@ interface SVGLayerProps {
         cursorX: number;
         cursorY: number;
         sourceHandle?: HandleSide;
+        sourceT?: number;
         sourcePort?: string;
         sourceDirection?: "input" | "output";
+        /** Edge style for realistic preview */
+        edgeColor?: string;
+        edgeStrokeWidth?: number;
+        edgeStyle?: "solid" | "dashed" | "dotted";
+        edgeType?: EdgeType;
+        attachmentGap?: number;
     } | null;
     onEdgeEndpointDown?: (edgeId: string, endpoint: "source" | "target", e: React.PointerEvent<SVGCircleElement>) => void;
     edgeReconnect?: {
@@ -49,7 +62,13 @@ interface SVGLayerProps {
     eraserTrail?: Array<[number, number, number]>;
     laserTrail?: Array<[number, number, number]>;
     mode?: Mode;
+    freeFormEdges?: boolean;
     hoveredNodeId?: string | null;
+    /** Canvas-space cursor position for edge mode hover dot */
+    cursorCanvasPos?: {
+        x: number;
+        y: number;
+    } | null;
     /** Node type registry — used to render port circles for nodes with ports. */
     registry?: NodeTypeRegistry;
     /** Called when a port handle is pressed (starts port-aware edge creation). */
@@ -74,5 +93,5 @@ interface SVGLayerProps {
  *
  * Node rendering has been moved to SVGNodeBlock in the unified DOM layer.
  */
-export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, hoveredNodeId, registry, onPortHandleDown, cycleNodeIds, containerTypes, alignGuides, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
+export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, freeFormEdges, hoveredNodeId, cursorCanvasPos, registry, onPortHandleDown, cycleNodeIds, containerTypes, alignGuides, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
 export {};

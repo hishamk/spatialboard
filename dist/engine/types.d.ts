@@ -93,6 +93,14 @@ export interface EdgeNode extends SpatialNode {
         curveOffset?: [number, number];
         /** 0 = architect (clean), 1 = artist, 2 = cartoonist (hand-drawn via RoughJS) */
         roughness?: number;
+        /** Parametric position [0,1) along source node perimeter (clockwise from top-center).
+         *  When set, overrides sourceHandle for free-form edge connections. */
+        sourceT?: number;
+        /** Parametric position [0,1) along target node perimeter (clockwise from top-center).
+         *  When set, overrides targetHandle for free-form edge connections. */
+        targetT?: number;
+        /** Gap (in canvas units) between arrow tip and node border. Default 0. */
+        attachmentGap?: number;
     };
 }
 export interface ImageNode extends SpatialNode {
@@ -192,4 +200,8 @@ export interface ActiveTool {
     fontSize?: number;
     fontFamily?: string;
     textAlign?: "left" | "center" | "right";
+    edgeType?: EdgeType;
+    arrowHead?: "none" | "arrow" | "filled" | "dot";
+    arrowTail?: "none" | "arrow" | "filled" | "dot";
+    attachmentGap?: number;
 }

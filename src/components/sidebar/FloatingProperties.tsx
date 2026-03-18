@@ -262,7 +262,8 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
   }, []);
 
   const shouldHideForInteraction = autoHideEnabled && canvasInteracting;
-  const translucentPanelBg = withAlpha(theme.panelBg, 0.9);
+  // Keep inspector fill fully theme-compliant (no canvas bleed-through).
+  const panelBg = theme.panelBg;
 
   if (!visible) return null;
 
@@ -280,7 +281,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
           right: 0,
           height: "45vh",
           minHeight: 200,
-          background: translucentPanelBg,
+          background: panelBg,
           borderRadius: "12px 12px 0 0",
           boxShadow: "0 -4px 24px rgba(0,0,0,0.25)",
           zIndex: 200,
@@ -363,7 +364,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         left: panelPos.x,
         top: panelPos.y,
         width: PROPERTIES_WIDTH,
-        background: translucentPanelBg,
+          background: panelBg,
         borderRadius: theme.panelBorderRadius,
         padding: "0 0 12px",
         display: "flex",

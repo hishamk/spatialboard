@@ -68,7 +68,7 @@ export declare function computeEdgePath(fromNode: SpatialNode, toNode: SpatialNo
 }, targetPortPos?: {
     x: number;
     y: number;
-}): EdgePathResult;
+}, sourceT?: number, targetT?: number, attachmentGap?: number): EdgePathResult;
 /**
  * Compute distance from a point to an edge's path (any edge type).
  */
@@ -155,3 +155,29 @@ export declare function hitTestAllEdges(nodes: Map<string, SpatialNode>, canvasX
  * Hit-test edges: find the closest edge within tolerance of a canvas point.
  */
 export declare function hitTestEdge(nodes: Map<string, SpatialNode>, canvasX: number, canvasY: number, zoom: number, measuredHeights?: Record<string, number>, resolvePortPositions?: PortPositionResolver): SpatialNode | null;
+/**
+ * Convert a parametric t ∈ [0, 1) to a canvas-space point on the node's border.
+ * t=0 is top-center, going clockwise: t≈0.25 is right-center, t=0.5 is bottom-center,
+ * t≈0.75 is left-center.
+ *
+ * Also returns the nearest HandleSide for bezier tangent direction.
+ */
+export declare function perimeterPoint(node: SpatialNode, h: number, t: number): {
+    x: number;
+    y: number;
+    side: HandleSide;
+};
+/**
+ * Inverse of perimeterPoint: given a canvas-space point near the node,
+ * return the t ∈ [0, 1) for the closest point on the node's border.
+ */
+export declare function canvasPointToPerimeterT(node: SpatialNode, h: number, px: number, py: number): number;
+/**
+ * Higher-level wrapper: given a canvas point near a node, compute
+ * the nearest perimeter point and its t value.
+ */
+export declare function nearestPerimeterPoint(node: SpatialNode, px: number, py: number, measuredHeights?: Record<string, number>): {
+    t: number;
+    x: number;
+    y: number;
+};
