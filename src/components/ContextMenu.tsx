@@ -98,7 +98,7 @@ export default function ContextMenu({
         position: "fixed",
         left: x,
         top: y,
-        zIndex: 9999,
+        zIndex: 10002,
         minWidth: 200,
         background: "#1e1e2e",
         borderRadius: 8,
