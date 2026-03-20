@@ -39,6 +39,7 @@ function StickyNoteBlock({
   nodeRef.current = node;
   const engineRef = useRef(engine);
   engineRef.current = engine;
+  const historyBaselinePushedRef = useRef(false);
 
   // Sync text into the contentEditable div when entering edit mode
   useEffect(() => {
@@ -73,6 +74,7 @@ function StickyNoteBlock({
         sel.removeAllRanges();
         sel.addRange(range);
       }
+      historyBaselinePushedRef.current = false;
     }
     // Only run when editing changes, not when node.data.text changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,9 +88,16 @@ function StickyNoteBlock({
       const n = nodeRef.current;
       const newText = latestTextRef.current;
       if (newText !== n.data.text) {
-        engineRef.current.updateNodeWithHistory(n.id, {
-          data: { ...n.data, text: newText },
-        } as Partial<StickyNoteNode>);
+        if (historyBaselinePushedRef.current) {
+          historyBaselinePushedRef.current = false;
+          engineRef.current.updateNode(n.id, {
+            data: { ...n.data, text: newText },
+          } as Partial<StickyNoteNode>);
+        } else {
+          engineRef.current.updateNodeWithHistory(n.id, {
+            data: { ...n.data, text: newText },
+          } as Partial<StickyNoteNode>);
+        }
       }
     };
   }, [editing]);
@@ -280,6 +289,11 @@ function StickyNoteBlock({
             onInput={() => {
               if (textRef.current) {
                 latestTextRef.current = textRef.current.innerText;
+                const t = latestTextRef.current;
+                if (t !== nodeRef.current.data.text && !historyBaselinePushedRef.current) {
+                  historyBaselinePushedRef.current = true;
+                  engineRef.current.pushHistorySnapshot();
+                }
                 // Sync immediately for real-time collab
                 if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
                 syncTimerRef.current = setTimeout(() => {

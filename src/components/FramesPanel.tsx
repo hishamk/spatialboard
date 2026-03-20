@@ -5,6 +5,7 @@ import { TRANSITION_DEFAULTS } from "../engine/types";
 import { renderFrameToSVG } from "../export/canvas-export";
 import { useSBTheme } from "./sidebar/ThemeContext";
 import { useSBI18n } from "./LocalizationContext";
+import { usePropertyHistorySession } from "./sidebar/PropertyHistoryCoalesceContext";
 
 const PANEL_WIDTH = 240;
 const CARD_GAP = 6;
@@ -385,6 +386,8 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
   // Tick counter bumped when thumbnails need refreshing
   const [thumbTick, setThumbTick] = useState(0);
 
+  const getCoalesceKey = usePropertyHistorySession(engine, "frames-panel");
+
   // Drag state — refs for document-level listeners
   const dragIndexRef = useRef<number | null>(null);
   const dropIndexRef = useRef<number | null>(null);
@@ -697,15 +700,33 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
           }
 
           const handleTransitionChange = (t: SlideTransition) => {
-            engine.updateNodeWithHistory(frame.id, {
-              data: { transition: t === "pan" ? undefined : t, transitionDuration: undefined },
-            } as Partial<FrameNode>);
+            const node = engine.getNode(frame.id) as FrameNode | undefined;
+            if (!node) return;
+            const sessionKey = `${getCoalesceKey()}:${frame.id}`;
+            engine.updateNodeWithHistoryCoalesced(
+              frame.id,
+              {
+                data: {
+                  ...node.data,
+                  transition: t === "pan" ? undefined : t,
+                  transitionDuration: undefined,
+                },
+              } as Partial<FrameNode>,
+              sessionKey,
+            );
           };
 
           const handleDurationChange = (ms: number | undefined) => {
-            engine.updateNodeWithHistory(frame.id, {
-              data: { transitionDuration: ms },
-            } as Partial<FrameNode>);
+            const node = engine.getNode(frame.id) as FrameNode | undefined;
+            if (!node) return;
+            const sessionKey = `${getCoalesceKey()}:${frame.id}`;
+            engine.updateNodeWithHistoryCoalesced(
+              frame.id,
+              {
+                data: { ...node.data, transitionDuration: ms },
+              } as Partial<FrameNode>,
+              sessionKey,
+            );
           };
 
           return (

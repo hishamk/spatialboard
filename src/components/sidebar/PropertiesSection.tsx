@@ -1,4 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useContext, useMemo } from "react";
+import { MultiNodeContext } from "./MultiNodeContext";
+import {
+  PropertyHistoryCoalesceContext,
+  usePropertyHistorySession,
+} from "./PropertyHistoryCoalesceContext";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type {
   SpatialNode,
@@ -145,6 +150,7 @@ function CommonProperties({
   nodes: SpatialNode[];
   commonProps: MergedCommonProps;
 }) {
+  const getCoalesceKey = useContext(PropertyHistoryCoalesceContext);
   const updateAll = useCallback(
     (prop: string, value: unknown) => {
       const supportSet = prop === "opacity" ? OPACITY_TYPES : BORDER_TYPES;
@@ -156,9 +162,11 @@ function CommonProperties({
             data: { ...(n.data as Record<string, unknown>), [prop]: value },
           },
         }));
-      engine.batchUpdateWithHistory(updates);
+      const key = getCoalesceKey?.();
+      if (key) engine.batchUpdateWithHistoryCoalesced(updates, key);
+      else engine.batchUpdateWithHistory(updates);
     },
-    [engine, nodes]
+    [engine, nodes, getCoalesceKey]
   );
 
   return (
@@ -224,12 +232,14 @@ function TypeGroupSection({
       <div style={{ ...sectionHeader, color: theme.textFaint, borderTop: `1px solid ${theme.border}` }}>
         {label} ({count})
       </div>
-      <SingleNodeProperties
-        engine={engine}
-        node={primaryNode}
-        registry={registry}
-        fontsInScene={fontsInScene}
-      />
+      <MultiNodeContext.Provider value={group.nodes}>
+        <SingleNodeProperties
+          engine={engine}
+          node={primaryNode}
+          registry={registry}
+          fontsInScene={fontsInScene}
+        />
+      </MultiNodeContext.Provider>
     </>
   );
 }
@@ -243,6 +253,21 @@ export default function PropertiesSection({
 }) {
   const theme = useSBTheme();
   const { target, commonProps } = useMultiSelection(engine);
+
+  const stableSelectionId = useMemo(() => {
+    switch (target.kind) {
+      case "single":
+        return target.node.id;
+      case "multi":
+        return [...target.nodes].map((n) => n.id).sort().join("\0");
+      case "tool":
+        return "tool";
+      default:
+        return "none";
+    }
+  }, [target]);
+
+  const getCoalesceKey = usePropertyHistorySession(engine, stableSelectionId);
 
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
 
@@ -281,41 +306,43 @@ export default function PropertiesSection({
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <SelectionHeader label={headerLabel} />
+      <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
+        <SelectionHeader label={headerLabel} />
 
-      {target.kind === "none" && <EmptyState />}
+        {target.kind === "none" && <EmptyState />}
 
-      {target.kind === "tool" && (
-        <ToolModeProperties engine={engine} mode={target.mode} fontsInScene={fontsInScene} />
-      )}
+        {target.kind === "tool" && (
+          <ToolModeProperties engine={engine} mode={target.mode} fontsInScene={fontsInScene} />
+        )}
 
-      {target.kind === "single" && (
-        <SingleNodeProperties
-          engine={engine}
-          node={target.node}
-          registry={registry}
-          fontsInScene={fontsInScene}
-        />
-      )}
-
-      {target.kind === "multi" && (
-        <>
-          <CommonProperties
+        {target.kind === "single" && (
+          <SingleNodeProperties
             engine={engine}
-            nodes={target.nodes}
-            commonProps={commonProps}
+            node={target.node}
+            registry={registry}
+            fontsInScene={fontsInScene}
           />
-          {target.typeGroups.map((group) => (
-            <TypeGroupSection
-              key={group.type}
+        )}
+
+        {target.kind === "multi" && (
+          <>
+            <CommonProperties
               engine={engine}
-              group={group}
-              registry={registry}
-              fontsInScene={fontsInScene}
+              nodes={target.nodes}
+              commonProps={commonProps}
             />
-          ))}
-        </>
-      )}
+            {target.typeGroups.map((group) => (
+              <TypeGroupSection
+                key={group.type}
+                engine={engine}
+                group={group}
+                registry={registry}
+                fontsInScene={fontsInScene}
+              />
+            ))}
+          </>
+        )}
+      </PropertyHistoryCoalesceContext.Provider>
     </div>
   );
 }

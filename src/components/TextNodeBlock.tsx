@@ -28,6 +28,8 @@ function TextNodeBlock({
   engineRef.current = engine;
   const nodeRef = useRef(node);
   nodeRef.current = node;
+  /** True after first live edit in this session — undo baseline already recorded. */
+  const historyBaselinePushedRef = useRef(false);
 
   // Sync local text when node.data.text changes externally (undo/redo, property changes).
   // Intentionally excludes `editing` from deps so this does NOT run when editing
@@ -75,6 +77,7 @@ function TextNodeBlock({
 
       latestTextRef.current = node.data.text;
       committedRef.current = false;
+      historyBaselinePushedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
@@ -92,9 +95,16 @@ function TextNodeBlock({
       if (currentNode && currentNode.type === "text") {
         const nodeData = (currentNode as TextNode).data;
         if (text !== nodeData.text) {
-          engine.updateNodeWithHistory(node.id, {
-            data: { ...nodeData, text },
-          } as Partial<TextNode>);
+          if (historyBaselinePushedRef.current) {
+            historyBaselinePushedRef.current = false;
+            engine.updateNode(node.id, {
+              data: { ...nodeData, text },
+            } as Partial<TextNode>);
+          } else {
+            engine.updateNodeWithHistory(node.id, {
+              data: { ...nodeData, text },
+            } as Partial<TextNode>);
+          }
         }
       }
     };
@@ -122,9 +132,16 @@ function TextNodeBlock({
     setLocalText(text);
     latestTextRef.current = text;
     if (text !== node.data.text) {
-      engine.updateNodeWithHistory(node.id, {
-        data: { ...node.data, text },
-      } as Partial<TextNode>);
+      if (historyBaselinePushedRef.current) {
+        historyBaselinePushedRef.current = false;
+        engine.updateNode(node.id, {
+          data: { ...node.data, text },
+        } as Partial<TextNode>);
+      } else {
+        engine.updateNodeWithHistory(node.id, {
+          data: { ...node.data, text },
+        } as Partial<TextNode>);
+      }
     }
     onStopEdit();
   }, [engine, node, onStopEdit]);
@@ -153,6 +170,10 @@ function TextNodeBlock({
       const text = divRef.current.innerText;
       setLocalText(text);
       latestTextRef.current = text;
+      if (text !== nodeRef.current.data.text && !historyBaselinePushedRef.current) {
+        historyBaselinePushedRef.current = true;
+        engineRef.current.pushHistorySnapshot();
+      }
       // Sync immediately for real-time collab
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => {

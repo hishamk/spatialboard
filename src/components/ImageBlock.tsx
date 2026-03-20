@@ -353,9 +353,14 @@ function ImageBlock({
         e.clientY
       );
       const startAngle = Math.atan2(startCy - centerY, startCx - centerX);
-      engine.pushHistorySnapshot();
+
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
         const { x: cx, y: cy } = engine.screenToCanvas(
           me.clientX,
           me.clientY

@@ -32,6 +32,10 @@ import { placeLibraryItem, placePersonalItem, LIBRARY_ITEM_MIME, PERSONAL_ITEM_M
 import { GIF_ITEM_MIME, placeGif } from "./sidebar/GifSearchPanel";
 import { addPersonalItem, getPersonalItems } from "../store/personal-library";
 import PersonalLibraryPrompt from "./PersonalLibraryPrompt";
+import {
+  PropertyHistoryCoalesceContext,
+  usePropertyHistorySession,
+} from "./sidebar/PropertyHistoryCoalesceContext";
 import { extractSvgMarkup, placeSvgOnCanvas } from "../utils/svg-import";
 import ContentBlock from "./ContentBlock";
 import SVGNodeBlock from "./SVGNodeBlock";
@@ -426,6 +430,7 @@ function ShapeLabelEditor({
   // Track initial label so we can push history when editing ends, even if real-time
   // sync has already brought node.data.label up to date.
   const initialLabelRef = useRef(node.data.label ?? "");
+  const historyBaselinePushedRef = useRef(false);
 
   // Commit label when this component unmounts (editing ends).
   useEffect(() => {
@@ -443,7 +448,12 @@ function ShapeLabelEditor({
           const minH = ta.scrollHeight + paddingV;
           if (minH > nh) updates.h = minH;
         }
-        engine.updateNodeWithHistory(cur.id, updates as Partial<ShapeNode>);
+        if (historyBaselinePushedRef.current) {
+          historyBaselinePushedRef.current = false;
+          engine.updateNode(cur.id, updates as Partial<ShapeNode>);
+        } else {
+          engine.updateNodeWithHistory(cur.id, updates as Partial<ShapeNode>);
+        }
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -486,6 +496,10 @@ function ShapeLabelEditor({
         }}
         onInput={(e) => {
           const ta = e.currentTarget as HTMLTextAreaElement;
+          if (!historyBaselinePushedRef.current) {
+            historyBaselinePushedRef.current = true;
+            engine.pushHistorySnapshot();
+          }
           latestRef.current = ta.value;
           // Sync label text in real-time for collaboration
           const cur = nodeRef.current;
@@ -558,6 +572,14 @@ export default function SpatialCanvas({
   const [smartGuidesActive, setSmartGuidesActive] = useState(engine.smartGuides);
   const [alignGuides, setAlignGuides] = useState<AlignGuide[]>([]);
   const [boardBackground, setBoardBackground] = useState<BoardBackground>(engine.boardBackground);
+
+  const canvasHistoryStableId = useMemo(() => {
+    if (selection.size === 1) return Array.from(selection)[0];
+    if (selection.size > 1) return [...selection].sort().join("\0");
+    return "canvas-none";
+  }, [selection]);
+
+  const getCoalesceKey = usePropertyHistorySession(engine, canvasHistoryStableId);
 
   // Space-to-pan: track whether Space is held for temporary hand mode
   const spaceHeldRef = useRef(false);
@@ -3141,11 +3163,16 @@ export default function SpatialCanvas({
       const origFontSize =
         node.type === "text" ? (node as TextNode).data.fontSize : 0;
 
-      engine.pushHistorySnapshot();
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
         const dx = (me.clientX - startScreenX) / engine.viewport.zoom;
         const dy = (me.clientY - startScreenY) / engine.viewport.zoom;
+
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
 
         let newX = origX;
         let newY = origY;
@@ -3322,9 +3349,13 @@ export default function SpatialCanvas({
       );
       const startAngle = Math.atan2(startCy - centerY, startCx - centerX);
 
-      engine.pushHistorySnapshot();
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
         let rotation =
@@ -3637,9 +3668,13 @@ export default function SpatialCanvas({
       const edgeNode = engine.getNode(edgeId) as EdgeNode | undefined;
       if (!edgeNode || edgeNode.type !== "edge") return;
 
-      engine.pushHistorySnapshot();
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
         const canvasPos = engine.screenToCanvas(me.clientX, me.clientY);
         const fresh = engine.getNode(edgeId) as EdgeNode | undefined;
         if (!fresh) return;
@@ -3927,11 +3962,15 @@ export default function SpatialCanvas({
       const { x: startCx, y: startCy } = engine.screenToCanvas(e.clientX, e.clientY);
       const startAngle = Math.atan2(startCy - groupCy, startCx - groupCx);
 
-      engine.pushHistorySnapshot();
+      let historyPushed = false;
 
       let lastTotalAngle = baseAngle;
 
       const onMove = (me: PointerEvent) => {
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - groupCy, cx - groupCx);
         let angleDelta = (currentAngle - startAngle) * (180 / Math.PI);
@@ -4033,7 +4072,8 @@ export default function SpatialCanvas({
 
       const startScreenX = e.clientX;
       const startScreenY = e.clientY;
-      engine.pushHistorySnapshot();
+
+      let historyPushed = false;
 
       let rafId: number | null = null;
       let lastClientX = startScreenX;
@@ -4044,6 +4084,11 @@ export default function SpatialCanvas({
         rafId = null;
         const dx = (lastClientX - startScreenX) / engine.viewport.zoom;
         const dy = (lastClientY - startScreenY) / engine.viewport.zoom;
+
+        if (!historyPushed && (dx !== 0 || dy !== 0)) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
 
         let newX = origBox.x, newY = origBox.y, newW = origBox.w, newH = origBox.h;
 
@@ -4484,6 +4529,7 @@ export default function SpatialCanvas({
   }, [searchState, nodes, viewport, activeSearchNodeId, isNodeDragging]);
 
   return (
+    <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
     <div
       ref={containerRef}
       data-sb-canvas
@@ -4582,9 +4628,14 @@ export default function SpatialCanvas({
                     }}
                     portValues={dataFlow && def.ports?.length && dataFlowVersion >= 0 ? dataFlow.getAllPortValues(node.id) : undefined}
                     updateData={(patch: Record<string, unknown>) => {
-                      engine.updateNodeWithHistory(node.id, {
-                        data: { ...(node.data as Record<string, unknown>), ...patch },
-                      });
+                      const k = getCoalesceKey();
+                      engine.updateNodeWithHistoryCoalesced(
+                        node.id,
+                        {
+                          data: { ...(node.data as Record<string, unknown>), ...patch },
+                        },
+                        `${k}:registry:${node.id}`,
+                      );
                     }}
                   />
                 );
@@ -4647,7 +4698,7 @@ export default function SpatialCanvas({
                           setEditingTextId((cur) => (cur === node.id ? null : cur));
                           return;
                         }
-                        engine.pushHistorySnapshot();
+                        // commitText already recorded history; extra push duplicated the undo stack.
                       }
                       setEditingTextId((cur) => (cur === node.id ? null : cur));
                     }}
@@ -5212,5 +5263,6 @@ export default function SpatialCanvas({
         />
       )}
     </div>
+    </PropertyHistoryCoalesceContext.Provider>
   );
 }

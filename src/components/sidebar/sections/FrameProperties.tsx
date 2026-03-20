@@ -1,8 +1,9 @@
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect, useContext } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { FrameNode, SlideTransition } from "../../../engine/types";
 import { TRANSITION_DEFAULTS } from "../../../engine/types";
 import { useBatchUpdate } from "../MultiNodeContext";
+import { PropertyHistoryCoalesceContext } from "../PropertyHistoryCoalesceContext";
 import { getGroupedPresets, getPreset, getAspectRatio } from "../devicePresets";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
@@ -76,6 +77,7 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
   const theme = useSBTheme();
   const { labels } = useSBI18n();
   const update = useBatchUpdate<FrameNode["data"]>(engine, node);
+  const getCoalesceKey = useContext(PropertyHistoryCoalesceContext);
 
   const { data } = node;
 
@@ -90,16 +92,26 @@ export default function FrameProperties({ engine, node }: FramePropertiesProps) 
       if (!preset) return;
       const ratio = getAspectRatio(preset);
       const newH = Math.round(node.w / ratio);
-      // Update preset, adjust height, optionally set label
       const patch: Partial<FrameNode["data"]> = { devicePreset: key };
       if (!data.label || getPreset(data.devicePreset ?? "")?.label === data.label) {
         patch.label = preset.label;
       }
-      update(patch);
-      // Resize frame to match ratio (height from current width)
-      engine.updateNodeWithHistory(node.id, { h: newH });
+      const newData = { ...node.data, ...patch };
+      const k = getCoalesceKey?.();
+      if (k) {
+        engine.updateNodeWithHistoryCoalesced(
+          node.id,
+          { h: newH, data: newData } as Partial<FrameNode>,
+          k,
+        );
+      } else {
+        engine.updateNodeWithHistory(node.id, {
+          h: newH,
+          data: newData,
+        } as Partial<FrameNode>);
+      }
     },
-    [engine, node, data.label, data.devicePreset, update],
+    [engine, node, data.label, data.devicePreset, update, getCoalesceKey],
   );
 
   // Compute available slide slots: 1..frameCount, excluding slots taken by other frames

@@ -1,5 +1,9 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useContext } from "react";
 import { MultiNodeContext } from "./MultiNodeContext";
+import {
+  PropertyHistoryCoalesceContext,
+  usePropertyHistorySession,
+} from "./PropertyHistoryCoalesceContext";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type {
   SpatialNode,
@@ -290,6 +294,7 @@ function RotationInput({
 }) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
+  const getCoalesceKey = useContext(PropertyHistoryCoalesceContext);
   // node.rotation is already in degrees
   const firstDeg = Math.round(nodes[0].rotation ?? 0);
   const allSame = nodes.every(
@@ -309,9 +314,11 @@ function RotationInput({
         id: n.id,
         patch: { rotation: clamped },
       }));
-      engine.batchUpdateWithHistory(updates);
+      const key = getCoalesceKey?.();
+      if (key) engine.batchUpdateWithHistoryCoalesced(updates, key);
+      else engine.batchUpdateWithHistory(updates);
     },
-    [engine, nodes],
+    [engine, nodes, getCoalesceKey],
   );
 
   return (
@@ -435,6 +442,7 @@ function CommonProperties({
   nodes: SpatialNode[];
   commonProps: MergedCommonProps;
 }) {
+  const getCoalesceKey = useContext(PropertyHistoryCoalesceContext);
   const updateAll = useCallback(
     (prop: string, value: unknown) => {
       const supportSet = prop === "opacity" ? OPACITY_TYPES : BORDER_TYPES;
@@ -446,9 +454,11 @@ function CommonProperties({
             data: { ...(n.data as Record<string, unknown>), [prop]: value },
           },
         }));
-      engine.batchUpdateWithHistory(updates);
+      const key = getCoalesceKey?.();
+      if (key) engine.batchUpdateWithHistoryCoalesced(updates, key);
+      else engine.batchUpdateWithHistory(updates);
     },
-    [engine, nodes]
+    [engine, nodes, getCoalesceKey]
   );
 
   return (
@@ -686,6 +696,21 @@ export default function PropertiesContent({
   const [openMultiSection, setOpenMultiSection] = useState<string>("shared");
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
+  const stableSelectionId = useMemo(() => {
+    switch (target.kind) {
+      case "single":
+        return target.node.id;
+      case "multi":
+        return [...target.nodes].map((n) => n.id).sort().join("\0");
+      case "tool":
+        return "tool";
+      default:
+        return "none";
+    }
+  }, [target]);
+
+  const getCoalesceKey = usePropertyHistorySession(engine, stableSelectionId);
+
   useEffect(() => {
     const update = () => {
       setIsTouchDevice(
@@ -712,7 +737,7 @@ export default function PropertiesContent({
   }, [target, openMultiSection]);
 
   return (
-    <>
+    <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
       <SelectionHeader label={headerLabel} />
       <CanvasSettingsSection
         engine={engine}
@@ -767,6 +792,6 @@ export default function PropertiesContent({
           ))}
         </>
       )}
-    </>
+    </PropertyHistoryCoalesceContext.Provider>
   );
 }

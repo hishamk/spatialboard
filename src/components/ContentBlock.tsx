@@ -509,9 +509,13 @@ function ContentBlock({
       );
       const startAngle = Math.atan2(startCy - centerY, startCx - centerX);
 
-      engine.pushHistorySnapshot();
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
         let rotation =
@@ -549,11 +553,17 @@ function ContentBlock({
           ? (blockRef.current?.getBoundingClientRect().height ?? 60) /
             engine.viewport.zoom
           : (node.h as number);
-      engine.pushHistorySnapshot();
+
+      let historyPushed = false;
 
       const onMove = (me: PointerEvent) => {
         const dx = (me.clientX - startX) / engine.viewport.zoom;
         const dy = (me.clientY - startY) / engine.viewport.zoom;
+
+        if (!historyPushed) {
+          historyPushed = true;
+          engine.pushHistorySnapshot();
+        }
 
         let newX = origX;
         let newY = origY;

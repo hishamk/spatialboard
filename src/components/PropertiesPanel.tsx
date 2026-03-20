@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { SpatialEngine } from "../engine/SpatialEngine";
+import { usePropertyHistorySession } from "./sidebar/PropertyHistoryCoalesceContext";
 import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, ContentNode, FrameNode, StickyNoteNode } from "../engine/types";
 import type { NodeTypeRegistry } from "../nodes/registry";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../fonts";
@@ -176,6 +177,16 @@ export default function PropertiesPanel({
     };
   }, []);
 
+  const stableSelectionId = useMemo(() => {
+    if (selection.size === 1) return Array.from(selection)[0];
+    if (mode === "draw" || mode === "shape" || mode === "text" || mode === "edge") {
+      return "tool";
+    }
+    return "none";
+  }, [selection, mode]);
+
+  const getCoalesceKey = usePropertyHistorySession(engine, stableSelectionId);
+
   // Determine what to show/edit
   const target: PanelTarget | null = (() => {
     if (selection.size === 1) {
@@ -205,91 +216,136 @@ export default function PropertiesPanel({
   const updateShape = useCallback(
     (patch: Partial<ShapeNode["data"]>) => {
       if (!target || target.kind !== "shape") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<ShapeNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<ShapeNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateDraw = useCallback(
     (patch: Partial<DrawNode["data"]>) => {
       if (!target || target.kind !== "draw") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<DrawNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<DrawNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateText = useCallback(
     (patch: Partial<TextNode["data"]>) => {
       if (!target || target.kind !== "text") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<TextNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<TextNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateEdge = useCallback(
     (patch: Partial<EdgeNode["data"]>) => {
       if (!target || target.kind !== "edge") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<EdgeNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<EdgeNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateImage = useCallback(
     (patch: Partial<ImageNode["data"]>) => {
       if (!target || target.kind !== "image") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<ImageNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<ImageNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateContent = useCallback(
     (patch: Partial<ContentNode["data"]>) => {
       if (!target || target.kind !== "content") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<ContentNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<ContentNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateFrame = useCallback(
     (patch: Partial<FrameNode["data"]>) => {
       if (!target || target.kind !== "frame") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<FrameNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<FrameNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateSticky = useCallback(
     (patch: Partial<StickyNoteNode["data"]>) => {
       if (!target || target.kind !== "sticky") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...target.node.data, ...patch },
-      } as Partial<StickyNoteNode>);
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...target.node.data, ...patch },
+        } as Partial<StickyNoteNode>,
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const updateCustomData = useCallback(
     (patch: Record<string, unknown>) => {
       if (!target || target.kind !== "custom") return;
-      engine.updateNodeWithHistory(target.node.id, {
-        data: { ...(target.node.data as Record<string, unknown>), ...patch },
-      });
+      const k = getCoalesceKey();
+      engine.updateNodeWithHistoryCoalesced(
+        target.node.id,
+        {
+          data: { ...(target.node.data as Record<string, unknown>), ...patch },
+        },
+        k,
+      );
     },
-    [engine, target]
+    [engine, target, getCoalesceKey]
   );
 
   const [bgRemovalState, setBgRemovalState] = useState<"idle" | "loading" | "error">("idle");

@@ -97,12 +97,17 @@ const LoopRenderer = memo(function LoopRenderer(
     const eng = engineRef.current;
     const loopNode = nodeRef.current;
     const starts = findStartNodesInside(eng, loopNode);
-    for (const sn of starts) {
+    if (starts.length === 0) return;
+    const updates = starts.map((sn) => {
       const sd = sn.data as StartData;
-      eng.updateNodeWithHistory(sn.id, {
-        data: { ...sd, fireCount: sd.fireCount + 1 },
-      });
-    }
+      return {
+        id: sn.id,
+        patch: {
+          data: { ...sd, fireCount: sd.fireCount + 1 },
+        },
+      };
+    });
+    eng.batchUpdateWithHistory(updates);
   }, []);
 
   // Detect trigger changes and start the loop

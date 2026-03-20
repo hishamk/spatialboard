@@ -219,6 +219,8 @@ export class SpatialEngine {
   private _containerHeight = 1500;
 
   private history = new History();
+  /** When set, `updateNodeWithHistoryCoalesced` reuses one undo step until `endHistoryCoalesce()`. */
+  private _historyCoalesceKey: string | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
   private _suppressEvents = false;
@@ -250,6 +252,7 @@ export class SpatialEngine {
   /** Enable collaborative mode. Disables local snapshot history. */
   setCollabMode(enabled: boolean): void {
     this._collabMode = enabled;
+    this._historyCoalesceKey = null;
     if (enabled) this.history.clear();
   }
 
@@ -1172,6 +1175,7 @@ export class SpatialEngine {
   // --- Node CRUD ---
 
   addNode(node: SpatialNode): void {
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     this.nodes.set(node.id, node);
     this.quadTree.insert(node);
@@ -1203,6 +1207,7 @@ export class SpatialEngine {
 
   addNodes(nodes: SpatialNode[]): void {
     if (nodes.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     for (const node of nodes) {
       this.nodes.set(node.id, node);
@@ -1382,14 +1387,37 @@ export class SpatialEngine {
   }
 
   updateNodeWithHistory(id: string, patch: Partial<SpatialNode>): void {
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     this.updateNode(id, patch);
     this.emit("history");
   }
 
+  /**
+   * Like `updateNodeWithHistory`, but multiple calls with the same `sessionKey` share one undo step
+   * (e.g. dragging an inspector slider). Call `endHistoryCoalesce()` when the gesture ends.
+   */
+  updateNodeWithHistoryCoalesced(
+    id: string,
+    patch: Partial<SpatialNode>,
+    sessionKey: string,
+  ): void {
+    if (this._collabMode) {
+      this.updateNode(id, patch);
+      return;
+    }
+    if (this._historyCoalesceKey !== sessionKey) {
+      this.history.pushSnapshot(this.nodes, this.groupParent);
+      this._historyCoalesceKey = sessionKey;
+      this.emit("history");
+    }
+    this.updateNode(id, patch);
+  }
+
   /** Update multiple nodes in a single undo step. */
   batchUpdateWithHistory(updates: Array<{ id: string; patch: Partial<SpatialNode> }>): void {
     if (updates.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     for (const { id, patch } of updates) {
       this.updateNode(id, patch);
@@ -1397,9 +1425,34 @@ export class SpatialEngine {
     this.emit("history");
   }
 
+  /**
+   * Like `batchUpdateWithHistory`, but shares one undo step with other calls using the same `sessionKey`.
+   */
+  batchUpdateWithHistoryCoalesced(
+    updates: Array<{ id: string; patch: Partial<SpatialNode> }>,
+    sessionKey: string,
+  ): void {
+    if (updates.length === 0) return;
+    if (this._collabMode) {
+      for (const { id, patch } of updates) {
+        this.updateNode(id, patch);
+      }
+      return;
+    }
+    if (this._historyCoalesceKey !== sessionKey) {
+      this.history.pushSnapshot(this.nodes, this.groupParent);
+      this._historyCoalesceKey = sessionKey;
+      this.emit("history");
+    }
+    for (const { id, patch } of updates) {
+      this.updateNode(id, patch);
+    }
+  }
+
   deleteNode(id: string): void {
     if (!this.nodes.has(id)) return;
     if (this.nodes.get(id)?.locked) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
 
     // Remove from QuadTree before deleting from map
@@ -1642,6 +1695,7 @@ export class SpatialEngine {
 
   bringToFront(ids: string[]): void {
     if (ids.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     for (const id of ids) {
       const node = this.nodes.get(id);
@@ -1653,6 +1707,7 @@ export class SpatialEngine {
 
   sendToBack(ids: string[]): void {
     if (ids.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     for (let i = ids.length - 1; i >= 0; i--) {
       const node = this.nodes.get(ids[i]);
@@ -1671,6 +1726,7 @@ export class SpatialEngine {
 
   bringForward(ids: string[]): void {
     if (ids.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
 
     for (const id of ids) {
@@ -1709,6 +1765,7 @@ export class SpatialEngine {
 
   sendBackward(ids: string[]): void {
     if (ids.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
 
     for (const id of ids) {
@@ -1932,6 +1989,7 @@ export class SpatialEngine {
         this.emit('group:exit');
       }
     }
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     const deletedIds = toDelete;
 
@@ -2022,6 +2080,7 @@ export class SpatialEngine {
 
   deleteNodes(ids: string[]): void {
     if (ids.length === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     const deletedSet = new Set(ids);
 
@@ -2058,6 +2117,7 @@ export class SpatialEngine {
 
   private flipSelected(dir: "h" | "v"): void {
     if (this.selection.size === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
 
     for (const id of this.selection) {
@@ -2147,6 +2207,7 @@ export class SpatialEngine {
   groupSelected(): void {
     if (this.selection.size < 2) return;
     if (this.activeGroupId) return; // Can't nest groups while inside one
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     const gid = nanoid(10);
 
@@ -2212,6 +2273,7 @@ export class SpatialEngine {
       this.emit('group:exit');
     }
 
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
 
     for (const gid of groupIds) {
@@ -2392,6 +2454,7 @@ export class SpatialEngine {
 
   duplicateSelected(): void {
     if (this.selection.size === 0) return;
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     const offset = 20;
     const idMap = new Map<string, string>();
@@ -2621,7 +2684,13 @@ export class SpatialEngine {
 
   // --- History ---
 
+  /** End a coalesced inspector/gesture history session (see `updateNodeWithHistoryCoalesced`). */
+  endHistoryCoalesce(): void {
+    this._historyCoalesceKey = null;
+  }
+
   pushHistorySnapshot(): void {
+    this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     this.emit("history");
   }
@@ -2651,6 +2720,7 @@ export class SpatialEngine {
   undo(): void {
     const restored = this.history.undo(this.nodes, this.groupParent);
     if (restored) {
+      this._historyCoalesceKey = null;
       this.nodes = restored.nodes;
       this.groupParent = restored.groupParent;
       this.rebuildGroupChildren();
@@ -2667,6 +2737,7 @@ export class SpatialEngine {
   redo(): void {
     const restored = this.history.redo(this.nodes, this.groupParent);
     if (restored) {
+      this._historyCoalesceKey = null;
       this.nodes = restored.nodes;
       this.groupParent = restored.groupParent;
       this.rebuildGroupChildren();
