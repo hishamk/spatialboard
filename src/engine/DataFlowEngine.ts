@@ -36,6 +36,9 @@ export class DataFlowEngine {
   /** Node IDs that are part of a cycle (updated after each topoSort). */
   private _cycleNodeIds = new Set<string>();
 
+  /** Wall time of the last `compute` run per node (sync or async resolution), in ms. */
+  private lastComputeMs = new Map<string, number>();
+
   constructor(spatial: SpatialEngine, registry: NodeTypeRegistry) {
     this.spatial = spatial;
     this.registry = registry;
@@ -107,6 +110,15 @@ export class DataFlowEngine {
       }
     }
     return outputs;
+  }
+
+  /**
+   * Milliseconds for the target node's last `compute` invocation (sync wall time, or
+   * async time until the promise settled). Undefined if that node has not run yet.
+   * Note: edges do not "process" data — this attributes cost to the downstream node.
+   */
+  getLastComputeMs(nodeId: string): number | undefined {
+    return this.lastComputeMs.get(nodeId);
   }
 
   /** Get all port values (inputs + outputs) for a node. */
@@ -216,6 +228,7 @@ export class DataFlowEngine {
     this.dirty.clear();
     this.listeners.clear();
     this.scheduled = false;
+    this.lastComputeMs.clear();
   }
 
   // ── Private implementation ─────────────────────────────────
@@ -400,6 +413,7 @@ export class DataFlowEngine {
     if (!def?.compute || !def.ports) return false;
 
     const inputs = this.getInputs(nodeId);
+    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     const result = def.compute(inputs, node.data);
 
     // Handle async compute
@@ -407,6 +421,8 @@ export class DataFlowEngine {
       const gen = ++this.generation;
       result.then((outputs) => {
         if (gen !== this.generation) return; // stale
+        const t1 = typeof performance !== "undefined" ? performance.now() : 0;
+        this.lastComputeMs.set(nodeId, t1 - t0);
         const didChange = this.applyOutputs(nodeId, def.ports!, outputs);
         if (didChange) {
           // Mark downstream dirty and flush again
@@ -421,6 +437,8 @@ export class DataFlowEngine {
     }
 
     // Synchronous compute
+    const t1 = typeof performance !== "undefined" ? performance.now() : 0;
+    this.lastComputeMs.set(nodeId, t1 - t0);
     return this.applyOutputs(nodeId, def.ports, result);
   }
 

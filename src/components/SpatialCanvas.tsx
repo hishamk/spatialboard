@@ -23,7 +23,7 @@ import type { BoardBackground } from "../engine/SpatialEngine";
 import type { SBDSchema } from "../schema";
 import type { NodeTypeRegistry, NodeCallbacks } from "../nodes/registry";
 import type { DataFlowEngine } from "../engine/DataFlowEngine";
-import type { HandlePosition } from "./SVGLayer";
+import type { DataFlowEdgeOverlay, HandlePosition } from "./SVGLayer";
 import GridBackground from "./GridBackground";
 import { getPaperType } from "./paper-types";
 import { install as installExcalidrawLib, getItems as getLibraryItems } from "../excalidraw/library-store";
@@ -45,24 +45,27 @@ import StickyNoteBlock from "./StickyNoteBlock";
 import SVGLayer from "./SVGLayer";
 import ContextMenu from "./ContextMenu";
 import type { ContextMenuSection } from "./ContextMenu";
+import { SB_ALIGN_MENU_ICONS } from "./context-menu-align-icons";
 import { htmlToBlocks, markdownToBlocks } from "../serialization/blocknote-markdown";
 import { getRotatedCursor } from "../interactions/resize-cursors";
+import { applyCornerAspectLock } from "../interactions/resize-aspect";
 import { encodeClipboardNodes, extractEmbeddedNodes } from "../interactions/keyboard-handler";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../fonts";
 import {
-  hitTestEdge,
+  getClosestEdgeHit,
   hitTestAllEdges,
   computeEdgeEndpoints,
   nearestHandle,
   getNodeHandlePositions,
   computeEdgePath,
   getPortPosition,
+  PORT_EDGE_SNAP_RADIUS_PX,
   nearestPerimeterPoint,
   canvasPointToPerimeterT,
   perimeterPoint,
 } from "../engine/edge-geometry";
 import type { PortPositionResolver } from "../engine/edge-geometry";
-import { isPointInShapeNode } from "../engine/spatial-index";
+import { distancePointToBoxNodeBorder, isPointInShapeNode } from "../engine/spatial-index";
 import { exportBoard } from "../export/canvas-export";
 import { getPreset, getAspectRatio } from "./sidebar/devicePresets";
 import { spatialPerf } from "../perf/spatial-perf";
@@ -544,11 +547,14 @@ export default function SpatialCanvas({
   schema,
   registry,
   dataFlow,
+  dataFlowEdgeOverlay = "off",
 }: {
   engine: SpatialEngine;
   schema: SBDSchema;
   registry?: NodeTypeRegistry;
   dataFlow?: DataFlowEngine | null;
+  /** Port edge captions; only applies when `dataFlow` is active. Default `off`. */
+  dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
 }) {
   const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -784,13 +790,13 @@ export default function SpatialCanvas({
       if (registry && edge.data.sourcePort) {
         const srcDef = registry.get(fromNode.type);
         if (srcDef?.ports) {
-          sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights) ?? undefined;
+          sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef.portAnchor ?? "bbox") ?? undefined;
         }
       }
       if (registry && edge.data.targetPort) {
         const tgtDef = registry.get(toNode.type);
         if (tgtDef?.ports) {
-          targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights) ?? undefined;
+          targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef.portAnchor ?? "bbox") ?? undefined;
         }
       }
       return { sourcePortPos, targetPortPos };
@@ -1136,21 +1142,6 @@ export default function SpatialCanvas({
     };
   }, [viewport, containerSize, nodes, selection, engine, registry, measuredHeights, edgePreview, edgeReconnect, isNodeDragging]);
 
-  const domLayerNodes = virtualizedView?.domNodes ?? nodes.filter((n) => {
-    if (registry) {
-      const def = registry.get(n.type);
-      return !!def && !def.isSVGOnly;
-    }
-    return (
-      n.type === "content" ||
-      n.type === "draw" ||
-      n.type === "shape" ||
-      n.type === "image" ||
-      n.type === "text" ||
-      n.type === "frame" ||
-      n.type === "sticky"
-    );
-  });
   // Keep edges fully reliable by default; while actively dragging nodes, use
   // virtualized SVG set for smoother interaction on very large boards.
   const svgLayerNodes = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
@@ -1408,6 +1399,29 @@ export default function SpatialCanvas({
 
   const editingNodeId = editingTextId || editingStickyId || editingFrameLabelId || editingShapeLabelId || croppingImageId || editingYouTubeId;
 
+  const domLayerNodes = useMemo(() => {
+    const base =
+      virtualizedView?.domNodes ??
+      nodes.filter((n) => {
+        if (registry) {
+          const def = registry.get(n.type);
+          return !!def && !def.isSVGOnly;
+        }
+        return (
+          n.type === "content" ||
+          n.type === "draw" ||
+          n.type === "shape" ||
+          n.type === "image" ||
+          n.type === "text" ||
+          n.type === "frame" ||
+          n.type === "sticky"
+        );
+      });
+    if (!croppingImageId || base.some((n) => n.id === croppingImageId)) return base;
+    const pinned = nodes.find((n) => n.id === croppingImageId);
+    return pinned ? [...base, pinned] : base;
+  }, [virtualizedView, nodes, registry, croppingImageId]);
+
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);
   // Guard newly created text editing against immediate selection churn.
@@ -1660,6 +1674,87 @@ export default function SpatialCanvas({
         ],
       });
 
+      const arrangeableCount = selIds.filter((id) => {
+        const n = engine.getNode(id);
+        return !!n && n.type !== "edge" && !n.locked;
+      }).length;
+      if (arrangeableCount >= 2) {
+        sections.push({
+          items: [
+            {
+              label: labels.actionArrangeSelection,
+              action: () =>
+                engine.arrangeSelectedNodes(measuredHeights, viewport.zoom),
+            },
+          ],
+        });
+        sections.push({
+          items: [
+            {
+              kind: "header",
+              label: labels.alignMenuHorizontal,
+              action: () => {},
+            },
+            {
+              label: labels.alignLeft,
+              icon: SB_ALIGN_MENU_ICONS.alignHLeft,
+              action: () =>
+                engine.alignSelectedNodes("left", measuredHeights),
+            },
+            {
+              label: labels.alignCenterHorizontal,
+              icon: SB_ALIGN_MENU_ICONS.alignHCenter,
+              action: () =>
+                engine.alignSelectedNodes("centerH", measuredHeights),
+            },
+            {
+              label: labels.alignRight,
+              icon: SB_ALIGN_MENU_ICONS.alignHRight,
+              action: () =>
+                engine.alignSelectedNodes("right", measuredHeights),
+            },
+            {
+              label: labels.alignDistributeHorizontal,
+              icon: SB_ALIGN_MENU_ICONS.distributeH,
+              action: () =>
+                engine.distributeSelectedNodes(
+                  "horizontal",
+                  measuredHeights,
+                ),
+            },
+            {
+              kind: "header",
+              label: labels.alignMenuVertical,
+              action: () => {},
+            },
+            {
+              label: labels.alignTop,
+              icon: SB_ALIGN_MENU_ICONS.alignVTop,
+              action: () =>
+                engine.alignSelectedNodes("top", measuredHeights),
+            },
+            {
+              label: labels.alignCenterVertical,
+              icon: SB_ALIGN_MENU_ICONS.alignVCenter,
+              action: () =>
+                engine.alignSelectedNodes("centerV", measuredHeights),
+            },
+            {
+              label: labels.alignBottom,
+              icon: SB_ALIGN_MENU_ICONS.alignVBottom,
+              action: () =>
+                engine.alignSelectedNodes("bottom", measuredHeights),
+            },
+            {
+              label: labels.alignDistributeVertical,
+              icon: SB_ALIGN_MENU_ICONS.distributeV,
+              action: () =>
+                engine.distributeSelectedNodes("vertical", measuredHeights),
+            },
+          ],
+        });
+      }
+
       // Add to Personal Library
       if (hasSel) {
         sections.push({
@@ -1844,7 +1939,7 @@ export default function SpatialCanvas({
 
       return sections;
     },
-    [engine]
+    [engine, labels, measuredHeights, viewport.zoom]
   );
 
   const handleContextMenu = useCallback(
@@ -2228,9 +2323,28 @@ export default function SpatialCanvas({
         if (!engine.lassoSelect) {
           const allHits = engine.hitTestAll(cx, cy, measuredHeights);
           hit = allHits.find((n) => engine.selection.has(n.id) && !engine.isContainerType(n.type)) ?? allHits.find((n) => !engine.isContainerType(n.type)) ?? allHits[0] ?? null;
-          // Fall back to edge hit testing if no node was hit
-          if (!hit && !insideSelectionBox) {
-            hit = hitTestEdge(engine.nodes, cx, cy, engine.viewport.zoom, measuredHeights, resolvePortPositions);
+          if (!insideSelectionBox) {
+            const edgePick = getClosestEdgeHit(
+              engine.nodes,
+              cx,
+              cy,
+              engine.viewport.zoom,
+              measuredHeights,
+              resolvePortPositions
+            );
+            if (edgePick) {
+              if (!hit) {
+                hit = edgePick.node;
+              } else if (
+                hit.type !== "draw" &&
+                hit.type !== "shape" &&
+                !engine.isContainerType(hit.type) &&
+                edgePick.distance <
+                  distancePointToBoxNodeBorder(hit, cx, cy, measuredHeights)
+              ) {
+                hit = edgePick.node;
+              }
+            }
           }
         }
         if (hit || insideSelectionBox) {
@@ -3238,6 +3352,32 @@ export default function SpatialCanvas({
           }
         }
 
+        // Shift + corner: lock aspect to size at resize start (⌘/⌃ only affects grid snap above).
+        // Frames with a device preset already follow fixed ratio below.
+        if (
+          me.shiftKey &&
+          !(
+            node.type === "frame" &&
+            (node as FrameNode).data.devicePreset
+          )
+        ) {
+          const locked = applyCornerAspectLock(
+            handle,
+            origX,
+            origY,
+            origW,
+            origH,
+            newX,
+            newY,
+            newW,
+            newH,
+          );
+          newX = locked.x;
+          newY = locked.y;
+          newW = locked.w;
+          newH = locked.h;
+        }
+
         // Enforce device-preset aspect ratio for frames
         if (node.type === "frame") {
           const presetKey = (node as FrameNode).data.devicePreset;
@@ -3561,7 +3701,7 @@ export default function SpatialCanvas({
 
         const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
         const expectedDir = direction === "output" ? "input" : "output";
-        const portSnapThreshold = 40 / engine.viewport.zoom;
+        const portSnapThreshold = PORT_EDGE_SNAP_RADIUS_PX / engine.viewport.zoom;
 
         // Port-aware target finding: scan ALL nodes with compatible ports
         // and find the nearest port circle to the cursor.
@@ -3576,24 +3716,23 @@ export default function SpatialCanvas({
           const nDef = registry.get(n.type);
           if (!nDef?.ports?.length) continue;
 
-          const nh = n.h === "auto" ? (engine.measuredHeights[n.id] ?? 100) : n.h as number;
-
           for (const p of nDef.ports) {
             // Only consider ports in the expected direction
             if (p.direction !== expectedDir) continue;
             // Type compatibility
             if (sourcePort.dataType !== "any" && p.dataType !== "any" && sourcePort.dataType !== p.dataType) continue;
 
-            // Compute port position (must match SVGLayer rendering)
-            const portsOfDir = nDef.ports.filter((pp) => pp.direction === p.direction);
-            const idx = portsOfDir.indexOf(p);
-            const portOffset = 14 / engine.viewport.zoom;
-            const py = n.y + (nh / (portsOfDir.length + 1)) * (idx + 1);
-            const px = p.direction === "input"
-              ? n.x - portOffset
-              : n.x + n.w + portOffset;
+            const pos = getPortPosition(
+              n,
+              nDef.ports,
+              p.id,
+              engine.viewport.zoom,
+              engine.measuredHeights,
+              nDef.portAnchor ?? "bbox",
+            );
+            if (!pos) continue;
 
-            const dist = Math.hypot(px - x, py - y);
+            const dist = Math.hypot(pos.x - x, pos.y - y);
             if (dist < portSnapThreshold && dist < bestDist) {
               bestDist = dist;
               bestTargetNode = n;
@@ -3658,6 +3797,17 @@ export default function SpatialCanvas({
     if (!dataFlow) return;
     return dataFlow.onChange(() => setDataFlowVersion((v) => v + 1));
   }, [dataFlow]);
+
+  const getLastComputeMs = useCallback(
+    (nodeId: string) => dataFlow?.getLastComputeMs(nodeId),
+    [dataFlow, dataFlowVersion],
+  );
+
+  const getDataFlowPortValue = useCallback(
+    (nodeId: string, portId: string) =>
+      dataFlow ? dataFlow.getPortValue(nodeId, portId) : null,
+    [dataFlow, dataFlowVersion],
+  );
 
   // Kink handle drag — reposition the bend point of step/smoothstep edges
   const handleKinkHandleDown = useCallback(
@@ -4067,6 +4217,8 @@ export default function SpatialCanvas({
             ? (n as DrawNode).data.points.map((p) => [...p] as [number, number, number])
             : null,
           drawData: n.type === "draw" ? { ...(n as DrawNode).data } : null,
+          origFontSize: n.type === "text" ? (n as TextNode).data.fontSize : 0,
+          textData: n.type === "text" ? { ...(n as TextNode).data } : null,
         };
       });
 
@@ -4079,6 +4231,7 @@ export default function SpatialCanvas({
       let lastClientX = startScreenX;
       let lastClientY = startScreenY;
       let lastModKey = false;
+      let lastShiftKey = e.shiftKey;
 
       const applyResize = () => {
         rafId = null;
@@ -4139,6 +4292,24 @@ export default function SpatialCanvas({
           }
         }
 
+        if (lastShiftKey && origBox.w > 0 && origBox.h > 0) {
+          const locked = applyCornerAspectLock(
+            handle,
+            origBox.x,
+            origBox.y,
+            origBox.w,
+            origBox.h,
+            newX,
+            newY,
+            newW,
+            newH,
+          );
+          newX = locked.x;
+          newY = locked.y;
+          newW = locked.w;
+          newH = locked.h;
+        }
+
         const updates = origStates.map((orig) => {
           const nodeNewX = newX + orig.relX * newW;
           const nodeNewY = newY + orig.relY * newH;
@@ -4163,6 +4334,27 @@ export default function SpatialCanvas({
             };
           }
 
+          // Match single-node text resize: e/w only reflow (no font change); n/s use
+          // height scale; corners use width scale (see handleResizeHandleDown).
+          if (
+            orig.type === "text" &&
+            orig.origFontSize > 0 &&
+            orig.textData &&
+            handle !== "e" &&
+            handle !== "w"
+          ) {
+            const scale =
+              handle === "n" || handle === "s"
+                ? orig.origH > 0
+                  ? nodeNewH / orig.origH
+                  : 1
+                : orig.origW > 0
+                  ? nodeNewW / orig.origW
+                  : 1;
+            const newFontSize = Math.max(8, Math.round(orig.origFontSize * scale));
+            patch.data = { ...orig.textData, fontSize: newFontSize };
+          }
+
           return { id: orig.id, patch };
         });
 
@@ -4173,6 +4365,7 @@ export default function SpatialCanvas({
         lastClientX = me.clientX;
         lastClientY = me.clientY;
         lastModKey = me.metaKey || me.ctrlKey;
+        lastShiftKey = me.shiftKey;
         if (rafId === null) {
           rafId = requestAnimationFrame(applyResize);
         }
@@ -4303,10 +4496,24 @@ export default function SpatialCanvas({
           return;
         }
 
+        if (
+          getClosestEdgeHit(
+            engine.nodes,
+            cx,
+            cy,
+            engine.viewport.zoom,
+            measuredHeights,
+            resolvePortPositions
+          )
+        ) {
+          container.style.cursor = "move";
+          return;
+        }
+
         container.style.cursor = "default";
       });
     },
-    [engine, selBounds, measuredHeights, getNodeAABB]
+    [engine, selBounds, measuredHeights, getNodeAABB, resolvePortPositions]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -4591,6 +4798,7 @@ export default function SpatialCanvas({
                     interactive={isInteractive}
                     zoom={viewport.zoom}
                     editing={editingNodeId === node.id}
+                    cropping={croppingImageId === node.id}
                     editClickPos={editingNodeId === node.id ? editClickRef.current : null}
                     callbacks={{
                       onMeasuredHeight: handleMeasuredHeight,
@@ -4934,12 +5142,16 @@ export default function SpatialCanvas({
         registry={registry}
         onPortHandleDown={handlePortHandleDown}
         cycleNodeIds={dataFlow && dataFlowVersion >= 0 ? dataFlow.cycleNodeIds : undefined}
+        dataFlowEdgeOverlay={dataFlow ? dataFlowEdgeOverlay : "off"}
+        getLastComputeMs={dataFlow ? getLastComputeMs : undefined}
+        getDataFlowPortValue={dataFlow ? getDataFlowPortValue : undefined}
         containerTypes={engine.containerTypes}
         alignGuides={alignGuides}
+        suppressNodeOverlayId={croppingImageId}
       />
 
       {/* Unified multi-selection bounding box */}
-      {selBounds && mode !== "edge" && !edgePreview && !edgeReconnect && (() => {
+      {selBounds && !croppingImageId && mode !== "edge" && !edgePreview && !edgeReconnect && (() => {
         // Check for persisted group rotation
         const singleGroupId = engine.selectionGroupId();
         const storedRot = singleGroupId ? engine.groupRotations.get(singleGroupId) : undefined;

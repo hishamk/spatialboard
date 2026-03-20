@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface LEDData {
   color: string;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -133,25 +135,28 @@ function LEDPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<LEDDa
   const label: React.CSSProperties = { width: 48, fontSize: 10, color: "#999", flexShrink: 0 };
 
   return (
-    <div style={row}>
-      <span style={label}>Color</span>
-      {LED_COLORS.map((c) => (
-        <button
-          key={c.key}
-          onClick={() => updateData({ color: c.key })}
-          title={c.label}
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: "50%",
-            background: c.key,
-            border: cd.color === c.key ? "2px solid #fff" : "2px solid #3a3a4e",
-            cursor: "pointer",
-            padding: 0,
-          }}
-        />
-      ))}
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={row}>
+        <span style={label}>Color</span>
+        {LED_COLORS.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => updateData({ color: c.key })}
+            title={c.label}
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              background: c.key,
+              border: cd.color === c.key ? "2px solid #fff" : "2px solid #3a3a4e",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -159,8 +164,10 @@ function LEDPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<LEDDa
 
 export const ledNodeType: NodeTypeDefinition<LEDData> = {
   type: "led",
+  docs: {},
   component: LEDRenderer,
   propertiesPanel: LEDPropertiesPanel,
+  portAnchor: "inscribed-circle",
   ports,
   compute: () => ({}),
   getClipboardText: () => "LED",

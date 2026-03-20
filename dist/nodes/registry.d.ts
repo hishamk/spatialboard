@@ -11,6 +11,8 @@ export interface NodeRendererProps<TData = unknown> {
     zoom: number;
     /** Whether this node is currently in inline-edit mode. */
     editing: boolean;
+    /** Image crop mode — independent of `editing` so crop works alongside other edit slots. */
+    cropping?: boolean;
     /** Pointer position that initiated editing (for cursor placement in text). */
     editClickPos?: {
         clientX: number;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { ImageNode } from "../../engine/types";
@@ -63,6 +64,11 @@ export default function GifSearchPanel({
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useFitSidePopoverPositionFromRect(open && !!triggerRect, triggerRect, panelRef, [
+    items.length,
+    loading,
+  ]);
 
   // Close on outside click
   useEffect(() => {
@@ -175,7 +181,7 @@ export default function GifSearchPanel({
         zIndex: 99999,
         boxShadow: theme.panelShadow,
         width: 300,
-        maxHeight: `calc(100vh - ${triggerRect.top + 20}px)`,
+        maxHeight: "min(420px, calc(100dvh - 16px))",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

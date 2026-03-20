@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface DisplayData {
   label: string;
   format: "raw" | "number" | "json";
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -87,30 +89,45 @@ const DisplayRenderer = memo(function DisplayRenderer(
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "10% 14%",
+          alignItems: "stretch",
+          justifyContent: "flex-start",
+          padding: "8% 11% 9%",
           boxSizing: "border-box",
+          gap: 3,
+          minHeight: 0,
         }}
       >
-        <div style={{
-          fontSize: 8, color: "#555", letterSpacing: 1.5, textTransform: "uppercase",
-        }}>
+        <div
+          style={{
+            fontSize: 7,
+            color: "#555",
+            letterSpacing: 1.2,
+            textTransform: "uppercase",
+            flexShrink: 0,
+            textAlign: "center",
+          }}
+        >
           {cd.label || "Display"}
         </div>
         <div
           style={{
-            fontSize: cd.format === "json" ? 9 : 18,
-            fontWeight: 800,
+            flex: 1,
+            minHeight: 0,
+            width: "100%",
+            overflow: "auto",
+            fontSize:
+              cd.format === "json" ? 7 : cd.format === "number" ? 11 : 9,
+            fontWeight: cd.format === "number" ? 800 : 600,
             color: hasValue ? cd.accentColor : "#444",
-            marginTop: 4,
-            fontFamily: cd.format === "json" ? "monospace" : "inherit",
-            whiteSpace: cd.format === "json" ? "pre" : "normal",
+            fontFamily: cd.format === "json" ? "'JetBrains Mono', ui-monospace, monospace" : "inherit",
+            whiteSpace: cd.format === "json" ? "pre-wrap" : "normal",
             textAlign: "center",
-            wordBreak: "break-all",
-            maxWidth: "100%",
-            lineHeight: 1.1,
-            textShadow: hasValue ? `0 0 10px ${cd.accentColor}33` : undefined,
+            wordBreak: "break-word",
+            lineHeight: 1.25,
+            textShadow: hasValue ? `0 0 8px ${cd.accentColor}28` : undefined,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           {formatted}
@@ -135,6 +152,7 @@ function DisplayPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<D
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Label</span>
         <input
@@ -175,6 +193,7 @@ function DisplayPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<D
 
 export const displayNodeType: NodeTypeDefinition<DisplayData> = {
   type: "display",
+  docs: {},
   component: DisplayRenderer,
   propertiesPanel: DisplayPropertiesPanel,
   ports,

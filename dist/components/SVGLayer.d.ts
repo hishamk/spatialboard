@@ -84,6 +84,8 @@ interface SVGLayerProps {
         start: number;
         end: number;
     }>;
+    /** When set, suppress connection/port affordances for this node (image crop UI must receive pointers). */
+    suppressNodeOverlayId?: string | null;
 }
 /**
  * SVGLayer — now only renders overlays:
@@ -93,5 +95,5 @@ interface SVGLayerProps {
  *
  * Node rendering has been moved to SVGNodeBlock in the unified DOM layer.
  */
-export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, freeFormEdges, hoveredNodeId, cursorCanvasPos, registry, onPortHandleDown, cycleNodeIds, containerTypes, alignGuides, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
+export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, freeFormEdges, hoveredNodeId, cursorCanvasPos, registry, onPortHandleDown, cycleNodeIds, containerTypes, alignGuides, suppressNodeOverlayId, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
 export {};

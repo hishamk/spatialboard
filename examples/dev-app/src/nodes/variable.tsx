@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export interface VariableData {
   lastSet: number;
   lastReset: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -198,6 +200,7 @@ function VariablePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Label</span>
         <input
@@ -245,6 +248,7 @@ function VariablePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const variableNodeType: NodeTypeDefinition<VariableData> = {
   type: "variable",
+  docs: {},
   component: VariableRenderer,
   propertiesPanel: VariablePropertiesPanel,
   ports,

@@ -254,6 +254,7 @@ const TimerRenderer = memo(function TimerRenderer(
 
 export const timerNodeType: NodeTypeDefinition<TimerData> = {
   type: "timer",
+  docs: {},
   component: TimerRenderer,
 
   getClipboardText: (node: SpatialNode) => {

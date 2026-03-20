@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export interface DelayData {
   lastTrigger: number;
   fireCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -143,6 +145,7 @@ function DelayPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Del
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Delay</span>
         <input
@@ -183,6 +186,7 @@ function DelayPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Del
 
 export const delayNodeType: NodeTypeDefinition<DelayData> = {
   type: "delay",
+  docs: {},
   component: DelayRenderer,
   propertiesPanel: DelayPropertiesPanel,
   ports,

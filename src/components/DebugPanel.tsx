@@ -1,11 +1,5 @@
 import { useState, useEffect } from "react";
 import type { SpatialEngine } from "../engine/SpatialEngine";
-import { TEST_SBD } from "../test-data/test-board.sbd";
-import { LOBBYING_SBD } from "../test-data/lobbying-board.sbd";
-import { GOLDEN_AGE_ISLAM_SBD } from "../test-data/golden-age-islam-board.sbd";
-import { COMPUTERS_HISTORY_SBD } from "../test-data/computers-history-board.sbd";
-import { COMPUTER_LANGUAGES_SBD } from "../test-data/computer-languages-board.sbd";
-import { DEEP_OCEAN_SBD } from "../test-data/deep-ocean-board.sbd";
 import { runBenchmark } from "../performance-test";
 
 const btnStyle: React.CSSProperties = {
@@ -115,60 +109,6 @@ export default function DebugPanel({ engine, extraBoards }: { engine: SpatialEng
           style={btnStyle}
         >
           {copied ? "Copied!" : "Copy SBD"}
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(TEST_SBD);
-          }}
-          style={{ ...btnStyle, background: "#8b5cf6" }}
-        >
-          Load Test
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(LOBBYING_SBD);
-          }}
-          style={{ ...btnStyle, background: "#ef4444" }}
-        >
-          Load Lobbying
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(GOLDEN_AGE_ISLAM_SBD);
-          }}
-          style={{ ...btnStyle, background: "#f59e0b" }}
-        >
-          Load Golden Age
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(COMPUTERS_HISTORY_SBD);
-          }}
-          style={{ ...btnStyle, background: "#10b981" }}
-        >
-          Load Computers
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(COMPUTER_LANGUAGES_SBD);
-          }}
-          style={{ ...btnStyle, background: "#6366f1" }}
-        >
-          Load Languages
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            engine.fromSBD(DEEP_OCEAN_SBD);
-          }}
-          style={{ ...btnStyle, background: "#0ea5e9" }}
-        >
-          Load Deep Ocean
         </button>
         {extraBoards?.map((board) => (
           <button

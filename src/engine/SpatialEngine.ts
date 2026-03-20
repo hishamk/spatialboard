@@ -24,8 +24,12 @@ import {
 import { serializeToSBD } from "../serialization/sbd-serializer";
 import { parseSBD } from "../serialization/sbd-parser";
 import { computeEdgePath } from "./edge-geometry";
-import type { NodeTypeRegistry } from "../nodes/registry";
+import type {
+  NodeTypeRegistry,
+  SpatialNodeTypeCatalogEntry,
+} from "../nodes/registry";
 import { spatialPerf } from "../perf/spatial-perf";
+import { computeSelectionArrangement } from "./arrange-selection";
 
 export type BoardBackground =
   | "plain-white"
@@ -35,6 +39,18 @@ export type BoardBackground =
   | "dark-grid"
   | "japanese-stationery"
   | "kraft";
+
+/** Multi-select contextual alignment relative to the union of selected node bounds. */
+export type SelectionAlignMode =
+  | "left"
+  | "centerH"
+  | "right"
+  | "top"
+  | "centerV"
+  | "bottom";
+
+/** Equal spacing between consecutive items along an axis (sorted by position). */
+export type SelectionDistributeAxis = "horizontal" | "vertical";
 
 export interface AlignGuide {
   axis: 'x' | 'y';
@@ -247,6 +263,14 @@ export class SpatialEngine {
   /** Set the node type registry for lifecycle hooks. */
   setRegistry(registry: NodeTypeRegistry): void {
     this.registry = registry;
+  }
+
+  /**
+   * All registered node types (built-in + custom from `SpatialBoard` `nodeTypes`).
+   * Empty until `setRegistry` runs (after mount). Intended for agents / MCP discovery.
+   */
+  getNodeTypeCatalog(): SpatialNodeTypeCatalogEntry[] {
+    return this.registry?.toCatalog() ?? [];
   }
 
   /** Enable collaborative mode. Disables local snapshot history. */
@@ -2200,6 +2224,168 @@ export class SpatialEngine {
 
   flipSelectedVertical(): void {
     this.flipSelected("v");
+  }
+
+  /**
+   * Re-layout selected nodes in one undo step: layered left-to-right flow when
+   * selected edges form a DAG (with barycenter crossing reduction), otherwise a
+   * tidy reading-order grid; then overlap refinement for nodes and estimated
+   * wire labels. Skips edges and locked nodes.
+   */
+  arrangeSelectedNodes(
+    measuredHeights?: Record<string, number>,
+    labelLayoutZoom = 1,
+  ): void {
+    const updates = computeSelectionArrangement(
+      this.getAllNodes(),
+      this.selection,
+      measuredHeights,
+      this.gridSize,
+      this.registry,
+      labelLayoutZoom,
+    );
+    if (updates.length === 0) return;
+    this.batchUpdateWithHistory(
+      updates.map((u) => ({ id: u.id, patch: { x: u.x, y: u.y } })),
+    );
+  }
+
+  /** Axis alignment for multi-select (union bbox reference). Skips edges and locked nodes. */
+  alignSelectedNodes(
+    mode: SelectionAlignMode,
+    measuredHeights?: Record<string, number>,
+  ): void {
+    const nodes: SpatialNode[] = [];
+    for (const id of this.selection) {
+      const n = this.nodes.get(id);
+      if (!n || n.type === "edge" || n.locked) continue;
+      nodes.push(n);
+    }
+    if (nodes.length < 2) return;
+
+    const hOf = (n: SpatialNode) =>
+      n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : (n.h as number);
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of nodes) {
+      const h = hOf(n);
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.w);
+      maxY = Math.max(maxY, n.y + h);
+    }
+    const midX = (minX + maxX) / 2;
+    const midY = (minY + maxY) / 2;
+
+    const updates: Array<{ id: string; patch: Partial<SpatialNode> }> = [];
+    for (const n of nodes) {
+      const h = hOf(n);
+      let nx = n.x;
+      let ny = n.y;
+      switch (mode) {
+        case "left":
+          nx = minX;
+          break;
+        case "right":
+          nx = maxX - n.w;
+          break;
+        case "centerH":
+          nx = midX - n.w / 2;
+          break;
+        case "top":
+          ny = minY;
+          break;
+        case "bottom":
+          ny = maxY - h;
+          break;
+        case "centerV":
+          ny = midY - h / 2;
+          break;
+      }
+      if (nx !== n.x || ny !== n.y) {
+        updates.push({ id: n.id, patch: { x: nx, y: ny } });
+      }
+    }
+    if (updates.length === 0) return;
+    this.batchUpdateWithHistory(updates);
+  }
+
+  /**
+   * Even spacing between adjacent items along `axis` (sort by min edge on that axis).
+   * Gaps are never negative: if the union bbox is narrower than the sum of sizes,
+   * uses zero gap and centers the packed strip on the original bbox so nothing overlaps.
+   * Skips edges and locked nodes.
+   */
+  distributeSelectedNodes(
+    axis: SelectionDistributeAxis,
+    measuredHeights?: Record<string, number>,
+  ): void {
+    const nodes: SpatialNode[] = [];
+    for (const id of this.selection) {
+      const n = this.nodes.get(id);
+      if (!n || n.type === "edge" || n.locked) continue;
+      nodes.push(n);
+    }
+    if (nodes.length < 2) return;
+
+    const hOf = (n: SpatialNode) =>
+      n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : (n.h as number);
+
+    const updates: Array<{ id: string; patch: Partial<SpatialNode> }> = [];
+
+    if (axis === "horizontal") {
+      const sorted = [...nodes].sort((a, b) => a.x - b.x || a.id.localeCompare(b.id));
+      let minL = Infinity;
+      let maxR = -Infinity;
+      let sumW = 0;
+      for (const n of sorted) {
+        minL = Math.min(minL, n.x);
+        maxR = Math.max(maxR, n.x + n.w);
+        sumW += n.w;
+      }
+      const span = maxR - minL;
+      const slack = span - sumW;
+      const gap =
+        slack >= 0 ? slack / (sorted.length - 1) : 0;
+      const startX = slack >= 0 ? minL : minL + (span - sumW) / 2;
+      let cur = startX;
+      for (const n of sorted) {
+        const nx = cur;
+        cur += n.w + gap;
+        if (nx !== n.x) updates.push({ id: n.id, patch: { x: nx } });
+      }
+    } else {
+      const sorted = [...nodes].sort(
+        (a, b) => a.y - b.y || a.id.localeCompare(b.id),
+      );
+      let minT = Infinity;
+      let maxB = -Infinity;
+      let sumH = 0;
+      for (const n of sorted) {
+        const h = hOf(n);
+        minT = Math.min(minT, n.y);
+        maxB = Math.max(maxB, n.y + h);
+        sumH += h;
+      }
+      const span = maxB - minT;
+      const slack = span - sumH;
+      const gap =
+        slack >= 0 ? slack / (sorted.length - 1) : 0;
+      const startY = slack >= 0 ? minT : minT + (span - sumH) / 2;
+      let cur = startY;
+      for (const n of sorted) {
+        const h = hOf(n);
+        const ny = cur;
+        cur += h + gap;
+        if (ny !== n.y) updates.push({ id: n.id, patch: { y: ny } });
+      }
+    }
+
+    if (updates.length === 0) return;
+    this.batchUpdateWithHistory(updates);
   }
 
   // --- Grouping ---

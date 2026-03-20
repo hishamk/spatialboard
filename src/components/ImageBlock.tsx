@@ -5,6 +5,7 @@ import type { HandlePosition } from "./SVGLayer";
 import { getRotatedCursor } from "../interactions/resize-cursors";
 
 const MIN_CROP = 0.05; // Minimum crop fraction (5%)
+const MIN_NODE = 10; // Spatial engine minimum node size
 
 const CROP_HANDLES: {
   pos: string;
@@ -55,6 +56,10 @@ function ImageBlock({
   const croppingRef = useRef(false);
   croppingRef.current = !!cropping;
 
+  /** How crop mode ended: explicit apply/cancel vs. external (deselect / click away). */
+  const cropExitIntentRef = useRef<"apply" | "cancel" | null>(null);
+  const wasCroppingRef = useRef(false);
+
   // ── Natural image dimensions (for crop overlay positioning) ──
   const imgRef = useRef<HTMLImageElement>(null);
   const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
@@ -73,6 +78,7 @@ function ImageBlock({
   const [cropRect, setCropRect] = useState({ x: 0, y: 0, w: 1, h: 1 });
   useEffect(() => {
     if (cropping) {
+      cropExitIntentRef.current = null;
       setCropRect(crop ?? { x: 0, y: 0, w: 1, h: 1 });
       // Ensure natSize is populated when crop mode starts
       if (!natSize && imgRef.current && imgRef.current.naturalWidth > 0) {
@@ -83,43 +89,121 @@ function ImageBlock({
 
   // ── Contain-fit rectangle (image rendered area within the container) ──
   const fitRect = useMemo(() => {
-    if (!natSize) return null;
-    const imgAsp = natSize.w / natSize.h;
-    const contAsp = node.w / h;
-    let rw: number, rh: number;
-    if (imgAsp > contAsp) {
-      rw = node.w;
-      rh = node.w / imgAsp;
-    } else {
-      rh = h;
-      rw = h * imgAsp;
+    if (natSize) {
+      const imgAsp = natSize.w / natSize.h;
+      const contAsp = node.w / h;
+      let rw: number, rh: number;
+      if (imgAsp > contAsp) {
+        rw = node.w;
+        rh = node.w / imgAsp;
+      } else {
+        rh = h;
+        rw = h * imgAsp;
+      }
+      return { x: (node.w - rw) / 2, y: (h - rh) / 2, w: rw, h: rh };
     }
-    return { x: (node.w - rw) / 2, y: (h - rh) / 2, w: rw, h: rh };
-  }, [natSize, node.w, h]);
+    // While cropping before natural size is known (slow load / cache edge cases),
+    // use the full frame so handles and overlay can mount; refines when onLoad runs.
+    if (cropping) return { x: 0, y: 0, w: node.w, h };
+    return null;
+  }, [natSize, cropping, node.w, h]);
 
 
 
   // ── Apply / cancel crop ──
+  const writeCropToEngine = useCallback(
+    (rect: { x: number; y: number; w: number; h: number }) => {
+      const n = engine.getNode(node.id) as ImageNode | undefined;
+      if (!n || n.type !== "image") return;
+      const data = n.data;
+      const isFullImage =
+        rect.x < 0.001 &&
+        rect.y < 0.001 &&
+        rect.w > 0.999 &&
+        rect.h > 0.999;
+      if (isFullImage) {
+        engine.updateNodeWithHistory(node.id, {
+          data: { ...data, crop: undefined },
+        } as Partial<ImageNode>);
+        return;
+      }
+
+      const nh = n.h === "auto" ? h : (n.h as number);
+      const rot = n.rotation || 0;
+
+      // Shrink the node to the on-canvas size of the crop (fitRect × fractions).
+      let newW: number;
+      let newH: number;
+      let newX: number;
+      let newY: number;
+
+      if (fitRect) {
+        newW = Math.max(MIN_NODE, rect.w * fitRect.w);
+        newH = Math.max(MIN_NODE, rect.h * fitRect.h);
+        if (!rot) {
+          newX = n.x + fitRect.x + rect.x * fitRect.w;
+          newY = n.y + fitRect.y + rect.y * fitRect.h;
+        } else {
+          const cx = n.x + n.w / 2;
+          const cy = n.y + nh / 2;
+          newX = cx - newW / 2;
+          newY = cy - newH / 2;
+        }
+      } else {
+        newW = Math.max(MIN_NODE, rect.w * n.w);
+        newH = Math.max(MIN_NODE, rect.h * nh);
+        if (!rot) {
+          newX = n.x + rect.x * n.w;
+          newY = n.y + rect.y * nh;
+        } else {
+          const cx = n.x + n.w / 2;
+          const cy = n.y + nh / 2;
+          newX = cx - newW / 2;
+          newY = cy - newH / 2;
+        }
+      }
+
+      engine.updateNodeWithHistory(node.id, {
+        x: newX,
+        y: newY,
+        w: newW,
+        h: newH,
+        data: {
+          ...data,
+          crop: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+        },
+      } as Partial<ImageNode>);
+    },
+    [engine, node.id, fitRect, h]
+  );
+
   const applyCrop = useCallback(() => {
-    const isFullImage =
-      cropRect.x < 0.001 &&
-      cropRect.y < 0.001 &&
-      cropRect.w > 0.999 &&
-      cropRect.h > 0.999;
-    engine.updateNodeWithHistory(node.id, {
-      data: {
-        ...node.data,
-        crop: isFullImage
-          ? undefined
-          : { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h },
-      },
-    } as Partial<ImageNode>);
+    cropExitIntentRef.current = "apply";
+    writeCropToEngine(cropRect);
     onCropEnd?.();
-  }, [engine, node, cropRect, onCropEnd]);
+  }, [writeCropToEngine, cropRect, onCropEnd]);
 
   const cancelCrop = useCallback(() => {
+    cropExitIntentRef.current = "cancel";
     onCropEnd?.();
   }, [onCropEnd]);
+
+  // Click outside / deselect while cropping → commit (same as Enter), not discard
+  useEffect(() => {
+    if (cropping) {
+      wasCroppingRef.current = true;
+      return;
+    }
+    if (!wasCroppingRef.current) return;
+    wasCroppingRef.current = false;
+
+    const intent = cropExitIntentRef.current;
+    cropExitIntentRef.current = null;
+    if (intent === "cancel" || intent === "apply") return;
+
+    writeCropToEngine(cropRect);
+    onCropEnd?.();
+  }, [cropping, cropRect, writeCropToEngine, onCropEnd]);
 
   // ── Keyboard: Enter = apply, Escape = cancel ──
   useEffect(() => {
@@ -223,7 +307,10 @@ function ImageBlock({
   // ── Node drag handler (skip when cropping) ──
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (croppingRef.current) return;
+      if (croppingRef.current) {
+        e.stopPropagation();
+        return;
+      }
       const ownerDoc = (e.currentTarget as HTMLElement).ownerDocument;
       if (e.altKey) return;
       if (!engine.selection.has(node.id) && engine.selection.size > 0) {
@@ -447,10 +534,10 @@ function ImageBlock({
         marginLeft: -node.w / 2,
         marginTop: -h / 2,
         zIndex: node.z,
-        border: isSelected ? `2px dashed #3b82f6` : "none",
+        border: isSelected && !cropping ? `2px dashed #3b82f6` : "none",
         borderRadius: 6,
         overflow: "visible",
-        pointerEvents: interactive ? "auto" : "none",
+        pointerEvents: interactive || cropping ? "auto" : "none",
         cursor: cropping ? "default" : "move",
         transform: node.rotation
           ? `rotate(${node.rotation}deg)`

@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface RoundData {
   mode: "round" | "floor" | "ceil";
   decimals: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -150,6 +152,7 @@ function RoundPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Rou
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Mode</span>
         {MODE_INFO.map((m) => (
@@ -189,6 +192,7 @@ function RoundPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Rou
 
 export const roundNodeType: NodeTypeDefinition<RoundData> = {
   type: "round",
+  docs: {},
   component: RoundRenderer,
   propertiesPanel: RoundPropertiesPanel,
   ports,

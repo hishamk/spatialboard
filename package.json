@@ -61,6 +61,7 @@
     "react-dom": "^18"
   },
   "dependencies": {
+    "lucide-react": "^0.555.0",
     "nanoid": "^5",
     "perfect-freehand": "^1.2",
     "roughjs": "^4.6"
@@ -69,7 +70,6 @@
     "@blocknote/core": "^0.46",
     "@blocknote/mantine": "^0.46",
     "@blocknote/react": "^0.46",
-    "@imgly/background-removal": "^1.7.0",
     "@mantine/core": "^8",
     "@mantine/hooks": "^8",
     "@types/react": "^18",

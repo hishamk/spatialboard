@@ -2,6 +2,8 @@
 export { SpatialEngine } from "./engine/SpatialEngine";
 export type {
   BoardBackground,
+  SelectionAlignMode,
+  SelectionDistributeAxis,
   SpatialSearchField,
   SpatialSearchMatch,
   SpatialSearchState,
@@ -33,6 +35,8 @@ export type {
   NodeRendererProps,
   NodeCallbacks,
   NodePropertiesPanelProps,
+  SpatialNodeTypeCatalogEntry,
+  SpatialNodeTypeCatalogPort,
 } from "./nodes/registry";
 
 // ── Built-in node types (individually for tree-shaking) ──────
@@ -50,6 +54,7 @@ export { builtinNodeTypes } from "./nodes";
 export { default as SpatialBoard } from "./components/SpatialBoard";
 export type { SpatialBoardProps } from "./components/SpatialBoard";
 export { default as SpatialCanvas } from "./components/SpatialCanvas";
+export type { DataFlowEdgeOverlay } from "./components/SVGLayer";
 export { default as Sidebar } from "./components/sidebar/Sidebar";
 export { SIDEBAR_WIDTH } from "./components/sidebar/styles";
 /** @deprecated Use Sidebar instead. Toolbar is now part of the Sidebar. */
@@ -62,6 +67,7 @@ export { DEFAULT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext"
 export type {
   SpatialBoardDirection,
   SpatialBoardLocalization,
+  CustomNodeDocEntry,
 } from "./components/LocalizationContext";
 export {
   DEFAULT_LOCALIZATION as DEFAULT_SB_LOCALIZATION,
@@ -78,8 +84,10 @@ export type {
   PortDataType,
   PortValue,
   PortKey,
+  DataflowEdgeComputeOverlayFlag,
 } from "./engine/data-flow-types";
-export { portKey } from "./engine/data-flow-types";
+export { portKey, nodeShowsEdgeComputeOverlay } from "./engine/data-flow-types";
+export type { PortAnchorMode } from "./engine/edge-geometry";
 
 // ── Serialization ────────────────────────────────────────────
 export { serializeToSBD } from "./serialization/sbd-serializer";

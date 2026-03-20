@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { SpatialNode } from "../../engine/types";
@@ -390,6 +391,13 @@ export default function LibraryPanel({
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+  useFitSidePopoverPositionFromRect(open && !!triggerRect, triggerRect, panelRef, [
+    libraries.length,
+    personalItems.length,
+    query,
+    expanded.size,
+  ]);
+
   // Refresh library list
   const refresh = useCallback(() => {
     setLibraries(getInstalled());
@@ -507,7 +515,7 @@ export default function LibraryPanel({
         zIndex: 99999,
         boxShadow: theme.panelShadow,
         width: 280,
-        maxHeight: `calc(100vh - ${triggerRect.top + 20}px)`,
+        maxHeight: "min(480px, calc(100dvh - 16px))",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface LerpData {
   clamp: boolean;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -138,20 +140,23 @@ function LerpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Lerp
   );
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <span style={{ width: 48, fontSize: 10, color: "#999", flexShrink: 0 }}>Clamp T</span>
-      <button
-        onClick={onClampToggle}
-        style={{
-          padding: "3px 10px",
-          background: cd.clamp ? cd.accentColor : "#2a2a3e",
-          border: "1px solid #3a3a4e",
-          borderRadius: 6, color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer",
-        }}
-      >
-        {cd.clamp ? "On" : "Off"}
-      </button>
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ width: 48, fontSize: 10, color: "#999", flexShrink: 0 }}>Clamp T</span>
+        <button
+          onClick={onClampToggle}
+          style={{
+            padding: "3px 10px",
+            background: cd.clamp ? cd.accentColor : "#2a2a3e",
+            border: "1px solid #3a3a4e",
+            borderRadius: 6, color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          {cd.clamp ? "On" : "Off"}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -159,6 +164,7 @@ function LerpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Lerp
 
 export const lerpNodeType: NodeTypeDefinition<LerpData> = {
   type: "lerp",
+  docs: {},
   component: LerpRenderer,
   propertiesPanel: LerpPropertiesPanel,
   ports,

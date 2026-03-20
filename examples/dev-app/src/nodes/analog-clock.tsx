@@ -343,6 +343,7 @@ function ClockPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Ana
 
 export const analogClockNodeType: NodeTypeDefinition<AnalogClockData> = {
   type: "analog-clock",
+  docs: {},
   component: AnalogClockRenderer,
   propertiesPanel: ClockPropertiesPanel,
 

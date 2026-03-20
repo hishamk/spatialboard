@@ -8,6 +8,7 @@ import type {
   SpatialNode,
   SpatialEngine,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 import type { StartData } from "./start";
 
 // ── Data shape ──────────────────────────────────────────────
@@ -28,6 +29,7 @@ export interface LoopData {
   /** Increments each time the loop completes */
   doneCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -294,6 +296,7 @@ function LoopPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Loop
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Loops</span>
         <input
@@ -352,6 +355,7 @@ function LoopPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Loop
 
 export const loopNodeType: NodeTypeDefinition<LoopData> = {
   type: "loop",
+  docs: {},
   component: LoopRenderer,
   propertiesPanel: LoopPropertiesPanel,
   isContainer: true,

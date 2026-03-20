@@ -77,9 +77,6 @@ export interface SpatialBoardLocalization {
     inspectorCrop: string;
     inspectorReset: string;
     inspectorBackground: string;
-    inspectorRemoving: string;
-    inspectorFailed: string;
-    inspectorRemoveBg: string;
     inspectorNone: string;
     inspectorSwitchPalette: string;
     paletteStandard: string;

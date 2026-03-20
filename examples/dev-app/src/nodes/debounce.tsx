@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -15,6 +16,7 @@ export interface DebounceData {
   fireCount: number;
   pending: boolean;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -182,6 +184,7 @@ function DebouncePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Delay</span>
         <input
@@ -222,6 +225,7 @@ function DebouncePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const debounceNodeType: NodeTypeDefinition<DebounceData> = {
   type: "debounce",
+  docs: {},
   component: DebounceRenderer,
   propertiesPanel: DebouncePropertiesPanel,
   ports,

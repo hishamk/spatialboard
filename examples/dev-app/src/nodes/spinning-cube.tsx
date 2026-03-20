@@ -292,6 +292,7 @@ function CubePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Spin
 
 export const spinningCubeNodeType: NodeTypeDefinition<SpinningCubeData> = {
   type: "spinning-cube",
+  docs: {},
   component: SpinningCubeRenderer,
   propertiesPanel: CubePropertiesPanel,
 

@@ -2,14 +2,17 @@ import { memo } from "react";
 import type {
   NodeTypeDefinition,
   NodeRendererProps,
+  NodePropertiesPanelProps,
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface MergeData {
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -135,11 +138,21 @@ const MergeRenderer = memo(function MergeRenderer(
   );
 });
 
+function MergePropertiesPanel(props: NodePropertiesPanelProps<MergeData>) {
+  return (
+    <>
+      <ShowEdgeComputeOverlayField {...props} />
+    </>
+  );
+}
+
 // ── Node type definition ────────────────────────────────────
 
 export const mergeNodeType: NodeTypeDefinition<MergeData> = {
   type: "merge",
   component: MergeRenderer,
+  docs: {},
+  propertiesPanel: MergePropertiesPanel,
   ports,
   compute: (inputs: Record<string, PortValue>) => {
     const obj: Record<string, PortValue> = {};

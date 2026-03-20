@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface SwitchData {
   channels: 2 | 3 | 4;
   mode: "index" | "match";
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -164,6 +166,7 @@ function SwitchPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Sw
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Channels</span>
         {([2, 3, 4] as const).map((n) => (
@@ -206,6 +209,7 @@ function SwitchPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Sw
 
 export const switchNodeType: NodeTypeDefinition<SwitchData> = {
   type: "switch",
+  docs: {},
   component: SwitchRenderer,
   propertiesPanel: SwitchPropertiesPanel,
   ports,

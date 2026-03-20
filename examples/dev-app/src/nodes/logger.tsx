@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export interface LoggerData {
   maxEntries: number;
   lastTrigger: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -175,6 +177,7 @@ function LoggerPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Lo
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Max</span>
         <input
@@ -212,6 +215,7 @@ function LoggerPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Lo
 
 export const loggerNodeType: NodeTypeDefinition<LoggerData> = {
   type: "logger",
+  docs: {},
   component: LoggerRenderer,
   propertiesPanel: LoggerPropertiesPanel,
   ports,

@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
-import { SpatialBoard, SpatialEngine, builtinNodeTypes, type DebugBoardEntry } from "spatialboard";
+import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
 import { dataCardNodeType, type DataCardData } from "./nodes/data-card";
 import { timerNodeType, type TimerData } from "./nodes/timer";
 import { analogClockNodeType, type AnalogClockData } from "./nodes/analog-clock";
@@ -42,8 +42,8 @@ import { lerpNodeType, type LerpData } from "./nodes/lerp";
 import { throttleNodeType, type ThrottleData } from "./nodes/throttle";
 import { convertNodeType, type ConvertData } from "./nodes/convert";
 import { variableNodeType, type VariableData } from "./nodes/variable";
-import { loadMissionControlBoard } from "./test-data/mission-control";
-import { loadLogicPlaygroundBoard } from "./test-data/logic-playground";
+import { exemplarDebugBoards } from "./exemplar-debug-boards";
+import { DEV_CUSTOM_NODE_DOCS } from "./localization/custom-node-docs";
 import { nanoid } from "nanoid";
 
 const nodeTypes = [
@@ -73,15 +73,19 @@ function viewportCenter(engine: SpatialEngine) {
 
 export default function App() {
   const engine = useMemo(() => new SpatialEngine(), []);
+  const boardLocalization = useMemo(
+    () => ({ customNodeDocs: DEV_CUSTOM_NODE_DOCS }),
+    [],
+  );
 
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__engine = engine;
+    const w = window as unknown as Record<string, unknown>;
+    w.__engine = engine;
+    /** MCP `spatialboard_list_node_types` merges `docTitle` / `docBody` from these keys. */
+    w.__nodeTypeDocs = DEV_CUSTOM_NODE_DOCS;
   }, [engine]);
 
-  const debugBoards: DebugBoardEntry[] = useMemo(() => [
-    { label: "Mission Control", color: "#d946ef", load: (eng) => loadMissionControlBoard(eng) },
-    { label: "Logic Playground", color: "#14b8a6", load: (eng) => loadLogicPlaygroundBoard(eng) },
-  ], []);
+  const debugBoards = useMemo(() => exemplarDebugBoards, []);
 
   // ── Add-node callbacks ──────────────────────────────────────
 
@@ -575,6 +579,8 @@ export default function App() {
         debugPanel
         debugBoards={debugBoards}
         gifApiBaseUrl="/mock-gifs"
+        localization={boardLocalization}
+        dataFlowEdgeOverlay="ports+compute"
       />
 
       {/* ── Horizontal draggable palette ── */}

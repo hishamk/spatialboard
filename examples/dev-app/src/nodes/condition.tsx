@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface ConditionData {
   op: "==" | "!=" | ">" | "<" | ">=" | "<=";
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -154,28 +156,31 @@ function ConditionPropertiesPanel({ data, updateData }: NodePropertiesPanelProps
   const label: React.CSSProperties = { width: 48, fontSize: 10, color: "#999", flexShrink: 0 };
 
   return (
-    <div style={row}>
-      <span style={label}>Op</span>
-      <select
-        value={cd.op}
-        onChange={(e) => updateData({ op: e.target.value as ConditionData["op"] })}
-        style={{
-          flex: 1,
-          background: "#2a2a3e",
-          border: "1px solid #3a3a4e",
-          borderRadius: 6,
-          color: "#fff",
-          padding: "4px 8px",
-          fontSize: 12,
-        }}
-      >
-        {OP_LABELS.map((op) => (
-          <option key={op.key} value={op.key}>
-            {op.label} ({op.key})
-          </option>
-        ))}
-      </select>
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={row}>
+        <span style={label}>Op</span>
+        <select
+          value={cd.op}
+          onChange={(e) => updateData({ op: e.target.value as ConditionData["op"] })}
+          style={{
+            flex: 1,
+            background: "#2a2a3e",
+            border: "1px solid #3a3a4e",
+            borderRadius: 6,
+            color: "#fff",
+            padding: "4px 8px",
+            fontSize: 12,
+          }}
+        >
+          {OP_LABELS.map((op) => (
+            <option key={op.key} value={op.key}>
+              {op.label} ({op.key})
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
   );
 }
 
@@ -183,6 +188,7 @@ function ConditionPropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
 export const conditionNodeType: NodeTypeDefinition<ConditionData> = {
   type: "condition",
+  docs: {},
   component: ConditionRenderer,
   propertiesPanel: ConditionPropertiesPanel,
   ports,

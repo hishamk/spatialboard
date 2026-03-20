@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useFitSidePopoverPosition } from "../../hooks/useFitSidePopoverPosition";
 import { createPortal } from "react-dom";
 import type { SpatialEngine, BoardBackground } from "../../engine/SpatialEngine";
 import type { Mode } from "../../engine/types";
@@ -211,6 +212,8 @@ function PaperPicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  useFitSidePopoverPosition(open, triggerRef, popoverRef, []);
+
   // Close on outside click
   useEffect(() => {
     if (!open) return;
@@ -355,6 +358,8 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  useFitSidePopoverPosition(open, triggerRef, popoverRef, []);
 
   useEffect(() => {
     if (!open) return;

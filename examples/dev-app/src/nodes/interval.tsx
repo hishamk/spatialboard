@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export interface IntervalData {
   lastStart: number;
   lastStop: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -170,6 +172,7 @@ function IntervalPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Period</span>
         <input
@@ -234,6 +237,7 @@ function IntervalPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const intervalNodeType: NodeTypeDefinition<IntervalData> = {
   type: "interval",
+  docs: {},
   component: IntervalRenderer,
   propertiesPanel: IntervalPropertiesPanel,
   ports,

@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export type ConvertTarget = "number" | "string" | "boolean" | "json";
 export interface ConvertData {
   target: ConvertTarget;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -178,23 +180,26 @@ function ConvertPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<C
   const label: React.CSSProperties = { width: 48, fontSize: 10, color: "#999", flexShrink: 0 };
 
   return (
-    <div style={row}>
-      <span style={label}>To</span>
-      {TARGET_INFO.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => updateData({ target: t.key })}
-          style={{
-            padding: "3px 8px",
-            background: cd.target === t.key ? t.color : "#2a2a3e",
-            border: "1px solid #3a3a4e",
-            borderRadius: 6, color: "#fff", fontSize: 9, fontWeight: 600, cursor: "pointer",
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={row}>
+        <span style={label}>To</span>
+        {TARGET_INFO.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => updateData({ target: t.key })}
+            style={{
+              padding: "3px 8px",
+              background: cd.target === t.key ? t.color : "#2a2a3e",
+              border: "1px solid #3a3a4e",
+              borderRadius: 6, color: "#fff", fontSize: 9, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -202,6 +207,7 @@ function ConvertPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<C
 
 export const convertNodeType: NodeTypeDefinition<ConvertData> = {
   type: "convert",
+  docs: {},
   component: ConvertRenderer,
   propertiesPanel: ConvertPropertiesPanel,
   ports,

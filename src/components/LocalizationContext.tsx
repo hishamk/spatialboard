@@ -2,6 +2,12 @@ import { createContext, useContext, useMemo } from "react";
 
 export type SpatialBoardDirection = "ltr" | "rtl" | "auto";
 
+/** One custom node’s inspector help; keyed by `NodeTypeDefinition.docs.id` or node `type`. */
+export interface CustomNodeDocEntry {
+  title?: string;
+  body: string;
+}
+
 export interface SpatialBoardLocalization {
   inspectorTitle: string;
   autoHide: string;
@@ -80,9 +86,6 @@ export interface SpatialBoardLocalization {
   inspectorCrop: string;
   inspectorReset: string;
   inspectorBackground: string;
-  inspectorRemoving: string;
-  inspectorFailed: string;
-  inspectorRemoveBg: string;
   inspectorNone: string;
   inspectorSwitchPalette: string;
   paletteStandard: string;
@@ -101,6 +104,8 @@ export interface SpatialBoardLocalization {
   edgeStep: string;
   edgeAnimate: string;
   edgeDirection: string;
+  /** Shown when edge uses ports — animation follows data flow only */
+  edgeAnimationPortHint: string;
   edgeText: string;
   edgeLabelPlaceholder: string;
   frameLabelPlaceholder: string;
@@ -191,6 +196,19 @@ export interface SpatialBoardLocalization {
   actionCopy: string;
   actionPaste: string;
   actionDuplicate: string;
+  /** Multi-select: auto-layout (DAG layers + barycenter, or tidy grid). */
+  actionArrangeSelection: string;
+  /** Context menu: alignment subsection titles */
+  alignMenuHorizontal: string;
+  alignMenuVertical: string;
+  alignLeft: string;
+  alignCenterHorizontal: string;
+  alignRight: string;
+  alignTop: string;
+  alignCenterVertical: string;
+  alignBottom: string;
+  alignDistributeHorizontal: string;
+  alignDistributeVertical: string;
   actionAddToPersonalLibrary: string;
   actionGroupSelection: string;
   actionUngroupSelection: string;
@@ -216,6 +234,14 @@ export interface SpatialBoardLocalization {
   typeFrame: string;
   typeStickyNote: string;
   typeYouTube: string;
+  /** Expand/collapse control for custom-node inspector help (?). */
+  inspectorNodeHelpShow: string;
+  inspectorNodeHelpHide: string;
+  /**
+   * Inspector help for registered custom node types. Keys match each node’s `type`
+   * string, or `docs.id` when set. Merge with defaults: `{ ...DEFAULT_SB_LOCALIZATION.customNodeDocs, ...yours }`.
+   */
+  customNodeDocs: Record<string, CustomNodeDocEntry>;
 }
 
 export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
@@ -296,9 +322,6 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   inspectorCrop: "Crop",
   inspectorReset: "Reset",
   inspectorBackground: "Background",
-  inspectorRemoving: "Removing...",
-  inspectorFailed: "Failed",
-  inspectorRemoveBg: "Remove BG",
   inspectorNone: "None",
   inspectorSwitchPalette: "Switch palette",
   paletteStandard: "Standard",
@@ -317,6 +340,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   edgeStep: "Step",
   edgeAnimate: "Animate",
   edgeDirection: "Direction",
+  edgeAnimationPortHint: "Port links follow output → input",
   edgeText: "Text",
   edgeLabelPlaceholder: "Edge label...",
   frameLabelPlaceholder: "Frame label...",
@@ -408,6 +432,17 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   actionCopy: "Copy",
   actionPaste: "Paste",
   actionDuplicate: "Duplicate",
+  actionArrangeSelection: "Smart arrange",
+  alignMenuHorizontal: "Horizontal",
+  alignMenuVertical: "Vertical",
+  alignLeft: "Align left edges",
+  alignCenterHorizontal: "Align horizontal centers",
+  alignRight: "Align right edges",
+  alignTop: "Align top edges",
+  alignCenterVertical: "Align vertical centers",
+  alignBottom: "Align bottom edges",
+  alignDistributeHorizontal: "Spread horizontally (equal spacing)",
+  alignDistributeVertical: "Spread vertically (equal spacing)",
   actionAddToPersonalLibrary: "Add to Personal Library",
   actionGroupSelection: "Group selection",
   actionUngroupSelection: "Ungroup selection",
@@ -433,6 +468,9 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   typeFrame: "Frame",
   typeStickyNote: "Sticky Note",
   typeYouTube: "YouTube",
+  inspectorNodeHelpShow: "Show node help",
+  inspectorNodeHelpHide: "Hide node help",
+  customNodeDocs: {},
 };
 
 export interface SBLocalizationContextValue {
@@ -462,10 +500,18 @@ export function useSBLocalizationValue(
 ): SBLocalizationContextValue {
   return useMemo(() => {
     const dir = resolveDirection(direction);
+    const { customNodeDocs: locCustomDocs, ...locRest } = localization ?? {};
     return {
       dir,
       isRTL: dir === "rtl",
-      labels: { ...DEFAULT_LOCALIZATION, ...(localization ?? {}) },
+      labels: {
+        ...DEFAULT_LOCALIZATION,
+        ...locRest,
+        customNodeDocs: {
+          ...DEFAULT_LOCALIZATION.customNodeDocs,
+          ...(locCustomDocs ?? {}),
+        },
+      },
     };
   }, [direction, localization]);
 }

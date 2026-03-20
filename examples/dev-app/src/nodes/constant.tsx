@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface ConstantData {
   value: number;
   label: string;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -129,6 +131,7 @@ function ConstantPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Value</span>
         <input
@@ -161,8 +164,10 @@ function ConstantPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const constantNodeType: NodeTypeDefinition<ConstantData> = {
   type: "constant",
+  docs: {},
   component: ConstantRenderer,
   propertiesPanel: ConstantPropertiesPanel,
+  portAnchor: "inscribed-circle",
   ports,
   compute: (_inputs: Record<string, PortValue>, data: ConstantData) => ({
     value: data.value,

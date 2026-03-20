@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface JsonParseData {
   path: string;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -198,6 +200,7 @@ function JsonParsePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Path</span>
         <input
@@ -223,6 +226,7 @@ function JsonParsePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
 export const jsonParseNodeType: NodeTypeDefinition<JsonParseData> = {
   type: "json-parse",
+  docs: {},
   component: JsonParseRenderer,
   propertiesPanel: JsonParsePropertiesPanel,
   ports,

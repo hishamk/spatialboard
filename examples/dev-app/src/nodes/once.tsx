@@ -2,9 +2,11 @@ import { memo, useRef, useEffect } from "react";
 import type {
   NodeTypeDefinition,
   NodeRendererProps,
+  NodePropertiesPanelProps,
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +16,7 @@ export interface OnceData {
   lastReset: number;
   fireCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -138,11 +141,21 @@ const OnceRenderer = memo(function OnceRenderer(
   );
 });
 
+function OncePropertiesPanel(props: NodePropertiesPanelProps<OnceData>) {
+  return (
+    <>
+      <ShowEdgeComputeOverlayField {...props} />
+    </>
+  );
+}
+
 // ── Node type definition ────────────────────────────────────
 
 export const onceNodeType: NodeTypeDefinition<OnceData> = {
   type: "once",
+  docs: {},
   component: OnceRenderer,
+  propertiesPanel: OncePropertiesPanel,
   ports,
   compute: (_inputs: Record<string, PortValue>, data: OnceData) => ({
     out: data.fireCount,

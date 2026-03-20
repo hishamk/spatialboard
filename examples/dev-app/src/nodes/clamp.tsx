@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface ClampData {
   min: number;
   max: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -147,6 +149,7 @@ function ClampPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Cla
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Min</span>
         <input type="number" value={cd.min} onChange={onNum("min")} style={inputStyle} />
@@ -163,6 +166,7 @@ function ClampPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Cla
 
 export const clampNodeType: NodeTypeDefinition<ClampData> = {
   type: "clamp",
+  docs: {},
   component: ClampRenderer,
   propertiesPanel: ClampPropertiesPanel,
   ports,

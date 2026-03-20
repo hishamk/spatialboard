@@ -2,9 +2,11 @@ import { memo } from "react";
 import type {
   NodeTypeDefinition,
   NodeRendererProps,
+  NodePropertiesPanelProps,
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -12,6 +14,7 @@ export interface StartData {
   /** Incremented by the parent Loop on each iteration */
   fireCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -121,11 +124,21 @@ const StartRenderer = memo(function StartRenderer(
   );
 });
 
+function StartPropertiesPanel(props: NodePropertiesPanelProps<StartData>) {
+  return (
+    <>
+      <ShowEdgeComputeOverlayField {...props} />
+    </>
+  );
+}
+
 // ── Node type definition ────────────────────────────────────
 
 export const startNodeType: NodeTypeDefinition<StartData> = {
   type: "start",
+  docs: {},
   component: StartRenderer,
+  propertiesPanel: StartPropertiesPanel,
   ports,
   compute: (_inputs: Record<string, PortValue>, data: StartData) => ({
     trigger: data.fireCount,

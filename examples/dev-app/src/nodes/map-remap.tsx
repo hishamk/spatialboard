@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export interface MapRemapData {
   outMax: number;
   clamp: boolean;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -172,6 +174,7 @@ function MapRemapPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>In range</span>
         <input type="number" value={cd.inMin} onChange={onNum("inMin")} style={inputStyle} />
@@ -206,6 +209,7 @@ function MapRemapPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const mapRemapNodeType: NodeTypeDefinition<MapRemapData> = {
   type: "map-remap",
+  docs: {},
   component: MapRemapRenderer,
   propertiesPanel: MapRemapPropertiesPanel,
   ports,

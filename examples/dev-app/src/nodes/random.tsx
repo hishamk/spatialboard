@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export interface RandomData {
   /** Last trigger value we responded to (to detect new triggers) */
   lastTrigger: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -361,6 +363,7 @@ function RandomPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Ra
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Min</span>
         <input
@@ -416,6 +419,7 @@ function RandomPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Ra
 
 export const randomNodeType: NodeTypeDefinition<RandomData> = {
   type: "random",
+  docs: {},
   component: RandomRenderer,
   propertiesPanel: RandomPropertiesPanel,
   ports,

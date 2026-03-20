@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface ButtonData {
   label: string;
   fireCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -163,23 +165,26 @@ function ButtonPropertiesPanel({
   };
 
   return (
-    <div style={row}>
-      <span style={label}>Label</span>
-      <input
-        type="text"
-        value={cd.label}
-        onChange={(e) => updateData({ label: e.target.value })}
-        style={{
-          flex: 1,
-          background: "#2a2a3e",
-          border: "1px solid #3a3a4e",
-          borderRadius: 6,
-          color: "#fff",
-          padding: "4px 8px",
-          fontSize: 12,
-        }}
-      />
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={row}>
+        <span style={label}>Label</span>
+        <input
+          type="text"
+          value={cd.label}
+          onChange={(e) => updateData({ label: e.target.value })}
+          style={{
+            flex: 1,
+            background: "#2a2a3e",
+            border: "1px solid #3a3a4e",
+            borderRadius: 6,
+            color: "#fff",
+            padding: "4px 8px",
+            fontSize: 12,
+          }}
+        />
+      </div>
+    </>
   );
 }
 
@@ -187,6 +192,7 @@ function ButtonPropertiesPanel({
 
 export const buttonNodeType: NodeTypeDefinition<ButtonData> = {
   type: "button",
+  docs: {},
   component: ButtonRenderer,
   propertiesPanel: ButtonPropertiesPanel,
   ports,

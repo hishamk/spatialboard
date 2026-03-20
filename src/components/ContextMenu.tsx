@@ -1,4 +1,12 @@
-import { useEffect, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { fitAnchorPopupPosition } from "../utils/fit-fixed-popup";
 
 export interface ContextMenuItem {
   label: string;
@@ -7,6 +15,10 @@ export interface ContextMenuItem {
   danger?: boolean;
   disabled?: boolean;
   checked?: boolean;
+  /** Optional leading icon (e.g. Lucide). */
+  icon?: ReactNode;
+  /** Non-interactive subsection title (e.g. alignment groups). */
+  kind?: "header";
 }
 
 export interface ContextMenuSection {
@@ -47,30 +59,33 @@ export default function ContextMenu({
     };
   }, [onClose]);
 
-  // Adjust position to stay within viewport
-  useEffect(() => {
+  // Portal to body so position:fixed is not clipped by canvas overflow:hidden
+  const doc = typeof document !== "undefined" ? document : null;
+
+  // Adjust before paint; re-run when menu size changes (sections, fonts, resize)
+  useLayoutEffect(() => {
     const el = menuRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
     const win = el.ownerDocument.defaultView ?? window;
-    let adjustedX = x;
-    let adjustedY = y;
-    if (rect.right > win.innerWidth) {
-      adjustedX = x - rect.width;
-    }
-    if (rect.bottom > win.innerHeight) {
-      adjustedY = y - rect.height;
-    }
-    // Clamp so menu never goes above or left of viewport
-    adjustedX = Math.max(0, adjustedX);
-    adjustedY = Math.max(0, adjustedY);
-    el.style.left = `${adjustedX}px`;
-    el.style.top = `${adjustedY}px`;
-  }, [x, y]);
+    const apply = () => {
+      const rect = el.getBoundingClientRect();
+      const pos = fitAnchorPopupPosition(x, y, rect.width, rect.height, win);
+      el.style.left = `${pos.left}px`;
+      el.style.top = `${pos.top}px`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    win.addEventListener("resize", apply);
+    return () => {
+      ro.disconnect();
+      win.removeEventListener("resize", apply);
+    };
+  }, [x, y, sections]);
 
   const handleItemClick = useCallback(
     (item: ContextMenuItem) => {
-      if (item.disabled) return;
+      if (item.kind === "header" || item.disabled) return;
       item.action();
       onClose();
     },
@@ -88,7 +103,7 @@ export default function ContextMenu({
       .replace("Alt+", alt)
       .replace("Shift+", shift);
 
-  return (
+  const menuEl = (
     <div
       data-sb-context-menu
       ref={menuRef}
@@ -100,6 +115,8 @@ export default function ContextMenu({
         top: y,
         zIndex: 10002,
         minWidth: 200,
+        maxHeight: "min(85dvh, calc(100vh - 16px))",
+        overflowY: "auto",
         background: "#1e1e2e",
         borderRadius: 8,
         border: "1px solid #333",
@@ -122,52 +139,91 @@ export default function ContextMenu({
               }}
             />
           )}
-          {section.items.map((item, ii) => (
-            <div
-              key={ii}
-              onClick={() => handleItemClick(item)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "6px 16px",
-                cursor: item.disabled ? "default" : "pointer",
-                opacity: item.disabled ? 0.4 : 1,
-                color: item.danger ? "#f87171" : "#e0e0e0",
-                transition: "background 0.1s",
-              }}
-              onMouseEnter={(e) => {
-                if (!item.disabled)
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
-            >
-              <span>
-                {item.checked !== undefined && (
-                  <span style={{ display: "inline-block", width: 16, marginRight: 4 }}>
-                    {item.checked ? "\u2713" : ""}
-                  </span>
-                )}
+          {section.items.map((item, ii) =>
+            item.kind === "header" ? (
+              <div
+                key={ii}
+                style={{
+                  padding: "8px 16px 4px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#7a7a8c",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
                 {item.label}
-              </span>
-              {item.shortcut && (
+              </div>
+            ) : (
+              <div
+                key={ii}
+                onClick={() => handleItemClick(item)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "6px 16px",
+                  cursor: item.disabled ? "default" : "pointer",
+                  opacity: item.disabled ? 0.4 : 1,
+                  color: item.danger ? "#f87171" : "#e0e0e0",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.disabled)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "rgba(255,255,255,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                }}
+              >
                 <span
                   style={{
-                    marginLeft: 32,
-                    fontSize: 12,
-                    color: "#888",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
                   }}
                 >
-                  {formatShortcut(item.shortcut)}
+                  {item.icon != null && (
+                    <span
+                      style={{
+                        display: "flex",
+                        flexShrink: 0,
+                        color: "currentColor",
+                        opacity: 0.92,
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+                  {item.checked !== undefined && (
+                    <span style={{ display: "inline-block", width: 16, marginRight: -4 }}>
+                      {item.checked ? "\u2713" : ""}
+                    </span>
+                  )}
+                  <span>{item.label}</span>
                 </span>
-              )}
-            </div>
-          ))}
+                {item.shortcut && (
+                  <span
+                    style={{
+                      marginLeft: 32,
+                      fontSize: 12,
+                      color: "#888",
+                    }}
+                  >
+                    {formatShortcut(item.shortcut)}
+                  </span>
+                )}
+              </div>
+            ),
+          )}
         </div>
       ))}
     </div>
   );
+
+  return doc?.body ? createPortal(menuEl, doc.body) : menuEl;
 }

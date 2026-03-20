@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export interface SparklineData {
   maxSamples: number;
   lastTrigger: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -198,6 +200,7 @@ function SparklinePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Max pts</span>
         <input
@@ -231,6 +234,7 @@ function SparklinePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
 export const sparklineNodeType: NodeTypeDefinition<SparklineData> = {
   type: "sparkline",
+  docs: {},
   component: SparklineRenderer,
   propertiesPanel: SparklinePropertiesPanel,
   ports,

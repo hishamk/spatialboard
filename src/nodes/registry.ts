@@ -1,6 +1,7 @@
 import type { SpatialNode } from "../engine/types";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type { PortDefinition, PortValue } from "../engine/data-flow-types";
+import type { PortAnchorMode } from "../engine/edge-geometry";
 
 // ── Renderer props passed to every node component ────────────
 
@@ -14,6 +15,8 @@ export interface NodeRendererProps<TData = unknown> {
   zoom: number;
   /** Whether this node is currently in inline-edit mode. */
   editing: boolean;
+  /** Image crop mode — independent of `editing` so crop works alongside other edit slots. */
+  cropping?: boolean;
   /** Pointer position that initiated editing (for cursor placement in text). */
   editClickPos?: { clientX: number; clientY: number } | null;
   callbacks: NodeCallbacks;
@@ -86,6 +89,16 @@ export interface NodeTypeDefinition<TData = unknown> {
   /** Custom properties panel shown when this node type is selected. */
   propertiesPanel?: React.ComponentType<NodePropertiesPanelProps<TData>>;
 
+  /**
+   * Optional in-inspector help (?): strings come from `localization.customNodeDocs[key]`
+   * where `key` is `docs.id` or defaults to this node’s `type`. Embedders pass copy via
+   * `SpatialBoard` `localization`.
+   */
+  docs?: {
+    /** Localization key; defaults to `type`. */
+    id?: string;
+  };
+
   // ── Lifecycle hooks ────────────────────────────────
   // Called by the engine at the right moments. All optional.
   // These let custom node types react to spatial events without
@@ -145,6 +158,13 @@ export interface NodeTypeDefinition<TData = unknown> {
   /** Port definitions for this node type. If present, enables data-flow behavior. */
   ports?: PortDefinition[];
 
+  /**
+   * Where ports attach horizontally: `bbox` uses the full node rect (default).
+   * `inscribed-circle` uses the circle inscribed in `min(w,h)` — for round nodes
+   * drawn inside a square card so ports sit on the visible disc, not the box edge.
+   */
+  portAnchor?: PortAnchorMode;
+
   /** Pure compute function. Called when input port values change.
    *  Receives: inputs (keyed by port id) and current node data.
    *  Returns: outputs (keyed by port id). */
@@ -152,6 +172,79 @@ export interface NodeTypeDefinition<TData = unknown> {
     inputs: Record<string, PortValue>,
     data: TData,
   ) => Record<string, PortValue> | Promise<Record<string, PortValue>>;
+}
+
+// ── Agent / MCP catalog (JSON-safe) ───────────────────────────
+
+/** Built-in SpatialBoard node `type` strings — anything else is embedder-defined (“custom”). */
+const SPATIALBOARD_BUILTIN_TYPE_IDS = new Set<string>([
+  "content",
+  "draw",
+  "shape",
+  "edge",
+  "image",
+  "text",
+  "frame",
+  "sticky",
+  "youtube",
+]);
+
+/** One port row in `SpatialNodeTypeCatalogEntry`. */
+export interface SpatialNodeTypeCatalogPort {
+  id: string;
+  label?: string;
+  direction: "input" | "output";
+  dataType: string;
+  defaultValue?: unknown;
+}
+
+/**
+ * Serializable description of a registered node type (for agents, MCP, docs).
+ * Use `NodeTypeRegistry.toCatalog()` or `SpatialEngine.getNodeTypeCatalog()`.
+ */
+export interface SpatialNodeTypeCatalogEntry {
+  /** `engine.addNode({ type })` value. */
+  type: string;
+  /** `builtin` = shipped with spatialboard; `custom` = from app `nodeTypes`. */
+  origin: "builtin" | "custom";
+  /**
+   * Key for `SpatialBoard` `localization.customNodeDocs` (from `docs.id`, else `type`).
+   */
+  docsLocalizationKey: string;
+  /** Has `ports` — participates in data-flow when the board wires edges to port ids. */
+  isDataFlow: boolean;
+  ports: SpatialNodeTypeCatalogPort[];
+  portAnchor?: PortAnchorMode;
+  hasCompute: boolean;
+  isContainer: boolean;
+  isSVGOnly: boolean;
+  handlesOwnLayout: boolean;
+  hasPropertiesPanel: boolean;
+}
+
+function catalogEntryFromDefinition(
+  def: NodeTypeDefinition,
+): SpatialNodeTypeCatalogEntry {
+  const docsLocalizationKey = def.docs?.id ?? def.type;
+  return {
+    type: def.type,
+    origin: SPATIALBOARD_BUILTIN_TYPE_IDS.has(def.type) ? "builtin" : "custom",
+    docsLocalizationKey,
+    isDataFlow: Boolean(def.ports?.length),
+    ports: (def.ports ?? []).map((p) => ({
+      id: p.id,
+      label: p.label,
+      direction: p.direction,
+      dataType: p.dataType,
+      defaultValue: p.defaultValue,
+    })),
+    portAnchor: def.portAnchor,
+    hasCompute: typeof def.compute === "function",
+    isContainer: Boolean(def.isContainer),
+    isSVGOnly: Boolean(def.isSVGOnly),
+    handlesOwnLayout: Boolean(def.handlesOwnLayout),
+    hasPropertiesPanel: typeof def.propertiesPanel === "function",
+  };
 }
 
 // ── Registry ─────────────────────────────────────────────────
@@ -180,6 +273,16 @@ export class NodeTypeRegistry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getAll(): NodeTypeDefinition<any>[] {
     return Array.from(this.types.values());
+  }
+
+  /**
+   * JSON-safe list of every registered type, sorted by `type`.
+   * For MCP / LLM agents: pair with app `localization.customNodeDocs` for prose usage hints.
+   */
+  toCatalog(): SpatialNodeTypeCatalogEntry[] {
+    return this.getAll()
+      .map((def) => catalogEntryFromDefinition(def))
+      .sort((a, b) => a.type.localeCompare(b.type));
   }
 
   /** Returns type strings for nodes that render in the DOM layer (not SVG-only). */

@@ -348,8 +348,6 @@ export default function PropertiesPanel({
     [engine, target, getCoalesceKey]
   );
 
-  const [bgRemovalState, setBgRemovalState] = useState<"idle" | "loading" | "error">("idle");
-
   if (!target) return null;
 
   // Read current values
@@ -1356,53 +1354,6 @@ export default function PropertiesPanel({
               ))}
             </div>
           )}
-
-          {/* Background removal */}
-          <div style={{ ...rowStyle, marginTop: 4 }}>
-            <span style={labelStyle}>Background</span>
-            <button
-              onClick={async () => {
-                if (bgRemovalState === "loading" || target.kind !== "image") return;
-                setBgRemovalState("loading");
-                try {
-                  const { removeBackground } = await import("@imgly/background-removal");
-                  const response = await fetch(target.node.data.src);
-                  const blob = await response.blob();
-                  const resultBlob = await removeBackground(blob);
-                  const reader = new FileReader();
-                  const dataUrl = await new Promise<string>((resolve, reject) => {
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(resultBlob);
-                  });
-                  updateImage({ src: dataUrl });
-                  setBgRemovalState("idle");
-                } catch (err) {
-                  console.error("Background removal failed:", err);
-                  setBgRemovalState("error");
-                  setTimeout(() => setBgRemovalState("idle"), 3000);
-                }
-              }}
-              disabled={bgRemovalState === "loading"}
-              style={{
-                ...btnBase,
-                height: 28,
-                padding: "0 10px",
-                background: bgRemovalState === "error" ? "#e74c3c" : "#2a2a3e",
-                color: "white",
-                fontSize: 10,
-                borderRadius: 6,
-                gap: 4,
-                opacity: bgRemovalState === "loading" ? 0.6 : 1,
-              }}
-            >
-              {bgRemovalState === "loading"
-                ? "Removing..."
-                : bgRemovalState === "error"
-                ? "Failed"
-                : "Remove BG"}
-            </button>
-          </div>
         </>
       )}
 

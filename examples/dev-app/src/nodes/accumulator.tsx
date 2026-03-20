@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -15,6 +16,7 @@ export interface AccumulatorData {
   lastTrigger: number;
   lastReset: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -151,6 +153,7 @@ function AccumulatorPropertiesPanel({ data, updateData }: NodePropertiesPanelPro
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <span style={{ width: 48, fontSize: 10, color: "#999", flexShrink: 0 }}>Total</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: cd.accentColor }}>
@@ -179,6 +182,7 @@ function AccumulatorPropertiesPanel({ data, updateData }: NodePropertiesPanelPro
 
 export const accumulatorNodeType: NodeTypeDefinition<AccumulatorData> = {
   type: "accumulator",
+  docs: {},
   component: AccumulatorRenderer,
   propertiesPanel: AccumulatorPropertiesPanel,
   ports,

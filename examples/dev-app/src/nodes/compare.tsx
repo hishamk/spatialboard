@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export type CompareOp = "==" | "!=" | "<" | ">" | "<=" | ">=" | "contains" | "st
 export interface CompareData {
   op: CompareOp;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -159,6 +161,7 @@ function ComparePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<C
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Compare</span>
         {OP_INFO.filter(o => o.group === "cmp").map((o) => (
@@ -203,6 +206,7 @@ function ComparePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<C
 
 export const compareNodeType: NodeTypeDefinition<CompareData> = {
   type: "compare",
+  docs: {},
   component: CompareRenderer,
   propertiesPanel: ComparePropertiesPanel,
   ports,

@@ -1,6 +1,7 @@
+import { useContext, useEffect, useMemo } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { EdgeNode, HandleSide } from "../../../engine/types";
-import { useBatchUpdate } from "../MultiNodeContext";
+import { MultiNodeContext, useBatchUpdate } from "../MultiNodeContext";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
@@ -26,12 +27,35 @@ interface EdgePropertiesProps {
   node: EdgeNode;
 }
 
+const PORT_EDGE_ANIM_DIRECTIONS = ["forward"] as const;
+const FREE_EDGE_ANIM_DIRECTIONS = ["forward", "reverse", "both", "bop"] as const;
+
 export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
   const update = useBatchUpdate<EdgeNode["data"]>(engine, node);
+  const multi = useContext(MultiNodeContext);
 
   const { data } = node;
+  const isPortConnection = Boolean(data.sourcePort && data.targetPort);
+  const animDirections = isPortConnection ? PORT_EDGE_ANIM_DIRECTIONS : FREE_EDGE_ANIM_DIRECTIONS;
+
+  const multiEdgeKey = useMemo(() => {
+    if (!multi?.length || !multi.every((n) => n.type === "edge")) return null;
+    return [...multi].map((n) => n.id).sort().join("|");
+  }, [multi]);
+
+  useEffect(() => {
+    const ids = multiEdgeKey !== null ? multiEdgeKey.split("|") : [node.id];
+    for (const id of ids) {
+      const en = engine.getNode(id) as EdgeNode | undefined;
+      if (!en || en.type !== "edge") continue;
+      const d = en.data;
+      if (!d.sourcePort || !d.targetPort || !d.animated) continue;
+      if ((d.animatedDirection ?? "forward") === "forward") continue;
+      engine.updateNode(id, { data: { ...d, animatedDirection: "forward" } });
+    }
+  }, [engine, multiEdgeKey, node.id]);
 
   return (
     <>
@@ -228,25 +252,40 @@ export default function EdgeProperties({ engine, node }: EdgePropertiesProps) {
           </button>
         </div>
         {data.animated && (
-          <div style={rowStyle}>
-            <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeDirection}</span>
-            {(["forward", "reverse", "both", "bop"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => update({ animatedDirection: v })}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={rowStyle}>
+              <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.edgeDirection}</span>
+              {animDirections.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => update({ animatedDirection: v })}
+                  style={{
+                    ...btnBase,
+                    height: 28,
+                    padding: "0 6px",
+                    background: (data.animatedDirection ?? "forward") === v ? theme.controlBgActive : theme.controlBg,
+                    color: theme.text,
+                    fontSize: 10,
+                    borderRadius: theme.controlBorderRadius,
+                  }}
+                >
+                  {v === "forward" ? "\u2192" : v === "reverse" ? "\u2190" : v === "both" ? "\u21C6" : "~"}
+                </button>
+              ))}
+            </div>
+            {isPortConnection && (
+              <span
                 style={{
-                  ...btnBase,
-                  height: 28,
-                  padding: "0 6px",
-                  background: (data.animatedDirection ?? "forward") === v ? theme.controlBgActive : theme.controlBg,
-                  color: theme.text,
+                  marginLeft: 0,
                   fontSize: 10,
-                  borderRadius: theme.controlBorderRadius,
+                  color: theme.textMuted,
+                  lineHeight: 1.35,
                 }}
               >
-                {v === "forward" ? "\u2192" : v === "reverse" ? "\u2190" : v === "both" ? "\u21C6" : "~"}
-              </button>
-            ))}
+                {labels.edgeAnimationPortHint}
+              </span>
+            )}
           </div>
         )}
 

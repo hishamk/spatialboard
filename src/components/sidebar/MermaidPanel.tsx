@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { useSBTheme } from "./ThemeContext";
 import { buildMermaidSketchNodes } from "../../utils/mermaid";
@@ -28,6 +29,12 @@ export default function MermaidPanel({
   const [source, setSource] = useState(STARTER);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useFitSidePopoverPositionFromRect(open && !!triggerRect, triggerRect, panelRef, [
+    source.length,
+    error,
+    success,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,7 +91,7 @@ export default function MermaidPanel({
         borderRadius: theme.panelBorderRadius,
         boxShadow: theme.panelShadow,
         width: 340,
-        maxHeight: `calc(100vh - ${triggerRect.top + 20}px)`,
+        maxHeight: "min(520px, calc(100dvh - 16px))",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",

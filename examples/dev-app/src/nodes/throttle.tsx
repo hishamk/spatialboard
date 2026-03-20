@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -15,6 +16,7 @@ export interface ThrottleData {
   fireCount: number;
   blocked: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -171,6 +173,7 @@ function ThrottlePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Interval</span>
         <input
@@ -225,6 +228,7 @@ function ThrottlePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const throttleNodeType: NodeTypeDefinition<ThrottleData> = {
   type: "throttle",
+  docs: {},
   component: ThrottleRenderer,
   propertiesPanel: ThrottlePropertiesPanel,
   ports,

@@ -24,6 +24,12 @@ function parseAttributes(line: string): Record<string, string> {
   return attrs;
 }
 
+function optNumber(raw: string | undefined): number | undefined {
+  if (raw == null || raw === "") return undefined;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 /** Backward-compat aliases for old background values. */
 const BG_ALIASES: Record<string, BoardBackground> = {
   "default": "dot-grid",
@@ -312,7 +318,13 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
           animatedDirection: (attrs.animatedDirection as EdgeNode["data"]["animatedDirection"]) || undefined,
           sourceHandle: (attrs.sourceHandle as EdgeNode["data"]["sourceHandle"]) || undefined,
           targetHandle: (attrs.targetHandle as EdgeNode["data"]["targetHandle"]) || undefined,
-          midpointOffset: attrs.midpointOffset ? parseFloat(attrs.midpointOffset) : undefined,
+          sourcePort: attrs.sourcePort?.replace(/&quot;/g, '"') || undefined,
+          targetPort: attrs.targetPort?.replace(/&quot;/g, '"') || undefined,
+          sourceT: optNumber(attrs.sourceT),
+          targetT: optNumber(attrs.targetT),
+          attachmentGap: optNumber(attrs.attachmentGap),
+          roughness: optNumber(attrs.roughness),
+          midpointOffset: optNumber(attrs.midpointOffset),
           curveOffset: attrs.curveOffset ? attrs.curveOffset.split(",").map(Number) as [number, number] : undefined,
         },
       } as EdgeNode);

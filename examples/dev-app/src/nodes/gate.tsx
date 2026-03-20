@@ -2,14 +2,17 @@ import { memo } from "react";
 import type {
   NodeTypeDefinition,
   NodeRendererProps,
+  NodePropertiesPanelProps,
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface GateData {
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -120,11 +123,21 @@ const GateRenderer = memo(function GateRenderer(
   );
 });
 
+function GatePropertiesPanel(props: NodePropertiesPanelProps<GateData>) {
+  return (
+    <>
+      <ShowEdgeComputeOverlayField {...props} />
+    </>
+  );
+}
+
 // ── Node type definition ────────────────────────────────────
 
 export const gateNodeType: NodeTypeDefinition<GateData> = {
   type: "gate",
+  docs: {},
   component: GateRenderer,
+  propertiesPanel: GatePropertiesPanel,
   ports,
   compute: (inputs: Record<string, PortValue>) => {
     const enable = Boolean(inputs.enable);

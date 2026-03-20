@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export interface DateTimeData {
   lastTrigger: number;
   autoRefresh: boolean;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -160,6 +162,7 @@ function DateTimePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Auto</span>
         <button
@@ -193,6 +196,7 @@ function DateTimePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const dateTimeNodeType: NodeTypeDefinition<DateTimeData> = {
   type: "date-time",
+  docs: {},
   component: DateTimeRenderer,
   propertiesPanel: DateTimePropertiesPanel,
   ports,

@@ -278,7 +278,17 @@ function SingleNodeProperties({
     default: {
       const def = registry?.get(node.type);
       if (def?.propertiesPanel) {
-        return <CustomNodeProperties engine={engine} node={node} PanelComponent={def.propertiesPanel} />;
+        return (
+          <CustomNodeProperties
+            engine={engine}
+            node={node}
+            PanelComponent={def.propertiesPanel}
+            docs={def.docs}
+          />
+        );
+      }
+      if (def?.docs) {
+        return <CustomNodeProperties engine={engine} node={node} docs={def.docs} />;
       }
       return null;
     }

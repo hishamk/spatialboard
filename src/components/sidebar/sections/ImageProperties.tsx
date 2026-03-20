@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { ImageNode } from "../../../engine/types";
 import { useBatchUpdate } from "../MultiNodeContext";
@@ -16,7 +15,6 @@ interface ImagePropertiesProps {
 export default function ImageProperties({ engine, node }: ImagePropertiesProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
-  const [bgRemovalState, setBgRemovalState] = useState<"idle" | "loading" | "error">("idle");
   const update = useBatchUpdate<ImageNode["data"]>(engine, node);
 
   const { data } = node;
@@ -65,53 +63,6 @@ export default function ImageProperties({ engine, node }: ImagePropertiesProps) 
             {labels.inspectorReset}
           </button>
         )}
-      </div>
-
-      {/* Background removal */}
-      <div style={{ ...rowStyle, marginTop: 4 }}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorBackground}</span>
-        <button
-          onClick={async () => {
-            if (bgRemovalState === "loading") return;
-            setBgRemovalState("loading");
-            try {
-              const { removeBackground } = await import("@imgly/background-removal");
-              const response = await fetch(data.src);
-              const blob = await response.blob();
-              const resultBlob = await removeBackground(blob);
-              const reader = new FileReader();
-              const dataUrl = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(resultBlob);
-              });
-              update({ src: dataUrl });
-              setBgRemovalState("idle");
-            } catch (err) {
-              console.error("Background removal failed:", err);
-              setBgRemovalState("error");
-              setTimeout(() => setBgRemovalState("idle"), 3000);
-            }
-          }}
-          disabled={bgRemovalState === "loading"}
-          style={{
-            ...btnBase,
-            height: 28,
-            padding: "0 10px",
-            background: bgRemovalState === "error" ? theme.error : theme.controlBg,
-            color: theme.text,
-            fontSize: 10,
-            borderRadius: theme.controlBorderRadius,
-            gap: 4,
-            opacity: bgRemovalState === "loading" ? 0.6 : 1,
-          }}
-        >
-          {bgRemovalState === "loading"
-            ? labels.inspectorRemoving
-            : bgRemovalState === "error"
-            ? labels.inspectorFailed
-            : labels.inspectorRemoveBg}
-        </button>
       </div>
 
       {/* Opacity */}

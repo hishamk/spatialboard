@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { FONT_FAMILIES, getFontFamilyCSS, getFontIcon } from "../fonts";
+import { fitAnchorPopupPosition } from "../utils/fit-fixed-popup";
 import type { FontOption } from "../fonts";
 import { useSBTheme } from "./sidebar/ThemeContext";
 
@@ -27,7 +28,7 @@ export default function FontPicker({
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [popoverRect, setPopoverRect] = useState<{ top: number; left: number } | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Filter available fonts by search
   const searchLower = search.trim().toLowerCase();
@@ -45,17 +46,31 @@ export default function FontPicker({
     [fontsInScene, searchLower]
   );
 
-  // Update popover position when opening (portal so it won't be clipped)
-  useEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
+  useLayoutEffect(() => {
+    if (!open || !popoverRef.current) return;
+    const el = popoverRef.current;
+    const win = el.ownerDocument.defaultView ?? window;
     const popoverWidth = 260;
     const padding = 16;
-    let left = rect.left;
-    if (left + popoverWidth > window.innerWidth - padding) left = window.innerWidth - popoverWidth - padding;
-    if (left < padding) left = padding;
-    setPopoverRect({ top: rect.bottom + 4, left });
-  }, [open]);
+    const apply = () => {
+      const tr = triggerRef.current?.getBoundingClientRect();
+      if (!tr) return;
+      let anchorLeft = tr.left;
+      if (anchorLeft + popoverWidth > win.innerWidth - padding) {
+        anchorLeft = win.innerWidth - popoverWidth - padding;
+      }
+      if (anchorLeft < padding) anchorLeft = padding;
+      const anchorY = tr.bottom + 4;
+      const br = el.getBoundingClientRect();
+      const pos = fitAnchorPopupPosition(anchorLeft, anchorY, br.width, br.height, win, padding);
+      el.style.left = `${pos.left}px`;
+      el.style.top = `${pos.top}px`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, search, filteredInScene.length, filteredAvailable.length]);
 
   // Close on click outside
   useEffect(() => {
@@ -166,16 +181,16 @@ export default function FontPicker({
       </button>
 
       {open &&
-        popoverRect &&
         createPortal(
           <div
+            ref={popoverRef}
             id="font-picker-popover"
             style={{
               position: "fixed",
-              top: popoverRect.top,
-              left: popoverRect.left,
+              top: 0,
+              left: 0,
               width: 260,
-              maxHeight: Math.min(320, window.innerHeight - popoverRect.top - 16),
+              maxHeight: "min(320px, calc(100dvh - 16px))",
               background: "#fff",
               borderRadius: 12,
               boxShadow: "0 8px 32px rgba(0,0,0,0.2)",

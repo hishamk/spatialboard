@@ -50,6 +50,31 @@ function resolveH(node: SpatialNode, measured?: Record<string, number>): number 
   return measured?.[node.id] ?? 100;
 }
 
+/**
+ * Shortest distance from a canvas point to the boundary of the node's
+ * axis-aligned rectangle in local (unrotated) space. Used to prefer edge
+ * picks when a connector passes through a full bounding-box hit target.
+ */
+export function distancePointToBoxNodeBorder(
+  node: SpatialNode,
+  canvasX: number,
+  canvasY: number,
+  measuredHeights?: Record<string, number>
+): number {
+  const h = resolveH(node, measuredHeights);
+  const [lx, ly] = toLocal(node, canvasX, canvasY, h);
+  const x0 = node.x;
+  const y0 = node.y;
+  const w = node.w;
+  const hh = h;
+  const dx = lx < x0 ? x0 - lx : lx > x0 + w ? lx - (x0 + w) : 0;
+  const dy = ly < y0 ? y0 - ly : ly > y0 + hh ? ly - (y0 + hh) : 0;
+  if (dx === 0 && dy === 0) {
+    return Math.min(lx - x0, x0 + w - lx, ly - y0, y0 + hh - ly);
+  }
+  return Math.hypot(dx, dy);
+}
+
 function zoomSafe(zoom: number): number {
   return Math.max(0.01, zoom);
 }

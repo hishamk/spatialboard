@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export interface ExpressionData {
   expr: string;
   error: string;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -185,6 +187,7 @@ function ExpressionPropertiesPanel({ data, updateData }: NodePropertiesPanelProp
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Expr</span>
         <input
@@ -227,6 +230,7 @@ function ExpressionPropertiesPanel({ data, updateData }: NodePropertiesPanelProp
 
 export const expressionNodeType: NodeTypeDefinition<ExpressionData> = {
   type: "expression",
+  docs: {},
   component: ExpressionRenderer,
   propertiesPanel: ExpressionPropertiesPanel,
   ports,

@@ -8,21 +8,120 @@ function resolveH(node: SpatialNode, measured?: Record<string, number>): number 
 }
 
 /**
- * PORT_OFFSET is the distance (in screen pixels) that port circles are rendered
- * outside the node edge.  Divide by zoom to get canvas-space offset.
+ * Port anchor sits this many **screen pixels** outside the node box (÷ zoom → canvas).
+ * Keep small so ports hug the node; wire hit-testing still uses the same anchor as rendering.
  */
-const PORT_OFFSET_PX = 14;
+export const PORT_ANCHOR_OUTSIDE_PX = 7;
+
+/** Screen-space snap radius when releasing a drag to connect to a port. */
+export const PORT_EDGE_SNAP_RADIUS_PX = 52;
+
+/**
+ * Screen-space radius from port center to show drag-target highlight only when the cursor
+ * is on the port dot (rendered ~6px radius + stroke in SVGLayer).
+ */
+export const PORT_DOT_HIGHLIGHT_RADIUS_PX = 8;
+
+/**
+ * Canvas coordinates for a point in the node's unrotated AABB space
+ * (same convention as stacked port placement).
+ */
+export function nodeLocalPointToCanvas(
+  node: SpatialNode,
+  localX: number,
+  localY: number,
+  measuredH?: Record<string, number>,
+): { x: number; y: number } {
+  const nh = resolveH(node, measuredH);
+  if (!node.rotation) return { x: localX, y: localY };
+  const cx = node.x + node.w / 2;
+  const cy = node.y + nh / 2;
+  const rad = (node.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = localX - cx;
+  const dy = localY - cy;
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
+
+/** How port dots attach to the node rect. */
+export type PortAnchorMode = "bbox" | "inscribed-circle";
+
+/**
+ * Unrotated canvas coordinates for the port connector dot (same frame as `node.x` / `node.y`).
+ * Matches the SVG port layer when the parent `<g>` uses `rotate(..., ncx, ncy)`.
+ */
+export function getPortOuterLocal(
+  node: SpatialNode,
+  ports: PortDefinition[],
+  portId: string,
+  zoom: number,
+  measuredH?: Record<string, number>,
+  portAnchor: PortAnchorMode = "bbox",
+): { px: number; py: number; direction: "input" | "output" } | null {
+  const port = ports.find((p) => p.id === portId);
+  if (!port) return null;
+
+  const nh = resolveH(node, measuredH);
+  const portOffset = PORT_ANCHOR_OUTSIDE_PX / zoom;
+
+  const portsOfDir = ports.filter((p) => p.direction === port.direction);
+  const idx = portsOfDir.indexOf(port);
+  if (idx < 0) return null;
+
+  const py = node.y + (nh / (portsOfDir.length + 1)) * (idx + 1);
+  let px: number;
+  if (portAnchor === "inscribed-circle") {
+    const r = Math.min(node.w, nh) / 2;
+    const cx = node.x + node.w / 2;
+    px =
+      port.direction === "input"
+        ? cx - r - portOffset
+        : cx + r + portOffset;
+  } else {
+    px =
+      port.direction === "input"
+        ? node.x - portOffset
+        : node.x + node.w + portOffset;
+  }
+
+  return { px, py, direction: port.direction };
+}
+
+/**
+ * Inner end of the port stub (on the node body) in unrotated coordinates.
+ * For `inscribed-circle`, the point lies on the rim toward the outer dot.
+ */
+export function getPortStubInnerLocal(
+  node: SpatialNode,
+  direction: "input" | "output",
+  outerLocal: { x: number; y: number },
+  measuredH?: Record<string, number>,
+  portAnchor: PortAnchorMode = "bbox",
+): { x: number; y: number } {
+  const nh = resolveH(node, measuredH);
+  if (portAnchor === "bbox") {
+    return direction === "input"
+      ? { x: node.x, y: outerLocal.y }
+      : { x: node.x + node.w, y: outerLocal.y };
+  }
+  const r = Math.min(node.w, nh) / 2;
+  const cx = node.x + node.w / 2;
+  const cy = node.y + nh / 2;
+  let dx = outerLocal.x - cx;
+  let dy = outerLocal.y - cy;
+  let len = Math.hypot(dx, dy);
+  if (len < 1e-6) {
+    dx = direction === "input" ? -1 : 1;
+    dy = 0;
+    len = 1;
+  }
+  return { x: cx + (dx / len) * r, y: cy + (dy / len) * r };
+}
 
 /**
  * Compute the canvas-space position of a specific port on a node.
- *
  * Returns `null` if the port ID is not found in the port list.
- *
- * @param node       The spatial node
- * @param ports      Port definitions for this node type
- * @param portId     The port ID to locate
- * @param zoom       Current viewport zoom (needed because offset is screen-px based)
- * @param measuredH  Optional measured heights map
  */
 export function getPortPosition(
   node: SpatialNode,
@@ -30,36 +129,18 @@ export function getPortPosition(
   portId: string,
   zoom: number,
   measuredH?: Record<string, number>,
+  portAnchor: PortAnchorMode = "bbox",
 ): { x: number; y: number } | null {
-  const port = ports.find((p) => p.id === portId);
-  if (!port) return null;
-
-  const nh = resolveH(node, measuredH);
-  const portOffset = PORT_OFFSET_PX / zoom;
-
-  const portsOfDir = ports.filter((p) => p.direction === port.direction);
-  const idx = portsOfDir.indexOf(port);
-  if (idx < 0) return null;
-
-  const py = node.y + (nh / (portsOfDir.length + 1)) * (idx + 1);
-  const px =
-    port.direction === "input"
-      ? node.x - portOffset
-      : node.x + node.w + portOffset;
-
-  // Handle node rotation
-  if (node.rotation) {
-    const cx = node.x + node.w / 2;
-    const cy = node.y + nh / 2;
-    const rad = (node.rotation * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    const dx = px - cx;
-    const dy = py - cy;
-    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
-  }
-
-  return { x: px, y: py };
+  const outer = getPortOuterLocal(
+    node,
+    ports,
+    portId,
+    zoom,
+    measuredH,
+    portAnchor,
+  );
+  if (!outer) return null;
+  return nodeLocalPointToCanvas(node, outer.px, outer.py, measuredH);
 }
 
 /**
@@ -568,7 +649,13 @@ export function computeEdgePath(
   let sourceExitDir: { dx: number; dy: number } | undefined;
   if (sourcePortPos) {
     x1 = sourcePortPos.x; y1 = sourcePortPos.y;
-    sourceSide = sourceHandle ?? "right";
+    const sdx = x1 - fcx;
+    const sdy = y1 - fcy;
+    const sLen = Math.hypot(sdx, sdy);
+    if (sLen > 1e-6) {
+      sourceExitDir = { dx: sdx / sLen, dy: sdy / sLen };
+    }
+    sourceSide = dominantSide(sdx, sdy, fromNode.w / 2, fh / 2);
   } else if (sourceT !== undefined) {
     const p = perimeterPoint(fromNode, fh, sourceT);
     x1 = p.x; y1 = p.y; sourceSide = p.side;
@@ -597,7 +684,13 @@ export function computeEdgePath(
   let targetEntryDir: { dx: number; dy: number } | undefined;
   if (targetPortPos) {
     x2 = targetPortPos.x; y2 = targetPortPos.y;
-    targetSide = targetHandle ?? "left";
+    const tdx = x2 - tcx;
+    const tdy = y2 - tcy;
+    const tLen = Math.hypot(tdx, tdy);
+    if (tLen > 1e-6) {
+      targetEntryDir = { dx: tdx / tLen, dy: tdy / tLen };
+    }
+    targetSide = dominantSide(tdx, tdy, toNode.w / 2, th / 2);
   } else if (targetT !== undefined) {
     const p = perimeterPoint(toNode, th, targetT);
     x2 = p.x; y2 = p.y; targetSide = p.side;
@@ -946,7 +1039,7 @@ function pointToBezierDistance(
   cx1: number, cy1: number,
   cx2: number, cy2: number,
   x2: number, y2: number,
-  samples: number = 24
+  samples: number = 40
 ): number {
   let minDist = Infinity;
   let prevX = x1, prevY = y1;
@@ -1244,6 +1337,52 @@ export type PortPositionResolver = (
 };
 
 /**
+ * Canvas-space pick radius for an edge, aligned with SVGLayer's invisible hit stroke:
+ * stroke width max(sw + 16/zoom, 20/zoom) → half-width in canvas units.
+ */
+export function edgePickTolerance(edge: EdgeNode, zoom: number): number {
+  const z = Math.max(0.01, zoom);
+  const sw = edge.data.strokeWidth ?? 2;
+  return Math.max(sw / 2 + 8 / z, 10 / z);
+}
+
+export type ClosestEdgeHit = { node: SpatialNode; distance: number };
+
+/**
+ * Closest edge whose path lies within per-edge pick tolerance of the point.
+ */
+export function getClosestEdgeHit(
+  nodes: Map<string, SpatialNode>,
+  canvasX: number,
+  canvasY: number,
+  zoom: number,
+  measuredHeights?: Record<string, number>,
+  resolvePortPositions?: PortPositionResolver
+): ClosestEdgeHit | null {
+  const shouldProfile = spatialPerf.isEnabled();
+  const t0 = shouldProfile ? performance.now() : 0;
+  let closest: ClosestEdgeHit | null = null;
+
+  for (const node of nodes.values()) {
+    if (node.type !== "edge") continue;
+    const edge = node as EdgeNode;
+    const from = nodes.get(edge.data.fromId);
+    const to = nodes.get(edge.data.toId);
+    if (!from || !to) continue;
+
+    const pp = resolvePortPositions?.(edge, from, to);
+    const dist = pointToEdgeDistance(canvasX, canvasY, from, to, edge, measuredHeights, pp?.sourcePortPos, pp?.targetPortPos);
+    const tol = edgePickTolerance(edge, zoom);
+    if (dist < tol && (!closest || dist < closest.distance)) {
+      closest = { node, distance: dist };
+    }
+  }
+
+  if (shouldProfile) spatialPerf.recordEdgeHit(performance.now() - t0);
+  return closest;
+}
+
+/**
  * Hit-test edges: find ALL edges within tolerance of a canvas point.
  */
 export function hitTestAllEdges(
@@ -1256,7 +1395,6 @@ export function hitTestAllEdges(
 ): SpatialNode[] {
   const shouldProfile = spatialPerf.isEnabled();
   const t0 = shouldProfile ? performance.now() : 0;
-  const tolerance = 16 / zoom;
   const results: SpatialNode[] = [];
 
   for (const node of nodes.values()) {
@@ -1268,7 +1406,7 @@ export function hitTestAllEdges(
 
     const pp = resolvePortPositions?.(edge, from, to);
     const dist = pointToEdgeDistance(canvasX, canvasY, from, to, edge, measuredHeights, pp?.sourcePortPos, pp?.targetPortPos);
-    if (dist < tolerance) results.push(node);
+    if (dist < edgePickTolerance(edge, zoom)) results.push(node);
   }
 
   if (shouldProfile) spatialPerf.recordEdgeHit(performance.now() - t0);
@@ -1286,29 +1424,7 @@ export function hitTestEdge(
   measuredHeights?: Record<string, number>,
   resolvePortPositions?: PortPositionResolver
 ): SpatialNode | null {
-  const shouldProfile = spatialPerf.isEnabled();
-  const t0 = shouldProfile ? performance.now() : 0;
-  const tolerance = 16 / zoom;
-  let closest: SpatialNode | null = null;
-  let minDist = tolerance;
-
-  for (const node of nodes.values()) {
-    if (node.type !== "edge") continue;
-    const edge = node as EdgeNode;
-    const from = nodes.get(edge.data.fromId);
-    const to = nodes.get(edge.data.toId);
-    if (!from || !to) continue;
-
-    const pp = resolvePortPositions?.(edge, from, to);
-    const dist = pointToEdgeDistance(canvasX, canvasY, from, to, edge, measuredHeights, pp?.sourcePortPos, pp?.targetPortPos);
-    if (dist < minDist) {
-      minDist = dist;
-      closest = node;
-    }
-  }
-
-  if (shouldProfile) spatialPerf.recordEdgeHit(performance.now() - t0);
-  return closest;
+  return getClosestEdgeHit(nodes, canvasX, canvasY, zoom, measuredHeights, resolvePortPositions)?.node ?? null;
 }
 
 // ---------------------------------------------------------------------------

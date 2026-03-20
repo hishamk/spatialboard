@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -14,6 +15,12 @@ export interface ProgressBarData {
   color: string;
   showPercent: boolean;
   accentColor: string;
+  /**
+   * When set, input `value` is mapped as 0..scaleMax → full bar (e.g. 20 for a d20).
+   * When unset: 0–1 = fraction; values above 1 = 0–100 scale (9 → 9%).
+   */
+  scaleMax?: number;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -21,6 +28,19 @@ export interface ProgressBarData {
 const ports: PortDefinition[] = [
   { id: "value", label: "Value", direction: "input", dataType: "number", defaultValue: 0 },
 ];
+
+/** Map wired number input to 0–1 fill. */
+function portValueToRatio(raw: number, scaleMax?: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  if (scaleMax != null && scaleMax > 0) {
+    return Math.max(0, Math.min(1, n / scaleMax));
+  }
+  if (n > 1) {
+    return Math.max(0, Math.min(1, n / 100));
+  }
+  return Math.max(0, Math.min(1, n));
+}
 
 // ── Renderer ────────────────────────────────────────────────
 
@@ -30,7 +50,7 @@ const ProgressBarRenderer = memo(function ProgressBarRenderer(
   const { data, portValues } = props;
   const cd = data as ProgressBarData;
   const rawVal = Number(portValues?.value ?? 0);
-  const pct = Math.max(0, Math.min(1, rawVal));
+  const pct = portValueToRatio(rawVal, cd.scaleMax);
   const pctInt = Math.round(pct * 100);
 
   return (
@@ -165,6 +185,7 @@ function ProgressBarPropertiesPanel({ data, updateData }: NodePropertiesPanelPro
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={labelStyle}>Label</span>
         <input
@@ -207,6 +228,39 @@ function ProgressBarPropertiesPanel({ data, updateData }: NodePropertiesPanelPro
           {cd.showPercent ? "On" : "Off"}
         </button>
       </div>
+      <div style={row}>
+        <span style={labelStyle} title="Empty: 0–1 = fraction, &gt;1 = 0–100. Set to match source range (e.g. 20 for a die).">
+          Max
+        </span>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          placeholder="auto"
+          value={cd.scaleMax ?? ""}
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            if (v === "") {
+              updateData({ scaleMax: undefined });
+              return;
+            }
+            const num = Number(v);
+            updateData({
+              scaleMax: Number.isFinite(num) && num > 0 ? num : undefined,
+            });
+          }}
+          style={{
+            flex: 1,
+            maxWidth: 72,
+            background: "#2a2a3e",
+            border: "1px solid #3a3a4e",
+            borderRadius: 6,
+            color: "#fff",
+            padding: "4px 8px",
+            fontSize: 12,
+          }}
+        />
+      </div>
     </>
   );
 }
@@ -217,6 +271,7 @@ export const progressBarNodeType: NodeTypeDefinition<ProgressBarData> = {
   type: "progress-bar",
   component: ProgressBarRenderer,
   propertiesPanel: ProgressBarPropertiesPanel,
+  docs: {},
   ports,
   compute: () => ({}),
   getClipboardText: (node) => `Progress: ${(node.data as ProgressBarData).label}`,

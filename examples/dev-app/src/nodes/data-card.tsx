@@ -117,6 +117,7 @@ const DataCardRenderer = memo(function DataCardRenderer(
 
 export const dataCardNodeType: NodeTypeDefinition<DataCardData> = {
   type: "data-card",
+  docs: {},
   component: DataCardRenderer,
 
   onCreate: (node: SpatialNode, engine: SpatialEngine) => {

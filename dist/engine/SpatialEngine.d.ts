@@ -122,6 +122,8 @@ export declare class SpatialEngine {
     private _containerWidth;
     private _containerHeight;
     private history;
+    /** When set, `updateNodeWithHistoryCoalesced` reuses one undo step until `endHistoryCoalesce()`. */
+    private _historyCoalesceKey;
     private listeners;
     private _suppressEvents;
     private _collabMode;
@@ -282,11 +284,23 @@ export declare class SpatialEngine {
     }>): void;
     private updateConnectedEdges;
     updateNodeWithHistory(id: string, patch: Partial<SpatialNode>): void;
+    /**
+     * Like `updateNodeWithHistory`, but multiple calls with the same `sessionKey` share one undo step
+     * (e.g. dragging an inspector slider). Call `endHistoryCoalesce()` when the gesture ends.
+     */
+    updateNodeWithHistoryCoalesced(id: string, patch: Partial<SpatialNode>, sessionKey: string): void;
     /** Update multiple nodes in a single undo step. */
     batchUpdateWithHistory(updates: Array<{
         id: string;
         patch: Partial<SpatialNode>;
     }>): void;
+    /**
+     * Like `batchUpdateWithHistory`, but shares one undo step with other calls using the same `sessionKey`.
+     */
+    batchUpdateWithHistoryCoalesced(updates: Array<{
+        id: string;
+        patch: Partial<SpatialNode>;
+    }>, sessionKey: string): void;
     deleteNode(id: string): void;
     getNode(id: string): SpatialNode | undefined;
     getAllNodes(): SpatialNode[];
@@ -385,6 +399,8 @@ export declare class SpatialEngine {
     getClipboardNodes(): SpatialNode[];
     setClipboard(nodes: SpatialNode[]): void;
     setMode(mode: Mode): void;
+    /** End a coalesced inspector/gesture history session (see `updateNodeWithHistoryCoalesced`). */
+    endHistoryCoalesce(): void;
     pushHistorySnapshot(): void;
     rebuildQuadTree(): void;
     undo(): void;

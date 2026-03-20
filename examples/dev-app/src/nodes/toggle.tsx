@@ -2,9 +2,11 @@ import { memo, useRef, useEffect } from "react";
 import type {
   NodeTypeDefinition,
   NodeRendererProps,
+  NodePropertiesPanelProps,
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -13,6 +15,7 @@ export interface ToggleData {
   lastTrigger: number;
   lastReset: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -133,11 +136,21 @@ const ToggleRenderer = memo(function ToggleRenderer(
   );
 });
 
+function TogglePropertiesPanel(props: NodePropertiesPanelProps<ToggleData>) {
+  return (
+    <>
+      <ShowEdgeComputeOverlayField {...props} />
+    </>
+  );
+}
+
 // ── Node type definition ────────────────────────────────────
 
 export const toggleNodeType: NodeTypeDefinition<ToggleData> = {
   type: "toggle",
+  docs: {},
   component: ToggleRenderer,
+  propertiesPanel: TogglePropertiesPanel,
   ports,
   compute: (_inputs: Record<string, PortValue>, data: ToggleData) => ({
     state: data.state,

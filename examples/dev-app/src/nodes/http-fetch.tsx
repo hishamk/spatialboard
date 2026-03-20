@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export interface HttpFetchData {
   error: string;
   loading: boolean;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -262,6 +264,7 @@ function HttpFetchPropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={{ ...row, flexWrap: "wrap" }}>
         <span style={label}>Method</span>
         {METHODS.map((m) => (
@@ -314,6 +317,7 @@ function HttpFetchPropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
 export const httpFetchNodeType: NodeTypeDefinition<HttpFetchData> = {
   type: "http-fetch",
+  docs: {},
   component: HttpFetchRenderer,
   propertiesPanel: HttpFetchPropertiesPanel,
   ports,

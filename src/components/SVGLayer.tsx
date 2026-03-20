@@ -17,14 +17,70 @@ import {
   filledArrowHeadPath,
   getNodeHandlePositions,
   getPortPosition,
-  perimeterPoint,
+  getPortOuterLocal,
+  getPortStubInnerLocal,
+  type PortAnchorMode,
   nearestPerimeterPoint,
+  PORT_DOT_HIGHLIGHT_RADIUS_PX,
+  PORT_EDGE_SNAP_RADIUS_PX,
 } from "../engine/edge-geometry";
 import type { NodeTypeRegistry } from "../nodes/registry";
-import type { PortDataType } from "../engine/data-flow-types";
+import type { PortDataType, PortValue } from "../engine/data-flow-types";
+import { nodeShowsEdgeComputeOverlay } from "../engine/data-flow-types";
 import { getRotatedCursor } from "../interactions/resize-cursors";
 
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+/** Optional captions on port edges: port names and/or downstream `compute` wall time. */
+export type DataFlowEdgeOverlay = "off" | "ports" | "ports+compute";
+
+function formatComputeMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  if (ms < 0.05) return "<0.05 ms";
+  if (ms < 10) return `${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms`;
+  return `${Math.round(ms)} ms`;
+}
+
+/** Non-empty `error` / `err` output on the target node (fetch failures, parse errors, etc.). */
+function getDownstreamPortErrorMessage(
+  registry: NodeTypeRegistry | undefined,
+  toNode: SpatialNode,
+  getPortValue?: (nodeId: string, portId: string) => PortValue,
+): string | null {
+  if (!registry || !getPortValue || !toNode.id) return null;
+  const def = registry.get(toNode.type);
+  if (!def?.ports) return null;
+  for (const p of def.ports) {
+    if (p.direction !== "output") continue;
+    if (p.id !== "error" && p.id !== "err") continue;
+    const v = getPortValue(toNode.id, p.id);
+    const s = v != null && v !== undefined ? String(v).trim() : "";
+    if (s) return s.length > 200 ? `${s.slice(0, 197)}\u2026` : s;
+  }
+  return null;
+}
+
+function measureEdgeLabelBox(
+  lines: { text: string; primary: boolean }[],
+  labelX: number,
+  labelY: number,
+  z: number,
+): { w: number; h: number; x0: number; y0: number } | null {
+  if (lines.length === 0) return null;
+  const lh = 13 / z;
+  const padX = 7 / z;
+  const padY = 5 / z;
+  const charW = 6 / z;
+  const maxChars = Math.max(...lines.map((l) => l.text.length), 1);
+  const w = Math.min(maxChars * charW + padX * 2, 280 / z);
+  const h = lines.length * lh + padY * 2;
+  return {
+    w,
+    h,
+    x0: labelX - w / 2,
+    y0: labelY - h / 2,
+  };
+}
 
 const PORT_COLORS: Record<PortDataType, string> = {
   number: "#3b82f6",   // blue
@@ -132,6 +188,12 @@ interface SVGLayerProps {
   ) => void;
   /** Node IDs that are part of a dependency cycle. */
   cycleNodeIds?: ReadonlySet<string>;
+  /** When not `off`, port-connected edges show `sourcePort → targetPort`; `ports+compute` adds target node's last `compute` duration. */
+  dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /** From `DataFlowEngine.getLastComputeMs` — used when `dataFlowEdgeOverlay` is `ports+compute`. */
+  getLastComputeMs?: (nodeId: string) => number | undefined;
+  /** From `DataFlowEngine.getPortValue` — shows (!) on port edges when the target's `error`/`err` output is non-empty. */
+  getDataFlowPortValue?: (nodeId: string, portId: string) => PortValue;
   /** Node types that act as containers (frame-like). Used for edge snapping priority. */
   containerTypes?: ReadonlySet<string>;
   /** Alignment guide lines shown during drag. */
@@ -141,6 +203,8 @@ interface SVGLayerProps {
     start: number;
     end: number;
   }>;
+  /** When set, suppress connection/port affordances for this node (image crop UI must receive pointers). */
+  suppressNodeOverlayId?: string | null;
 }
 
 
@@ -308,6 +372,11 @@ interface EdgeRendererProps {
   } | null;
   eraserMarkedIds?: Set<string>;
   cycleNodeIds?: ReadonlySet<string>;
+  dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  getLastComputeMs?: (nodeId: string) => number | undefined;
+  getDataFlowPortValue?: (nodeId: string, portId: string) => PortValue;
+  /** Cursor over the wide hit stroke; select uses move (matches nodes), other tools inherit container. */
+  interactionMode?: Mode;
 }
 
 const EdgeRenderer = memo(function EdgeRenderer({
@@ -323,6 +392,10 @@ const EdgeRenderer = memo(function EdgeRenderer({
   edgeReconnect,
   eraserMarkedIds,
   cycleNodeIds,
+  dataFlowEdgeOverlay = "off",
+  getLastComputeMs,
+  getDataFlowPortValue,
+  interactionMode,
 }: EdgeRendererProps) {
   const edgeType = edge.data.edgeType || "bezier";
 
@@ -332,13 +405,13 @@ const EdgeRenderer = memo(function EdgeRenderer({
   if (registry && edge.data.sourcePort) {
     const srcDef = registry.get(fromNode.type);
     if (srcDef?.ports) {
-      sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights) ?? undefined;
+      sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef.portAnchor ?? "bbox") ?? undefined;
     }
   }
   if (registry && edge.data.targetPort) {
     const tgtDef = registry.get(toNode.type);
     if (tgtDef?.ports) {
-      targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights) ?? undefined;
+      targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef.portAnchor ?? "bbox") ?? undefined;
     }
   }
 
@@ -443,6 +516,58 @@ const EdgeRenderer = memo(function EdgeRenderer({
     [isEraserMarked]
   );
 
+  const edgeLabelLines = useMemo(() => {
+    const overlay = dataFlowEdgeOverlay ?? "off";
+    const user = edge.data.label?.trim();
+    const lines: { text: string; primary: boolean }[] = [];
+    if (user) lines.push({ text: user, primary: true });
+    if (
+      overlay !== "off" &&
+      nodeShowsEdgeComputeOverlay(toNode) &&
+      edge.data.sourcePort &&
+      edge.data.targetPort
+    ) {
+      lines.push({
+        text: `${edge.data.sourcePort} \u2192 ${edge.data.targetPort}`,
+        primary: !user,
+      });
+    }
+    if (
+      overlay === "ports+compute" &&
+      nodeShowsEdgeComputeOverlay(toNode) &&
+      getLastComputeMs &&
+      edge.data.toId
+    ) {
+      const ms = getLastComputeMs(edge.data.toId);
+      if (ms != null && Number.isFinite(ms)) {
+        lines.push({ text: `compute ${formatComputeMs(ms)}`, primary: false });
+      }
+    }
+    return lines;
+  }, [
+    dataFlowEdgeOverlay,
+    edge.data.label,
+    edge.data.sourcePort,
+    edge.data.targetPort,
+    edge.data.toId,
+    getLastComputeMs,
+    toNode,
+  ]);
+
+  const downstreamErrorMsg = useMemo(
+    () =>
+      edge.data.sourcePort && edge.data.targetPort
+        ? getDownstreamPortErrorMessage(registry, toNode, getDataFlowPortValue)
+        : null,
+    [
+      registry,
+      toNode,
+      edge.data.sourcePort,
+      edge.data.targetPort,
+      getDataFlowPortValue,
+    ],
+  );
+
   return (
     <g opacity={isReconnecting ? 0.15 : (isEraserMarked ? 0.25 : undefined)} style={eraserStyle}>
       {/* Invisible wide hit area for easier clicking */}
@@ -452,7 +577,13 @@ const EdgeRenderer = memo(function EdgeRenderer({
         strokeWidth={Math.max(sw + 16 / viewport.zoom, 20 / viewport.zoom)}
         strokeLinecap="round"
         fill="none"
-        style={{ pointerEvents: "stroke", cursor: "pointer" }}
+        style={{
+          pointerEvents: "stroke",
+          cursor:
+            interactionMode === "select" || interactionMode == null
+              ? "move"
+              : "inherit",
+        }}
       />
       {/* Cycle edge glow underlay */}
       {isCycleEdge && (
@@ -583,29 +714,72 @@ const EdgeRenderer = memo(function EdgeRenderer({
           fill={edgeColor}
         />
       )}
-      {edge.data.label && (
-        <>
-          <rect
-            x={labelX - (edge.data.label.length * 3.5 + 6) / viewport.zoom}
-            y={labelY - 8 / viewport.zoom}
-            width={(edge.data.label.length * 7 + 12) / viewport.zoom}
-            height={16 / viewport.zoom}
-            fill="white"
-            rx={4 / viewport.zoom}
-            opacity={0.9}
-          />
-          <text
-            x={labelX}
-            y={labelY + 4 / viewport.zoom}
-            fill={edgeColor}
-            fontSize={12 / viewport.zoom}
-            textAnchor="middle"
-            style={{ pointerEvents: "none" }}
-          >
-            {edge.data.label}
-          </text>
-        </>
-      )}
+      {(() => {
+        const z = viewport.zoom;
+        const lh = 13 / z;
+        const padY = 5 / z;
+        const fsMain = 11 / z;
+        const fsSub = 10 / z;
+        const box = measureEdgeLabelBox(edgeLabelLines, labelX, labelY, z);
+        const badgeR = 9 / z;
+        const showBadge = Boolean(downstreamErrorMsg);
+        const badgeX = box ? box.x0 + box.w + badgeR + 4 / z : labelX + badgeR + 4 / z;
+        const badgeY = labelY;
+        return (
+          <>
+            {box && (
+              <>
+                <rect
+                  x={box.x0}
+                  y={box.y0}
+                  width={box.w}
+                  height={box.h}
+                  fill="white"
+                  rx={4 / z}
+                  opacity={0.92}
+                />
+                {edgeLabelLines.map((line, i) => (
+                  <text
+                    key={i}
+                    x={labelX}
+                    y={box.y0 + padY + (i + 0.78) * lh}
+                    fill={line.primary ? edgeColor : "#64748b"}
+                    fontSize={line.primary ? fsMain : fsSub}
+                    textAnchor="middle"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {line.text}
+                  </text>
+                ))}
+              </>
+            )}
+            {showBadge && (
+              <g style={{ pointerEvents: "auto" }}>
+                <title>{downstreamErrorMsg}</title>
+                <circle
+                  cx={badgeX}
+                  cy={badgeY}
+                  r={badgeR}
+                  fill="#ea580c"
+                  stroke="#fff"
+                  strokeWidth={1.25 / z}
+                />
+                <text
+                  x={badgeX}
+                  y={badgeY + 3.5 / z}
+                  fill="#fff"
+                  fontSize={11 / z}
+                  fontWeight={800}
+                  textAnchor="middle"
+                  style={{ pointerEvents: "none" }}
+                >
+                  !
+                </text>
+              </g>
+            )}
+          </>
+        );
+      })()}
       {/* Edge endpoint handles — draggable to reconnect */}
       {isSelected && !isReconnecting && (
         <>
@@ -690,8 +864,12 @@ export default function SVGLayer({
   registry,
   onPortHandleDown,
   cycleNodeIds,
+  dataFlowEdgeOverlay = "off",
+  getLastComputeMs,
+  getDataFlowPortValue,
   containerTypes,
   alignGuides,
+  suppressNodeOverlayId,
 }: SVGLayerProps) {
   const svgTransform = `translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`;
 
@@ -740,6 +918,10 @@ export default function SVGLayer({
               edgeReconnect={edgeReconnect}
               eraserMarkedIds={eraserMarkedIds}
               cycleNodeIds={cycleNodeIds}
+              dataFlowEdgeOverlay={dataFlowEdgeOverlay}
+              getLastComputeMs={getLastComputeMs}
+              getDataFlowPortValue={getDataFlowPortValue}
+              interactionMode={mode}
             />
           );
         })}
@@ -835,7 +1017,10 @@ export default function SVGLayer({
           nodes
             .filter((n) => {
               if (n.type === "edge") return false;
+              if (suppressNodeOverlayId && n.id === suppressNodeOverlayId) return false;
               if (registry?.get(n.type)?.ports?.length) return false;
+              // Free-form edges use perimeter hit-testing; DOM images have no SVG frame — skip fixed anchors.
+              if (freeFormEdges && n.type === "image") return false;
               return (selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
             })
             .forEach((node) => {
@@ -952,20 +1137,25 @@ export default function SVGLayer({
           let nearestPortNodeId: string | null = null;
           let nearestPortId: string | null = null;
           if (isDragging && expectedDir) {
-            let bestDist = 40 / viewport.zoom; // snap threshold
+            const highlightR = PORT_DOT_HIGHLIGHT_RADIUS_PX / viewport.zoom;
+            let bestDist = Infinity;
             for (const n of nodes) {
               if (n.type === "edge" || n.id === dragSourceNodeId) continue;
               const def = registry.get(n.type);
               if (!def?.ports?.length) continue;
-              const nh = n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : n.h;
-              const pOffset = 14 / viewport.zoom;
               const portsOfDir = def.ports.filter((p) => p.direction === expectedDir);
-              for (let i = 0; i < portsOfDir.length; i++) {
-                const port = portsOfDir[i];
-                const py = n.y + (nh / (portsOfDir.length + 1)) * (i + 1);
-                const px = port.direction === "input" ? n.x - pOffset : n.x + n.w + pOffset;
-                const dist = Math.hypot(px - cursorX, py - cursorY);
-                if (dist < bestDist) {
+              for (const port of portsOfDir) {
+                const pos = getPortPosition(
+                  n,
+                  def.ports,
+                  port.id,
+                  viewport.zoom,
+                  measuredHeights,
+                  def.portAnchor ?? "bbox",
+                );
+                if (!pos) continue;
+                const dist = Math.hypot(pos.x - cursorX, pos.y - cursorY);
+                if (dist <= highlightR && dist < bestDist) {
                   bestDist = dist;
                   nearestPortNodeId = n.id;
                   nearestPortId = port.id;
@@ -977,6 +1167,7 @@ export default function SVGLayer({
           return nodes
             .filter((n) => {
               if (n.type === "edge") return false;
+              if (suppressNodeOverlayId && n.id === suppressNodeOverlayId) return false;
               const def = registry.get(n.type);
               // Always show ports on nodes that have port definitions
               return !!def?.ports?.length;
@@ -989,28 +1180,43 @@ export default function SVGLayer({
               const ncx = node.x + node.w / 2;
               const ncy = node.y + nh / 2;
               const portR = 6 / viewport.zoom;
-              const portOffset = 14 / viewport.zoom; // how far outside the node edge
+              const portAnchor: PortAnchorMode = def.portAnchor ?? "bbox";
 
               const inputPorts = ports.filter((p) => p.direction === "input");
               const outputPorts = ports.filter((p) => p.direction === "output");
               // Ports are always interactive (no need to select the node first)
               const isInteractive = !isDragging;
 
-              const renderPort = (port: typeof ports[number], i: number, portsOfDir: typeof ports, direction: "input" | "output") => {
-                const py = node.y + (nh / (portsOfDir.length + 1)) * (i + 1);
-                const px = direction === "input" ? node.x - portOffset : node.x + node.w + portOffset;
+              const renderPort = (port: typeof ports[number], _i: number, _portsOfDir: typeof ports, direction: "input" | "output") => {
+                const outer = getPortOuterLocal(
+                  node,
+                  ports,
+                  port.id,
+                  viewport.zoom,
+                  measuredHeights,
+                  portAnchor,
+                );
+                if (!outer) return null;
+                const { px, py } = outer;
+                const inner = getPortStubInnerLocal(
+                  node,
+                  direction,
+                  { x: px, y: py },
+                  measuredHeights,
+                  portAnchor,
+                );
                 const color = PORT_COLORS[port.dataType] || PORT_COLORS.any;
                 const isNearest = nearestPortNodeId === node.id && nearestPortId === port.id;
                 const highlightR = isNearest ? 8 / viewport.zoom : portR;
-                const edgeX = direction === "input" ? node.x : node.x + node.w;
-                const labelX = direction === "input" ? px - portR - 4 / viewport.zoom : px + portR + 4 / viewport.zoom;
+                const labelGap = 2.5 / viewport.zoom;
+                const labelX = direction === "input" ? px - portR - labelGap : px + portR + labelGap;
 
                 return (
                   <g key={`port-${node.id}-${port.id}`}>
-                    {/* Connection line from port to node edge */}
+                    {/* Connection line from port dot to node body */}
                     <line
                       x1={px} y1={py}
-                      x2={edgeX} y2={py}
+                      x2={inner.x} y2={inner.y}
                       stroke={color}
                       strokeWidth={1.5 / viewport.zoom}
                       opacity={0.4}
@@ -1135,67 +1341,6 @@ export default function SVGLayer({
 
         {/* Edge creation preview */}
         {edgePreview && (() => {
-          // Start the preview line from the port or connection circle position
-          let startX: number, startY: number;
-          if (edgePreview.sourcePort && registry) {
-            // Port-aware: start from the port circle position
-            const node = edgePreview.fromNode;
-            const def = registry.get(node.type);
-            const portPos = def?.ports
-              ? getPortPosition(node, def.ports, edgePreview.sourcePort, viewport.zoom, measuredHeights)
-              : null;
-            if (portPos) {
-              startX = portPos.x;
-              startY = portPos.y;
-            } else {
-              const bp = computeSingleBorderPoint(node, edgePreview.cursorX, edgePreview.cursorY, measuredHeights);
-              startX = bp.x; startY = bp.y;
-            }
-          } else if (edgePreview.sourceT !== undefined) {
-            // Free-form: start from the parametric perimeter point
-            const node = edgePreview.fromNode;
-            const nh = node.h === "auto" ? (measuredHeights?.[node.id] ?? 100) : node.h;
-            const p = perimeterPoint(node, nh, edgePreview.sourceT);
-            startX = p.x;
-            startY = p.y;
-          } else if (edgePreview.sourceHandle) {
-            const node = edgePreview.fromNode;
-            const nh = node.h === "auto" ? (measuredHeights?.[node.id] ?? 100) : node.h;
-            const midpoints: Record<HandleSide, [number, number]> = {
-              top:    [node.x + node.w / 2, node.y],
-              bottom: [node.x + node.w / 2, node.y + nh],
-              left:   [node.x, node.y + nh / 2],
-              right:  [node.x + node.w, node.y + nh / 2],
-            };
-            const side = edgePreview.sourceHandle;
-            const circleOffset = side === "top" ? 42 / viewport.zoom : 26 / viewport.zoom;
-            const [mx, my] = midpoints[side];
-            let ox = mx, oy = my;
-            switch (side) {
-              case "top":    oy = my - circleOffset; break;
-              case "bottom": oy = my + circleOffset; break;
-              case "left":   ox = mx - circleOffset; break;
-              case "right":  ox = mx + circleOffset; break;
-            }
-            // Apply rotation if the node is rotated
-            if (node.rotation) {
-              const ncx = node.x + node.w / 2;
-              const ncy = node.y + nh / 2;
-              const rad = (node.rotation * Math.PI) / 180;
-              const cos = Math.cos(rad);
-              const sin = Math.sin(rad);
-              const dx = ox - ncx;
-              const dy = oy - ncy;
-              startX = ncx + dx * cos - dy * sin;
-              startY = ncy + dx * sin + dy * cos;
-            } else {
-              startX = ox;
-              startY = oy;
-            }
-          } else {
-            const bp = computeSingleBorderPoint(edgePreview.fromNode, edgePreview.cursorX, edgePreview.cursorY, measuredHeights);
-            startX = bp.x; startY = bp.y;
-          }
           const curX = edgePreview.cursorX;
           const curY = edgePreview.cursorY;
           const color = edgePreview.edgeColor || "#3b82f6";
@@ -1206,54 +1351,143 @@ export default function SVGLayer({
           const headSize = Math.max(8, sw * 3);
           const dotR = 4 / viewport.zoom;
 
-          // Find nearest target node to snap to
+          const fromDef = registry?.get(edgePreview.fromNode.type);
+          const sourcePortPos =
+            edgePreview.sourcePort && fromDef?.ports
+              ? getPortPosition(
+                edgePreview.fromNode,
+                fromDef.ports,
+                edgePreview.sourcePort,
+                viewport.zoom,
+                measuredHeights,
+                fromDef.portAnchor ?? "bbox",
+              ) ?? undefined
+              : undefined;
+          const sourcePortMeta =
+            edgePreview.sourcePort && fromDef?.ports
+              ? fromDef.ports.find((p) => p.id === edgePreview.sourcePort)
+              : undefined;
+
+          const portSnapExpectedDir: "input" | "output" | null =
+            edgePreview.sourceDirection === "output" ? "input" :
+            edgePreview.sourceDirection === "input" ? "output" : null;
+
           let snapTargetNode: SpatialNode | null = null;
           let snapTargetT: number | undefined;
-          const snapThreshold = 50 / viewport.zoom;
-          for (const n of nodes) {
-            if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
-            const nh = n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : n.h;
-            const padX = n.w * 0.2;
-            const padY = nh * 0.2;
-            if (curX >= n.x - padX && curX <= n.x + n.w + padX &&
-                curY >= n.y - padY && curY <= n.y + nh + padY) {
-              const pp = nearestPerimeterPoint(n, curX, curY, measuredHeights);
-              if (Math.hypot(pp.x - curX, pp.y - curY) < snapThreshold) {
-                snapTargetNode = n;
-                snapTargetT = pp.t;
-                break;
+          let snapTargetPortId: string | null = null;
+
+          if (registry && edgePreview.sourcePort && portSnapExpectedDir && sourcePortMeta) {
+            const snapR = PORT_EDGE_SNAP_RADIUS_PX / viewport.zoom;
+            let bestDist = Infinity;
+            for (const n of nodes) {
+              if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
+              const nDef = registry.get(n.type);
+              if (!nDef?.ports?.length) continue;
+              const portsOfDir = nDef.ports.filter((p) => p.direction === portSnapExpectedDir);
+              for (const port of portsOfDir) {
+                if (
+                  sourcePortMeta.dataType !== "any" &&
+                  port.dataType !== "any" &&
+                  sourcePortMeta.dataType !== port.dataType
+                ) {
+                  continue;
+                }
+                const pos = getPortPosition(
+                  n,
+                  nDef.ports,
+                  port.id,
+                  viewport.zoom,
+                  measuredHeights,
+                  nDef.portAnchor ?? "bbox",
+                );
+                if (!pos) continue;
+                const dist = Math.hypot(pos.x - curX, pos.y - curY);
+                if (dist < snapR && dist < bestDist) {
+                  bestDist = dist;
+                  snapTargetNode = n;
+                  snapTargetPortId = port.id;
+                }
               }
             }
           }
 
-          // Compute path: use real target node when snapped, virtual point otherwise
+          if (!snapTargetPortId) {
+            const snapThreshold = 50 / viewport.zoom;
+            for (const n of nodes) {
+              if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
+              const nh = n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : n.h;
+              const padX = n.w * 0.2;
+              const padY = nh * 0.2;
+              if (curX >= n.x - padX && curX <= n.x + n.w + padX &&
+                  curY >= n.y - padY && curY <= n.y + nh + padY) {
+                const pp = nearestPerimeterPoint(n, curX, curY, measuredHeights);
+                if (Math.hypot(pp.x - curX, pp.y - curY) < snapThreshold) {
+                  snapTargetNode = n;
+                  snapTargetT = pp.t;
+                  break;
+                }
+              }
+            }
+          }
+
+          const snapDef = snapTargetNode ? registry?.get(snapTargetNode.type) : undefined;
+          const targetPortPos =
+            snapTargetNode && snapTargetPortId && snapDef?.ports
+              ? getPortPosition(
+                snapTargetNode,
+                snapDef.ports,
+                snapTargetPortId,
+                viewport.zoom,
+                measuredHeights,
+                snapDef.portAnchor ?? "bbox",
+              ) ?? undefined
+              : undefined;
+
+          const previewSourceT = sourcePortPos ? undefined : edgePreview.sourceT;
+          const previewTargetT = targetPortPos ? undefined : snapTargetT;
+
           let previewPath;
           if (snapTargetNode) {
-            // Exact final path using the real target node
             previewPath = computeEdgePath(
-              edgePreview.fromNode, snapTargetNode, edgePreview.edgeType || "bezier", measuredHeights,
-              edgePreview.sourceHandle, undefined,
-              undefined, undefined,
-              undefined, undefined,
-              edgePreview.sourceT, snapTargetT,
+              edgePreview.fromNode,
+              snapTargetNode,
+              edgePreview.edgeType || "bezier",
+              measuredHeights,
+              edgePreview.sourceHandle,
+              undefined,
+              undefined,
+              undefined,
+              sourcePortPos,
+              targetPortPos,
+              previewSourceT,
+              previewTargetT,
               edgePreview.attachmentGap,
             );
           } else {
-            // Free cursor: virtual zero-size target at cursor
             const virtualTarget: SpatialNode = {
               id: "__preview__", type: "shape" as any,
               x: curX, y: curY, w: 0, h: 0, z: 0,
               data: { shape: "rect", stroke: "#000", strokeWidth: 1, roughness: 0 },
             };
             previewPath = computeEdgePath(
-              edgePreview.fromNode, virtualTarget, edgePreview.edgeType || "bezier", measuredHeights,
-              edgePreview.sourceHandle, undefined,
-              undefined, undefined,
-              undefined, undefined,
-              edgePreview.sourceT, undefined,
+              edgePreview.fromNode,
+              virtualTarget,
+              edgePreview.edgeType || "bezier",
+              measuredHeights,
+              edgePreview.sourceHandle,
+              undefined,
+              undefined,
+              undefined,
+              sourcePortPos,
+              undefined,
+              previewSourceT,
+              undefined,
               edgePreview.attachmentGap,
             );
           }
+
+          const showSourceDot = !sourcePortPos;
+          const showTargetDot = Boolean(snapTargetNode && !targetPortPos);
 
           return (
             <g>
@@ -1273,11 +1507,11 @@ export default function SVGLayer({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* Source dot */}
-              <circle cx={previewPath.x1} cy={previewPath.y1} r={dotR}
-                fill={color} stroke="white" strokeWidth={1.5 / viewport.zoom} />
-              {/* Target snap dot */}
-              {snapTargetNode && (
+              {showSourceDot && (
+                <circle cx={previewPath.x1} cy={previewPath.y1} r={dotR}
+                  fill={color} stroke="white" strokeWidth={1.5 / viewport.zoom} />
+              )}
+              {showTargetDot && (
                 <circle cx={previewPath.x2} cy={previewPath.y2} r={dotR}
                   fill={color} stroke="white" strokeWidth={1.5 / viewport.zoom} />
               )}

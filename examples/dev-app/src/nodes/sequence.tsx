@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export interface SequenceData {
   bCount: number;
   cCount: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -189,6 +191,7 @@ function SequencePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Delay</span>
         <input
@@ -229,6 +232,7 @@ function SequencePropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const sequenceNodeType: NodeTypeDefinition<SequenceData> = {
   type: "sequence",
+  docs: {},
   component: SequenceRenderer,
   propertiesPanel: SequencePropertiesPanel,
   ports,

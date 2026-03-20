@@ -1,5 +1,23 @@
 // ── Data-flow port system types ──────────────────────────────
 
+import type { SpatialNode } from "./types";
+
+/**
+ * Optional field on **target** node `data`: when `true`, edges that end at this node may show
+ * automatic wire badges (port names `a → b`, and `compute …` when the board uses
+ * `dataFlowEdgeOverlay="ports+compute"`). Omitted or `false` hides all of that (default);
+ * only a custom `edge.data.label` still shows.
+ */
+export type DataflowEdgeComputeOverlayFlag = {
+  showEdgeComputeOverlay?: boolean;
+};
+
+/** Whether incoming edges may show automatic port / compute labels for this node (opt-in). */
+export function nodeShowsEdgeComputeOverlay(node: SpatialNode): boolean {
+  const d = node.data as Record<string, unknown> | undefined;
+  return d?.showEdgeComputeOverlay === true;
+}
+
 /** Supported data types for ports. */
 export type PortDataType = "number" | "string" | "boolean" | "object" | "any" | "signal";
 

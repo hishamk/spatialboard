@@ -17,7 +17,6 @@ export default defineConfig({
         "react/jsx-runtime",
         /^@blocknote\//,
         /^@mantine\//,
-        /^@imgly\//,
       ],
     },
     cssCodeSplit: false,

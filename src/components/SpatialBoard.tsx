@@ -2,6 +2,7 @@ import { useMemo, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { SpatialEngine } from "../engine/SpatialEngine";
 import { DataFlowEngine } from "../engine/DataFlowEngine";
 import SpatialCanvas from "./SpatialCanvas";
+import type { DataFlowEdgeOverlay } from "./SVGLayer";
 import Sidebar from "./sidebar/Sidebar";
 import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./DebugPanel";
@@ -57,6 +58,12 @@ export interface SpatialBoardProps {
   direction?: SpatialBoardDirection;
   /** Override UI labels for board chrome. */
   localization?: Partial<SpatialBoardLocalization>;
+  /**
+   * When data-flow is active (`nodeTypes` with ports): optional captions on port edges.
+   * `ports` shows `sourcePort → targetPort`. `ports+compute` adds the target node's last `compute` wall time.
+   * Wires themselves are instantaneous — the timer is always for the **downstream** node's `compute`.
+   */
+  dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
 }
 
 export default function SpatialBoard({
@@ -73,6 +80,7 @@ export default function SpatialBoard({
   gifApiBaseUrl,
   direction,
   localization,
+  dataFlowEdgeOverlay = "off",
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -175,7 +183,13 @@ export default function SpatialBoard({
           overflow: "hidden",
         }}
       >
-        <SpatialCanvas engine={engine} schema={schema} registry={registry} dataFlow={dataFlow} />
+        <SpatialCanvas
+          engine={engine}
+          schema={schema}
+          registry={registry}
+          dataFlow={dataFlow}
+          dataFlowEdgeOverlay={dataFlowEdgeOverlay}
+        />
         {!presenting && <CanvasSearchBar engine={engine} />}
         {!presenting && (
           <BottomBar

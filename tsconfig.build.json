@@ -16,5 +16,11 @@
     "outDir": "./dist"
   },
   "include": ["src"],
-  "exclude": ["src/test-data", "src/benchmark-runner.ts", "src/performance-test.ts", "src/App.tsx", "src/main.tsx", "src/fonts.ts"]
+  "exclude": [
+    "src/benchmark-runner.ts",
+    "src/performance-test.ts",
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/fonts.ts"
+  ]
 }

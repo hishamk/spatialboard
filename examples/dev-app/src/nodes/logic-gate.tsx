@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface LogicGateData {
   mode: "and" | "or" | "not" | "xor" | "nand" | "nor";
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -151,23 +153,26 @@ function LogicGatePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
   const label: React.CSSProperties = { width: 48, fontSize: 10, color: "#999", flexShrink: 0 };
 
   return (
-    <div style={row}>
-      <span style={label}>Mode</span>
-      {MODE_LABELS.map((m) => (
-        <button
-          key={m.key}
-          onClick={() => updateData({ mode: m.key })}
-          style={{
-            padding: "3px 8px",
-            background: cd.mode === m.key ? cd.accentColor : "#2a2a3e",
-            border: "1px solid #3a3a4e",
-            borderRadius: 6, color: "#fff", fontSize: 9, fontWeight: 600, cursor: "pointer",
-          }}
-        >
-          {m.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
+      <div style={row}>
+        <span style={label}>Mode</span>
+        {MODE_LABELS.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => updateData({ mode: m.key })}
+            style={{
+              padding: "3px 8px",
+              background: cd.mode === m.key ? cd.accentColor : "#2a2a3e",
+              border: "1px solid #3a3a4e",
+              borderRadius: 6, color: "#fff", fontSize: 9, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -175,6 +180,7 @@ function LogicGatePropertiesPanel({ data, updateData }: NodePropertiesPanelProps
 
 export const logicGateNodeType: NodeTypeDefinition<LogicGateData> = {
   type: "logic-gate",
+  docs: {},
   component: LogicGateRenderer,
   propertiesPanel: LogicGatePropertiesPanel,
   ports,

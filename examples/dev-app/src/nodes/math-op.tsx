@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export type MathOp =
 export interface MathOpData {
   op: MathOp;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -167,6 +169,7 @@ function MathOpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Ma
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       {GROUPS.map((g) => (
         <div key={g.label} style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
           <span style={{ width: 52, fontSize: 9, color: "#666", flexShrink: 0 }}>{g.label}</span>
@@ -204,6 +207,7 @@ function MathOpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Ma
 
 export const mathOpNodeType: NodeTypeDefinition<MathOpData> = {
   type: "math-op",
+  docs: {},
   component: MathOpRenderer,
   propertiesPanel: MathOpPropertiesPanel,
   ports,

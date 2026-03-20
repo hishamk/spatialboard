@@ -14,7 +14,7 @@ function ImageNodeRenderer(props: NodeRendererProps<ImageNodeData>) {
       interactive={props.interactive}
       zoom={props.zoom}
       onResizeHandleDown={props.callbacks.onResizeHandleDown}
-      cropping={props.editing}
+      cropping={!!props.cropping}
       onCropStart={() => props.callbacks.onEditStart?.(node.id)}
       onCropEnd={() => props.callbacks.onEditEnd?.()}
     />

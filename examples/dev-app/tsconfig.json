@@ -13,8 +13,10 @@
     "noEmit": true,
     "paths": {
       "spatialboard": ["../../src/index.ts"],
-      "spatialboard/*": ["../../src/*"]
+      "spatialboard/*": ["../../src/*"],
+      "@spatialboard-exemplars": ["../../../llm-guidance/spatialboard-exemplars/loaders/index.ts"],
+      "@spatialboard-exemplars/*": ["../../../llm-guidance/spatialboard-exemplars/loaders/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../../../llm-guidance/spatialboard-exemplars/loaders/**/*.ts"]
 }

@@ -274,6 +274,24 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
     if (node.data.targetHandle) {
       attrs.push(`targetHandle="${node.data.targetHandle}"`);
     }
+    if (node.data.sourcePort) {
+      attrs.push(`sourcePort="${node.data.sourcePort.replace(/"/g, "&quot;")}"`);
+    }
+    if (node.data.targetPort) {
+      attrs.push(`targetPort="${node.data.targetPort.replace(/"/g, "&quot;")}"`);
+    }
+    if (node.data.sourceT != null) {
+      attrs.push(`sourceT="${node.data.sourceT}"`);
+    }
+    if (node.data.targetT != null) {
+      attrs.push(`targetT="${node.data.targetT}"`);
+    }
+    if (node.data.attachmentGap != null && node.data.attachmentGap !== 0) {
+      attrs.push(`attachmentGap="${node.data.attachmentGap}"`);
+    }
+    if (node.data.roughness != null && node.data.roughness !== 0) {
+      attrs.push(`roughness="${node.data.roughness}"`);
+    }
     if (node.data.midpointOffset != null && node.data.midpointOffset !== 0.5) {
       attrs.push(`midpointOffset="${node.data.midpointOffset}"`);
     }

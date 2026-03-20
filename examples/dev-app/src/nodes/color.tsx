@@ -6,12 +6,14 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 
 // ── Data shape ──────────────────────────────────────────────
 
 export interface ColorData {
   color: string;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -153,6 +155,7 @@ function ColorPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Col
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Color</span>
         <input
@@ -198,6 +201,7 @@ function ColorPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<Col
 
 export const colorNodeType: NodeTypeDefinition<ColorData> = {
   type: "color",
+  docs: {},
   component: ColorRenderer,
   propertiesPanel: ColorPropertiesPanel,
   ports,

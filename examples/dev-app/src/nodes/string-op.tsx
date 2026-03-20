@@ -6,6 +6,7 @@ import type {
   PortDefinition,
   PortValue,
 } from "spatialboard";
+import { ShowEdgeComputeOverlayField } from "./show-edge-compute-overlay-field";
 import { useCallback } from "react";
 
 // ── Data shape ──────────────────────────────────────────────
@@ -22,6 +23,7 @@ export interface StringOpData {
   sliceStart: number;
   sliceEnd: number;
   accentColor: string;
+  showEdgeComputeOverlay?: boolean;
 }
 
 // ── Ports ───────────────────────────────────────────────────
@@ -207,6 +209,7 @@ function StringOpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
   return (
     <>
+      <ShowEdgeComputeOverlayField data={data} updateData={updateData} />
       <div style={row}>
         <span style={label}>Mode</span>
         {MODE_INFO.map((m) => (
@@ -259,6 +262,7 @@ function StringOpPropertiesPanel({ data, updateData }: NodePropertiesPanelProps<
 
 export const stringOpNodeType: NodeTypeDefinition<StringOpData> = {
   type: "string-op",
+  docs: {},
   component: StringOpRenderer,
   propertiesPanel: StringOpPropertiesPanel,
   ports,

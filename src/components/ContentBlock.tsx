@@ -6,6 +6,7 @@ import type { ContentNode } from "../engine/types";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type { SBDSchema } from "../schema";
 import { getRotatedCursor } from "../interactions/resize-cursors";
+import { applyCornerAspectLock } from "../interactions/resize-aspect";
 
 // ---------------------------------------------------------------------------
 // Error Boundary – catches ProseMirror/TipTap mount crashes (e.g. the known
@@ -616,6 +617,24 @@ function ContentBlock({
           if (handle === "nw" || handle === "n" || handle === "ne") {
             newY = origY + origH - 60;
           }
+        }
+
+        if (me.shiftKey) {
+          const locked = applyCornerAspectLock(
+            handle,
+            origX,
+            origY,
+            origW,
+            origH,
+            newX,
+            newY,
+            newW,
+            newH,
+          );
+          newX = locked.x;
+          newY = locked.y;
+          newW = locked.w;
+          newH = locked.h;
         }
 
         engine.updateNode(node.id, { x: newX, y: newY, w: newW, h: newH });
