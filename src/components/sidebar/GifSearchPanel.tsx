@@ -307,6 +307,8 @@ function GifThumbnail({
 }) {
   const thumb = item.file.sm.webp;
   const aspectRatio = thumb.width / thumb.height;
+  /** After a successful drop, some browsers still emit a click on the source — skip it to avoid double placement. */
+  const suppressClickUntilRef = useRef(0);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -316,12 +318,31 @@ function GifThumbnail({
     [item],
   );
 
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.dropEffect !== "none") {
+      suppressClickUntilRef.current = performance.now() + 450;
+    }
+  }, []);
+
+  const handleClick = useCallback(
+    (ev: React.MouseEvent) => {
+      if (performance.now() < suppressClickUntilRef.current) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      onClick();
+    },
+    [onClick],
+  );
+
   return (
     <button
       title={item.title}
-      onClick={onClick}
+      onClick={handleClick}
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       style={{
         border: `1px solid ${theme.border}`,
         borderRadius: theme.controlBorderRadius,

@@ -191,6 +191,15 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     engine.deleteSelected();
   };
 
+  /**
+   * Stops default insertion and blocks other bubble listeners on the same target
+   * (e.g. a second `paste` listener on `document` from a duplicate handler registration).
+   */
+  const consumePasteEvent = (ev: ClipboardEvent) => {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  };
+
   // ── Paste event ─────────────────────────────────────────────────
   const onPaste = async (e: ClipboardEvent) => {
     if (isEditorTarget(e.target as HTMLElement)) return;
@@ -209,16 +218,25 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
       // Same-tab paste: lastWrittenText matches → use internal clipboard
       const isSameTab = lastWrittenText !== null && text === lastWrittenText;
       if (isSameTab && engine.hasClipboard()) {
-        e.preventDefault();
+        consumePasteEvent(e);
         engine.pasteClipboard(x, y);
         return;
       }
       // Cross-tab/window paste: extract embedded node data from HTML
       const embedded = extractEmbeddedNodes(html);
       if (embedded) {
-        e.preventDefault();
+        consumePasteEvent(e);
         engine.setClipboard(embedded);
         engine.pasteClipboard(x, y);
+        return;
+      }
+      // HTML still looks like ours but embedded data failed — avoid falling through
+      // to image/HTML paths (would paste twice or paste the wrong representation).
+      if (html.includes(SBD_MARKER) || html.includes("data-sbd-nodes=")) {
+        consumePasteEvent(e);
+        if (engine.hasClipboard()) {
+          engine.pasteClipboard(x, y);
+        }
         return;
       }
     }
@@ -228,9 +246,9 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     if (items) {
       for (const item of Array.from(items)) {
         if (item.type.startsWith("image/")) {
-          e.preventDefault();
           const file = item.getAsFile();
           if (!file) continue;
+          consumePasteEvent(e);
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
@@ -278,7 +296,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     const svgSource =
       extractSvgMarkup(text) ?? extractSvgMarkup(html);
     if (svgSource) {
-      e.preventDefault();
+      consumePasteEvent(e);
       const pos = engine.screenToCanvas(lastClientX, lastClientY);
       const node = await svgTextToImageNode(
         svgSource,
@@ -297,7 +315,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     if (isYouTubeUrl(text)) {
       const videoId = extractYouTubeVideoId(text);
       if (videoId) {
-        e.preventDefault();
+        consumePasteEvent(e);
         const node: YouTubeNode = {
           id: nanoid(10),
           type: "youtube",
@@ -324,7 +342,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
       try {
         const blocks = htmlToBlocks(cleanHtml);
         if (blocks.length > 0) {
-          e.preventDefault();
+          consumePasteEvent(e);
           const node: ContentNode = {
             id: nanoid(10),
             type: "content",
@@ -346,7 +364,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
 
     // 5) Plain text fallback
     if (text.trim()) {
-      e.preventDefault();
+      consumePasteEvent(e);
       const blocks = await markdownToBlocks(text);
       const node: ContentNode = {
         id: nanoid(10),
@@ -365,7 +383,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
 
     // 6) Fall back to internal clipboard
     if (engine.hasClipboard()) {
-      e.preventDefault();
+      consumePasteEvent(e);
       engine.pasteClipboard(x, y);
     }
   };

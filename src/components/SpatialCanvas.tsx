@@ -562,6 +562,8 @@ export default function SpatialCanvas({
 }) {
   const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Some browsers / host apps deliver two `drop` events for one OS file drop — coalesce by file + position. */
+  const lastOsFileDropRef = useRef<{ sig: string; at: number } | null>(null);
   /** Get the ownerDocument of the canvas container (supports pop-out windows). */
   const ownerDoc = () => containerRef.current?.ownerDocument ?? document;
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -4586,6 +4588,19 @@ export default function SpatialCanvas({
 
       const file = e.dataTransfer.files[0];
       if (!file) return;
+
+      const dropSig = `${file.name}|${file.size}|${file.lastModified}|${Math.round(e.clientX)}|${Math.round(e.clientY)}`;
+      const now = performance.now();
+      const prevDrop = lastOsFileDropRef.current;
+      if (prevDrop && prevDrop.sig === dropSig && now - prevDrop.at < 150) {
+        return;
+      }
+      lastOsFileDropRef.current = { sig: dropSig, at: now };
+      e.stopPropagation();
+      const ne = e.nativeEvent as DragEvent;
+      if (typeof ne.stopImmediatePropagation === "function") {
+        ne.stopImmediatePropagation();
+      }
 
       // Handle .excalidrawlib file drops
       if (file.name.endsWith(".excalidrawlib") || file.name.endsWith(".excalidrawlib.json")) {
