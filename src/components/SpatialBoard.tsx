@@ -64,6 +64,8 @@ export interface SpatialBoardProps {
    * Wires themselves are instantaneous — the timer is always for the **downstream** node's `compute`.
    */
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /** Open the frames/slides panel on mount. Default: false. */
+  initialFramesPanelOpen?: boolean;
 }
 
 export default function SpatialBoard({
@@ -81,6 +83,7 @@ export default function SpatialBoard({
   direction,
   localization,
   dataFlowEdgeOverlay = "off",
+  initialFramesPanelOpen = false,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -141,7 +144,7 @@ export default function SpatialBoard({
   const localizationValue = useSBLocalizationValue(direction, localization);
 
   const [presenting, setPresenting] = useState(false);
-  const [framesPanelOpen, setFramesPanelOpen] = useState(false);
+  const [framesPanelOpen, setFramesPanelOpen] = useState(initialFramesPanelOpen);
   const [minimapVisible, setMinimapVisible] = useState(true);
   const [showPerfOverlay, setShowPerfOverlay] = useState(false);
 

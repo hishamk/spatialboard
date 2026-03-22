@@ -25,6 +25,8 @@ export declare class DataFlowEngine {
     private listeners;
     /** Node IDs that are part of a cycle (updated after each topoSort). */
     private _cycleNodeIds;
+    /** Wall time of the last `compute` run per node (sync or async resolution), in ms. */
+    private lastComputeMs;
     constructor(spatial: SpatialEngine, registry: NodeTypeRegistry);
     /** Node IDs that are part of a dependency cycle (read-only). */
     get cycleNodeIds(): ReadonlySet<string>;
@@ -36,6 +38,12 @@ export declare class DataFlowEngine {
     getInputs(nodeId: string): Record<string, PortValue>;
     /** Get all output values for a node. */
     getOutputs(nodeId: string): Record<string, PortValue>;
+    /**
+     * Milliseconds for the target node's last `compute` invocation (sync wall time, or
+     * async time until the promise settled). Undefined if that node has not run yet.
+     * Note: edges do not "process" data — this attributes cost to the downstream node.
+     */
+    getLastComputeMs(nodeId: string): number | undefined;
     /** Get all port values (inputs + outputs) for a node. */
     getAllPortValues(nodeId: string): Record<string, PortValue>;
     /** Mark a node as dirty and schedule recomputation. */

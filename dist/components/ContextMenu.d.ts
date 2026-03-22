@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 export interface ContextMenuItem {
     label: string;
     shortcut?: string;
@@ -5,6 +6,10 @@ export interface ContextMenuItem {
     danger?: boolean;
     disabled?: boolean;
     checked?: boolean;
+    /** Optional leading icon (e.g. Lucide). */
+    icon?: ReactNode;
+    /** Non-interactive subsection title (e.g. alignment groups). */
+    kind?: "header";
 }
 export interface ContextMenuSection {
     items: ContextMenuItem[];

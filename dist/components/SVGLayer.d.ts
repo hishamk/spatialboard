@@ -1,6 +1,9 @@
 import type { SpatialNode, EdgeType, Viewport, HandleSide, Mode } from "../engine/types";
 import type { NodeTypeRegistry } from "../nodes/registry";
+import type { PortValue } from "../engine/data-flow-types";
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+/** Optional captions on port edges: port names and/or downstream `compute` wall time. */
+export type DataFlowEdgeOverlay = "off" | "ports" | "ports+compute";
 interface SVGLayerProps {
     nodes: SpatialNode[];
     viewport: Viewport;
@@ -75,6 +78,12 @@ interface SVGLayerProps {
     onPortHandleDown?: (nodeId: string, portId: string, direction: "input" | "output", e: React.PointerEvent<SVGCircleElement>) => void;
     /** Node IDs that are part of a dependency cycle. */
     cycleNodeIds?: ReadonlySet<string>;
+    /** When not `off`, port-connected edges show `sourcePort → targetPort`; `ports+compute` adds target node's last `compute` duration. */
+    dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+    /** From `DataFlowEngine.getLastComputeMs` — used when `dataFlowEdgeOverlay` is `ports+compute`. */
+    getLastComputeMs?: (nodeId: string) => number | undefined;
+    /** From `DataFlowEngine.getPortValue` — shows (!) on port edges when the target's `error`/`err` output is non-empty. */
+    getDataFlowPortValue?: (nodeId: string, portId: string) => PortValue;
     /** Node types that act as containers (frame-like). Used for edge snapping priority. */
     containerTypes?: ReadonlySet<string>;
     /** Alignment guide lines shown during drag. */
@@ -95,5 +104,5 @@ interface SVGLayerProps {
  *
  * Node rendering has been moved to SVGNodeBlock in the unified DOM layer.
  */
-export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, freeFormEdges, hoveredNodeId, cursorCanvasPos, registry, onPortHandleDown, cycleNodeIds, containerTypes, alignGuides, suppressNodeOverlayId, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
+export default function SVGLayer({ nodes, viewport, selection, measuredHeights, activeStroke, shapePreview, shapePreviewStyle, onResizeHandleDown, onRotateStart, onConnectionHandleDown, onEdgeEndpointDown, onKinkHandleDown, edgePreview, edgeReconnect, eraserMarkedIds, eraserTrail, laserTrail, mode, freeFormEdges, hoveredNodeId, cursorCanvasPos, registry, onPortHandleDown, cycleNodeIds, dataFlowEdgeOverlay, getLastComputeMs, getDataFlowPortValue, containerTypes, alignGuides, suppressNodeOverlayId, }: SVGLayerProps): import("react/jsx-runtime").JSX.Element;
 export {};

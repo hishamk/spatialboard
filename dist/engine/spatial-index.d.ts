@@ -4,6 +4,12 @@ import type { SpatialNode, DrawNode } from "./types";
  * If the node has no rotation, returns the point unchanged.
  */
 export declare function toLocal(node: SpatialNode, canvasX: number, canvasY: number, h: number): [number, number];
+/**
+ * Shortest distance from a canvas point to the boundary of the node's
+ * axis-aligned rectangle in local (unrotated) space. Used to prefer edge
+ * picks when a connector passes through a full bounding-box hit target.
+ */
+export declare function distancePointToBoxNodeBorder(node: SpatialNode, canvasX: number, canvasY: number, measuredHeights?: Record<string, number>): number;
 export declare function hitTest(nodes: Map<string, SpatialNode>, canvasX: number, canvasY: number, zoom?: number, measuredHeights?: Record<string, number>, containerTypes?: ReadonlySet<string>): SpatialNode | null;
 /** Precise hit test for shape nodes — checks actual geometry, not just bounding box.
  *  When `interior` is true, the interior of closed shapes (rect/ellipse/diamond)

@@ -1,6 +1,13 @@
 import type { SpatialNode, Viewport, Mode, ActiveTool, NodeType } from "./types";
-import type { NodeTypeRegistry } from "../nodes/registry";
+import type { NodeTypeRegistry, SpatialNodeTypeCatalogEntry } from "../nodes/registry";
+import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
+import type { RectDragAwareness } from "../collab/rect-drag-awareness";
+import type { EraserAwareness } from "../collab/eraser-awareness";
 export type BoardBackground = "plain-white" | "dot-grid" | "engineering" | "blueprint" | "dark-grid" | "japanese-stationery" | "kraft";
+/** Multi-select contextual alignment relative to the union of selected node bounds. */
+export type SelectionAlignMode = "left" | "centerH" | "right" | "top" | "centerV" | "bottom";
+/** Equal spacing between consecutive items along an axis (sorted by position). */
+export type SelectionDistributeAxis = "horizontal" | "vertical";
 export interface AlignGuide {
     axis: 'x' | 'y';
     position: number;
@@ -52,6 +59,7 @@ type EventMap = {
         color: string;
         width: number;
         strokeStyle?: string;
+        opacity?: number;
     }) => void;
     'draw:end': () => void;
     'shape:progress': (preview: {
@@ -62,8 +70,20 @@ type EventMap = {
         shapeType: string;
         stroke: string;
         strokeWidth: number;
+        opacity?: number;
+        roughness?: number;
+        fill?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        strokeStyle?: "solid" | "dashed" | "dotted";
+        edgeStyle?: "sharp" | "round";
     }) => void;
     'shape:end': () => void;
+    'edge:progress': (preview: EdgeCreationAwareness) => void;
+    'edge:end': () => void;
+    'rectDrag:progress': (preview: RectDragAwareness) => void;
+    'rectDrag:end': () => void;
+    'eraser:progress': (preview: EraserAwareness) => void;
+    'eraser:end': () => void;
     'laser:progress': (trail: Array<[number, number]>) => void;
     'laser:end': () => void;
     'group:enter': (groupId: string) => void;
@@ -143,6 +163,13 @@ export declare class SpatialEngine {
     private _search;
     /** Set the node type registry for lifecycle hooks. */
     setRegistry(registry: NodeTypeRegistry): void;
+    /** Registry used by the canvas (remote edge preview, hooks). */
+    getRegistry(): NodeTypeRegistry | undefined;
+    /**
+     * All registered node types (built-in + custom from `SpatialBoard` `nodeTypes`).
+     * Empty until `setRegistry` runs (after mount). Intended for agents / MCP discovery.
+     */
+    getNodeTypeCatalog(): SpatialNodeTypeCatalogEntry[];
     /** Enable collaborative mode. Disables local snapshot history. */
     setCollabMode(enabled: boolean): void;
     /** Whether the engine is in collaborative mode. */
@@ -363,6 +390,22 @@ export declare class SpatialEngine {
     private flipSelected;
     flipSelectedHorizontal(): void;
     flipSelectedVertical(): void;
+    /**
+     * Re-layout selected nodes in one undo step: layered left-to-right flow when
+     * selected edges form a DAG (with barycenter crossing reduction), otherwise a
+     * tidy reading-order grid; then overlap refinement for nodes and estimated
+     * wire labels. Skips edges and locked nodes.
+     */
+    arrangeSelectedNodes(measuredHeights?: Record<string, number>, labelLayoutZoom?: number): void;
+    /** Axis alignment for multi-select (union bbox reference). Skips edges and locked nodes. */
+    alignSelectedNodes(mode: SelectionAlignMode, measuredHeights?: Record<string, number>): void;
+    /**
+     * Even spacing between adjacent items along `axis` (sort by min edge on that axis).
+     * Gaps are never negative: if the union bbox is narrower than the sum of sizes,
+     * uses zero gap and centers the packed strip on the original bbox so nothing overlaps.
+     * Skips edges and locked nodes.
+     */
+    distributeSelectedNodes(axis: SelectionDistributeAxis, measuredHeights?: Record<string, number>): void;
     groupSelected(): void;
     ungroupSelected(): void;
     selectionHasGroup(): boolean;
@@ -421,6 +464,7 @@ export declare class SpatialEngine {
         color: string;
         width: number;
         strokeStyle?: string;
+        opacity?: number;
     }): void;
     /** Emit draw end when a stroke is completed or cancelled. */
     notifyDrawEnd(): void;
@@ -433,9 +477,25 @@ export declare class SpatialEngine {
         shapeType: string;
         stroke: string;
         strokeWidth: number;
+        opacity?: number;
+        roughness?: number;
+        fill?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        strokeStyle?: "solid" | "dashed" | "dotted";
+        edgeStyle?: "sharp" | "round";
     }): void;
     /** Emit shape end when shape creation is completed or cancelled. */
     notifyShapeEnd(): void;
+    /** Emit edge creation drag progress for collab preview. */
+    notifyEdgeProgress(preview: EdgeCreationAwareness): void;
+    /** Emit when edge creation drag ends (commit or cancel). */
+    notifyEdgeEnd(): void;
+    /** Frame / text / note / sticky rectangle drag preview for collab. */
+    notifyRectDragProgress(preview: RectDragAwareness): void;
+    notifyRectDragEnd(): void;
+    /** Eraser drag trail + marked node IDs for collab preview. */
+    notifyEraserProgress(preview: EraserAwareness): void;
+    notifyEraserEnd(): void;
     /** Emit laser pointer progress for collab trail preview. */
     notifyLaserProgress(trail: Array<[number, number]>): void;
     /** Emit laser pointer end when trail has fully faded. */

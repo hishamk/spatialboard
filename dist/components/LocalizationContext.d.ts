@@ -1,4 +1,9 @@
 export type SpatialBoardDirection = "ltr" | "rtl" | "auto";
+/** One custom node’s inspector help; keyed by `NodeTypeDefinition.docs.id` or node `type`. */
+export interface CustomNodeDocEntry {
+    title?: string;
+    body: string;
+}
 export interface SpatialBoardLocalization {
     inspectorTitle: string;
     autoHide: string;
@@ -35,6 +40,9 @@ export interface SpatialBoardLocalization {
     canvasSearchPrev: string;
     canvasSearchNext: string;
     canvasSearchClose: string;
+    /** Minimap overlay (overview + viewport; click/drag to pan) */
+    minimapTitle: string;
+    toggleMinimap: string;
     undo: string;
     redo: string;
     slidesTitle: string;
@@ -95,6 +103,8 @@ export interface SpatialBoardLocalization {
     edgeStep: string;
     edgeAnimate: string;
     edgeDirection: string;
+    /** Shown when edge uses ports — animation follows data flow only */
+    edgeAnimationPortHint: string;
     edgeText: string;
     edgeLabelPlaceholder: string;
     frameLabelPlaceholder: string;
@@ -185,6 +195,19 @@ export interface SpatialBoardLocalization {
     actionCopy: string;
     actionPaste: string;
     actionDuplicate: string;
+    /** Multi-select: auto-layout (DAG layers + barycenter, or tidy grid). */
+    actionArrangeSelection: string;
+    /** Context menu: alignment subsection titles */
+    alignMenuHorizontal: string;
+    alignMenuVertical: string;
+    alignLeft: string;
+    alignCenterHorizontal: string;
+    alignRight: string;
+    alignTop: string;
+    alignCenterVertical: string;
+    alignBottom: string;
+    alignDistributeHorizontal: string;
+    alignDistributeVertical: string;
     actionAddToPersonalLibrary: string;
     actionGroupSelection: string;
     actionUngroupSelection: string;
@@ -210,6 +233,14 @@ export interface SpatialBoardLocalization {
     typeFrame: string;
     typeStickyNote: string;
     typeYouTube: string;
+    /** Expand/collapse control for custom-node inspector help (?). */
+    inspectorNodeHelpShow: string;
+    inspectorNodeHelpHide: string;
+    /**
+     * Inspector help for registered custom node types. Keys match each node’s `type`
+     * string, or `docs.id` when set. Merge with defaults: `{ ...DEFAULT_SB_LOCALIZATION.customNodeDocs, ...yours }`.
+     */
+    customNodeDocs: Record<string, CustomNodeDocEntry>;
 }
 export declare const DEFAULT_LOCALIZATION: SpatialBoardLocalization;
 export interface SBLocalizationContextValue {

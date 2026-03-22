@@ -1,17 +1,52 @@
 import type { SpatialNode, EdgeNode, EdgeType, HandleSide } from "./types";
 import type { PortDefinition } from "./data-flow-types";
 /**
- * Compute the canvas-space position of a specific port on a node.
- *
- * Returns `null` if the port ID is not found in the port list.
- *
- * @param node       The spatial node
- * @param ports      Port definitions for this node type
- * @param portId     The port ID to locate
- * @param zoom       Current viewport zoom (needed because offset is screen-px based)
- * @param measuredH  Optional measured heights map
+ * Port anchor sits this many **screen pixels** outside the node box (÷ zoom → canvas).
+ * Keep small so ports hug the node; wire hit-testing still uses the same anchor as rendering.
  */
-export declare function getPortPosition(node: SpatialNode, ports: PortDefinition[], portId: string, zoom: number, measuredH?: Record<string, number>): {
+export declare const PORT_ANCHOR_OUTSIDE_PX = 7;
+/** Screen-space snap radius when releasing a drag to connect to a port. */
+export declare const PORT_EDGE_SNAP_RADIUS_PX = 52;
+/**
+ * Screen-space radius from port center to show drag-target highlight only when the cursor
+ * is on the port dot (rendered ~6px radius + stroke in SVGLayer).
+ */
+export declare const PORT_DOT_HIGHLIGHT_RADIUS_PX = 8;
+/**
+ * Canvas coordinates for a point in the node's unrotated AABB space
+ * (same convention as stacked port placement).
+ */
+export declare function nodeLocalPointToCanvas(node: SpatialNode, localX: number, localY: number, measuredH?: Record<string, number>): {
+    x: number;
+    y: number;
+};
+/** How port dots attach to the node rect. */
+export type PortAnchorMode = "bbox" | "inscribed-circle";
+/**
+ * Unrotated canvas coordinates for the port connector dot (same frame as `node.x` / `node.y`).
+ * Matches the SVG port layer when the parent `<g>` uses `rotate(..., ncx, ncy)`.
+ */
+export declare function getPortOuterLocal(node: SpatialNode, ports: PortDefinition[], portId: string, zoom: number, measuredH?: Record<string, number>, portAnchor?: PortAnchorMode): {
+    px: number;
+    py: number;
+    direction: "input" | "output";
+} | null;
+/**
+ * Inner end of the port stub (on the node body) in unrotated coordinates.
+ * For `inscribed-circle`, the point lies on the rim toward the outer dot.
+ */
+export declare function getPortStubInnerLocal(node: SpatialNode, direction: "input" | "output", outerLocal: {
+    x: number;
+    y: number;
+}, measuredH?: Record<string, number>, portAnchor?: PortAnchorMode): {
+    x: number;
+    y: number;
+};
+/**
+ * Compute the canvas-space position of a specific port on a node.
+ * Returns `null` if the port ID is not found in the port list.
+ */
+export declare function getPortPosition(node: SpatialNode, ports: PortDefinition[], portId: string, zoom: number, measuredH?: Record<string, number>, portAnchor?: PortAnchorMode): {
     x: number;
     y: number;
 } | null;
@@ -147,6 +182,19 @@ export type PortPositionResolver = (edge: EdgeNode, fromNode: SpatialNode, toNod
         y: number;
     };
 };
+/**
+ * Canvas-space pick radius for an edge, aligned with SVGLayer's invisible hit stroke:
+ * stroke width max(sw + 16/zoom, 20/zoom) → half-width in canvas units.
+ */
+export declare function edgePickTolerance(edge: EdgeNode, zoom: number): number;
+export type ClosestEdgeHit = {
+    node: SpatialNode;
+    distance: number;
+};
+/**
+ * Closest edge whose path lies within per-edge pick tolerance of the point.
+ */
+export declare function getClosestEdgeHit(nodes: Map<string, SpatialNode>, canvasX: number, canvasY: number, zoom: number, measuredHeights?: Record<string, number>, resolvePortPositions?: PortPositionResolver): ClosestEdgeHit | null;
 /**
  * Hit-test edges: find ALL edges within tolerance of a canvas point.
  */

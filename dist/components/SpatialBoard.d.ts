@@ -1,4 +1,5 @@
 import { SpatialEngine } from "../engine/SpatialEngine";
+import type { DataFlowEdgeOverlay } from "./SVGLayer";
 import type { DebugBoardEntry } from "./DebugPanel";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
@@ -32,5 +33,13 @@ export interface SpatialBoardProps {
     direction?: SpatialBoardDirection;
     /** Override UI labels for board chrome. */
     localization?: Partial<SpatialBoardLocalization>;
+    /**
+     * When data-flow is active (`nodeTypes` with ports): optional captions on port edges.
+     * `ports` shows `sourcePort → targetPort`. `ports+compute` adds the target node's last `compute` wall time.
+     * Wires themselves are instantaneous — the timer is always for the **downstream** node's `compute`.
+     */
+    dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+    /** Open the frames/slides panel on mount. Default: false. */
+    initialFramesPanelOpen?: boolean;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
