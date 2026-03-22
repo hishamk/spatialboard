@@ -99,9 +99,24 @@ type EventMap = {
   'node:select': (node: SpatialNode) => void;
   'node:deselect': (node: SpatialNode) => void;
   'node:data': (node: SpatialNode, oldData: unknown, newData: unknown) => void;
-  'draw:progress': (stroke: { points: Array<[number, number, number]>; color: string; width: number; strokeStyle?: string }) => void;
+  'draw:progress': (stroke: {
+    points: Array<[number, number, number]>;
+    color: string;
+    width: number;
+    strokeStyle?: string;
+    opacity?: number;
+  }) => void;
   'draw:end': () => void;
-  'shape:progress': (preview: { startX: number; startY: number; endX: number; endY: number; shapeType: string; stroke: string; strokeWidth: number }) => void;
+  'shape:progress': (preview: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    shapeType: string;
+    stroke: string;
+    strokeWidth: number;
+    opacity?: number;
+  }) => void;
   'shape:end': () => void;
   'laser:progress': (trail: Array<[number, number]>) => void;
   'laser:end': () => void;
@@ -3047,7 +3062,13 @@ export class SpatialEngine {
   }
 
   /** Emit draw progress for collab live stroke preview. */
-  notifyDrawProgress(stroke: { points: Array<[number, number, number]>; color: string; width: number; strokeStyle?: string }): void {
+  notifyDrawProgress(stroke: {
+    points: Array<[number, number, number]>;
+    color: string;
+    width: number;
+    strokeStyle?: string;
+    opacity?: number;
+  }): void {
     this.emit("draw:progress", stroke);
   }
 
@@ -3057,7 +3078,16 @@ export class SpatialEngine {
   }
 
   /** Emit shape progress for collab live shape preview. */
-  notifyShapeProgress(preview: { startX: number; startY: number; endX: number; endY: number; shapeType: string; stroke: string; strokeWidth: number }): void {
+  notifyShapeProgress(preview: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    shapeType: string;
+    stroke: string;
+    strokeWidth: number;
+    opacity?: number;
+  }): void {
     this.emit("shape:progress", preview);
   }
 

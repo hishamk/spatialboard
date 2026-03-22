@@ -99,6 +99,8 @@ export { markdownToBlocks } from "./serialization/blocknote-markdown";
 // ── Utilities ────────────────────────────────────────────────
 export { setupKeyboardHandler } from "./interactions/keyboard-handler";
 export { getStrokePath } from "./rendering/freehand";
+export { strokeStyleToDash } from "./rendering/rough-shapes";
+export { prefersSafariWebKitViewportWorkaround } from "./utils/safari-viewport-raster";
 
 // ── Styles (consumers import as: import 'spatialboard/style.css') ──
 import "./styles/index.css";

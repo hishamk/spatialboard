@@ -789,7 +789,25 @@ export default function SpatialCanvas({
       updateOffset();
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    // Scroll/resize move getBoundingClientRect without always firing ResizeObserver
+    // (e.g. page scroll, browser zoom). Keeps collab cursor overlay aligned with the canvas.
+    const onScrollOrResize = () => updateOffset();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", onScrollOrResize);
+      vv.addEventListener("scroll", onScrollOrResize);
+    }
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+      if (vv) {
+        vv.removeEventListener("resize", onScrollOrResize);
+        vv.removeEventListener("scroll", onScrollOrResize);
+      }
+    };
   }, [engine]);
 
   // Measured heights for auto-height content blocks (for accurate selBounds)
@@ -2797,9 +2815,9 @@ export default function SpatialCanvas({
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
           ownerDoc().removeEventListener("pointerup", onUp);
-          engine.notifyDrawEnd();
 
           if (stroke.points.length < 2) {
+            engine.notifyDrawEnd();
             setActiveStroke(null);
             return;
           }
@@ -2840,11 +2858,15 @@ export default function SpatialCanvas({
               strokeStyle: engine.activeTool.strokeStyle || undefined,
             },
           } as DrawNode);
-          // Defer clearing the active stroke preview to the same animation frame
-          // as the engine's RAF-based setNodes(). This ensures React batches both
-          // updates into a single render, preventing a 1-frame flicker where
-          // neither the preview nor the committed DrawNode is visible.
-          requestAnimationFrame(() => setActiveStroke(null));
+          // Clear local preview on the next frame (matches engine node paint), then
+          // end collab live-stroke one frame later so peers keep the overlay until
+          // Yjs has a chance to apply the new draw node (avoids a one-frame gap).
+          requestAnimationFrame(() => {
+            setActiveStroke(null);
+            requestAnimationFrame(() => {
+              engine.notifyDrawEnd();
+            });
+          });
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -2860,6 +2882,7 @@ export default function SpatialCanvas({
           shapeType: engine.activeTool.shapeType || "rect",
           stroke: engine.activeTool.color,
           strokeWidth: engine.activeTool.width,
+          opacity: engine.activeTool.opacity ?? 1,
         };
 
         const onMove = (me: PointerEvent) => {
@@ -2872,7 +2895,6 @@ export default function SpatialCanvas({
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
           ownerDoc().removeEventListener("pointerup", onUp);
-          engine.notifyShapeEnd();
 
           const shapeType = engine.activeTool.shapeType || "rect";
           const isLinear = shapeType === "line" || shapeType === "arrow";
@@ -2895,6 +2917,7 @@ export default function SpatialCanvas({
           }
 
           if (w < 5 && (isLinear ? w < 5 && Math.abs(preview.endY - preview.startY) < 5 : h < 5)) {
+            engine.notifyShapeEnd();
             setShapePreview(null);
             return;
           }
@@ -2933,7 +2956,12 @@ export default function SpatialCanvas({
               ...lineData,
             },
           } as ShapeNode);
-          setShapePreview(null);
+          requestAnimationFrame(() => {
+            setShapePreview(null);
+            requestAnimationFrame(() => {
+              engine.notifyShapeEnd();
+            });
+          });
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
