@@ -207,7 +207,7 @@ export default function BottomBar({
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Zoom controls */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+      <div data-sb-bar-zoom style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title={labels.zoomOut}
           onClick={() => zoomOut(engine)}
@@ -246,7 +246,7 @@ export default function BottomBar({
       </div>
 
       {/* Fit to content + Origin view */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+      <div data-sb-bar-nav style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title={labels.fitToContent}
           onClick={() => engine.fitToContent()}
@@ -297,7 +297,7 @@ export default function BottomBar({
       </div>
 
       {/* Present & Slides */}
-      <div style={{ ...pill, overflow: "visible", background: pillBg, border, boxShadow: theme.panelShadow }}>
+      <div data-sb-bar-present style={{ ...pill, overflow: "visible", background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title={labels.presentSlides}
           onClick={() => engine.enterPresentation()}
@@ -382,7 +382,7 @@ export default function BottomBar({
       </div>
 
       {/* Undo / Redo */}
-      <div style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+      <div data-sb-bar-history style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button
           title={labels.undo}
           onClick={() => engine.undo()}
