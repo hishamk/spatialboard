@@ -40,6 +40,7 @@ import {
 } from "./sidebar/PropertyHistoryCoalesceContext";
 import { extractSvgMarkup, placeSvgOnCanvas } from "../utils/svg-import";
 import { prefersSafariWebKitViewportWorkaround } from "../utils/safari-viewport-raster";
+import { serializeEdgeCreationAwareness } from "../collab/edge-creation-awareness";
 import ContentBlock from "./ContentBlock";
 import SVGNodeBlock from "./SVGNodeBlock";
 import ImageBlock from "./ImageBlock";
@@ -763,6 +764,41 @@ export default function SpatialCanvas({
     attachmentGap?: number;
   } | null>(null);
 
+  const prevEdgePreviewRef = useRef(edgePreview);
+  useEffect(() => {
+    const had = prevEdgePreviewRef.current;
+    prevEdgePreviewRef.current = edgePreview;
+    if (edgePreview) {
+      engine.notifyEdgeProgress(serializeEdgeCreationAwareness(edgePreview));
+    } else if (had) {
+      engine.notifyEdgeEnd();
+    }
+  }, [edgePreview, engine]);
+
+  const prevFrameRectDragRef = useRef(shapePreview);
+  useEffect(() => {
+    if (engine.mode !== "frame") {
+      if (prevFrameRectDragRef.current) {
+        engine.notifyRectDragEnd();
+      }
+      prevFrameRectDragRef.current = null;
+      return;
+    }
+    const prev = prevFrameRectDragRef.current;
+    prevFrameRectDragRef.current = shapePreview;
+    if (shapePreview) {
+      engine.notifyRectDragProgress({
+        kind: "frame",
+        startX: shapePreview.startX,
+        startY: shapePreview.startY,
+        endX: shapePreview.endX,
+        endY: shapePreview.endY,
+      });
+    } else if (prev) {
+      engine.notifyRectDragEnd();
+    }
+  }, [shapePreview, engine.mode, engine]);
+
   const [edgeReconnect, setEdgeReconnect] = useState<{
     edgeId: string;
     endpoint: "source" | "target";
@@ -1442,6 +1478,41 @@ export default function SpatialCanvas({
     endY: number;
   } | null>(null);
 
+  const prevTextRectDragRef = useRef(textPreview);
+  useEffect(() => {
+    const prev = prevTextRectDragRef.current;
+    const activeKind =
+      engine.mode === "text"
+        ? ("text" as const)
+        : engine.mode === "note"
+          ? ("note" as const)
+          : engine.mode === "sticky"
+            ? ("sticky" as const)
+            : null;
+
+    if (!activeKind) {
+      if (prev && !textPreview) {
+        engine.notifyRectDragEnd();
+      }
+      prevTextRectDragRef.current = textPreview;
+      return;
+    }
+
+    prevTextRectDragRef.current = textPreview;
+
+    if (textPreview) {
+      engine.notifyRectDragProgress({
+        kind: activeKind,
+        startX: textPreview.startX,
+        startY: textPreview.startY,
+        endX: textPreview.endX,
+        endY: textPreview.endY,
+      });
+    } else if (prev) {
+      engine.notifyRectDragEnd();
+    }
+  }, [textPreview, engine.mode, engine]);
+
   // Hover state — tracked centrally for all node types
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [cursorCanvasPos, setCursorCanvasPos] = useState<{ x: number; y: number } | null>(null);
@@ -1529,6 +1600,21 @@ export default function SpatialCanvas({
   } | null>(null);
   const eraserTrailRef = useRef<Array<[number, number, number]>>([]);
   const eraserFadeRafRef = useRef<number | null>(null);
+  const eraserCollabThrottleRef = useRef(0);
+  const emitEraserCollab = useCallback(
+    (force = false) => {
+      if (engine.mode !== "erase") return;
+      const t = performance.now();
+      if (!force && t - eraserCollabThrottleRef.current < 48) return;
+      eraserCollabThrottleRef.current = t;
+      const tr = eraserTrailRef.current;
+      engine.notifyEraserProgress({
+        trail: tr.length > 0 ? [...tr] : undefined,
+        markedIds: Array.from(eraserMarkedRef.current),
+      });
+    },
+    [engine],
+  );
 
   // Laser pointer state — purely visual trail that fades out
   const [laserTrail, setLaserTrail] = useState<Array<[number, number, number]>>([]);
@@ -2878,19 +2964,24 @@ export default function SpatialCanvas({
           endY: cy,
         };
         setShapePreview(preview);
-        const shapeInfo = {
-          shapeType: engine.activeTool.shapeType || "rect",
-          stroke: engine.activeTool.color,
-          strokeWidth: engine.activeTool.width,
-          opacity: engine.activeTool.opacity ?? 1,
-        };
 
         const onMove = (me: PointerEvent) => {
           const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
           preview.endX = x;
           preview.endY = y;
           setShapePreview({ ...preview });
-          engine.notifyShapeProgress({ ...preview, ...shapeInfo });
+          // Match SVGLayer `shapePreviewStyle` so remote peers see the same preview.
+          engine.notifyShapeProgress({
+            ...preview,
+            shapeType: engine.activeTool.shapeType || "rect",
+            stroke: engine.activeTool.color,
+            strokeWidth: engine.activeTool.width,
+            roughness: engine.activeTool.roughness ?? 1,
+            fill: engine.activeTool.fillColor,
+            fillStyle: engine.activeTool.fillStyle,
+            strokeStyle: engine.activeTool.strokeStyle,
+            opacity: engine.activeTool.opacity ?? 1,
+          });
         };
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
@@ -3159,21 +3250,22 @@ export default function SpatialCanvas({
           }
         };
 
-        const TRAIL_LIFETIME = 400; // ms — how long trail points live
+        const TRAIL_LIFETIME = 400; // ms — how long trail points live (Date.now() timestamps for remote parity)
 
         // Initialize trail and marks
         eraserMarkedRef.current = new Set();
-        const now = performance.now();
+        const now = Date.now();
         eraserTrailRef.current = [[cx, cy, now]];
         setEraserTrail([[cx, cy, now]]);
         markAt(cx, cy);
+        emitEraserCollab(true);
 
         let lastCx = cx;
         let lastCy = cy;
 
         // Continuous fade loop — trims old trail points every frame
         const fadeLoop = () => {
-          const t = performance.now();
+          const t = Date.now();
           const before = eraserTrailRef.current.length;
           eraserTrailRef.current = eraserTrailRef.current.filter(
             (p) => t - p[2] < TRAIL_LIFETIME
@@ -3181,6 +3273,7 @@ export default function SpatialCanvas({
           if (eraserTrailRef.current.length !== before) {
             setEraserTrail([...eraserTrailRef.current]);
           }
+          emitEraserCollab();
           eraserFadeRafRef.current = requestAnimationFrame(fadeLoop);
         };
         eraserFadeRafRef.current = requestAnimationFrame(fadeLoop);
@@ -3189,10 +3282,11 @@ export default function SpatialCanvas({
           const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
           lastCx = x;
           lastCy = y;
-          const t = performance.now();
+          const t = Date.now();
           eraserTrailRef.current.push([lastCx, lastCy, t]);
           setEraserTrail([...eraserTrailRef.current]);
           markAt(lastCx, lastCy);
+          emitEraserCollab(true);
         };
 
         const clearState = () => {
@@ -3200,6 +3294,7 @@ export default function SpatialCanvas({
             cancelAnimationFrame(eraserFadeRafRef.current);
             eraserFadeRafRef.current = null;
           }
+          engine.notifyEraserEnd();
           eraserMarkedRef.current = new Set();
           setEraserMarkedIds(new Set());
           eraserTrailRef.current = [];
@@ -3209,6 +3304,7 @@ export default function SpatialCanvas({
         const onUp = () => {
           cleanup();
           const ids = Array.from(eraserMarkedRef.current);
+          emitEraserCollab(true);
           clearState();
           if (ids.length > 0) {
             engine.deleteNodes(ids);
@@ -3218,6 +3314,7 @@ export default function SpatialCanvas({
         const onKeyDown = (ke: KeyboardEvent) => {
           if (ke.key === "Escape") {
             cleanup();
+            emitEraserCollab(true);
             clearState();
           }
         };
@@ -3635,6 +3732,8 @@ export default function SpatialCanvas({
         edgeColor: engine.activeTool.color,
         edgeStrokeWidth: engine.activeTool.width || 2,
         edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
+        edgeType: engine.activeTool.edgeType,
+        attachmentGap: engine.activeTool.attachmentGap,
       });
 
       const onMove = (me: PointerEvent) => {
@@ -3784,6 +3883,8 @@ export default function SpatialCanvas({
         edgeColor: engine.activeTool.color,
         edgeStrokeWidth: engine.activeTool.width || 2,
         edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
+        edgeType: engine.activeTool.edgeType,
+        attachmentGap: engine.activeTool.attachmentGap,
       });
 
       const onMove = (me: PointerEvent) => {
@@ -4512,8 +4613,9 @@ export default function SpatialCanvas({
       setEraserMarkedIds(new Set());
       eraserTrailRef.current = [];
       setEraserTrail([]);
+      engine.notifyEraserEnd();
     }
-  }, [mode]);
+  }, [mode, engine]);
 
   const pointerMoveRafRef = useRef<number | null>(null);
   const pointerMovePendingRef = useRef<{ clientX: number; clientY: number } | null>(null);

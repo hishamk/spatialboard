@@ -99,8 +99,25 @@ export { markdownToBlocks } from "./serialization/blocknote-markdown";
 // ── Utilities ────────────────────────────────────────────────
 export { setupKeyboardHandler } from "./interactions/keyboard-handler";
 export { getStrokePath } from "./rendering/freehand";
-export { strokeStyleToDash } from "./rendering/rough-shapes";
+export {
+  strokeStyleToDash,
+  getRoughRectPaths,
+  getRoughEllipsePaths,
+  getRoughDiamondPaths,
+  getRoughLinePaths,
+  getRoughArrowPaths,
+  roundedRectRadius,
+} from "./rendering/rough-shapes";
+export type { RoughPathData } from "./rendering/rough-shapes";
 export { prefersSafariWebKitViewportWorkaround } from "./utils/safari-viewport-raster";
+
+export type { EdgeCreationAwareness } from "./collab/edge-creation-awareness";
+export { serializeEdgeCreationAwareness } from "./collab/edge-creation-awareness";
+export type { RectDragAwareness, RectDragKind } from "./collab/rect-drag-awareness";
+export type { EraserAwareness } from "./collab/eraser-awareness";
+export { RemoteEdgeCreationPreview } from "./components/RemoteEdgeCreationPreview";
+export { RemoteRectDragPreview } from "./components/RemoteRectDragPreview";
+export { RemoteEraserPreview } from "./components/RemoteEraserPreview";
 
 // ── Styles (consumers import as: import 'spatialboard/style.css') ──
 import "./styles/index.css";

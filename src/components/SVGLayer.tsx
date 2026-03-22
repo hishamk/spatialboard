@@ -170,7 +170,7 @@ interface SVGLayerProps {
     e: React.PointerEvent<SVGCircleElement>
   ) => void;
   eraserMarkedIds?: Set<string>;
-  eraserTrail?: Array<[number, number, number]>; // [x, y, timestamp]
+  eraserTrail?: Array<[number, number, number]>; // [x, y, Date.now() ms]
   laserTrail?: Array<[number, number, number]>; // [x, y, timestamp]
   mode?: Mode;
   freeFormEdges?: boolean;
@@ -1784,8 +1784,8 @@ export default function SVGLayer({
 
         {/* Eraser trail — smooth continuous stroke with fade */}
         {eraserTrail && eraserTrail.length > 1 && (() => {
-          const now = performance.now();
-          const LIFETIME = 400; // must match SpatialCanvas TRAIL_LIFETIME
+          const now = Date.now();
+          const LIFETIME = 400; // must match SpatialCanvas TRAIL_LIFETIME (wall-clock ms)
           const sw = 6 / viewport.zoom;
 
           // Build one continuous smooth Bézier path

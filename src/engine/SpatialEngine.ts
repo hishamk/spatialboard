@@ -30,6 +30,9 @@ import type {
 } from "../nodes/registry";
 import { spatialPerf } from "../perf/spatial-perf";
 import { computeSelectionArrangement } from "./arrange-selection";
+import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
+import type { RectDragAwareness } from "../collab/rect-drag-awareness";
+import type { EraserAwareness } from "../collab/eraser-awareness";
 
 export type BoardBackground =
   | "plain-white"
@@ -116,8 +119,19 @@ type EventMap = {
     stroke: string;
     strokeWidth: number;
     opacity?: number;
+    roughness?: number;
+    fill?: string;
+    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    strokeStyle?: "solid" | "dashed" | "dotted";
+    edgeStyle?: "sharp" | "round";
   }) => void;
   'shape:end': () => void;
+  'edge:progress': (preview: EdgeCreationAwareness) => void;
+  'edge:end': () => void;
+  'rectDrag:progress': (preview: RectDragAwareness) => void;
+  'rectDrag:end': () => void;
+  'eraser:progress': (preview: EraserAwareness) => void;
+  'eraser:end': () => void;
   'laser:progress': (trail: Array<[number, number]>) => void;
   'laser:end': () => void;
   'group:enter': (groupId: string) => void;
@@ -278,6 +292,11 @@ export class SpatialEngine {
   /** Set the node type registry for lifecycle hooks. */
   setRegistry(registry: NodeTypeRegistry): void {
     this.registry = registry;
+  }
+
+  /** Registry used by the canvas (remote edge preview, hooks). */
+  getRegistry(): NodeTypeRegistry | undefined {
+    return this.registry;
   }
 
   /**
@@ -3087,6 +3106,11 @@ export class SpatialEngine {
     stroke: string;
     strokeWidth: number;
     opacity?: number;
+    roughness?: number;
+    fill?: string;
+    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    strokeStyle?: "solid" | "dashed" | "dotted";
+    edgeStyle?: "sharp" | "round";
   }): void {
     this.emit("shape:progress", preview);
   }
@@ -3094,6 +3118,34 @@ export class SpatialEngine {
   /** Emit shape end when shape creation is completed or cancelled. */
   notifyShapeEnd(): void {
     this.emit("shape:end");
+  }
+
+  /** Emit edge creation drag progress for collab preview. */
+  notifyEdgeProgress(preview: EdgeCreationAwareness): void {
+    this.emit("edge:progress", preview);
+  }
+
+  /** Emit when edge creation drag ends (commit or cancel). */
+  notifyEdgeEnd(): void {
+    this.emit("edge:end");
+  }
+
+  /** Frame / text / note / sticky rectangle drag preview for collab. */
+  notifyRectDragProgress(preview: RectDragAwareness): void {
+    this.emit("rectDrag:progress", preview);
+  }
+
+  notifyRectDragEnd(): void {
+    this.emit("rectDrag:end");
+  }
+
+  /** Eraser drag trail + marked node IDs for collab preview. */
+  notifyEraserProgress(preview: EraserAwareness): void {
+    this.emit("eraser:progress", preview);
+  }
+
+  notifyEraserEnd(): void {
+    this.emit("eraser:end");
   }
 
   /** Emit laser pointer progress for collab trail preview. */
