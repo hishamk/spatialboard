@@ -119,8 +119,8 @@ function ContentBlock({
   const isAdjustingRef = useRef(false);
   const isDraggingRef = useRef(false);
   const isApplyingRemoteRef = useRef(false);
-  // Track the last blocks we synced to engine to detect remote changes
-  const lastSyncedBlocksRef = useRef<unknown[]>(node.data.blocks);
+  /** JSON snapshot of blocks last applied to the editor or pushed to the engine (avoids ref-equality traps with mutable editor.document). */
+  const lastSyncedBlocksJsonRef = useRef(JSON.stringify(node.data.blocks ?? []));
   const [editing, setEditing] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
   // Store double-click coordinates so we can place the caret at the click position
@@ -149,6 +149,7 @@ function ContentBlock({
       // Strategy 1: replaceBlocks (standard BlockNote API)
       try {
         editor.replaceBlocks(editor.document, blocks);
+        lastSyncedBlocksJsonRef.current = JSON.stringify(editor.document);
         return;
       } catch {
         // fall through to strategy 2
@@ -161,6 +162,7 @@ function ContentBlock({
         const html = editor.blocksToHTMLLossy(blocks);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (editor as any)._tiptapEditor.commands.setContent(html);
+        lastSyncedBlocksJsonRef.current = JSON.stringify(editor.document);
         return;
       } catch {
         // fall through to fallback
@@ -220,22 +222,27 @@ function ContentBlock({
     return () => cancelAnimationFrame(raf);
   }, [editing, editor]);
 
-  // Sync editor content to engine. We use blur + debounced onChange because:
-  // BlockNote block reordering fires an intermediate "remove" event before "insert"
-  // at the new position—persisting immediately would overwrite with the broken state.
-  // Blur-based sync avoids that; debounced onChange handles typing when not blurred.
+  // Sync editor content to engine. Blur + focusout flush final state. While typing we
+  // throttle (not debounce) pushes so collaborators see text during continuous input;
+  // pure debounce only ran after a pause, which looked like "nothing until they finish".
+  // Block reorder still skips when block count drops mid-drag (remove-before-insert).
   const syncToEngine = useCallback(() => {
     if (isAdjustingRef.current || isDraggingRef.current) return;
     const current = engine.getNode(node.id);
     const blocks = editor.document;
-    lastSyncedBlocksRef.current = blocks;
+    lastSyncedBlocksJsonRef.current = JSON.stringify(blocks);
     engine.updateNode(node.id, {
       data: { ...(current as ContentNode)?.data, blocks },
     });
   }, [editor, engine, node.id]);
 
+  const COLLAB_SYNC_THROTTLE_MS = 100;
+
   useEffect(() => {
     if (!editor) return;
+    let trailingTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastThrottleFire = 0;
+
     const scheduleSync = () => {
       if (isAdjustingRef.current || isDraggingRef.current || isApplyingRemoteRef.current) return;
       const newCount = editor.document.length;
@@ -243,19 +250,28 @@ function ContentBlock({
       const prevCount = current?.data?.blocks?.length ?? 0;
       // Block count decreased: likely mid-drag reorder—don't persist, wait for final state
       if (newCount < prevCount) return;
-      const t = setTimeout(syncToEngine, 100);
-      return () => clearTimeout(t);
+
+      const now = Date.now();
+      const elapsed = now - lastThrottleFire;
+      if (elapsed >= COLLAB_SYNC_THROTTLE_MS) {
+        lastThrottleFire = now;
+        syncToEngine();
+        return;
+      }
+      if (trailingTimer) clearTimeout(trailingTimer);
+      trailingTimer = setTimeout(() => {
+        trailingTimer = null;
+        lastThrottleFire = Date.now();
+        syncToEngine();
+      }, COLLAB_SYNC_THROTTLE_MS - elapsed);
     };
-    let cleanup: (() => void) | void;
-    const off = editor.onChange(() => {
-      cleanup?.();
-      cleanup = scheduleSync();
-    });
+
+    const off = editor.onChange(scheduleSync);
     return () => {
       off?.();
-      cleanup?.();
+      if (trailingTimer) clearTimeout(trailingTimer);
     };
-  }, [editor, syncToEngine]);
+  }, [editor, syncToEngine, engine, node.id]);
 
   // Sync on blur (when leaving the block)—avoids persisting mid–block-drag states
   useEffect(() => {
@@ -274,30 +290,31 @@ function ContentBlock({
   useEffect(() => {
     // Skip if we're editing locally — local changes are handled by syncToEngine
     if (editing) return;
-    // Skip if this is our own change echoing back
-    if (node.data.blocks === lastSyncedBlocksRef.current) return;
-    // Deep compare to avoid unnecessary replacements
-    const incoming = JSON.stringify(node.data.blocks);
-    const current = JSON.stringify(lastSyncedBlocksRef.current);
-    if (incoming === current) return;
-    // Remote change detected — replace editor content
-    if (node.data.blocks.length > 0 && editor.document.length > 0) {
-      isApplyingRemoteRef.current = true;
+    const incomingBlocks = node.data.blocks;
+    if (!Array.isArray(incomingBlocks)) return;
+    // BlockNote expects at least one block; empty Yjs payload → one empty paragraph
+    const blocksToApply =
+      incomingBlocks.length > 0
+        ? incomingBlocks
+        : [{ type: "paragraph" as const, content: [] as [] }];
+    const incoming = JSON.stringify(blocksToApply);
+    if (incoming === lastSyncedBlocksJsonRef.current) return;
+
+    isApplyingRemoteRef.current = true;
+    try {
+      editor.replaceBlocks(editor.document, blocksToApply);
+    } catch {
       try {
-        editor.replaceBlocks(editor.document, node.data.blocks);
+        const html = editor.blocksToHTMLLossy(blocksToApply);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (editor as any)._tiptapEditor.commands.setContent(html);
       } catch {
-        // Fallback: rebuild document from HTML (avoids ProseMirror decoration bug)
-        try {
-          const html = editor.blocksToHTMLLossy(node.data.blocks);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (editor as any)._tiptapEditor.commands.setContent(html);
-        } catch {
-          // Remote content couldn't be applied — will retry on next change
-        }
+        isApplyingRemoteRef.current = false;
+        return;
       }
-      isApplyingRemoteRef.current = false;
     }
-    lastSyncedBlocksRef.current = node.data.blocks;
+    isApplyingRemoteRef.current = false;
+    lastSyncedBlocksJsonRef.current = incoming;
   }, [node.data.blocks, editing, editor]);
 
   // Report measured height for auto-height blocks (used by selBounds for accurate multi-select box)
@@ -374,6 +391,7 @@ function ContentBlock({
       engine.updateNode(node.id, {
         data: { ...latest.data, blocks: editor.document },
       });
+      lastSyncedBlocksJsonRef.current = JSON.stringify(editor.document);
     }
 
     isAdjustingRef.current = false;
