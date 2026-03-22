@@ -25,6 +25,7 @@ import type { NodeTypeRegistry, NodeCallbacks } from "../nodes/registry";
 import type { DataFlowEngine } from "../engine/DataFlowEngine";
 import type { DataFlowEdgeOverlay, HandlePosition } from "./SVGLayer";
 import GridBackground from "./GridBackground";
+import Minimap from "./Minimap";
 import { getPaperType } from "./paper-types";
 import { install as installExcalidrawLib, getItems as getLibraryItems } from "../excalidraw/library-store";
 import type { ExcalidrawLibFileRaw } from "../excalidraw/types";
@@ -548,6 +549,7 @@ export default function SpatialCanvas({
   registry,
   dataFlow,
   dataFlowEdgeOverlay = "off",
+  minimapVisible = true,
 }: {
   engine: SpatialEngine;
   schema: SBDSchema;
@@ -555,6 +557,8 @@ export default function SpatialCanvas({
   dataFlow?: DataFlowEngine | null;
   /** Port edge captions; only applies when `dataFlow` is active. Default `off`. */
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /** When false, the canvas minimap overlay is hidden. Default true. */
+  minimapVisible?: boolean;
 }) {
   const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -5451,6 +5455,16 @@ export default function SpatialCanvas({
             />
           ))}
         </div>
+      )}
+
+      {minimapVisible && (
+        <Minimap
+          engine={engine}
+          nodes={nodes}
+          viewport={viewport}
+          containerSize={containerSize}
+          measuredHeights={measuredHeights}
+        />
       )}
 
       {/* Right-click context menu */}

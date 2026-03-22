@@ -44,6 +44,9 @@ export interface SpatialBoardLocalization {
   canvasSearchPrev: string;
   canvasSearchNext: string;
   canvasSearchClose: string;
+  /** Minimap overlay (overview + viewport; click/drag to pan) */
+  minimapTitle: string;
+  toggleMinimap: string;
   undo: string;
   redo: string;
   slidesTitle: string;
@@ -280,6 +283,8 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   canvasSearchPrev: "Previous match",
   canvasSearchNext: "Next match",
   canvasSearchClose: "Close search",
+  minimapTitle: "Minimap — click or drag to pan the canvas",
+  toggleMinimap: "Toggle minimap",
   undo: "Undo (Ctrl+Z)",
   redo: "Redo (Ctrl+Shift+Z)",
   slidesTitle: "Slides",

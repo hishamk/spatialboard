@@ -87,6 +87,22 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <circle cx="12" cy="15" r="1.5" fill="currentColor" />
         </>
       )}
+      {name === "minimap" && (
+        <>
+          <rect x="3.5" y="3.5" width="17" height="17" rx="2" {...sp} fill="none" />
+          <rect
+            x="11.5"
+            y="6.5"
+            width="9"
+            height="7"
+            rx="1"
+            fill="currentColor"
+            fillOpacity={0.4}
+            stroke="currentColor"
+            strokeWidth={1.25}
+          />
+        </>
+      )}
       {name === "search" && (
         <>
           <circle cx="11" cy="11" r="6" {...sp} />
@@ -113,6 +129,8 @@ interface BottomBarProps {
   engine: SpatialEngine;
   framesPanelOpen?: boolean;
   onToggleFramesPanel?: () => void;
+  showMinimap?: boolean;
+  onToggleMinimap?: () => void;
   showPerfOverlay?: boolean;
   onTogglePerfOverlay?: () => void;
 }
@@ -121,6 +139,8 @@ export default function BottomBar({
   engine,
   framesPanelOpen,
   onToggleFramesPanel,
+  showMinimap,
+  onToggleMinimap,
   showPerfOverlay,
   onTogglePerfOverlay,
 }: BottomBarProps) {
@@ -322,6 +342,23 @@ export default function BottomBar({
                   {frameCount}
                 </span>
               )}
+            </button>
+          </>
+        )}
+        {onToggleMinimap && (
+          <>
+            <div style={sep} />
+            <button
+              title={labels.toggleMinimap}
+              onClick={onToggleMinimap}
+              style={{
+                ...btn,
+                width: 32,
+                height: 32,
+                color: showMinimap ? theme.accentColor : theme.textMuted,
+              }}
+            >
+              <Icon name="minimap" />
             </button>
           </>
         )}

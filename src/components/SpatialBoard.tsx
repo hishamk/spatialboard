@@ -142,6 +142,7 @@ export default function SpatialBoard({
 
   const [presenting, setPresenting] = useState(false);
   const [framesPanelOpen, setFramesPanelOpen] = useState(false);
+  const [minimapVisible, setMinimapVisible] = useState(true);
   const [showPerfOverlay, setShowPerfOverlay] = useState(false);
 
   useEffect(() => {
@@ -189,6 +190,7 @@ export default function SpatialBoard({
           registry={registry}
           dataFlow={dataFlow}
           dataFlowEdgeOverlay={dataFlowEdgeOverlay}
+          minimapVisible={minimapVisible}
         />
         {!presenting && <CanvasSearchBar engine={engine} />}
         {!presenting && (
@@ -196,6 +198,8 @@ export default function SpatialBoard({
             engine={engine}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
+            showMinimap={minimapVisible}
+            onToggleMinimap={() => setMinimapVisible((v) => !v)}
             showPerfOverlay={showPerfOverlay}
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
