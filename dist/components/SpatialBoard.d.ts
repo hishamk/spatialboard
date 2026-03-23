@@ -41,5 +41,11 @@ export interface SpatialBoardProps {
     dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
     /** Open the frames/slides panel on mount. Default: false. */
     initialFramesPanelOpen?: boolean;
+    /**
+     * Read-only thumbnail mode: no sidebar (when toolbar is false), search bar, bottom bar,
+     * frames panel, minimap, performance overlay, or presentation overlay. After `initialData`
+     * loads, the viewport is fitted to content. Intended for embedded previews (e.g. file browser).
+     */
+    preview?: boolean;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

@@ -66,6 +66,12 @@ export interface SpatialBoardProps {
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
   /** Open the frames/slides panel on mount. Default: false. */
   initialFramesPanelOpen?: boolean;
+  /**
+   * Read-only thumbnail mode: no sidebar (when toolbar is false), search bar, bottom bar,
+   * frames panel, minimap, performance overlay, or presentation overlay. After `initialData`
+   * loads, the viewport is fitted to content. Intended for embedded previews (e.g. file browser).
+   */
+  preview?: boolean;
 }
 
 export default function SpatialBoard({
@@ -84,6 +90,7 @@ export default function SpatialBoard({
   localization,
   dataFlowEdgeOverlay = "off",
   initialFramesPanelOpen = false,
+  preview: isPreview = false,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -112,11 +119,26 @@ export default function SpatialBoard({
   // Load initial data (only once per engine instance — "initial" means first load only)
   const initialDataLoadedRef = useRef(false);
   useEffect(() => {
-    if (initialData && !initialDataLoadedRef.current) {
-      initialDataLoadedRef.current = true;
-      engine.fromSBD(initialData);
+    if (!initialData || initialDataLoadedRef.current) return;
+    initialDataLoadedRef.current = true;
+    let cancelled = false;
+
+    if (isPreview) {
+      void (async () => {
+        await engine.fromSBD(initialData);
+        if (cancelled) return;
+        requestAnimationFrame(() => {
+          if (!cancelled) engine.fitToContent();
+        });
+      })();
+    } else {
+      void engine.fromSBD(initialData);
     }
-  }, [engine, initialData]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [engine, initialData, isPreview]);
 
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -145,12 +167,12 @@ export default function SpatialBoard({
 
   const [presenting, setPresenting] = useState(false);
   const [framesPanelOpen, setFramesPanelOpen] = useState(initialFramesPanelOpen);
-  const [minimapVisible, setMinimapVisible] = useState(true);
+  const [minimapVisible, setMinimapVisible] = useState(!isPreview);
   const [showPerfOverlay, setShowPerfOverlay] = useState(false);
 
   useEffect(() => {
-    spatialPerf.setEnabled(showPerfOverlay);
-  }, [showPerfOverlay]);
+    spatialPerf.setEnabled(isPreview ? false : showPerfOverlay);
+  }, [isPreview, showPerfOverlay]);
 
   useEffect(() => {
     const handlePresentation = () => {
@@ -193,10 +215,10 @@ export default function SpatialBoard({
           registry={registry}
           dataFlow={dataFlow}
           dataFlowEdgeOverlay={dataFlowEdgeOverlay}
-          minimapVisible={minimapVisible}
+          minimapVisible={isPreview ? false : minimapVisible}
         />
-        {!presenting && <CanvasSearchBar engine={engine} />}
-        {!presenting && (
+        {!isPreview && !presenting && <CanvasSearchBar engine={engine} />}
+        {!isPreview && !presenting && (
           <BottomBar
             engine={engine}
             framesPanelOpen={framesPanelOpen}
@@ -207,15 +229,15 @@ export default function SpatialBoard({
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
         )}
-        {!presenting && showPerfOverlay && <PerformanceOverlay />}
-        {!presenting && (
+        {!isPreview && !presenting && showPerfOverlay && <PerformanceOverlay />}
+        {!isPreview && !presenting && (
           <FramesPanel
             engine={engine}
             open={framesPanelOpen}
             onClose={() => setFramesPanelOpen(false)}
           />
         )}
-        <PresentationOverlay engine={engine} />
+        {!isPreview && <PresentationOverlay engine={engine} />}
       </div>
     </div>
     </SBThemeContext.Provider>
