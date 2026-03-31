@@ -330,5 +330,13 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
     lines.push("");
   }
 
+  // Custom/unknown node types — serialize as JSON with @custom prefix
+  const knownTypes = new Set(["frame", "content", "draw", "shape", "image", "text", "youtube", "edge", "sticky"]);
+  const customNodes = nodes.filter(n => !knownTypes.has(n.type));
+  for (const node of customNodes) {
+    lines.push(`<!--@custom ${JSON.stringify(node)} -->`);
+    lines.push("");
+  }
+
   return lines.join("\n");
 }

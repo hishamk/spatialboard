@@ -616,6 +616,7 @@ export default function SpatialCanvas({
   dataFlow,
   dataFlowEdgeOverlay = "off",
   minimapVisible = true,
+  singleFrameId,
 }: {
   engine: SpatialEngine;
   schema: SBDSchema;
@@ -625,6 +626,8 @@ export default function SpatialCanvas({
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
   /** When false, the canvas minimap overlay is hidden. Default true. */
   minimapVisible?: boolean;
+  /** When set, only render this frame and its children. */
+  singleFrameId?: string;
 }) {
   const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1269,7 +1272,22 @@ export default function SpatialCanvas({
 
   // Keep edges fully reliable by default; while actively dragging nodes, use
   // virtualized SVG set for smoother interaction on very large boards.
-  const svgLayerNodes = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
+  // When singleFrameId is set, pre-compute visible node IDs for SVG layer filtering
+  const _singleFrameIds = useMemo(() => {
+    if (!singleFrameId) return null;
+    const ids = new Set<string>();
+    ids.add(singleFrameId);
+    const descendants = engine.getFrameDescendantIds(singleFrameId);
+    for (const id of descendants) ids.add(id);
+    return ids;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [singleFrameId, engine, nodes]);
+
+  const svgLayerNodesRaw = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
+  // Apply single-frame filter to SVG layer too
+  const svgLayerNodes = _singleFrameIds
+    ? svgLayerNodesRaw.filter(n => _singleFrameIds.has(n.id))
+    : svgLayerNodesRaw;
 
   useEffect(() => {
     if (!spatialPerf.isEnabled()) return;
@@ -1563,6 +1581,11 @@ export default function SpatialCanvas({
     const base =
       virtualizedView?.domNodes ??
       nodes.filter((n) => {
+        // Single-frame filter: only render descendants (hide the frame border itself)
+        if (_singleFrameIds) {
+          if (n.id === singleFrameId) return false; // hide the frame itself
+          if (!_singleFrameIds.has(n.id)) return false;
+        }
         if (registry) {
           const def = registry.get(n.type);
           return !!def && !def.isSVGOnly;
@@ -1580,7 +1603,7 @@ export default function SpatialCanvas({
     if (!croppingImageId || base.some((n) => n.id === croppingImageId)) return base;
     const pinned = nodes.find((n) => n.id === croppingImageId);
     return pinned ? [...base, pinned] : base;
-  }, [virtualizedView, nodes, registry, croppingImageId]);
+  }, [virtualizedView, nodes, registry, croppingImageId, _singleFrameIds]);
 
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);

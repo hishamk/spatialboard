@@ -72,6 +72,11 @@ export interface SpatialBoardProps {
    * loads, the viewport is fitted to content. Intended for embedded previews (e.g. file browser).
    */
   preview?: boolean;
+  /**
+   * Render only this frame and its children. Hides everything else.
+   * Viewport is auto-fitted to the frame. Used for flashcard study mode.
+   */
+  singleFrameId?: string;
 }
 
 export default function SpatialBoard({
@@ -91,6 +96,7 @@ export default function SpatialBoard({
   dataFlowEdgeOverlay = "off",
   initialFramesPanelOpen = false,
   preview: isPreview = false,
+  singleFrameId,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -123,12 +129,20 @@ export default function SpatialBoard({
     initialDataLoadedRef.current = true;
     let cancelled = false;
 
-    if (isPreview) {
+    if (isPreview || singleFrameId) {
       void (async () => {
         await engine.fromSBD(initialData);
         if (cancelled) return;
+        // Double-rAF: first frame lets the container measure, second fits viewport
         requestAnimationFrame(() => {
-          if (!cancelled) engine.fitToContent();
+          requestAnimationFrame(() => {
+            if (cancelled) return;
+            if (singleFrameId) {
+              engine.fitToFrame(singleFrameId);
+            } else {
+              engine.fitToContent();
+            }
+          });
         });
       })();
     } else {
@@ -138,7 +152,7 @@ export default function SpatialBoard({
     return () => {
       cancelled = true;
     };
-  }, [engine, initialData, isPreview]);
+  }, [engine, initialData, isPreview, singleFrameId]);
 
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -216,6 +230,7 @@ export default function SpatialBoard({
           dataFlow={dataFlow}
           dataFlowEdgeOverlay={dataFlowEdgeOverlay}
           minimapVisible={isPreview ? false : minimapVisible}
+          singleFrameId={singleFrameId}
         />
         {!isPreview && !presenting && <CanvasSearchBar engine={engine} />}
         {!isPreview && !presenting && (

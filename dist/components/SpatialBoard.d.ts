@@ -47,5 +47,10 @@ export interface SpatialBoardProps {
      * loads, the viewport is fitted to content. Intended for embedded previews (e.g. file browser).
      */
     preview?: boolean;
+    /**
+     * Render only this frame and its children. Hides everything else.
+     * Viewport is auto-fitted to the frame. Used for flashcard study mode.
+     */
+    singleFrameId?: string;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

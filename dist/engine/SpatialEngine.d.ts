@@ -284,6 +284,11 @@ export declare class SpatialEngine {
     /** Zoom and pan to center a node for editing (e.g. after double-click on placeholder) */
     zoomToNode(nodeId: string, targetZoom?: number): void;
     fitToContent(): void;
+    /**
+     * Fit viewport to a single frame node, ignoring everything else.
+     * Used by single-frame rendering (e.g. flashcard study mode).
+     */
+    fitToFrame(frameId: string): void;
     /** Save the current viewport as the origin view (restored on next load). */
     setOriginView(): void;
     /** Clear the saved origin view. */

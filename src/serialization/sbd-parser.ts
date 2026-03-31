@@ -410,6 +410,22 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
       continue;
     }
 
+    // Custom/unknown node types — stored as JSON
+    if (line.startsWith("<!--@custom")) {
+      const jsonStart = line.indexOf("{");
+      const jsonEnd = line.lastIndexOf("}");
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        try {
+          const node = JSON.parse(line.slice(jsonStart, jsonEnd + 1)) as SpatialNode;
+          if (node.id && node.type) nodes.push(node);
+        } catch {
+          // skip unparseable custom nodes
+        }
+      }
+      i++;
+      continue;
+    }
+
     i++;
   }
 

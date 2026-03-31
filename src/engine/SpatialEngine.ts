@@ -1196,6 +1196,34 @@ export class SpatialEngine {
     this.emit("viewport");
   }
 
+  /**
+   * Fit viewport to a single frame node, ignoring everything else.
+   * Used by single-frame rendering (e.g. flashcard study mode).
+   */
+  fitToFrame(frameId: string): void {
+    const frame = this.nodes.get(frameId);
+    if (!frame) return this.fitToContent();
+
+    const fh = frame.h === "auto" ? 100 : (frame.h as number);
+    const padding = 20;
+    const contentW = frame.w + padding * 2;
+    const contentH = fh + padding * 2;
+    const screenW = this._containerWidth;
+    const screenH = this._containerHeight;
+
+    const zoom = clamp(
+      Math.min(screenW / contentW, screenH / contentH),
+      0.1,
+      5
+    );
+    this.viewport = {
+      x: (screenW - contentW * zoom) / 2 - (frame.x - padding) * zoom,
+      y: (screenH - contentH * zoom) / 2 - (frame.y - padding) * zoom,
+      zoom,
+    };
+    this.emit("viewport");
+  }
+
   /** Save the current viewport as the origin view (restored on next load). */
   setOriginView(): void {
     this.originView = { ...this.viewport };
