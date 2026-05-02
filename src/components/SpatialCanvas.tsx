@@ -5383,8 +5383,12 @@ export default function SpatialCanvas({
         suppressNodeOverlayId={croppingImageId}
       />
 
-      {/* Unified multi-selection bounding box */}
-      {selBounds && !croppingImageId && mode !== "edge" && !edgePreview && !edgeReconnect && (() => {
+      {/* Unified multi-selection bounding box (resize / rotate / connection
+          handles). hidden in readOnly so viewers don't see dead
+          affordances — selection itself still works (engine.selection is
+          view-state, not doc-state), but the frame chrome with handles is
+          for editing only. */}
+      {selBounds && !croppingImageId && mode !== "edge" && !edgePreview && !edgeReconnect && !engine.readOnly && (() => {
         // Check for persisted group rotation
         const singleGroupId = engine.selectionGroupId();
         const storedRot = singleGroupId ? engine.groupRotations.get(singleGroupId) : undefined;

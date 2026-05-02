@@ -64,6 +64,11 @@ export { default as PropertiesPanel } from "./components/PropertiesPanel";
 export type { DebugBoardEntry } from "./components/DebugPanel";
 export type { SpatialBoardTheme } from "./components/sidebar/ThemeContext";
 export { DEFAULT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext";
+// read-only context for node renderers and host UI.
+export {
+  SpatialBoardReadOnlyContext,
+  useSpatialBoardReadOnly,
+} from "./components/SpatialBoardReadOnlyContext";
 export type {
   SpatialBoardDirection,
   SpatialBoardLocalization,

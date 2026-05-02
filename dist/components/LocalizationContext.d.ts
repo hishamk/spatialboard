@@ -34,6 +34,8 @@ export interface SpatialBoardLocalization {
     goToOriginView: string;
     presentSlides: string;
     toggleSlidesPanel: string;
+    /** pill shown on the canvas when the host passes `readOnly`. */
+    viewOnly: string;
     togglePerformanceOverlay: string;
     canvasSearchPlaceholder: string;
     canvasSearchOpen: string;

@@ -38,6 +38,8 @@ export interface SpatialBoardLocalization {
   goToOriginView: string;
   presentSlides: string;
   toggleSlidesPanel: string;
+  /** pill shown on the canvas when the host passes `readOnly`. */
+  viewOnly: string;
   togglePerformanceOverlay: string;
   canvasSearchPlaceholder: string;
   canvasSearchOpen: string;
@@ -277,6 +279,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   goToOriginView: "Go to saved view",
   presentSlides: "Present (frames as slides)",
   toggleSlidesPanel: "Toggle slides panel",
+  viewOnly: "View only",
   togglePerformanceOverlay: "Toggle performance overlay",
   canvasSearchPlaceholder: "Search canvas...",
   canvasSearchOpen: "Search (Ctrl+F)",

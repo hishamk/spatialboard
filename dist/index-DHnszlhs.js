@@ -1,21 +1,21 @@
-var Cc = Object.defineProperty;
-var Ic = (t, e, o) => e in t ? Cc(t, e, { enumerable: !0, configurable: !0, writable: !0, value: o }) : t[e] = o;
-var kt = (t, e, o) => Ic(t, typeof e != "symbol" ? e + "" : e, o);
-import { BlockNoteSchema as Tc, defaultBlockSpecs as zc, BlockNoteEditor as Pc } from "@blocknote/core";
+var Ic = Object.defineProperty;
+var Tc = (t, e, o) => e in t ? Ic(t, e, { enumerable: !0, configurable: !0, writable: !0, value: o }) : t[e] = o;
+var kt = (t, e, o) => Tc(t, typeof e != "symbol" ? e + "" : e, o);
+import { BlockNoteSchema as zc, defaultBlockSpecs as Pc, BlockNoteEditor as Ac } from "@blocknote/core";
 import { jsxs as S, jsx as h, Fragment as Mt } from "react/jsx-runtime";
-import Ac, { memo as Le, useRef as ut, useState as et, useEffect as St, useCallback as lt, Component as Ec, useMemo as Kt, useLayoutEffect as Co, useContext as Ke, createContext as vr, forwardRef as Wa, createElement as ms, Suspense as Lc, lazy as Rc } from "react";
-import { useCreateBlockNote as Dc } from "@blocknote/react";
-import { BlockNoteView as Wc } from "@blocknote/mantine";
+import Ec, { memo as Le, useRef as ut, useState as et, useEffect as St, useCallback as lt, Component as Lc, useMemo as Kt, useLayoutEffect as Co, useContext as Ge, createContext as Bn, forwardRef as Wa, createElement as ms, Suspense as Rc, lazy as Dc } from "react";
+import { useCreateBlockNote as Wc } from "@blocknote/react";
+import { BlockNoteView as Bc } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-import { createPortal as Ze, flushSync as Bc } from "react-dom";
-const Nc = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+import { createPortal as Ze, flushSync as Nc } from "react-dom";
+const Fc = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
 let Rt = (t = 21) => {
   let e = "", o = crypto.getRandomValues(new Uint8Array(t |= 0));
   for (; t--; )
-    e += Nc[o[t] & 63];
+    e += Fc[o[t] & 63];
   return e;
 };
-const Fc = {
+const Hc = {
   id: "kanban",
   label: "Kanban Board",
   nodes: [
@@ -33,7 +33,7 @@ const Fc = {
     // Done stickies
     { id: "ks6", type: "sticky", x: 690, y: 40, w: 240, h: 80, z: 1, data: { text: "Task 6", color: "#bbf7d0", fontSize: 14 } }
   ]
-}, Hc = {
+}, Oc = {
   id: "mind-map",
   label: "Mind Map",
   nodes: [
@@ -50,7 +50,7 @@ const Fc = {
     { id: "e3", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 2, data: { fromId: "c0", toId: "c3", style: "solid", color: "#22c55e", strokeWidth: 2, arrowHead: "filled", edgeType: "bezier" } },
     { id: "e4", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 2, data: { fromId: "c0", toId: "c4", style: "solid", color: "#3b82f6", strokeWidth: 2, arrowHead: "filled", edgeType: "bezier" } }
   ]
-}, Oc = {
+}, Xc = {
   id: "flowchart",
   label: "Flowchart",
   nodes: [
@@ -74,7 +74,7 @@ const Fc = {
     { id: "fe5", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1, data: { fromId: "fc3", toId: "fc5", style: "solid", color: "#666666", strokeWidth: 2, arrowHead: "filled" } },
     { id: "fe6", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1, data: { fromId: "fc4", toId: "fc5", style: "solid", color: "#666666", strokeWidth: 2, arrowHead: "filled" } }
   ]
-}, Xc = {
+}, Yc = {
   id: "swot",
   label: "SWOT Analysis",
   nodes: [
@@ -89,7 +89,7 @@ const Fc = {
     { id: "ss3", type: "sticky", x: 30, y: 370, w: 240, h: 80, z: 1, data: { text: "Add opportunity...", color: "#bfdbfe", fontSize: 14 } },
     { id: "ss4", type: "sticky", x: 360, y: 370, w: 240, h: 80, z: 1, data: { text: "Add threat...", color: "#fed7aa", fontSize: 14 } }
   ]
-}, Yc = {
+}, Gc = {
   id: "retrospective",
   label: "Retrospective",
   nodes: [
@@ -105,7 +105,7 @@ const Fc = {
     { id: "rs5", type: "sticky", x: 690, y: 40, w: 240, h: 80, z: 1, data: { text: "Action 1", color: "#bfdbfe", fontSize: 14 } },
     { id: "rs6", type: "sticky", x: 690, y: 140, w: 240, h: 80, z: 1, data: { text: "Action 2", color: "#bfdbfe", fontSize: 14 } }
   ]
-}, Gc = {
+}, jc = {
   id: "weekly-planner",
   label: "Weekly Planner",
   nodes: [
@@ -121,7 +121,7 @@ const Fc = {
     { id: "ws1", type: "sticky", x: 10, y: 40, w: 150, h: 60, z: 1, data: { text: "Task", color: "#e0e7ff", fontSize: 12 } },
     { id: "ws2", type: "sticky", x: 190, y: 40, w: 150, h: 60, z: 1, data: { text: "Task", color: "#ede9fe", fontSize: 12 } }
   ]
-}, jc = {
+}, Vc = {
   id: "pros-cons",
   label: "Pros & Cons",
   nodes: [
@@ -134,7 +134,7 @@ const Fc = {
     { id: "ps3", type: "sticky", x: 360, y: 40, w: 240, h: 80, z: 1, data: { text: "Con 1", color: "#fecaca", fontSize: 14 } },
     { id: "ps4", type: "sticky", x: 360, y: 140, w: 240, h: 80, z: 1, data: { text: "Con 2", color: "#fecaca", fontSize: 14 } }
   ]
-}, Vc = {
+}, Kc = {
   id: "eisenhower",
   label: "Eisenhower Matrix",
   nodes: [
@@ -149,7 +149,7 @@ const Fc = {
     { id: "es3", type: "sticky", x: 30, y: 370, w: 240, h: 80, z: 1, data: { text: "Hand off...", color: "#fed7aa", fontSize: 14 } },
     { id: "es4", type: "sticky", x: 360, y: 370, w: 240, h: 80, z: 1, data: { text: "Drop this...", color: "#e5e7eb", fontSize: 14 } }
   ]
-}, Kc = {
+}, qc = {
   id: "org-chart",
   label: "Org Chart",
   nodes: [
@@ -178,7 +178,7 @@ const Fc = {
     { id: "oe8", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1, data: { fromId: "oc3", toId: "oc8", style: "solid", color: "#cbd5e1", strokeWidth: 1, arrowHead: "none", sourceHandle: "bottom", targetHandle: "top" } },
     { id: "oe9", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1, data: { fromId: "oc3", toId: "oc9", style: "solid", color: "#cbd5e1", strokeWidth: 1, arrowHead: "none", sourceHandle: "bottom", targetHandle: "top" } }
   ]
-}, qc = {
+}, Uc = {
   id: "timeline",
   label: "Project Timeline",
   nodes: [
@@ -204,7 +204,7 @@ const Fc = {
     { id: "tt3", type: "text", x: 615, y: 170, w: 100, h: "auto", z: 1, data: { text: "Code Freeze", fontSize: 12, fontFamily: "sans-serif", color: "#22c55e", align: "center" } },
     { id: "tt4", type: "text", x: 845, y: 170, w: 100, h: "auto", z: 1, data: { text: "Sign-off", fontSize: 12, fontFamily: "sans-serif", color: "#f59e0b", align: "center" } }
   ]
-}, Uc = {
+}, Zc = {
   id: "bmc",
   label: "Business Model Canvas",
   nodes: [
@@ -224,7 +224,7 @@ const Fc = {
     { id: "bs2", type: "sticky", x: 475, y: 40, w: 190, h: 60, z: 1, data: { text: "Value prop...", color: "#bbf7d0", fontSize: 12 } },
     { id: "bs3", type: "sticky", x: 935, y: 40, w: 190, h: 60, z: 1, data: { text: "Segment...", color: "#fecaca", fontSize: 12 } }
   ]
-}, Zc = {
+}, Qc = {
   id: "storyboard",
   label: "Storyboard",
   nodes: [
@@ -245,7 +245,6 @@ const Fc = {
     { id: "st6", type: "text", x: 640, y: 480, w: 300, h: "auto", z: 1, data: { text: "Caption...", fontSize: 12, fontFamily: "sans-serif", color: "#64748b", align: "center" } }
   ]
 }, Ba = [
-  Fc,
   Hc,
   Oc,
   Xc,
@@ -256,9 +255,10 @@ const Fc = {
   Kc,
   qc,
   Uc,
-  Zc
+  Zc,
+  Qc
 ];
-class Qc {
+class Jc {
   constructor() {
     kt(this, "undoStack", []);
     kt(this, "redoStack", []);
@@ -300,7 +300,7 @@ class Qc {
     return this.redoStack.length > 0;
   }
 }
-const Na = 4, Jc = 8, Fa = 6, Ha = 6, $c = 10, _c = 14, td = 24;
+const Na = 4, $c = 8, Fa = 6, Ha = 6, _c = 10, td = 14, ed = 24;
 function bo(t, e, o, n) {
   if (!t.rotation) return [e, o];
   const r = t.x + t.w / 2, s = t.y + n / 2, i = -t.rotation * Math.PI / 180, l = Math.cos(i), d = Math.sin(i), c = e - r, a = o - s;
@@ -309,17 +309,17 @@ function bo(t, e, o, n) {
 function Rn(t, e) {
   return t.h !== "auto" ? t.h : (e == null ? void 0 : e[t.id]) ?? 100;
 }
-function ed(t, e, o, n) {
+function od(t, e, o, n) {
   const r = Rn(t, n), [s, i] = bo(t, e, o, r), l = t.x, d = t.y, c = t.w, a = r, u = s < l ? l - s : s > l + c ? s - (l + c) : 0, f = i < d ? d - i : i > d + a ? i - (d + a) : 0;
   return u === 0 && f === 0 ? Math.min(s - l, l + c - s, i - d, d + a - i) : Math.hypot(u, f);
 }
-function od(t) {
+function nd(t) {
   return Math.max(0.01, t);
 }
-function Bn(t, e) {
-  return t / od(e);
+function Nn(t, e) {
+  return t / nd(e);
 }
-function nd(t, e, o, n = 1, r, s) {
+function rd(t, e, o, n = 1, r, s) {
   const i = Array.from(t.values()).filter((c) => c.type !== "edge").sort((c, a) => a.z - c.z);
   let l = null, d = null;
   for (const c of i)
@@ -336,14 +336,14 @@ function nd(t, e, o, n = 1, r, s) {
       const a = Rn(c, r);
       Oa(c, e, o, n, a) && (l || (l = c));
     } else {
-      const a = Rn(c, r), u = Bn(Math.max(Na, Ha), n), [f, y] = bo(c, e, o, a);
+      const a = Rn(c, r), u = Nn(Math.max(Na, Ha), n), [f, y] = bo(c, e, o, a);
       f >= c.x - u && f <= c.x + c.w + u && y >= c.y - u && y <= c.y + a + u && (d || (d = c));
     }
   return d ?? l;
 }
 function Oa(t, e, o, n, r) {
-  const s = r ?? (t.h === "auto" ? 100 : t.h), [i, l] = bo(t, e, o, s), d = n < 0.8 ? _c : $c, c = Bn(Math.max(Jc, d), n);
-  if (t.data.label && i >= t.x && i <= t.x + t.w && l >= t.y - td && l <= t.y)
+  const s = r ?? (t.h === "auto" ? 100 : t.h), [i, l] = bo(t, e, o, s), d = n < 0.8 ? td : _c, c = Nn(Math.max($c, d), n);
+  if (t.data.label && i >= t.x && i <= t.x + t.w && l >= t.y - ed && l <= t.y)
     return !0;
   if (i < t.x - c || i > t.x + t.w + c || l < t.y - c || l > t.y + s + c)
     return !1;
@@ -375,7 +375,7 @@ function Ya(t, e) {
   };
 }
 function Sr(t, e, o, n, r) {
-  const s = t.h === "auto" ? 100 : t.h, [i, l] = bo(t, e, o, s), d = t.data, c = d.strokeWidth ?? 2, a = Bn(Math.max(c / 2, Fa), n), u = !!d.fill || !!r;
+  const s = t.h === "auto" ? 100 : t.h, [i, l] = bo(t, e, o, s), d = t.data, c = d.strokeWidth ?? 2, a = Nn(Math.max(c / 2, Fa), n), u = !!d.fill || !!r;
   switch (d.shape) {
     case "rect": {
       if (u)
@@ -414,7 +414,7 @@ function Sr(t, e, o, n, r) {
       return i >= t.x - a && i <= t.x + t.w + a && l >= t.y - a && l <= t.y + s + a;
   }
 }
-function rd(t, e, o) {
+function sd(t, e, o) {
   let n = !1;
   for (let r = 0, s = o.length - 1; r < o.length; s = r++) {
     const i = o[r][0], l = o[r][1], d = o[s][0], c = o[s][1];
@@ -423,7 +423,7 @@ function rd(t, e, o) {
   return n;
 }
 function Ys(t, e, o, n) {
-  const r = t.data.strokeWidth, s = Bn(Math.max(r / 2, Fa), n), i = s * s, l = t.h === "auto" ? 100 : t.h, [d, c] = bo(t, e, o, l);
+  const r = t.data.strokeWidth, s = Nn(Math.max(r / 2, Fa), n), i = s * s, l = t.h === "auto" ? 100 : t.h, [d, c] = bo(t, e, o, l);
   if (d < t.x - s || d > t.x + t.w + s || c < t.y - s || c > t.y + l + s)
     return !1;
   const a = t.data.points;
@@ -433,14 +433,14 @@ function Ys(t, e, o, n) {
     const y = u - a[0][0], p = f - a[0][1];
     return y * y + p * p <= i;
   }
-  if (t.data.fill && a.length >= 3 && rd(u, f, a))
+  if (t.data.fill && a.length >= 3 && sd(u, f, a))
     return !0;
   for (let y = 0; y < a.length - 1; y++)
     if (Xa(u, f, a[y][0], a[y][1], a[y + 1][0], a[y + 1][1]) <= i)
       return !0;
   return !1;
 }
-function sd(t, e, o, n = 1, r, s) {
+function id(t, e, o, n = 1, r, s) {
   const i = Array.from(t.values()).filter((c) => c.type !== "edge").sort((c, a) => a.z - c.z), l = [], d = [];
   for (const c of i)
     if (c.type === "draw")
@@ -456,12 +456,12 @@ function sd(t, e, o, n = 1, r, s) {
       const a = Rn(c, r);
       Oa(c, e, o, n, a) && d.push(c);
     } else {
-      const a = Rn(c, r), u = Bn(Math.max(Na, Ha), n), [f, y] = bo(c, e, o, a);
+      const a = Rn(c, r), u = Nn(Math.max(Na, Ha), n), [f, y] = bo(c, e, o, a);
       f >= c.x - u && f <= c.x + c.w + u && y >= c.y - u && y <= c.y + a + u && d.push(c);
     }
   return [...l, ...d];
 }
-function Jn(t, e) {
+function $n(t, e) {
   if (!t.rotation) return { x: t.x, y: t.y, w: t.w, h: e };
   const o = t.x + t.w / 2, n = t.y + e / 2, r = t.w / 2, s = e / 2, i = t.rotation * Math.PI / 180, l = Math.abs(Math.cos(i)), d = Math.abs(Math.sin(i)), c = r * l + s * d, a = r * d + s * l;
   return {
@@ -471,7 +471,7 @@ function Jn(t, e) {
     h: a * 2
   };
 }
-const Ve = class Ve {
+const Ke = class Ke {
   constructor(e, o = 0, n) {
     // Increased depth for potentially large boards
     kt(this, "level");
@@ -500,7 +500,7 @@ const Ve = class Ve {
   // Split the node into 4 subnodes
   split() {
     const e = this.bounds.w / 2, o = this.bounds.h / 2, n = this.bounds.x, r = this.bounds.y;
-    this.nodes[0] = new Ve({ x: n + e, y: r, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[1] = new Ve({ x: n, y: r, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[2] = new Ve({ x: n, y: r + o, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[3] = new Ve({ x: n + e, y: r + o, w: e, h: o }, this.level + 1, this.heightMap);
+    this.nodes[0] = new Ke({ x: n + e, y: r, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[1] = new Ke({ x: n, y: r, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[2] = new Ke({ x: n, y: r + o, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[3] = new Ke({ x: n + e, y: r + o, w: e, h: o }, this.level + 1, this.heightMap);
   }
   // Determine which quadrant the object belongs to
   getIndex(e) {
@@ -512,7 +512,7 @@ const Ve = class Ve {
   insert(e, o) {
     const n = o ?? this.resolveH(e);
     o != null && e.h === "auto" && this.heightMap.set(e.id, o);
-    const r = Jn(e, n);
+    const r = $n(e, n);
     if (this.nodes.length) {
       const s = this.getIndex(r);
       if (s !== -1) {
@@ -520,11 +520,11 @@ const Ve = class Ve {
         return;
       }
     }
-    if (this.objects.push(e), this.objects.length > Ve.MAX_OBJECTS && this.level < Ve.MAX_LEVELS) {
+    if (this.objects.push(e), this.objects.length > Ke.MAX_OBJECTS && this.level < Ke.MAX_LEVELS) {
       this.nodes.length || this.split();
       let s = 0;
       for (; s < this.objects.length; ) {
-        const i = this.objects[s], l = this.resolveH(i), d = Jn(i, l), c = this.getIndex(d);
+        const i = this.objects[s], l = this.resolveH(i), d = $n(i, l), c = this.getIndex(d);
         c !== -1 ? (this.nodes[c].insert(i, l), this.objects.splice(s, 1)) : s++;
       }
     }
@@ -535,7 +535,7 @@ const Ve = class Ve {
     if (o !== -1)
       return this.objects.splice(o, 1), !0;
     if (this.nodes.length) {
-      const n = this.resolveH(e), r = this.getIndex(Jn(e, n));
+      const n = this.resolveH(e), r = this.getIndex($n(e, n));
       if (r !== -1 && this.nodes[r].remove(e))
         return !0;
       for (let s = 0; s < this.nodes.length; s++)
@@ -547,7 +547,7 @@ const Ve = class Ve {
   retrieve(e, o) {
     const n = this.getIndex(o);
     for (const r of this.objects) {
-      const s = this.resolveH(r), i = Jn(r, s);
+      const s = this.resolveH(r), i = $n(r, s);
       i.x < o.x + o.w && i.x + i.w > o.x && i.y < o.y + o.h && i.y + i.h > o.y && e.push(r);
     }
     if (this.nodes.length)
@@ -560,9 +560,9 @@ const Ve = class Ve {
   }
 };
 // Max number of objects per node before splitting
-kt(Ve, "MAX_OBJECTS", 10), // Max depth of the tree
-kt(Ve, "MAX_LEVELS", 8);
-let bs = Ve;
+kt(Ke, "MAX_OBJECTS", 10), // Max depth of the tree
+kt(Ke, "MAX_LEVELS", 8);
+let bs = Ke;
 function Ho(t, e, o) {
   return Math.min(Math.max(t, e), o);
 }
@@ -572,13 +572,13 @@ function un(t, e, o) {
     y: (o - t.y) / t.zoom
   };
 }
-function id(t, e, o) {
+function ad(t, e, o) {
   return {
     x: e * t.zoom + t.x,
     y: o * t.zoom + t.y
   };
 }
-function ad(t, e, o, n) {
+function ld(t, e, o, n) {
   const r = e > 0 ? 0.95 : 1.05, s = Ho(t.zoom * r, 0.1, 5), i = un(t, o, n);
   return {
     x: o - i.x * s,
@@ -586,7 +586,7 @@ function ad(t, e, o, n) {
     zoom: s
   };
 }
-function ld(t, e, o, n) {
+function cd(t, e, o, n) {
   const r = Ho(t.zoom * e, 0.1, 5), s = un(t, o, n);
   return {
     x: o - s.x * r,
@@ -594,9 +594,9 @@ function ld(t, e, o, n) {
     zoom: r
   };
 }
-const Gs = Tc.create({
+const Gs = zc.create({
   blockSpecs: {
-    ...zc
+    ...Pc
     // Future custom blocks:
     // callout: CalloutBlock,
     // aiPrompt: AIPromptBlock,
@@ -604,9 +604,9 @@ const Gs = Tc.create({
 });
 let Kr = null;
 function js() {
-  return Kr || (Kr = Pc.create({ schema: Gs })), Kr;
+  return Kr || (Kr = Ac.create({ schema: Gs })), Kr;
 }
-async function cd(t) {
+async function dd(t) {
   return await js().blocksToMarkdownLossy(t);
 }
 async function Vs(t) {
@@ -615,7 +615,7 @@ async function Vs(t) {
 function Ga(t) {
   return js().tryParseHTMLToBlocks(t);
 }
-function dd(t, e, o) {
+function hd(t, e, o) {
   const [n, r] = t, [s, i] = e, [l, d] = o, c = l - s, a = d - i, u = c * c + a * a;
   if (u === 0)
     return (n - s) ** 2 + (r - i) ** 2;
@@ -629,7 +629,7 @@ function xs(t, e = 1) {
   let o = 0, n = 0;
   const r = t[0], s = t[t.length - 1];
   for (let d = 1; d < t.length - 1; d++) {
-    const c = dd(t[d], r, s);
+    const c = hd(t[d], r, s);
     c > o && (o = c, n = d);
   }
   if (o <= e)
@@ -637,7 +637,7 @@ function xs(t, e = 1) {
   const i = xs(t.slice(0, n + 1), e), l = xs(t.slice(n), e);
   return [...i.slice(0, -1), ...l];
 }
-async function hd(t, e) {
+async function ud(t, e) {
   const o = [], n = ['canvas_w="2000"', 'canvas_h="1500"', 'grid="20"', 'snap="false"'];
   if (e != null && e.background && e.background !== "dot-grid" && n.push(`background="${e.background}"`), e != null && e.originView) {
     const p = e.originView;
@@ -667,7 +667,7 @@ async function hd(t, e) {
       `z="${p.z}"`
     ];
     p.rotation && g.push(`rotation="${p.rotation}"`), p.locked && g.push('locked="true"'), p.groupId && g.push(`group="${p.groupId}"`), p.data.borderColor && g.push(`borderColor="${p.data.borderColor}"`), p.data.borderWidth != null && g.push(`borderWidth="${p.data.borderWidth}"`), p.data.borderStyle && p.data.borderStyle !== "solid" && g.push(`borderStyle="${p.data.borderStyle}"`), p.data.opacity !== void 0 && p.data.opacity !== 1 && g.push(`opacity="${p.data.opacity}"`), o.push(`<!--@block ${g.join(" ")} -->`);
-    const m = p.data.blocks.length > 0 ? await cd(p.data.blocks) : "";
+    const m = p.data.blocks.length > 0 ? await dd(p.data.blocks) : "";
     o.push(m), o.push("");
   }
   const i = t.filter((p) => p.type === "draw");
@@ -762,7 +762,7 @@ async function hd(t, e) {
   return o.join(`
 `);
 }
-const ja = "data:font/woff2;base64,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", xo = "Excalifont", dr = [
+const ja = "data:font/woff2;base64,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", xo = "Excalifont", hr = [
   // Bundled — hand-drawn default
   { key: "Excalifont", label: "Excalifont", category: "hand" },
   // System
@@ -795,8 +795,8 @@ const ja = "data:font/woff2;base64,d09GMgABAAAAAMxIAA8AAAAC7dgAAMvmAAEAAAAAAAAAA
   { key: "Kaushan Script", label: "Kaushan Script", category: "display" },
   { key: "Fredericka the Great", label: "Fredericka the Great", category: "display" },
   { key: "Comfortaa", label: "Comfortaa", category: "display" }
-], Va = /* @__PURE__ */ new Set(["sans-serif", "serif", "monospace"]), ud = /* @__PURE__ */ new Set(["Excalifont"]), pd = /* @__PURE__ */ new Set([...Va, ...ud]);
-function fd(t) {
+], Va = /* @__PURE__ */ new Set(["sans-serif", "serif", "monospace"]), pd = /* @__PURE__ */ new Set(["Excalifont"]), fd = /* @__PURE__ */ new Set([...Va, ...pd]);
+function yd(t) {
   switch (t) {
     case "serif":
     case "display":
@@ -813,7 +813,7 @@ function wo(t) {
   return Va.has(t) ? t : `'${t}', sans-serif`;
 }
 let Ti = !1;
-function yd(t = document) {
+function gd(t = document) {
   if (Ti) return;
   Ti = !0;
   const e = t.createElement("style");
@@ -825,7 +825,7 @@ function yd(t = document) {
   font-style: normal;
   font-display: swap;
 }`, t.head.appendChild(e);
-  const o = dr.filter((r) => !pd.has(r.key)).map((r) => "family=" + r.key.replace(/ /g, "+")).join("&"), n = t.createElement("link");
+  const o = hr.filter((r) => !fd.has(r.key)).map((r) => "family=" + r.key.replace(/ /g, "+")).join("&"), n = t.createElement("link");
   n.rel = "stylesheet", n.href = `https://fonts.googleapis.com/css2?${o}&display=swap`, t.head.appendChild(n);
 }
 function io(t) {
@@ -840,7 +840,7 @@ function Cn(t) {
   const e = parseFloat(t);
   return Number.isFinite(e) ? e : void 0;
 }
-const gd = {
+const md = {
   default: "dot-grid",
   "cutting-board": "blueprint",
   // Removed grid-as-paper types → nearest color equivalent
@@ -848,7 +848,7 @@ const gd = {
   "college-ruled": "plain-white",
   isometric: "plain-white"
 };
-async function md(t) {
+async function bd(t) {
   var s, i, l, d;
   const e = [], o = {}, n = t.split(`
 `);
@@ -858,7 +858,7 @@ async function md(t) {
     if (c.startsWith("<!--@meta")) {
       const a = io(c);
       if (a.background) {
-        const u = gd[a.background] ?? a.background;
+        const u = md[a.background] ?? a.background;
         o.background = u;
       }
       if (a.originView) {
@@ -1141,16 +1141,16 @@ async function md(t) {
   }
   return { nodes: e, meta: o };
 }
-const bd = 180;
-function $n(t, e) {
-  t.push(e), t.length > bd && t.shift();
+const xd = 180;
+function _n(t, e) {
+  t.push(e), t.length > xd && t.shift();
 }
 function ao(t, e) {
   if (t.length === 0) return 0;
   const o = [...t].sort((r, s) => r - s), n = Math.min(o.length - 1, Math.max(0, Math.floor((o.length - 1) * e)));
   return o[n];
 }
-class xd {
+class wd {
   constructor() {
     kt(this, "enabled", !1);
     kt(this, "listeners", /* @__PURE__ */ new Set());
@@ -1204,9 +1204,9 @@ class xd {
     if (!this.enabled) return;
     if (this.lastTick > 0) {
       const n = e - this.lastTick;
-      $n(this.frameMs, n);
+      _n(this.frameMs, n);
     }
-    this.lastTick = e, $n(this.cullingMs, this.pendingCullingMs), $n(this.hitTestMs, this.pendingHitTestMs), $n(this.edgeHitMs, this.pendingEdgeHitMs), this.pendingCullingMs = 0, this.pendingHitTestMs = 0, this.pendingEdgeHitMs = 0, this.lastRatesTs === 0 && (this.lastRatesTs = e);
+    this.lastTick = e, _n(this.cullingMs, this.pendingCullingMs), _n(this.hitTestMs, this.pendingHitTestMs), _n(this.edgeHitMs, this.pendingEdgeHitMs), this.pendingCullingMs = 0, this.pendingHitTestMs = 0, this.pendingEdgeHitMs = 0, this.lastRatesTs === 0 && (this.lastRatesTs = e);
     const o = e - this.lastRatesTs;
     if (o >= 250) {
       const n = 1e3 / o;
@@ -1246,12 +1246,12 @@ class xd {
     for (const e of this.listeners) e();
   }
 }
-const we = new xd();
+const we = new wd();
 function qe(t, e) {
   return t.h !== "auto" ? t.h : (e == null ? void 0 : e[t.id]) ?? 100;
 }
-const Ka = 7, Ks = 52, wd = 8;
-function kd(t, e, o, n) {
+const Ka = 7, Ks = 52, kd = 8;
+function vd(t, e, o, n) {
   const r = qe(t, n);
   if (!t.rotation) return { x: e, y: o };
   const s = t.x + t.w / 2, i = t.y + r / 2, l = t.rotation * Math.PI / 180, d = Math.cos(l), c = Math.sin(l), a = e - s, u = o - i;
@@ -1271,7 +1271,7 @@ function qa(t, e, o, n, r, s = "bbox") {
     f = i.direction === "input" ? t.x - d : t.x + t.w + d;
   return { px: f, py: u, direction: i.direction };
 }
-function vd(t, e, o, n, r = "bbox") {
+function Sd(t, e, o, n, r = "bbox") {
   const s = qe(t, n);
   if (r === "bbox")
     return e === "input" ? { x: t.x, y: o.y } : { x: t.x + t.w, y: o.y };
@@ -1288,7 +1288,7 @@ function ze(t, e, o, n, r, s = "bbox") {
     r,
     s
   );
-  return i ? kd(t, i.px, i.py, r) : null;
+  return i ? vd(t, i.px, i.py, r) : null;
 }
 function zi(t, e, o, n, r, s, i, l) {
   const d = i - r, c = l - s;
@@ -1338,7 +1338,7 @@ function ws(t, e, o, n) {
 function Xo(t, e, o, n) {
   return Math.abs(t) / o >= Math.abs(e) / n ? t >= 0 ? "right" : "left" : e >= 0 ? "bottom" : "top";
 }
-function Sd(t, e, o, n) {
+function Md(t, e, o, n) {
   const r = t.x + t.w / 2, s = t.y + e / 2, i = t.w / 2, l = e / 2, d = t.rotation ? -t.rotation * Math.PI / 180 : 0, [c, a] = t.rotation ? Be(o, n, r, s, d) : [o, n], u = c - r, f = a - s;
   if (u === 0 && f === 0)
     return { x: r + i, y: s, side: "right" };
@@ -1347,7 +1347,7 @@ function Sd(t, e, o, n) {
   const m = Xo(u, f, i, l);
   return t.rotation && ([p, g] = Be(p, g, r, s, -d)), { x: p, y: g, side: m };
 }
-function Md(t, e, o, n) {
+function Cd(t, e, o, n) {
   const r = t.x + t.w / 2, s = t.y + e / 2, i = t.w / 2, l = e / 2, d = t.rotation ? -t.rotation * Math.PI / 180 : 0, [c, a] = t.rotation ? Be(o, n, r, s, d) : [o, n], u = c - r, f = a - s;
   if (u === 0 && f === 0)
     return { x: r + i, y: s, side: "right" };
@@ -1356,7 +1356,7 @@ function Md(t, e, o, n) {
   const m = Xo(u, f, i, l);
   return t.rotation && ([p, g] = Be(p, g, r, s, -d)), { x: p, y: g, side: m };
 }
-function Cd(t, e, o, n) {
+function Id(t, e, o, n) {
   const r = t.data.points;
   if (!r || r.length === 0)
     return ws(t, e, o, n);
@@ -1377,7 +1377,7 @@ function Cd(t, e, o, n) {
 function Pi(t, e, o) {
   const n = t.data.points;
   if (!n || n.length === 0)
-    return pr(t, e, o);
+    return fr(t, e, o);
   const r = t.x + t.w / 2, s = t.y + e / 2, i = Yo(o), l = o === "left" || o === "right" ? t.x + (o === "right" ? t.w : 0) : t.x + t.w / 2, d = o === "top" || o === "bottom" ? t.y + (o === "bottom" ? e : 0) : t.y + e / 2, c = (m, x, b, w, M, v) => {
     const C = M - b, z = v - w, E = C * C + z * z;
     if (E === 0) return [b, w];
@@ -1403,11 +1403,11 @@ function Pi(t, e, o) {
 function ks(t, e, o, n) {
   var r;
   if (t.type === "draw")
-    return Cd(t, e, o, n);
+    return Id(t, e, o, n);
   if (t.type === "shape") {
     const s = (r = t.data) == null ? void 0 : r.shape;
-    if (s === "ellipse") return Sd(t, e, o, n);
-    if (s === "diamond") return Md(t, e, o, n);
+    if (s === "ellipse") return Md(t, e, o, n);
+    if (s === "diamond") return Cd(t, e, o, n);
   }
   return ws(t, e, o, n);
 }
@@ -1415,7 +1415,7 @@ function vs(t, e, o, n) {
   const r = ks(t, e, o, n);
   return { x: r.x, y: r.y };
 }
-function pr(t, e, o) {
+function fr(t, e, o) {
   const n = t.x + t.w / 2, r = t.y + e / 2;
   let s, i;
   switch (o) {
@@ -1467,7 +1467,7 @@ function Pe(t, e, o = "bezier", n, r, s, i, l, d, c, a, u, f) {
     const nt = Math.hypot(w - g, M - m);
     nt > 0 && (C = { dx: (w - g) / nt, dy: (M - m) / nt });
   } else if (r) {
-    const Y = t.type === "draw" ? Pi(t, y, r) : pr(t, y, r);
+    const Y = t.type === "draw" ? Pi(t, y, r) : fr(t, y, r);
     w = Y.x, M = Y.y, v = r;
   } else {
     const Y = ks(t, y, x, b);
@@ -1487,7 +1487,7 @@ function Pe(t, e, o = "bezier", n, r, s, i, l, d, c, a, u, f) {
     const nt = Math.hypot(z - x, E - b);
     nt > 0 && (G = { dx: (z - x) / nt, dy: (E - b) / nt });
   } else if (s) {
-    const Y = e.type === "draw" ? Pi(e, p, s) : pr(e, p, s);
+    const Y = e.type === "draw" ? Pi(e, p, s) : fr(e, p, s);
     z = Y.x, E = Y.y, T = s;
   } else {
     const Y = ks(e, p, g, m);
@@ -1504,16 +1504,16 @@ function Pe(t, e, o = "bezier", n, r, s, i, l, d, c, a, u, f) {
   }
   switch (o) {
     case "straight":
-      return Id(w, M, z, E, v, T);
+      return Td(w, M, z, E, v, T);
     case "bezier":
-      return Td(w, M, z, E, v, T, l, C, G);
+      return zd(w, M, z, E, v, T, l, C, G);
     case "smoothstep":
-      return zd(w, M, z, E, v, T, i);
-    case "step":
       return Pd(w, M, z, E, v, T, i);
+    case "step":
+      return Ad(w, M, z, E, v, T, i);
   }
 }
-function Id(t, e, o, n, r, s) {
+function Td(t, e, o, n, r, s) {
   const i = Math.min(t, o), l = Math.min(e, n), d = Math.abs(o - t), c = Math.abs(n - e);
   return {
     path: `M${t},${e} L${o},${n}`,
@@ -1530,7 +1530,7 @@ function Id(t, e, o, n, r, s) {
     bounds: { x: i, y: l, w: d, h: c }
   };
 }
-function Td(t, e, o, n, r, s, i, l, d) {
+function zd(t, e, o, n, r, s, i, l, d) {
   const c = Math.hypot(o - t, n - e), a = Math.min(c * 0.5, Math.max(50, c * 0.25)), u = l ?? Yo(r), f = d ?? Yo(s), y = i ? i[0] * (4 / 3) : 0, p = i ? i[1] * (4 / 3) : 0, g = t + u.dx * a + y, m = e + u.dy * a + p, x = o + f.dx * a + y, b = n + f.dy * a + p, w = 0.125 * t + 0.375 * g + 0.375 * x + 0.125 * o, M = 0.125 * e + 0.375 * m + 0.375 * b + 0.125 * n, v = Math.atan2(n - b, o - x), C = Math.atan2(e - m, t - g), z = {
     x: w,
     y: M,
@@ -1554,8 +1554,8 @@ function Td(t, e, o, n, r, s, i, l, d) {
     bounds: { x: E, y: T, w: G - E, h: Y - T }
   };
 }
-function zd(t, e, o, n, r, s, i) {
-  const { points: c, kinkHandle: a } = qs(t, e, o, n, r, s, 20, i), u = Ad(c, 8), f = Math.floor(c.length / 2), y = (c[f - 1][0] + c[f][0]) / 2, p = (c[f - 1][1] + c[f][1]) / 2, g = c[c.length - 1], m = c[c.length - 2], x = Math.atan2(g[1] - m[1], g[0] - m[0]), b = c[0], w = c[1], M = Math.atan2(b[1] - w[1], b[0] - w[0]);
+function Pd(t, e, o, n, r, s, i) {
+  const { points: c, kinkHandle: a } = qs(t, e, o, n, r, s, 20, i), u = Ed(c, 8), f = Math.floor(c.length / 2), y = (c[f - 1][0] + c[f][0]) / 2, p = (c[f - 1][1] + c[f][1]) / 2, g = c[c.length - 1], m = c[c.length - 2], x = Math.atan2(g[1] - m[1], g[0] - m[0]), b = c[0], w = c[1], M = Math.atan2(b[1] - w[1], b[0] - w[0]);
   let v = 1 / 0, C = 1 / 0, z = -1 / 0, E = -1 / 0;
   for (const [T, G] of c)
     T < v && (v = T), G < C && (C = G), T > z && (z = T), G > E && (E = G);
@@ -1575,7 +1575,7 @@ function zd(t, e, o, n, r, s, i) {
     bounds: { x: v, y: C, w: z - v, h: E - C }
   };
 }
-function Pd(t, e, o, n, r, s, i) {
+function Ad(t, e, o, n, r, s, i) {
   const { points: d, kinkHandle: c } = qs(t, e, o, n, r, s, 20, i), a = [`M${d[0][0]},${d[0][1]}`];
   for (let E = 1; E < d.length; E++)
     a.push(`L${d[E][0]},${d[E][1]}`);
@@ -1615,7 +1615,7 @@ function qs(t, e, o, n, r, s, i, l) {
   } else p && !g ? m.push([f, u]) : m.push([a, y]);
   return m.push([f, y], [o, n]), { points: m, kinkHandle: b };
 }
-function Ad(t, e) {
+function Ed(t, e) {
   if (t.length < 2) return "";
   if (t.length === 2) return `M${t[0][0]},${t[0][1]} L${t[1][0]},${t[1][1]}`;
   const o = [`M${t[0][0]},${t[0][1]}`];
@@ -1631,22 +1631,22 @@ function Ad(t, e) {
   const n = t[t.length - 1];
   return o.push(`L${n[0]},${n[1]}`), o.join(" ");
 }
-function Ed(t, e, o, n, r, s, i, l, d) {
+function Ld(t, e, o, n, r, s, i, l, d) {
   const c = 1 - d, a = c * c, u = a * c, f = d * d, y = f * d;
   return [
     u * t + 3 * a * d * o + 3 * c * f * r + y * i,
     u * e + 3 * a * d * n + 3 * c * f * s + y * l
   ];
 }
-function Ld(t, e, o, n, r, s, i, l, d, c, a = 40) {
+function Rd(t, e, o, n, r, s, i, l, d, c, a = 40) {
   let u = 1 / 0, f = o, y = n;
   for (let p = 1; p <= a; p++) {
-    const g = p / a, [m, x] = Ed(o, n, r, s, i, l, d, c, g), b = Us(t, e, f, y, m, x);
+    const g = p / a, [m, x] = Ld(o, n, r, s, i, l, d, c, g), b = Us(t, e, f, y, m, x);
     b < u && (u = b), f = m, y = x;
   }
   return u;
 }
-function Rd(t, e, o) {
+function Dd(t, e, o) {
   let n = 1 / 0;
   for (let r = 1; r < o.length; r++) {
     const s = Us(t, e, o[r - 1][0], o[r - 1][1], o[r][0], o[r][1]);
@@ -1674,16 +1674,16 @@ function Ua(t, e, o, n, r, s, i, l) {
     return Us(t, e, a, u, f, y);
   if (d === "bezier") {
     const m = Math.hypot(f - a, y - u), x = Math.min(m * 0.5, Math.max(50, m * 0.25)), b = Yo(c.sourceSide), w = Yo(c.targetSide), M = r.data.curveOffset ? r.data.curveOffset[0] * (4 / 3) : 0, v = r.data.curveOffset ? r.data.curveOffset[1] * (4 / 3) : 0, C = a + b.dx * x + M, z = u + b.dy * x + v, E = f + w.dx * x + M, T = y + w.dy * x + v;
-    return Ld(t, e, a, u, C, z, E, T, f, y);
+    return Rd(t, e, a, u, C, z, E, T, f, y);
   }
   const p = 20, { points: g } = qs(a, u, f, y, c.sourceSide, c.targetSide, p, r.data.midpointOffset);
-  return Rd(t, e, g);
+  return Dd(t, e, g);
 }
 function Ei(t, e, o) {
   const n = qe(t, o), r = qe(e, o), s = t.x + t.w / 2, i = t.y + n / 2, l = e.x + e.w / 2, d = e.y + r / 2, c = vs(t, n, l, d), a = vs(e, r, s, i);
   return { x1: c.x, y1: c.y, x2: a.x, y2: a.y };
 }
-function Dd(t, e, o, n) {
+function Wd(t, e, o, n) {
   const r = qe(t, n);
   return vs(t, r, e, o);
 }
@@ -1697,18 +1697,18 @@ function yo(t, e, o, n) {
   const r = Math.cos(o), s = Math.sin(o), i = -s, l = r, d = n / 2, c = t + r * d, a = e + s * d, u = t - r * d, f = e - s * d, y = n * 0.4;
   return `M${u + i * y},${f + l * y} L${c},${a} L${u - i * y},${f - l * y}`;
 }
-function fr(t, e, o, n) {
+function yr(t, e, o, n) {
   const r = Math.cos(o), s = Math.sin(o), i = -s, l = r, d = n / 2, c = t + r * d, a = e + s * d, u = t - r * d, f = e - s * d, y = n * 0.4;
   return `M${c},${a} L${u + i * y},${f + l * y} L${u - i * y},${f - l * y} Z`;
 }
 function Ss(t, e) {
   const o = qe(t, e);
   return ["top", "right", "bottom", "left"].map((r) => {
-    const s = pr(t, o, r);
+    const s = fr(t, o, r);
     return { side: r, x: s.x, y: s.y };
   });
 }
-function _n(t, e, o, n) {
+function tr(t, e, o, n) {
   const r = Ss(t, n);
   let s = r[0], i = 1 / 0;
   for (const l of r) {
@@ -1733,7 +1733,7 @@ function Li(t, e, o, n, r, s) {
   }
   return i && we.recordEdgeHit(performance.now() - l), d;
 }
-function Wd(t, e, o, n, r, s) {
+function Bd(t, e, o, n, r, s) {
   const i = we.isEnabled(), l = i ? performance.now() : 0, d = [];
   for (const c of t.values()) {
     if (c.type !== "edge") continue;
@@ -1810,7 +1810,7 @@ function Ms(t, e, o) {
   }
   return { x: i, y: l, side: d };
 }
-function Bd(t, e, o, n) {
+function Nd(t, e, o, n) {
   var x;
   const r = t.x + t.w / 2, s = t.y + e / 2;
   let i = o, l = n;
@@ -1873,7 +1873,7 @@ function Bd(t, e, o, n) {
   return (g % 1 + 1) % 1;
 }
 function We(t, e, o, n) {
-  const r = qe(t, n), s = Bd(t, r, e, o), i = Ms(t, r, s);
+  const r = qe(t, n), s = Nd(t, r, e, o), i = Ms(t, r, s);
   return { t: s, x: i.x, y: i.y };
 }
 function Cs(t) {
@@ -1886,7 +1886,7 @@ function Do(t, e) {
 function ko(t, e) {
   return t.h === "auto" ? (e == null ? void 0 : e[t.id]) ?? 100 : t.h;
 }
-function Nd(t, e) {
+function Fd(t, e) {
   const o = new Set(t), n = /* @__PURE__ */ new Map(), r = /* @__PURE__ */ new Map();
   for (const l of t)
     n.set(l, 0), r.set(l, []);
@@ -1904,7 +1904,7 @@ function Nd(t, e) {
   }
   return i === t.length;
 }
-function Fd(t, e) {
+function Hd(t, e) {
   const o = new Set(t), n = /* @__PURE__ */ new Map();
   for (const i of t) n.set(i, /* @__PURE__ */ new Set());
   for (const { from: i, to: l } of e)
@@ -1925,7 +1925,7 @@ function Fd(t, e) {
   }
   return s;
 }
-function Hd(t, e) {
+function Od(t, e) {
   const o = [];
   for (const n of t) {
     if (n.type !== "edge") continue;
@@ -1934,13 +1934,13 @@ function Hd(t, e) {
   }
   return o;
 }
-function Od(t) {
+function Xd(t) {
   return t.map((e) => ({
     from: e.data.fromId,
     to: e.data.toId
   }));
 }
-function Xd(t, e, o, n) {
+function Yd(t, e, o, n) {
   const r = [...t].sort(
     (f, y) => f.y === y.y ? f.x - y.x : f.y - y.y
   ), s = r.length;
@@ -1955,7 +1955,7 @@ function Xd(t, e, o, n) {
   }
   return u;
 }
-function Yd(t, e) {
+function Gd(t, e) {
   const o = /* @__PURE__ */ new Map();
   for (const r of t) o.set(r, 0);
   const n = Math.max(t.length, e.length) + 2;
@@ -1974,10 +1974,10 @@ function Ri(t, e, o, n) {
   });
   return s.sort((i, l) => i.score - l.score || i.id.localeCompare(l.id)), s.map((i) => i.id);
 }
-function Gd(t, e, o, n, r) {
+function jd(t, e, o, n, r) {
   const s = t.map((p) => p.id), i = new Set(s), l = e.filter(
     (p) => i.has(p.from) && i.has(p.to)
-  ), d = Yd(s, l), c = Math.max(0, ...s.map((p) => d.get(p) ?? 0)), a = [];
+  ), d = Gd(s, l), c = Math.max(0, ...s.map((p) => d.get(p) ?? 0)), a = [];
   for (let p = 0; p <= c; p++) a[p] = [];
   for (const p of s) {
     const g = d.get(p) ?? 0;
@@ -2029,7 +2029,7 @@ function Is(t, e, o) {
   }
   return Number.isFinite(n) ? { minX: n, minY: r, maxX: s, maxY: i } : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 }
-function jd(t, e, o) {
+function Vd(t, e, o) {
   const n = Is(t, e, o), r = -n.minX, s = -n.minY, i = /* @__PURE__ */ new Map();
   for (const [l, d] of t)
     i.set(l, { x: d.x + r, y: d.y + s });
@@ -2072,7 +2072,7 @@ function Qa(t, e, o, n) {
         a.x += b * v, a.y += w * v, u.x -= b * v, u.y -= w * v;
       }
 }
-function Vd(t, e, o, n, r) {
+function Kd(t, e, o, n, r) {
   const s = ko(t, o), i = ko(e, o), l = t.x + t.w / 2, d = t.y + s / 2, c = e.x + e.w / 2, a = e.y + i / 2;
   let u = c - l, f = a - d, y = Math.hypot(u, f);
   y < 1e-4 && (u = 1, f = 0, y = 1);
@@ -2088,7 +2088,7 @@ function Zr(t, e, o, n, r = 0) {
     h: u
   };
 }
-function Kd(t, e, o, n, r, s) {
+function qd(t, e, o, n, r, s) {
   var u, f;
   const i = o.data, l = Pe(
     t,
@@ -2156,22 +2156,22 @@ function Kd(t, e, o, n, r, s) {
   ) : null;
 }
 function Di(t, e, o, n, r, s) {
-  const i = Vd(e, o, n, r, s);
+  const i = Kd(e, o, n, r, s);
   return { ...t, x: t.x + i.dx, y: t.y + i.dy };
 }
-function qd(t, e) {
+function Ud(t, e) {
   const o = Math.hypot(t.x, t.y);
   if (o > e && o > 1e-9) {
     const n = e / o;
     t.x *= n, t.y *= n;
   }
 }
-function Ud(t) {
+function Zd(t) {
   return [...t].sort(
     (e, o) => e.data.fromId.localeCompare(o.data.fromId) || e.data.toId.localeCompare(o.data.toId) || e.id.localeCompare(o.id)
   );
 }
-function Zd(t, e, o, n, r, s) {
+function Qd(t, e, o, n, r, s) {
   if (e.length < 2) return;
   const i = new Map(e.map((u) => [u.id, u])), l = new Set(e.map((u) => u.id)), d = 78, c = (u, f, y, p) => {
     const g = p.get(u) ?? { x: 0, y: 0 };
@@ -2201,12 +2201,12 @@ function Zd(t, e, o, n, r, s) {
         const G = 1.08 + (u < 24 ? 0.12 : 0), Y = T.dx * 0.5 * G, nt = T.dy * 0.5 * G;
         c(v.id, Y, nt, f), c(C.id, -Y, -nt, f);
       }
-    const m = [], x = Ud(o);
+    const m = [], x = Zd(o);
     let b = 0;
     for (const w of x) {
       const { fromId: M, toId: v } = w.data;
       if (!l.has(M) || !l.has(v)) continue;
-      const C = Kd(
+      const C = qd(
         g(M),
         g(v),
         w,
@@ -2262,19 +2262,19 @@ function Zd(t, e, o, n, r, s) {
       }
     for (const [w, M] of f) {
       const v = { x: M.x * y, y: M.y * y };
-      qd(v, p);
+      Ud(v, p);
       const C = t.get(w);
       C && (C.x += v.x, C.y += v.y);
     }
     (u === 20 || u === 45) && Qa(t, e, r, s);
   }
 }
-function Qd(t, e, o, n, r, s = 1) {
+function Jd(t, e, o, n, r, s = 1) {
   const i = Math.max(24, n ?? 32), l = Math.max(16, Math.round((n ?? 32) * 0.5)), d = Math.max(32, i), c = new Map(t.map((z) => [z.id, z])), a = [...e].map((z) => c.get(z)).filter(
     (z) => !!z && z.type !== "edge" && !z.locked
   );
   if (a.length < 2) return [];
-  const u = new Set(a.map((z) => z.id)), f = Hd(t, u), y = Od(f), p = Fd(
+  const u = new Set(a.map((z) => z.id)), f = Od(t, u), y = Xd(f), p = Hd(
     a.map((z) => z.id),
     y
   );
@@ -2299,7 +2299,7 @@ function Qd(t, e, o, n, r, s = 1) {
       (L) => L.data.sourcePort && L.data.targetPort
     ) ? 1.72 : 1.18, ht = i * st, xt = l * st;
     let bt;
-    Y.length === 0 || !Nd(z, Y) ? bt = Xd(E, o, ht, xt) : bt = Gd(
+    Y.length === 0 || !Fd(z, Y) ? bt = Yd(E, o, ht, xt) : bt = jd(
       E,
       Y,
       o,
@@ -2310,14 +2310,14 @@ function Qd(t, e, o, n, r, s = 1) {
       E,
       o,
       Math.max(0.25, s)
-    ), Zd(
+    ), Qd(
       bt,
       E,
       G,
       r,
       o,
       Math.max(0.25, s)
-    ), bt = jd(bt, E, o);
+    ), bt = Vd(bt, E, o);
     const B = Is(bt, E, o);
     for (const [L, K] of bt)
       g.set(L, { x: K.x + m, y: K.y });
@@ -2330,7 +2330,7 @@ function Qd(t, e, o, n, r, s = 1) {
   }
   return C;
 }
-function Jd(t, e, o) {
+function $d(t, e, o) {
   const n = t.x, r = t.x + t.w / 2, s = t.x + t.w, i = t.y, l = t.y + t.h / 2, d = t.y + t.h, c = [n, r, s], a = [i, l, d];
   let u = 1 / 0, f = 1 / 0;
   const y = [];
@@ -2368,7 +2368,7 @@ function Jd(t, e, o) {
     snapDy: Math.abs(f) <= o ? f : 0
   };
 }
-class $d {
+class _d {
   constructor() {
     kt(this, "nodes", /* @__PURE__ */ new Map());
     kt(this, "viewport", { x: 0, y: 0, zoom: 1 });
@@ -2426,7 +2426,7 @@ class $d {
     /** Container dimensions for viewport bounds computation. */
     kt(this, "_containerWidth", 2e3);
     kt(this, "_containerHeight", 1500);
-    kt(this, "history", new Qc());
+    kt(this, "history", new Jc());
     /** When set, `updateNodeWithHistoryCoalesced` reuses one undo step until `endHistoryCoalesce()`. */
     kt(this, "_historyCoalesceKey", null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2895,7 +2895,7 @@ ${l}` : i;
         const C = M.x + n, z = M.y + r, E = this.resolveHeight(v);
         y = Math.min(y, C), p = Math.min(p, z), g = Math.max(g, C + v.w), m = Math.max(m, z + E);
       }
-      const x = { x: y, y: p, w: g - y, h: m - p }, b = (i == null ? void 0 : i.staticNodes) ?? this.createDragSnapContext(f).staticNodes, w = Jd(x, b, 5);
+      const x = { x: y, y: p, w: g - y, h: m - p }, b = (i == null ? void 0 : i.staticNodes) ?? this.createDragSnapContext(f).staticNodes, w = $d(x, b, 5);
       if (u = w.guides, l) {
         const M = e[0].x + n, v = e[0].y + r, C = this.snap(M, v), z = C.x - M, E = C.y - v, T = w.snapDx !== 0 && Math.abs(w.snapDx) <= Math.abs(z), G = w.snapDy !== 0 && Math.abs(w.snapDy) <= Math.abs(E);
         c = n + (T ? w.snapDx : z), a = r + (G ? w.snapDy : E), T || (u = u.filter((Y) => Y.axis !== "x")), G || (u = u.filter((Y) => Y.axis !== "y"));
@@ -2920,7 +2920,7 @@ ${l}` : i;
     this.viewport.x += e, this.viewport.y += o, this.emit("viewport");
   }
   zoomByWheel(e, o, n) {
-    this.viewport = ad(
+    this.viewport = ld(
       this.viewport,
       e,
       o - this.containerOffset.x,
@@ -2928,7 +2928,7 @@ ${l}` : i;
     ), this.emit("viewport");
   }
   zoomByFactor(e, o, n) {
-    this.viewport = ld(
+    this.viewport = cd(
       this.viewport,
       e,
       o - this.containerOffset.x,
@@ -3023,7 +3023,7 @@ ${l}` : i;
     );
   }
   canvasToScreen(e, o) {
-    return id(this.viewport, e, o);
+    return ad(this.viewport, e, o);
   }
   // --- Node CRUD ---
   addNode(e) {
@@ -3377,7 +3377,7 @@ ${l}` : i;
       h: i * 2
     }), d = /* @__PURE__ */ new Map();
     for (const a of l) d.set(a.id, a);
-    const c = nd(d, e, o, this.viewport.zoom, n, this._containerTypes);
+    const c = rd(d, e, o, this.viewport.zoom, n, this._containerTypes);
     return r && we.recordHitTest(performance.now() - s), c;
   }
   /** Returns all nodes at a point, sorted highest-z first */
@@ -3389,7 +3389,7 @@ ${l}` : i;
       h: i * 2
     }), d = /* @__PURE__ */ new Map();
     for (const a of l) d.set(a.id, a);
-    const c = sd(d, e, o, this.viewport.zoom, n, this._containerTypes);
+    const c = id(d, e, o, this.viewport.zoom, n, this._containerTypes);
     return r && we.recordHitTest(performance.now() - s), c;
   }
   getNodesInRect(e) {
@@ -3609,7 +3609,7 @@ ${l}` : i;
    * wire labels. Skips edges and locked nodes.
    */
   arrangeSelectedNodes(e, o = 1) {
-    const n = Qd(
+    const n = Jd(
       this.getAllNodes(),
       this.selection,
       e,
@@ -4119,14 +4119,14 @@ ${l}` : i;
   }
   // --- Serialization ---
   async toSBD() {
-    return hd(this.getAllNodes(), {
+    return ud(this.getAllNodes(), {
       background: this.boardBackground,
       originView: this.originView ?? void 0
     });
   }
   async fromSBD(e) {
     this.history.clear(), this.nodes.clear(), this.groupParent.clear(), this.groupChildren.clear();
-    const { nodes: o, meta: n } = await md(e);
+    const { nodes: o, meta: n } = await bd(e);
     n.background && (this.boardBackground = n.background, this.emit("background")), n.originView ? this.originView = n.originView : this.originView = null;
     let r = 0, s = 0;
     for (const i of o)
@@ -4144,7 +4144,7 @@ ${l}` : i;
     this.history.clear(), this.nodes = new Map(e.nodes), this.groupParent = new Map(e.groupParent ?? []), this.rebuildGroupChildren(), this.rebuildQuadTree(), this.rebuildFrameChildren(), e.viewport && (this.viewport = e.viewport), this.selection.clear(), this.refreshSearchIfNeeded(), this.emit("change"), this.emit("viewport"), this.emit("selection"), this.emit("history");
   }
 }
-const _d = /* @__PURE__ */ new Set([
+const th = /* @__PURE__ */ new Set([
   "content",
   "draw",
   "shape",
@@ -4155,12 +4155,12 @@ const _d = /* @__PURE__ */ new Set([
   "sticky",
   "youtube"
 ]);
-function th(t) {
+function eh(t) {
   var o, n;
   const e = ((o = t.docs) == null ? void 0 : o.id) ?? t.type;
   return {
     type: t.type,
-    origin: _d.has(t.type) ? "builtin" : "custom",
+    origin: th.has(t.type) ? "builtin" : "custom",
     docsLocalizationKey: e,
     isDataFlow: !!((n = t.ports) != null && n.length),
     ports: (t.ports ?? []).map((r) => ({
@@ -4178,7 +4178,7 @@ function th(t) {
     hasPropertiesPanel: typeof t.propertiesPanel == "function"
   };
 }
-class eh {
+class oh {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(e) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -4203,7 +4203,7 @@ class eh {
    * For MCP / LLM agents: pair with app `localization.customNodeDocs` for prose usage hints.
    */
   toCatalog() {
-    return this.getAll().map((e) => th(e)).sort((e, o) => e.type.localeCompare(o.type));
+    return this.getAll().map((e) => eh(e)).sort((e, o) => e.type.localeCompare(o.type));
   }
   /** Returns type strings for nodes that render in the DOM layer (not SVG-only). */
   getDOMTypes() {
@@ -4216,7 +4216,7 @@ class eh {
     return this.types.has(e);
   }
 }
-const Wi = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], oh = {
+const Wi = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], nh = {
   n: "ns-resize",
   ne: "nesw-resize",
   e: "ew-resize",
@@ -4230,7 +4230,7 @@ function Mr(t, e) {
   const o = Wi.indexOf(t);
   if (o === -1) return "default";
   const n = (e % 360 + 360) % 360, r = Math.round(n / 45) % 8, s = (o + r) % 8;
-  return oh[Wi[s]];
+  return nh[Wi[s]];
 }
 function Ts(t, e, o, n, r, s, i, l, d) {
   if (!(t === "nw" || t === "ne" || t === "sw" || t === "se") || n <= 0 || r <= 0 || l <= 0 || d <= 0)
@@ -4241,7 +4241,7 @@ function Ts(t, e, o, n, r, s, i, l, d) {
   let y = s, p = i;
   return t === "se" ? (y = e, p = o) : t === "ne" ? (y = e, p = o + r - f) : t === "sw" ? (y = e + n - u, p = o) : (y = e + n - u, p = o + r - f), { x: y, y: p, w: u, h: f };
 }
-class nh extends Ec {
+class rh extends Lc {
   constructor() {
     super(...arguments);
     kt(this, "state", { hasError: !1 });
@@ -4274,7 +4274,7 @@ function Bi({ markdown: t }) {
     }
   );
 }
-const rh = 0, sh = [
+const sh = 0, ih = [
   { pos: "nw", top: 0, left: 0 },
   { pos: "n", top: 0, left: "50%" },
   { pos: "ne", top: 0, left: "100%" },
@@ -4284,12 +4284,12 @@ const rh = 0, sh = [
   { pos: "sw", top: "100%", left: 0 },
   { pos: "w", top: "50%", left: 0 }
 ];
-function ih(t) {
+function ah(t) {
   return t.type !== "paragraph" ? !1 : !t.content || t.content.length === 0 ? !0 : t.content.every(
     (e) => e.type === "text" && (!e.text || e.text === "")
   );
 }
-function ah({
+function lh({
   node: t,
   isSelected: e,
   multiSelected: o,
@@ -4300,7 +4300,7 @@ function ah({
   onMeasuredHeight: l,
   autoEdit: d
 }) {
-  const c = ut(null), a = ut(d === !0), u = ut(!1), f = ut(!1), y = ut(!1), p = ut(!1), g = ut(JSON.stringify(t.data.blocks ?? [])), [m, x] = et(!1), [b, w] = et(!1), M = ut(null), v = Dc({ schema: r }), C = ut(
+  const c = ut(null), a = ut(d === !0), u = ut(!1), f = ut(!1), y = ut(!1), p = ut(!1), g = ut(JSON.stringify(t.data.blocks ?? [])), [m, x] = et(!1), [b, w] = et(!1), M = ut(null), v = Wc({ schema: r }), C = ut(
     t.data.blocks.length > 0 ? t.data.blocks : null
   );
   St(() => {
@@ -4411,12 +4411,12 @@ function ah({
     const B = n.getNode(t.id);
     if (!B || B.h === "auto" || !v || !c.current)
       return;
-    const L = B.h - rh, K = c.current.querySelector(".bn-editor");
+    const L = B.h - sh, K = c.current.querySelector(".bn-editor");
     if (!K) return;
     const J = v.document;
     if (J.length === 0) return;
     let q = 0;
-    for (let tt = J.length - 1; tt >= 1 && ih(J[tt]); tt--)
+    for (let tt = J.length - 1; tt >= 1 && ah(J[tt]); tt--)
       q++;
     const O = K.scrollHeight, $ = J.length > 0 ? O / J.length : 36;
     if (f.current = !0, O < L) {
@@ -4640,8 +4640,8 @@ function ah({
                   B.key === "Escape" && (B.stopPropagation(), x(!1));
                 } : void 0,
                 style: m ? { cursor: "text", userSelect: "text" } : { cursor: "move", userSelect: "none" },
-                children: b ? /* @__PURE__ */ h(Bi, { markdown: t.data.markdown ?? "" }) : /* @__PURE__ */ h(nh, { fallback: /* @__PURE__ */ h(Bi, { markdown: t.data.markdown ?? "" }), children: /* @__PURE__ */ h(
-                  Wc,
+                children: b ? /* @__PURE__ */ h(Bi, { markdown: t.data.markdown ?? "" }) : /* @__PURE__ */ h(rh, { fallback: /* @__PURE__ */ h(Bi, { markdown: t.data.markdown ?? "" }), children: /* @__PURE__ */ h(
+                  Bc,
                   {
                     editor: v,
                     theme: "light",
@@ -4652,7 +4652,7 @@ function ah({
             )
           }
         ),
-        bt && sh.map(({ pos: B, top: L, left: K }) => {
+        bt && ih.map(({ pos: B, top: L, left: K }) => {
           const J = 8 / i;
           return /* @__PURE__ */ h(
             "div",
@@ -4719,8 +4719,8 @@ function ah({
     }
   );
 }
-const Ja = Le(ah);
-function lh(t) {
+const Ja = Le(lh);
+function ch(t) {
   const e = t.node;
   return /* @__PURE__ */ h(
     Ja,
@@ -4736,12 +4736,12 @@ function lh(t) {
     }
   );
 }
-const ch = {
+const dh = {
   type: "content",
-  component: lh,
+  component: ch,
   handlesOwnLayout: !0,
   getClipboardText: (t) => t.data.markdown || null
-}, { PI: dh } = Math, Dn = dh + 1e-4, Ni = 0.5, Fi = [1, 1];
+}, { PI: hh } = Math, Dn = hh + 1e-4, Ni = 0.5, Fi = [1, 1];
 function Hi(t, e, o, n = (r) => r) {
   return t * n(0.5 - e * (0.5 - o));
 }
@@ -4750,7 +4750,7 @@ function $a(t, e, o) {
   let n = Qr(1, e / o);
   return Qr(1, t + (Qr(1, 1 - n) - t) * (n * 0.275));
 }
-function hh(t) {
+function uh(t) {
   return [-t[0], -t[1]];
 }
 function Ue(t, e) {
@@ -4771,7 +4771,7 @@ function go(t, e) {
 function Jr(t, e, o) {
   return t[0] = e[0] * o, t[1] = e[1] * o, t;
 }
-function uh(t, e) {
+function ph(t, e) {
   return [t[0] / e, t[1] / e];
 }
 function _a(t) {
@@ -4784,10 +4784,10 @@ function $r(t, e) {
 function Xi(t, e) {
   return t[0] * e[0] + t[1] * e[1];
 }
-function ph(t, e) {
+function fh(t, e) {
   return t[0] === e[0] && t[1] === e[1];
 }
-function fh(t) {
+function yh(t) {
   return Math.hypot(t[0], t[1]);
 }
 function Yi(t, e) {
@@ -4795,9 +4795,9 @@ function Yi(t, e) {
   return o * o + n * n;
 }
 function tl(t) {
-  return uh(t, fh(t));
+  return ph(t, yh(t));
 }
-function yh(t, e) {
+function gh(t, e) {
   return Math.hypot(t[1] - e[1], t[0] - e[0]);
 }
 function Zs(t, e, o) {
@@ -4811,7 +4811,7 @@ function Gi(t, e, o, n) {
 function ji(t, e, o) {
   return Ue(t, go(mo(e, t), o));
 }
-function gh(t, e, o, n) {
+function mh(t, e, o, n) {
   let r = o[0] - e[0], s = o[1] - e[1];
   return t[0] = e[0] + r * n, t[1] = e[1] + s * n, t;
 }
@@ -4819,41 +4819,41 @@ function el(t, e, o) {
   return Ue(t, go(e, o));
 }
 const xe = [0, 0], lo = [0, 0], co = [0, 0];
-function mh(t, e) {
+function bh(t, e) {
   let o = el(t, tl(_a(mo(t, Ue(t, [1, 1])))), -e), n = [], r = 1 / 13;
   for (let s = r; s <= 1; s += r) n.push(Zs(o, t, Dn * 2 * s));
   return n;
 }
-function bh(t, e, o) {
+function xh(t, e, o) {
   let n = [], r = 1 / o;
   for (let s = r; s <= 1; s += r) n.push(Zs(e, t, Dn * s));
   return n;
 }
-function xh(t, e, o) {
+function wh(t, e, o) {
   let n = mo(e, o), r = go(n, 0.5), s = go(n, 0.51);
   return [mo(t, r), mo(t, s), Ue(t, s), Ue(t, r)];
 }
-function wh(t, e, o, n) {
+function kh(t, e, o, n) {
   let r = [], s = el(t, e, o), i = 1 / n;
   for (let l = i; l < 1; l += i) r.push(Zs(s, t, Dn * 3 * l));
   return r;
 }
-function kh(t, e, o) {
+function vh(t, e, o) {
   return [Ue(t, go(e, o)), Ue(t, go(e, o * 0.99)), mo(t, go(e, o * 0.99)), mo(t, go(e, o))];
 }
 function Vi(t, e, o) {
   return t === !1 || t === void 0 ? 0 : t === !0 ? Math.max(e, o) : t;
 }
-function vh(t, e, o) {
+function Sh(t, e, o) {
   return t.slice(0, 10).reduce((n, r) => {
     let s = r.pressure;
     return e && (s = $a(n, r.distance, o)), (n + s) / 2;
   }, t[0].pressure);
 }
-function Sh(t, e = {}) {
+function Mh(t, e = {}) {
   let { size: o = 16, smoothing: n = 0.5, thinning: r = 0.5, simulatePressure: s = !0, easing: i = (B) => B, start: l = {}, end: d = {}, last: c = !1 } = e, { cap: a = !0, easing: u = (B) => B * (2 - B) } = l, { cap: f = !0, easing: y = (B) => --B * B * B + 1 } = d;
   if (t.length === 0 || o <= 0) return [];
-  let p = t[t.length - 1].runningLength, g = Vi(l.taper, o, p), m = Vi(d.taper, o, p), x = (o * n) ** 2, b = [], w = [], M = vh(t, s, o), v = Hi(o, r, t[t.length - 1].pressure, i), C, z = t[0].vector, E = t[0].point, T = E, G = E, Y = T, nt = !1;
+  let p = t[t.length - 1].runningLength, g = Vi(l.taper, o, p), m = Vi(d.taper, o, p), x = (o * n) ** 2, b = [], w = [], M = Sh(t, s, o), v = Hi(o, r, t[t.length - 1].pressure, i), C, z = t[0].vector, E = t[0].point, T = E, G = E, Y = T, nt = !1;
   for (let B = 0; B < t.length; B++) {
     let { pressure: L } = t[B], { point: K, vector: J, distance: q, runningLength: O } = t[B], $ = B === t.length - 1;
     if (!$ && p - O < 3) continue;
@@ -4871,15 +4871,15 @@ function Sh(t, e = {}) {
       $r(xe, J), Jr(xe, xe, v), b.push(mo(K, xe)), w.push(Ue(K, xe));
       continue;
     }
-    gh(xe, Q, J, it), $r(xe, xe), Jr(xe, xe, v), zs(lo, K, xe), G = [lo[0], lo[1]], (B <= 1 || Yi(E, G) > x) && (b.push(G), E = G), Oi(co, K, xe), Y = [co[0], co[1]], (B <= 1 || Yi(T, Y) > x) && (w.push(Y), T = Y), M = L, z = J;
+    mh(xe, Q, J, it), $r(xe, xe), Jr(xe, xe, v), zs(lo, K, xe), G = [lo[0], lo[1]], (B <= 1 || Yi(E, G) > x) && (b.push(G), E = G), Oi(co, K, xe), Y = [co[0], co[1]], (B <= 1 || Yi(T, Y) > x) && (w.push(Y), T = Y), M = L, z = J;
   }
   let st = [t[0].point[0], t[0].point[1]], ht = t.length > 1 ? [t[t.length - 1].point[0], t[t.length - 1].point[1]] : Ue(t[0].point, [1, 1]), xt = [], bt = [];
   if (t.length === 1) {
-    if (!(g || m) || c) return mh(st, C || v);
+    if (!(g || m) || c) return bh(st, C || v);
   } else {
-    g || m && t.length === 1 || (a ? xt.push(...bh(st, w[0], 13)) : xt.push(...xh(st, b[0], w[0])));
-    let B = _a(hh(t[t.length - 1].vector));
-    m || g && t.length === 1 ? bt.push(ht) : f ? bt.push(...wh(ht, B, v, 29)) : bt.push(...kh(ht, B, v));
+    g || m && t.length === 1 || (a ? xt.push(...xh(st, w[0], 13)) : xt.push(...wh(st, b[0], w[0])));
+    let B = _a(uh(t[t.length - 1].vector));
+    m || g && t.length === 1 ? bt.push(ht) : f ? bt.push(...kh(ht, B, v, 29)) : bt.push(...vh(ht, B, v));
   }
   return b.concat(bt, w.reverse(), xt);
 }
@@ -4887,7 +4887,7 @@ const Ki = [0, 0];
 function qi(t) {
   return t != null && t >= 0;
 }
-function Mh(t, e = {}) {
+function Ch(t, e = {}) {
   var f;
   let { streamline: o = 0.5, size: n = 16, last: r = !1 } = e;
   if (t.length === 0) return [];
@@ -4901,8 +4901,8 @@ function Mh(t, e = {}) {
   let l = [{ point: [i[0][0], i[0][1]], pressure: qi(i[0][2]) ? i[0][2] : 0.25, vector: [...Fi], distance: 0, runningLength: 0 }], d = !1, c = 0, a = l[0], u = i.length - 1;
   for (let y = 1; y < i.length; y++) {
     let p = r && y === u ? [i[y][0], i[y][1]] : ji(a.point, i[y], s);
-    if (ph(a.point, p)) continue;
-    let g = yh(p, a.point);
+    if (fh(a.point, p)) continue;
+    let g = gh(p, a.point);
     if (c += g, y < u && !d) {
       if (c < n) continue;
       d = !0;
@@ -4911,20 +4911,20 @@ function Mh(t, e = {}) {
   }
   return l[0].vector = ((f = l[1]) == null ? void 0 : f.vector) || [0, 0], l;
 }
-function Ch(t, e = {}) {
-  return Sh(Mh(t, e), e);
+function Ih(t, e = {}) {
+  return Mh(Ch(t, e), e);
 }
-var Ih = Ch;
+var Th = Ih;
 function Qs(t, e = {}) {
-  const o = Ih(t, {
+  const o = Th(t, {
     size: e.size || 4,
     thinning: e.thinning ?? 0.5,
     smoothing: e.smoothing ?? 0.5,
     streamline: e.streamline ?? 0.5
   });
-  return Th(o);
+  return zh(o);
 }
-function Th(t) {
+function zh(t) {
   if (!t.length) return "";
   const e = [], [o, n] = t[0];
   e.push("M", o, n);
@@ -4946,7 +4946,7 @@ function ol(t, e = 0.5) {
   }
   return n;
 }
-function zh(t, e = 0.5) {
+function Ph(t, e = 0.5) {
   if (t.length < 2) return "";
   const o = ol(t, e), n = o.length, r = [];
   r.push("M", o[0][0], o[0][1]);
@@ -4956,13 +4956,13 @@ function zh(t, e = 0.5) {
   }
   return r.push("Z"), r.join(" ");
 }
-function Ph(t, e, o, n) {
+function Ah(t, e, o, n) {
   const r = e[0] - t[0], s = e[1] - t[1], i = n[0] - o[0], l = n[1] - o[1], d = r * l - s * i;
   if (Math.abs(d) < 1e-10) return null;
   const c = ((o[0] - t[0]) * l - (o[1] - t[1]) * i) / d, a = ((o[0] - t[0]) * s - (o[1] - t[1]) * r) / d;
   return c <= 0 || c >= 1 || a <= 0 || a >= 1 ? null : [t[0] + c * r, t[1] + c * s];
 }
-function Ah(t) {
+function Eh(t) {
   if (t.length < 2) return "";
   let e = `M ${t[0][0]},${t[0][1]}`;
   for (let o = 1; o < t.length; o++)
@@ -4975,12 +4975,12 @@ function Ui(t) {
     e += (t[n][0] + t[o][0]) * (t[n][1] - t[o][1]);
   return Math.abs(e) / 2;
 }
-function Eh(t) {
+function Lh(t) {
   if (t.length < 4) return [];
   const e = t.length, o = [];
   for (let i = 0; i < e - 1; i++)
     for (let l = i + 2; l < e - 1; l++) {
-      const d = Ph(
+      const d = Ah(
         t[i],
         t[i + 1],
         t[l],
@@ -4991,7 +4991,7 @@ function Eh(t) {
       for (let a = i + 1; a <= l; a++)
         c.push(t[a]);
       Ui(c) < 100 || o.push({
-        pathD: Ah(c),
+        pathD: Eh(c),
         points: c.map((a) => [a[0], a[1]])
       });
     }
@@ -5008,17 +5008,17 @@ function _r(t, e, o) {
     }
   }
 }
-function Lh(t, e) {
+function Rh(t, e) {
   return t[0] === e[0] && t[1] === e[1];
 }
-function Rh(t, e, o, n = 1) {
+function Dh(t, e, o, n = 1) {
   const r = o, s = Math.max(e, 0.1), i = t[0] && t[0][0] && typeof t[0][0] == "number" ? [t] : t, l = [0, 0];
   if (r) for (const c of i) _r(c, l, r);
   const d = function(c, a, u) {
     const f = [];
     for (const b of c) {
       const w = [...b];
-      Lh(w[0], w[w.length - 1]) || w.push([w[0][0], w[0][1]]), w.length > 2 && f.push(w);
+      Rh(w[0], w[w.length - 1]) || w.push([w[0][0], w[0][1]]), w.length > 2 && f.push(w);
     }
     const y = [];
     a = Math.max(a, 0.1);
@@ -5061,13 +5061,13 @@ function Rh(t, e, o, n = 1) {
   }
   return d;
 }
-function Nn(t, e) {
+function Fn(t, e) {
   var o;
   const n = e.hachureAngle + 90;
   let r = e.hachureGap;
   r < 0 && (r = 4 * e.strokeWidth), r = Math.round(Math.max(r, 0.1));
   let s = 1;
-  return e.roughness >= 1 && (((o = e.randomizer) === null || o === void 0 ? void 0 : o.next()) || Math.random()) > 0.7 && (s = r), Rh(t, r, n, s || 1);
+  return e.roughness >= 1 && (((o = e.randomizer) === null || o === void 0 ? void 0 : o.next()) || Math.random()) > 0.7 && (s = r), Dh(t, r, n, s || 1);
 }
 class Js {
   constructor(e) {
@@ -5077,7 +5077,7 @@ class Js {
     return this._fillPolygons(e, o);
   }
   _fillPolygons(e, o) {
-    const n = Nn(e, o);
+    const n = Fn(e, o);
     return { type: "fillSketch", ops: this.renderLines(n, o) };
   }
   renderLines(e, o) {
@@ -5090,27 +5090,27 @@ function Cr(t) {
   const e = t[0], o = t[1];
   return Math.sqrt(Math.pow(e[0] - o[0], 2) + Math.pow(e[1] - o[1], 2));
 }
-class Dh extends Js {
+class Wh extends Js {
   fillPolygons(e, o) {
     let n = o.hachureGap;
     n < 0 && (n = 4 * o.strokeWidth), n = Math.max(n, 0.1);
-    const r = Nn(e, Object.assign({}, o, { hachureGap: n })), s = Math.PI / 180 * o.hachureAngle, i = [], l = 0.5 * n * Math.cos(s), d = 0.5 * n * Math.sin(s);
+    const r = Fn(e, Object.assign({}, o, { hachureGap: n })), s = Math.PI / 180 * o.hachureAngle, i = [], l = 0.5 * n * Math.cos(s), d = 0.5 * n * Math.sin(s);
     for (const [c, a] of r) Cr([c, a]) && i.push([[c[0] - l, c[1] + d], [...a]], [[c[0] + l, c[1] - d], [...a]]);
     return { type: "fillSketch", ops: this.renderLines(i, o) };
   }
 }
-class Wh extends Js {
+class Bh extends Js {
   fillPolygons(e, o) {
     const n = this._fillPolygons(e, o), r = Object.assign({}, o, { hachureAngle: o.hachureAngle + 90 }), s = this._fillPolygons(e, r);
     return n.ops = n.ops.concat(s.ops), n;
   }
 }
-class Bh {
+class Nh {
   constructor(e) {
     this.helper = e;
   }
   fillPolygons(e, o) {
-    const n = Nn(e, o = Object.assign({}, o, { hachureAngle: 0 }));
+    const n = Fn(e, o = Object.assign({}, o, { hachureAngle: 0 }));
     return this.dotsOnLines(n, o);
   }
   dotsOnLines(e, o) {
@@ -5130,12 +5130,12 @@ class Bh {
     return { type: "fillSketch", ops: n };
   }
 }
-class Nh {
+class Fh {
   constructor(e) {
     this.helper = e;
   }
   fillPolygons(e, o) {
-    const n = Nn(e, o);
+    const n = Fn(e, o);
     return { type: "fillSketch", ops: this.dashedLine(n, o) };
   }
   dashedLine(e, o) {
@@ -5152,12 +5152,12 @@ class Nh {
     }), s;
   }
 }
-class Fh {
+class Hh {
   constructor(e) {
     this.helper = e;
   }
   fillPolygons(e, o) {
-    const n = o.hachureGap < 0 ? 4 * o.strokeWidth : o.hachureGap, r = o.zigzagOffset < 0 ? n : o.zigzagOffset, s = Nn(e, o = Object.assign({}, o, { hachureGap: n + r }));
+    const n = o.hachureGap < 0 ? 4 * o.strokeWidth : o.hachureGap, r = o.zigzagOffset < 0 ? n : o.zigzagOffset, s = Fn(e, o = Object.assign({}, o, { hachureGap: n + r }));
     return { type: "fillSketch", ops: this.zigzagLines(s, r, o) };
   }
   zigzagLines(e, o, n) {
@@ -5175,7 +5175,7 @@ class Fh {
   }
 }
 const Te = {};
-let Hh = class {
+let Oh = class {
   constructor(e) {
     this.seed = e;
   }
@@ -5183,7 +5183,7 @@ let Hh = class {
     return this.seed ? (2 ** 31 - 1 & (this.seed = Math.imul(48271, this.seed))) / 2 ** 31 : Math.random();
   }
 };
-const Oh = 0, ts = 1, Zi = 2, tr = { A: 7, a: 7, C: 6, c: 6, H: 1, h: 1, L: 2, l: 2, M: 2, m: 2, Q: 4, q: 4, S: 4, s: 4, T: 2, t: 2, V: 1, v: 1, Z: 0, z: 0 };
+const Xh = 0, ts = 1, Zi = 2, er = { A: 7, a: 7, C: 6, c: 6, H: 1, h: 1, L: 2, l: 2, M: 2, m: 2, Q: 4, q: 4, S: 4, s: 4, T: 2, t: 2, V: 1, v: 1, Z: 0, z: 0 };
 function es(t, e) {
   return t.type === e;
 }
@@ -5191,7 +5191,7 @@ function $s(t) {
   const e = [], o = function(i) {
     const l = new Array();
     for (; i !== ""; ) if (i.match(/^([ \t\r\n,]+)/)) i = i.substr(RegExp.$1.length);
-    else if (i.match(/^([aAcChHlLmMqQsStTvVzZ])/)) l[l.length] = { type: Oh, text: RegExp.$1 }, i = i.substr(RegExp.$1.length);
+    else if (i.match(/^([aAcChHlLmMqQsStTvVzZ])/)) l[l.length] = { type: Xh, text: RegExp.$1 }, i = i.substr(RegExp.$1.length);
     else {
       if (!i.match(/^(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)/)) return [];
       l[l.length] = { type: ts, text: `${parseFloat(RegExp.$1)}` }, i = i.substr(RegExp.$1.length);
@@ -5204,15 +5204,15 @@ function $s(t) {
     const l = [];
     if (n === "BOD") {
       if (s.text !== "M" && s.text !== "m") return $s("M0,0" + t);
-      r++, i = tr[s.text], n = s.text;
-    } else es(s, ts) ? i = tr[n] : (r++, i = tr[s.text], n = s.text);
+      r++, i = er[s.text], n = s.text;
+    } else es(s, ts) ? i = er[n] : (r++, i = er[s.text], n = s.text);
     if (!(r + i < o.length)) throw new Error("Path data ended short");
     for (let d = r; d < r + i; d++) {
       const c = o[d];
       if (!es(c, ts)) throw new Error("Param not a number: " + n + "," + c.text);
       l[l.length] = +c.text;
     }
-    if (typeof tr[n] != "number") throw new Error("Bad segment: " + n);
+    if (typeof er[n] != "number") throw new Error("Bad segment: " + n);
     {
       const d = { key: n, data: l };
       e.push(d), r += i, s = o[r], n === "M" && (n = "L"), n === "m" && (n = "l");
@@ -5376,10 +5376,10 @@ function sl(t, e, o, n, r, s, i, l, d, c) {
     return st;
   }
 }
-const Xh = { randOffset: function(t, e) {
+const Yh = { randOffset: function(t, e) {
   return jt(t, e);
 }, randOffsetWithRange: function(t, e, o) {
-  return yr(t, e, o);
+  return gr(t, e, o);
 }, ellipse: function(t, e, o, n, r) {
   const s = al(o, n, r);
   return Ps(t, e, r, s).opset;
@@ -5389,7 +5389,7 @@ const Xh = { randOffset: function(t, e) {
 function il(t, e, o, n, r) {
   return { type: "path", ops: vo(t, e, o, n, r) };
 }
-function hr(t, e, o) {
+function ur(t, e, o) {
   const n = (t || []).length;
   if (n > 2) {
     const r = [];
@@ -5398,18 +5398,18 @@ function hr(t, e, o) {
   }
   return n === 2 ? il(t[0][0], t[0][1], t[1][0], t[1][1], o) : { type: "path", ops: [] };
 }
-function Yh(t, e, o, n, r) {
+function Gh(t, e, o, n, r) {
   return function(s, i) {
-    return hr(s, !0, i);
+    return ur(s, !0, i);
   }([[t, e], [t + o, e], [t + o, e + n], [t, e + n]], r);
 }
 function Qi(t, e) {
   if (t.length) {
-    const o = typeof t[0][0] == "number" ? [t] : t, n = er(o[0], 1 * (1 + 0.2 * e.roughness), e), r = e.disableMultiStroke ? [] : er(o[0], 1.5 * (1 + 0.22 * e.roughness), _i(e));
+    const o = typeof t[0][0] == "number" ? [t] : t, n = or(o[0], 1 * (1 + 0.2 * e.roughness), e), r = e.disableMultiStroke ? [] : or(o[0], 1.5 * (1 + 0.22 * e.roughness), _i(e));
     for (let s = 1; s < o.length; s++) {
       const i = o[s];
       if (i.length) {
-        const l = er(i, 1 * (1 + 0.2 * e.roughness), e), d = e.disableMultiStroke ? [] : er(i, 1.5 * (1 + 0.22 * e.roughness), _i(e));
+        const l = or(i, 1 * (1 + 0.2 * e.roughness), e), d = e.disableMultiStroke ? [] : or(i, 1.5 * (1 + 0.22 * e.roughness), _i(e));
         for (const c of l) c.op !== "move" && n.push(c);
         for (const c of d) c.op !== "move" && r.push(c);
       }
@@ -5425,10 +5425,10 @@ function al(t, e, o) {
   return i += jt(i * d, o), l += jt(l * d, o), { increment: s, rx: i, ry: l };
 }
 function Ps(t, e, o, n) {
-  const [r, s] = ta(n.increment, t, e, n.rx, n.ry, 1, n.increment * yr(0.1, yr(0.4, 1, o), o), o);
-  let i = gr(r, null, o);
+  const [r, s] = ta(n.increment, t, e, n.rx, n.ry, 1, n.increment * gr(0.1, gr(0.4, 1, o), o), o);
+  let i = mr(r, null, o);
   if (!o.disableMultiStroke && o.roughness !== 0) {
-    const [l] = ta(n.increment, t, e, n.rx, n.ry, 1.5, 0, o), d = gr(l, null, o);
+    const [l] = ta(n.increment, t, e, n.rx, n.ry, 1.5, 0, o), d = mr(l, null, o);
     i = i.concat(d);
   }
   return { estimatedPoints: s, opset: { type: "path", ops: i } };
@@ -5459,7 +5459,7 @@ function $i(t, e) {
       break;
     case "C": {
       const [d, c, a, u, f, y] = l;
-      n.push(...Gh(d, c, a, u, f, y, s, e)), s = [f, y];
+      n.push(...jh(d, c, a, u, f, y, s, e)), s = [f, y];
       break;
     }
     case "Z":
@@ -5483,38 +5483,38 @@ function en(t, e) {
     let r = o.fillStyle || "hachure";
     if (!Te[r]) switch (r) {
       case "zigzag":
-        Te[r] || (Te[r] = new Dh(n));
-        break;
-      case "cross-hatch":
         Te[r] || (Te[r] = new Wh(n));
         break;
-      case "dots":
+      case "cross-hatch":
         Te[r] || (Te[r] = new Bh(n));
         break;
-      case "dashed":
+      case "dots":
         Te[r] || (Te[r] = new Nh(n));
         break;
-      case "zigzag-line":
+      case "dashed":
         Te[r] || (Te[r] = new Fh(n));
+        break;
+      case "zigzag-line":
+        Te[r] || (Te[r] = new Hh(n));
         break;
       default:
         r = "hachure", Te[r] || (Te[r] = new Js(n));
     }
     return Te[r];
-  }(e, Xh).fillPolygons(t, e);
+  }(e, Yh).fillPolygons(t, e);
 }
 function _i(t) {
   const e = Object.assign({}, t);
   return e.randomizer = void 0, t.seed && (e.seed = t.seed + 1), e;
 }
 function ll(t) {
-  return t.randomizer || (t.randomizer = new Hh(t.seed || 0)), t.randomizer.next();
+  return t.randomizer || (t.randomizer = new Oh(t.seed || 0)), t.randomizer.next();
 }
-function yr(t, e, o, n = 1) {
+function gr(t, e, o, n = 1) {
   return o.roughness * n * (ll(o) * (e - t) + t);
 }
 function jt(t, e, o = 1) {
-  return yr(-t, t, e, o);
+  return gr(-t, t, e, o);
 }
 function vo(t, e, o, n, r, s = !1) {
   const i = s ? r.disableMultiStrokeFill : r.disableMultiStroke, l = As(t, e, o, n, r, !0, !1);
@@ -5534,14 +5534,14 @@ function As(t, e, o, n, r, s, i) {
   const g = [], m = () => jt(u, r, c), x = () => jt(a, r, c), b = r.preserveVertices;
   return i ? g.push({ op: "move", data: [t + (b ? 0 : m()), e + (b ? 0 : m())] }) : g.push({ op: "move", data: [t + (b ? 0 : jt(a, r, c)), e + (b ? 0 : jt(a, r, c))] }), i ? g.push({ op: "bcurveTo", data: [y + t + (o - t) * f + m(), p + e + (n - e) * f + m(), y + t + 2 * (o - t) * f + m(), p + e + 2 * (n - e) * f + m(), o + (b ? 0 : m()), n + (b ? 0 : m())] }) : g.push({ op: "bcurveTo", data: [y + t + (o - t) * f + x(), p + e + (n - e) * f + x(), y + t + 2 * (o - t) * f + x(), p + e + 2 * (n - e) * f + x(), o + (b ? 0 : x()), n + (b ? 0 : x())] }), g;
 }
-function er(t, e, o) {
+function or(t, e, o) {
   if (!t.length) return [];
   const n = [];
   n.push([t[0][0] + jt(e, o), t[0][1] + jt(e, o)]), n.push([t[0][0] + jt(e, o), t[0][1] + jt(e, o)]);
   for (let r = 1; r < t.length; r++) n.push([t[r][0] + jt(e, o), t[r][1] + jt(e, o)]), r === t.length - 1 && n.push([t[r][0] + jt(e, o), t[r][1] + jt(e, o)]);
-  return gr(n, null, o);
+  return mr(n, null, o);
 }
-function gr(t, e, o) {
+function mr(t, e, o) {
   const n = t.length, r = [];
   if (n > 3) {
     const s = [], i = 1 - o.curveTightness;
@@ -5578,9 +5578,9 @@ function ea(t, e, o, n, r, s, i, l, d) {
   const c = s + jt(0.1, d), a = [];
   a.push([jt(l, d) + e + 0.9 * n * Math.cos(c - t), jt(l, d) + o + 0.9 * r * Math.sin(c - t)]);
   for (let u = c; u <= i; u += t) a.push([jt(l, d) + e + n * Math.cos(u), jt(l, d) + o + r * Math.sin(u)]);
-  return a.push([e + n * Math.cos(i), o + r * Math.sin(i)]), a.push([e + n * Math.cos(i), o + r * Math.sin(i)]), gr(a, null, d);
+  return a.push([e + n * Math.cos(i), o + r * Math.sin(i)]), a.push([e + n * Math.cos(i), o + r * Math.sin(i)]), mr(a, null, d);
 }
-function Gh(t, e, o, n, r, s, i, l) {
+function jh(t, e, o, n, r, s, i, l) {
   const d = [], c = [l.maxRandomnessOffset || 1, (l.maxRandomnessOffset || 1) + 0.3];
   let a = [0, 0];
   const u = l.disableMultiStroke ? 1 : 2, f = l.preserveVertices;
@@ -5608,14 +5608,14 @@ function oa(t, e = 0) {
   }
   return n;
 }
-function ur(t, e) {
+function pr(t, e) {
   return Math.pow(t[0] - e[0], 2) + Math.pow(t[1] - e[1], 2);
 }
-function jh(t, e, o) {
-  const n = ur(e, o);
-  if (n === 0) return ur(t, e);
+function Vh(t, e, o) {
+  const n = pr(e, o);
+  if (n === 0) return pr(t, e);
   let r = ((t[0] - e[0]) * (o[0] - e[0]) + (t[1] - e[1]) * (o[1] - e[1])) / n;
-  return r = Math.max(0, Math.min(1, r)), ur(t, No(e, o, r));
+  return r = Math.max(0, Math.min(1, r)), pr(t, No(e, o, r));
 }
 function No(t, e, o) {
   return [t[0] + (e[0] - t[0]) * o, t[1] + (e[1] - t[1]) * o];
@@ -5634,7 +5634,7 @@ function Es(t, e, o, n) {
     return m *= m, y < g && (y = g), p < m && (p = m), y + p;
   }(t, e) < o) {
     const l = t[e + 0];
-    r.length ? (s = r[r.length - 1], i = l, Math.sqrt(ur(s, i)) > 1 && r.push(l)) : r.push(l), r.push(t[e + 3]);
+    r.length ? (s = r[r.length - 1], i = l, Math.sqrt(pr(s, i)) > 1 && r.push(l)) : r.push(l), r.push(t[e + 3]);
   } else {
     const d = t[e + 0], c = t[e + 1], a = t[e + 2], u = t[e + 3], f = No(d, c, 0.5), y = No(c, a, 0.5), p = No(a, u, 0.5), g = No(f, y, 0.5), m = No(y, p, 0.5), x = No(g, m, 0.5);
     Es([d, f, g, x], 0, o, r), Es([x, m, p, u], 0, o, r);
@@ -5642,26 +5642,26 @@ function Es(t, e, o, n) {
   var s, i;
   return r;
 }
-function Vh(t, e) {
-  return mr(t, 0, t.length, e);
+function Kh(t, e) {
+  return br(t, 0, t.length, e);
 }
-function mr(t, e, o, n, r) {
+function br(t, e, o, n, r) {
   const s = r || [], i = t[e], l = t[o - 1];
   let d = 0, c = 1;
   for (let a = e + 1; a < o - 1; ++a) {
-    const u = jh(t[a], i, l);
+    const u = Vh(t[a], i, l);
     u > d && (d = u, c = a);
   }
-  return Math.sqrt(d) > n ? (mr(t, e, c + 1, n, s), mr(t, c, o, n, s)) : (s.length || s.push(i), s.push(l)), s;
+  return Math.sqrt(d) > n ? (br(t, e, c + 1, n, s), br(t, c, o, n, s)) : (s.length || s.push(i), s.push(l)), s;
 }
 function ns(t, e = 0.15, o) {
   const n = [], r = (t.length - 1) / 3;
   for (let s = 0; s < r; s++)
     Es(t, 3 * s, e, n);
-  return o && o > 0 ? mr(n, 0, n.length, o) : n;
+  return o && o > 0 ? br(n, 0, n.length, o) : n;
 }
 const Re = "none";
-class br {
+class xr {
   constructor(e) {
     this.defaultOptions = { maxRandomnessOffset: 2, roughness: 1, bowing: 1, stroke: "#000", strokeWidth: 1, curveTightness: 0, curveFitting: 0.95, curveStepCount: 9, fillStyle: "hachure", fillWeight: -1, hachureAngle: -41, hachureGap: -1, dashOffset: -1, dashGap: -1, zigzagOffset: -1, seed: 0, disableMultiStroke: !1, disableMultiStrokeFill: !1, preserveVertices: !1, fillShapeRoughnessGain: 0.8 }, this.config = e || {}, this.config.options && (this.defaultOptions = this._o(this.config.options));
   }
@@ -5679,7 +5679,7 @@ class br {
     return this._d("line", [il(e, o, n, r, i)], i);
   }
   rectangle(e, o, n, r, s) {
-    const i = this._o(s), l = [], d = Yh(e, o, n, r, i);
+    const i = this._o(s), l = [], d = Gh(e, o, n, r, i);
     if (i.fill) {
       const c = [[e, o], [e + n, o], [e + n, o + r], [e, o + r]];
       i.fillStyle === "solid" ? l.push(os([c], i)) : l.push(en([c], i));
@@ -5700,7 +5700,7 @@ class br {
   }
   linearPath(e, o) {
     const n = this._o(o);
-    return this._d("linearPath", [hr(e, !1, n)], n);
+    return this._d("linearPath", [ur(e, !1, n)], n);
   }
   arc(e, o, n, r, s, i, l = !1, d) {
     const c = this._o(d), a = [], u = Ji(e, o, n, r, s, i, l, !0, c);
@@ -5738,7 +5738,7 @@ class br {
     return n.stroke !== Re && r.push(s), this._d("curve", r, n);
   }
   polygon(e, o) {
-    const n = this._o(o), r = [], s = hr(e, !0, n);
+    const n = this._o(o), r = [], s = ur(e, !0, n);
     return n.fill && (n.fillStyle === "solid" ? r.push(os([e], n)) : r.push(en([e], n))), n.stroke !== Re && r.push(s), this._d("polygon", r, n);
   }
   path(e, o) {
@@ -5773,7 +5773,7 @@ class br {
       if (w(), !f) return p;
       const M = [];
       for (const v of p) {
-        const C = Vh(v, f);
+        const C = Kh(v, f);
         C.length && M.push(C);
       }
       return M;
@@ -5784,7 +5784,7 @@ class br {
     } else r.push(os(d, n));
     else r.push(en(d, n));
     return i && (l ? d.forEach((a) => {
-      r.push(hr(a, !1, n));
+      r.push(ur(a, !1, n));
     }) : r.push(c)), this._d("path", r, n);
   }
   opsToPath(e, o) {
@@ -5830,9 +5830,9 @@ class br {
     return e.filter((o, n) => n === 0 || o.op !== "move");
   }
 }
-class Kh {
+class qh {
   constructor(e, o) {
-    this.canvas = e, this.ctx = this.canvas.getContext("2d"), this.gen = new br(o);
+    this.canvas = e, this.ctx = this.canvas.getContext("2d"), this.gen = new xr(o);
   }
   draw(e) {
     const o = e.sets || [], n = e.options || this.getDefaultOptions(), r = this.ctx, s = e.options.fixedDecimalPlaceDigits;
@@ -5914,21 +5914,21 @@ class Kh {
     return this.draw(n), n;
   }
 }
-const or = "http://www.w3.org/2000/svg";
-class qh {
+const nr = "http://www.w3.org/2000/svg";
+class Uh {
   constructor(e, o) {
-    this.svg = e, this.gen = new br(o);
+    this.svg = e, this.gen = new xr(o);
   }
   draw(e) {
-    const o = e.sets || [], n = e.options || this.getDefaultOptions(), r = this.svg.ownerDocument || window.document, s = r.createElementNS(or, "g"), i = e.options.fixedDecimalPlaceDigits;
+    const o = e.sets || [], n = e.options || this.getDefaultOptions(), r = this.svg.ownerDocument || window.document, s = r.createElementNS(nr, "g"), i = e.options.fixedDecimalPlaceDigits;
     for (const l of o) {
       let d = null;
       switch (l.type) {
         case "path":
-          d = r.createElementNS(or, "path"), d.setAttribute("d", this.opsToPath(l, i)), d.setAttribute("stroke", n.stroke), d.setAttribute("stroke-width", n.strokeWidth + ""), d.setAttribute("fill", "none"), n.strokeLineDash && d.setAttribute("stroke-dasharray", n.strokeLineDash.join(" ").trim()), n.strokeLineDashOffset && d.setAttribute("stroke-dashoffset", `${n.strokeLineDashOffset}`);
+          d = r.createElementNS(nr, "path"), d.setAttribute("d", this.opsToPath(l, i)), d.setAttribute("stroke", n.stroke), d.setAttribute("stroke-width", n.strokeWidth + ""), d.setAttribute("fill", "none"), n.strokeLineDash && d.setAttribute("stroke-dasharray", n.strokeLineDash.join(" ").trim()), n.strokeLineDashOffset && d.setAttribute("stroke-dashoffset", `${n.strokeLineDashOffset}`);
           break;
         case "fillPath":
-          d = r.createElementNS(or, "path"), d.setAttribute("d", this.opsToPath(l, i)), d.setAttribute("stroke", "none"), d.setAttribute("stroke-width", "0"), d.setAttribute("fill", n.fill || ""), e.shape !== "curve" && e.shape !== "polygon" || d.setAttribute("fill-rule", "evenodd");
+          d = r.createElementNS(nr, "path"), d.setAttribute("d", this.opsToPath(l, i)), d.setAttribute("stroke", "none"), d.setAttribute("stroke-width", "0"), d.setAttribute("fill", n.fill || ""), e.shape !== "curve" && e.shape !== "polygon" || d.setAttribute("fill-rule", "evenodd");
           break;
         case "fillSketch":
           d = this.fillSketch(r, l, n);
@@ -5940,7 +5940,7 @@ class qh {
   fillSketch(e, o, n) {
     let r = n.fillWeight;
     r < 0 && (r = n.strokeWidth / 2);
-    const s = e.createElementNS(or, "path");
+    const s = e.createElementNS(nr, "path");
     return s.setAttribute("d", this.opsToPath(o, n.fixedDecimalPlaceDigits)), s.setAttribute("stroke", n.fill || ""), s.setAttribute("stroke-width", r + ""), s.setAttribute("fill", "none"), n.fillLineDash && s.setAttribute("stroke-dasharray", n.fillLineDash.join(" ").trim()), n.fillLineDashOffset && s.setAttribute("stroke-dashoffset", `${n.fillLineDashOffset}`), s;
   }
   get generator() {
@@ -5989,9 +5989,9 @@ class qh {
     return this.draw(n);
   }
 }
-var Uh = { canvas: (t, e) => new Kh(t, e), svg: (t, e) => new qh(t, e), generator: (t) => new br(t), newSeed: () => br.newSeed() };
-const oo = Uh.generator();
-function Zh(t) {
+var Zh = { canvas: (t, e) => new qh(t, e), svg: (t, e) => new Uh(t, e), generator: (t) => new xr(t), newSeed: () => xr.newSeed() };
+const oo = Zh.generator();
+function Qh(t) {
   let e = 0;
   for (let o = 0; o < t.length; o++) {
     const n = t.charCodeAt(o);
@@ -6007,7 +6007,7 @@ function So(t) {
     roughness: t.roughness,
     strokeWidth: t.strokeWidth,
     strokeLineDash: t.strokeLineDash,
-    seed: t.seed ? Zh(t.seed) : void 0,
+    seed: t.seed ? Qh(t.seed) : void 0,
     fillWeight: t.strokeWidth / 2,
     hachureGap: Math.max(t.strokeWidth * 4, 4)
   };
@@ -6027,7 +6027,7 @@ function Mo(t) {
 function Uo(t, e) {
   return Math.min(t, e) * 0.25;
 }
-function Qh(t, e, o, n, r) {
+function Jh(t, e, o, n, r) {
   const s = Math.min(r, o / 2, n / 2);
   return [
     `M${t + s},${e}`,
@@ -6045,14 +6045,14 @@ function Qh(t, e, o, n, r) {
 function Wn(t, e, o, n, r, s) {
   if (s) {
     const i = Uo(o, n);
-    return Mo(oo.path(Qh(t, e, o, n, i), So(r)));
+    return Mo(oo.path(Jh(t, e, o, n, i), So(r)));
   }
   return Mo(oo.rectangle(t, e, o, n, So(r)));
 }
 function Ir(t, e, o, n, r) {
   return Mo(oo.ellipse(t, e, o, n, So(r)));
 }
-function Jh(t, e, o, n, r) {
+function $h(t, e, o, n, r) {
   const s = t + o / 2, i = e + n / 2, l = [s, e], d = [t + o, i], c = [s, e + n], a = [t, i], u = Math.hypot(o / 2, n / 2), f = Math.min(r, u / 2) / u, y = (C, z, E) => [
     C[0] + E * (z[0] - C[0]),
     C[1] + E * (z[1] - C[1])
@@ -6073,7 +6073,7 @@ function Jh(t, e, o, n, r) {
 function Tr(t, e, o, n, r, s) {
   if (s) {
     const l = Uo(o, n);
-    return Mo(oo.path(Jh(t, e, o, n, l), So(r)));
+    return Mo(oo.path($h(t, e, o, n, l), So(r)));
   }
   const i = [
     [t + o / 2, e],
@@ -6104,18 +6104,18 @@ function no(t) {
   if (t === "dashed") return [8, 4];
   if (t === "dotted") return [2, 2];
 }
-function $h(t) {
+function _h(t) {
   const e = t.replace("#", ""), o = parseInt(e.substring(0, 2), 16) || 0, n = parseInt(e.substring(2, 4), 16) || 0, r = parseInt(e.substring(4, 6), 16) || 0;
   return (0.299 * o + 0.587 * n + 0.114 * r) / 255 > 0.5 ? "#1e1e2e" : "#ffffff";
 }
-function _h({ node: t, editingLabel: e }) {
+function tu({ node: t, editingLabel: e }) {
   if (t.type === "draw") {
     const o = t;
-    return o.data.tool === "vector" ? /* @__PURE__ */ h(eu, { node: o }) : /* @__PURE__ */ h(tu, { node: o });
+    return o.data.tool === "vector" ? /* @__PURE__ */ h(ou, { node: o }) : /* @__PURE__ */ h(eu, { node: o });
   }
-  return /* @__PURE__ */ h(ou, { node: t, editingLabel: e });
+  return /* @__PURE__ */ h(nu, { node: t, editingLabel: e });
 }
-const xr = Le(_h), tu = Le(function({ node: e }) {
+const wr = Le(tu), eu = Le(function({ node: e }) {
   const o = e.data.strokeStyle === "dashed" || e.data.strokeStyle === "dotted", n = no(e.data.strokeStyle), r = Kt(
     () => o ? null : Qs(e.data.points, { size: e.data.strokeWidth }),
     [e.data.points, e.data.strokeWidth, o]
@@ -6146,7 +6146,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
       g += Math.hypot(u[M][0] - u[M - 1][0], u[M][1] - u[M - 1][1]);
     const m = g >= 1 && p <= Math.max(e.data.strokeWidth * 4, 20) && p <= g * 0.1, x = e.data.fillStyle || "solid";
     if (m) {
-      const M = zh(u, 0);
+      const M = Ph(u, 0);
       return x === "solid" ? { kind: "solid", d: M, fill: e.data.fill } : { kind: "rough", paths: na(u, {
         stroke: "none",
         fill: e.data.fill,
@@ -6155,7 +6155,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
         strokeWidth: e.data.strokeWidth
       }) };
     }
-    const b = Eh(u);
+    const b = Lh(u);
     if (b.length === 0) return null;
     if (x === "solid")
       return {
@@ -6254,7 +6254,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
       )
     }
   );
-}), eu = Le(function({ node: e }) {
+}), ou = Le(function({ node: e }) {
   const o = e.h === "auto" ? 0 : e.h, n = e.data.strokeWidth * 2, r = Kt(() => {
     const l = e.data.points;
     if (!l || l.length === 0) return "";
@@ -6311,7 +6311,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
       )
     }
   );
-}), ou = Le(function({ node: e, editingLabel: o }) {
+}), nu = Le(function({ node: e, editingLabel: o }) {
   var m, x, b, w;
   const n = e.h === "auto" ? 100 : e.h, r = e.data.strokeWidth * 2, s = no(e.data.strokeStyle), i = ((m = e.data.startPoint) == null ? void 0 : m[0]) ?? 0, l = ((x = e.data.startPoint) == null ? void 0 : x[1]) ?? n / 2, d = ((b = e.data.endPoint) == null ? void 0 : b[0]) ?? e.w, c = ((w = e.data.endPoint) == null ? void 0 : w[1]) ?? n / 2, a = Kt(() => {
     if (e.data.roughness === 0) return null;
@@ -6363,7 +6363,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
             style: { overflow: "visible", marginLeft: -r, marginTop: -r },
             children: /* @__PURE__ */ S("g", { transform: `translate(${r}, ${r})`, opacity: f, children: [
               u && /* @__PURE__ */ h(
-                su,
+                iu,
                 {
                   shape: e.data.shape,
                   w: e.w,
@@ -6385,7 +6385,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
                 },
                 v
               )) : /* @__PURE__ */ h(
-                nu,
+                ru,
                 {
                   shape: e.data.shape,
                   w: e.w,
@@ -6402,7 +6402,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
                 }
               ),
               /* @__PURE__ */ h(
-                ru,
+                su,
                 {
                   shape: e.data.shape,
                   w: e.w,
@@ -6438,7 +6438,7 @@ const xr = Le(_h), tu = Le(function({ node: e }) {
                   textAlign: e.data.labelAlign ?? "center",
                   fontFamily: wo(e.data.labelFontFamily ?? xo),
                   fontSize: g,
-                  color: e.data.fill && e.data.fillStyle === "solid" ? $h(e.data.fill) : e.data.stroke,
+                  color: e.data.fill && e.data.fillStyle === "solid" ? _h(e.data.fill) : e.data.stroke,
                   lineHeight: 1.3,
                   wordBreak: "break-word",
                   whiteSpace: "pre-wrap",
@@ -6471,7 +6471,7 @@ function _s(t, e) {
     "Z"
   ].join(" ");
 }
-function nu({
+function ru({
   shape: t,
   w: e,
   h: o,
@@ -6607,7 +6607,7 @@ function nu({
       return null;
   }
 }
-function ru({
+function su({
   shape: t,
   w: e,
   h: o,
@@ -6691,7 +6691,7 @@ function ru({
       return null;
   }
 }
-function su({
+function iu({
   shape: t,
   w: e,
   h: o,
@@ -6725,11 +6725,11 @@ function su({
       return null;
   }
 }
-const iu = Le(function(e) {
-  return /* @__PURE__ */ h(xr, { node: e.node });
-}), au = {
+const au = Le(function(e) {
+  return /* @__PURE__ */ h(wr, { node: e.node });
+}), lu = {
   type: "draw",
-  component: iu,
+  component: au,
   handlesOwnLayout: !0,
   hitTest: (t, e, o, n) => Ys(t, e, o, n),
   getHitPadding: (t) => {
@@ -6757,12 +6757,12 @@ const iu = Le(function(e) {
     };
   },
   getClipboardText: () => null
-}, lu = Le(function(e) {
+}, cu = Le(function(e) {
   const o = e.node;
-  return /* @__PURE__ */ h(xr, { node: o, editingLabel: e.editing });
-}), cu = {
+  return /* @__PURE__ */ h(wr, { node: o, editingLabel: e.editing });
+}), du = {
   type: "shape",
-  component: lu,
+  component: cu,
   handlesOwnLayout: !0,
   hitTest: (t, e, o, n) => Sr(t, e, o, n),
   onResize: (t, e, o) => {
@@ -6786,16 +6786,16 @@ const iu = Le(function(e) {
   },
   getClipboardText: (t) => t.data.label || null
 };
-function du(t) {
+function hu(t) {
   return null;
 }
-const hu = {
+const uu = {
   type: "edge",
-  component: du,
+  component: hu,
   isSVGOnly: !0,
   handlesOwnLayout: !0,
   getClipboardText: () => null
-}, nr = 0.05, rr = 10, uu = [
+}, rr = 0.05, sr = 10, pu = [
   { pos: "nw", edges: ["left", "top"], cx: 0, cy: 0, cursor: "nwse-resize" },
   { pos: "n", edges: ["top"], cx: 0.5, cy: 0, cursor: "ns-resize" },
   { pos: "ne", edges: ["right", "top"], cx: 1, cy: 0, cursor: "nesw-resize" },
@@ -6805,7 +6805,7 @@ const hu = {
   { pos: "sw", edges: ["left", "bottom"], cx: 0, cy: 1, cursor: "nesw-resize" },
   { pos: "w", edges: ["left"], cx: 0, cy: 0.5, cursor: "ew-resize" }
 ];
-function pu({
+function fu({
   node: t,
   isSelected: e,
   engine: o,
@@ -6849,13 +6849,13 @@ function pu({
       const Q = $.h === "auto" ? c : $.h, it = $.rotation || 0;
       let pt, _, dt, gt;
       if (M)
-        if (pt = Math.max(rr, O.w * M.w), _ = Math.max(rr, O.h * M.h), !it)
+        if (pt = Math.max(sr, O.w * M.w), _ = Math.max(sr, O.h * M.h), !it)
           dt = $.x + M.x + O.x * M.w, gt = $.y + M.y + O.y * M.h;
         else {
           const ft = $.x + $.w / 2, wt = $.y + Q / 2;
           dt = ft - pt / 2, gt = wt - _ / 2;
         }
-      else if (pt = Math.max(rr, O.w * $.w), _ = Math.max(rr, O.h * Q), !it)
+      else if (pt = Math.max(sr, O.w * $.w), _ = Math.max(sr, O.h * Q), !it)
         dt = $.x + O.x * $.w, gt = $.y + O.y * Q;
       else {
         const ft = $.x + $.w / 2, wt = $.y + Q / 2;
@@ -6900,18 +6900,18 @@ function pu({
       const rt = $.currentTarget.ownerDocument, tt = $.clientX, Q = $.clientY, it = { ...b }, pt = (dt) => {
         const gt = (dt.clientX - tt) / r / M.w, ft = (dt.clientY - Q) / r / M.h, wt = { ...it }, zt = it.x + it.w, Ft = it.y + it.h;
         if (O.includes("left")) {
-          const Et = Math.max(0, Math.min(zt - nr, it.x + gt));
+          const Et = Math.max(0, Math.min(zt - rr, it.x + gt));
           wt.x = Et, wt.w = zt - Et;
         }
         if (O.includes("right") && (wt.w = Math.max(
-          nr,
+          rr,
           Math.min(1 - it.x, it.w + gt)
         )), O.includes("top")) {
-          const Et = Math.max(0, Math.min(Ft - nr, it.y + ft));
+          const Et = Math.max(0, Math.min(Ft - rr, it.y + ft));
           wt.y = Et, wt.h = Ft - Et;
         }
         O.includes("bottom") && (wt.h = Math.max(
-          nr,
+          rr,
           Math.min(1 - it.y, it.h + ft)
         )), w(wt);
       }, _ = () => {
@@ -7111,7 +7111,7 @@ function pu({
             ]
           }
         ),
-        i && B && uu.map(({ pos: O, edges: $, cx: rt, cy: tt, cursor: Q }) => /* @__PURE__ */ h(
+        i && B && pu.map(({ pos: O, edges: $, cx: rt, cy: tt, cursor: Q }) => /* @__PURE__ */ h(
           "div",
           {
             onPointerDown: (it) => E($, it),
@@ -7189,8 +7189,8 @@ function pu({
     }
   );
 }
-const cl = Le(pu);
-function fu(t) {
+const cl = Le(fu);
+function yu(t) {
   const e = t.node;
   return /* @__PURE__ */ h(
     cl,
@@ -7213,9 +7213,9 @@ function fu(t) {
     }
   );
 }
-const yu = {
+const gu = {
   type: "image",
-  component: fu,
+  component: yu,
   handlesOwnLayout: !0,
   onFlip: (t, e) => {
     const o = t.data;
@@ -7223,7 +7223,7 @@ const yu = {
   },
   getClipboardText: (t) => t.data.src || null
 };
-function gu({
+function mu({
   node: t,
   engine: e,
   editing: o,
@@ -7355,8 +7355,8 @@ function gu({
     }
   );
 }
-const dl = Le(gu);
-function mu(t) {
+const dl = Le(mu);
+function bu(t) {
   const e = t.node;
   return /* @__PURE__ */ h(
     dl,
@@ -7373,14 +7373,14 @@ function mu(t) {
     }
   );
 }
-const bu = {
+const xu = {
   type: "text",
-  component: mu,
+  component: bu,
   handlesOwnLayout: !0,
   onResize: (t, e, o) => ({ fontSize: t.data.fontSize * e }),
   getClipboardText: (t) => t.data.text || null
 };
-function xu(t) {
+function wu(t) {
   const e = t.node, o = e.h === "auto" ? 100 : e.h, n = lt(
     (s) => {
       var l, d;
@@ -7466,13 +7466,13 @@ function xu(t) {
     }
   );
 }
-const wu = {
+const ku = {
   type: "frame",
-  component: xu,
+  component: wu,
   handlesOwnLayout: !0,
   getClipboardText: (t) => t.data.label || null
-}, ku = 100;
-function vu({
+}, vu = 100;
+function Su({
   node: t,
   isSelected: e,
   engine: o,
@@ -7590,7 +7590,7 @@ function vu({
       }
     },
     [n, s, o, t.id, t.groupId, i]
-  ), w = t.data.fontSize ?? 16, M = t.h === "auto" ? ku : t.h;
+  ), w = t.data.fontSize ?? 16, M = t.h === "auto" ? vu : t.h;
   return /* @__PURE__ */ h(
     "div",
     {
@@ -7676,8 +7676,8 @@ function vu({
     }
   );
 }
-const hl = Le(vu);
-function Su(t) {
+const hl = Le(Su);
+function Mu(t) {
   const e = t.node;
   return /* @__PURE__ */ h(
     hl,
@@ -7699,26 +7699,26 @@ function Su(t) {
     }
   );
 }
-const Mu = {
+const Cu = {
   type: "sticky",
-  component: Su,
+  component: Mu,
   handlesOwnLayout: !0,
   getClipboardText: (t) => t.data.text || null
 }, ul = /(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/;
-function Cu(t) {
+function Iu(t) {
   const e = t.match(ul);
   return e ? e[1] : null;
 }
-function Iu(t) {
+function Tu(t) {
   return ul.test(t);
 }
-function Tu(t) {
+function zu(t) {
   return `https://www.youtube.com/embed/${t}`;
 }
-function zu(t) {
+function Pu(t) {
   return `https://img.youtube.com/vi/${t}/hqdefault.jpg`;
 }
-function Pu({
+function Au({
   node: t,
   isSelected: e,
   engine: o,
@@ -7785,7 +7785,7 @@ function Pu({
               /* @__PURE__ */ h(
                 "iframe",
                 {
-                  src: Tu(c.videoId),
+                  src: zu(c.videoId),
                   title: "YouTube video",
                   allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
                   allowFullScreen: !0,
@@ -7839,11 +7839,11 @@ function Pu({
     }
   );
 }
-const Au = Le(Pu);
-function Eu(t) {
+const Eu = Le(Au);
+function Lu(t) {
   const e = t.node;
   return /* @__PURE__ */ h(
-    Au,
+    Eu,
     {
       node: e,
       isSelected: t.isSelected,
@@ -7863,23 +7863,23 @@ function Eu(t) {
     }
   );
 }
-const Lu = {
+const Ru = {
   type: "youtube",
-  component: Eu,
+  component: Lu,
   handlesOwnLayout: !0,
   getClipboardText: (t) => t.data.url || null
-}, Ru = [
-  ch,
-  au,
-  cu,
-  hu,
-  yu,
-  bu,
-  wu,
-  Mu,
-  Lu
+}, Du = [
+  dh,
+  lu,
+  du,
+  uu,
+  gu,
+  xu,
+  ku,
+  Cu,
+  Ru
 ];
-class Du {
+class Wu {
   constructor(e, o) {
     kt(this, "spatial");
     kt(this, "registry");
@@ -8136,7 +8136,7 @@ class Du {
     for (const s of o) {
       if (s.direction !== "output") continue;
       const i = Do(e, s.id), l = n[s.id] ?? null, d = this.values.get(i) ?? null;
-      Wu(d, l) || (this.values.set(i, l), r = !0);
+      Bu(d, l) || (this.values.set(i, l), r = !0);
     }
     return r && this.markDownstream(e), r;
   }
@@ -8146,7 +8146,7 @@ class Du {
       e();
   }
 }
-function Wu(t, e) {
+function Bu(t, e) {
   if (t === e) return !0;
   if (t == null || e == null || typeof t != typeof e) return !1;
   if (typeof t == "object" && typeof e == "object") {
@@ -8171,10 +8171,10 @@ const pn = [
   { key: "japanese-stationery", label: "Japanese Stationery", group: "textured", canvasBg: "#f5f0e8", swatchColor: "#f5f0e8" },
   { key: "kraft", label: "Kraft Paper", group: "textured", canvasBg: "#d4b896", swatchColor: "#d4b896" }
 ];
-function Fn(t) {
+function Hn(t) {
   return pn.find((e) => e.key === t) ?? pn[1];
 }
-function Bu() {
+function Nu() {
   return {
     staticDefs: /* @__PURE__ */ S("filter", { id: "paper-texture", x: "-20%", y: "-20%", width: "140%", height: "140%", children: [
       /* @__PURE__ */ h("feTurbulence", { type: "fractalNoise", baseFrequency: "0.08", numOctaves: 4, seed: 12, stitchTiles: "stitch", result: "noise" }),
@@ -8197,7 +8197,7 @@ function Bu() {
     ]
   };
 }
-function Nu() {
+function Fu() {
   return {
     staticDefs: /* @__PURE__ */ S("filter", { id: "kraft-texture", x: "-20%", y: "-20%", width: "140%", height: "140%", children: [
       /* @__PURE__ */ h("feTurbulence", { type: "fractalNoise", baseFrequency: "0.04", numOctaves: 5, seed: 42, stitchTiles: "stitch", result: "noise" }),
@@ -8221,10 +8221,10 @@ function Nu() {
   };
 }
 const ss = {
-  "japanese-stationery": Bu,
-  kraft: Nu
+  "japanese-stationery": Nu,
+  kraft: Fu
 };
-function Fu(t) {
+function Hu(t) {
   var e;
   return ((e = ss[t]) == null ? void 0 : e.call(ss)) ?? {};
 }
@@ -8234,28 +8234,28 @@ const pl = {
   width: "100%",
   height: "100%",
   pointerEvents: "none"
-}, Hu = {
+}, Ou = {
   ...pl,
   willChange: "transform"
-}, Ou = Le(function({
+}, Xu = Le(function({
   background: e
 }) {
-  const o = Fn(e), { staticDefs: n, staticLayers: r } = Fu(e);
-  return /* @__PURE__ */ S("svg", { style: Hu, children: [
+  const o = Hn(e), { staticDefs: n, staticLayers: r } = Hu(e);
+  return /* @__PURE__ */ S("svg", { style: Ou, children: [
     n && /* @__PURE__ */ h("defs", { children: n }),
     /* @__PURE__ */ h("rect", { width: "100%", height: "100%", fill: o.canvasBg }),
     r
   ] });
 });
-function Xu({
+function Yu({
   viewport: t,
   gridSize: e = 20,
   background: o = "dot-grid",
   gridVisible: n = !0
 }) {
-  const r = e * t.zoom, s = t.x % r, i = t.y % r, d = Fn(o).group === "dark" ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
+  const r = e * t.zoom, s = t.x % r, i = t.y % r, d = Hn(o).group === "dark" ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
   return /* @__PURE__ */ S(Mt, { children: [
-    /* @__PURE__ */ h(Ou, { background: o }),
+    /* @__PURE__ */ h(Xu, { background: o }),
     n && /* @__PURE__ */ S("svg", { style: pl, children: [
       /* @__PURE__ */ h("defs", { children: /* @__PURE__ */ h(
         "pattern",
@@ -8291,9 +8291,9 @@ const Ls = {
   swatchBorderActive: "white",
   error: "#e74c3c",
   accentColor: "#3b82f6"
-}, fl = vr(Ls);
+}, fl = Bn(Ls);
 function oe() {
-  return Ke(fl);
+  return Ge(fl);
 }
 const Rs = {
   inspectorTitle: "Inspector",
@@ -8325,6 +8325,7 @@ const Rs = {
   goToOriginView: "Go to saved view",
   presentSlides: "Present (frames as slides)",
   toggleSlidesPanel: "Toggle slides panel",
+  viewOnly: "View only",
   togglePerformanceOverlay: "Toggle performance overlay",
   canvasSearchPlaceholder: "Search canvas...",
   canvasSearchOpen: "Search (Ctrl+F)",
@@ -8523,18 +8524,18 @@ const Rs = {
   inspectorNodeHelpShow: "Show node help",
   inspectorNodeHelpHide: "Hide node help",
   customNodeDocs: {}
-}, yl = vr({
+}, yl = Bn({
   dir: "ltr",
   isRTL: !1,
   labels: Rs
 });
-function Yu(t) {
+function Gu(t) {
   var e;
   return t === "rtl" || t === "ltr" ? t : typeof document < "u" && ((e = document.dir) == null ? void 0 : e.toLowerCase()) === "rtl" ? "rtl" : "ltr";
 }
-function Gu(t, e) {
+function ju(t, e) {
   return Kt(() => {
-    const o = Yu(t), { customNodeDocs: n, ...r } = e ?? {};
+    const o = Gu(t), { customNodeDocs: n, ...r } = e ?? {};
     return {
       dir: o,
       isRTL: o === "rtl",
@@ -8550,13 +8551,13 @@ function Gu(t, e) {
   }, [t, e]);
 }
 function _t() {
-  return Ke(yl);
+  return Ge(yl);
 }
-const Pn = 168, An = 112, hn = 6, sr = Pn - hn * 2, ir = An - hn * 2;
+const Pn = 168, An = 112, hn = 6, ir = Pn - hn * 2, ar = An - hn * 2;
 function gl(t, e) {
   return t.h === "auto" ? e[t.id] ?? 100 : t.h;
 }
-function ju(t, e, o, n, r) {
+function Vu(t, e, o, n, r) {
   let s = 1 / 0, i = 1 / 0, l = -1 / 0, d = -1 / 0;
   for (const g of t) {
     if (g.type === "edge") continue;
@@ -8574,7 +8575,7 @@ function ju(t, e, o, n, r) {
   const p = 48;
   return s -= p, i -= p, l += p, d += p, s = Math.min(s, a, f), i = Math.min(i, u, y), l = Math.max(l, a, f), d = Math.max(d, u, y), { minX: s, minY: i, maxX: l, maxY: d };
 }
-function Vu({
+function Ku({
   engine: t,
   nodes: e,
   viewport: o,
@@ -8590,15 +8591,15 @@ function Vu({
     const { w: Q, h: it } = n;
     if (Q <= 0 || it <= 0)
       return { minX: 0, minY: 0, maxX: 1, maxY: 1, scale: 1, offsetX: 0, offsetY: 0 };
-    const pt = ju(e, r, o, Q, it), _ = Math.max(pt.maxX - pt.minX, 1e-6), dt = Math.max(pt.maxY - pt.minY, 1e-6), gt = Math.min(sr / _, ir / dt), ft = _ * gt, wt = dt * gt;
+    const pt = Vu(e, r, o, Q, it), _ = Math.max(pt.maxX - pt.minX, 1e-6), dt = Math.max(pt.maxY - pt.minY, 1e-6), gt = Math.min(ir / _, ar / dt), ft = _ * gt, wt = dt * gt;
     return {
       minX: pt.minX,
       minY: pt.minY,
       maxX: pt.maxX,
       maxY: pt.maxY,
       scale: gt,
-      offsetX: (sr - ft) / 2,
-      offsetY: (ir - wt) / 2
+      offsetX: (ir - ft) / 2,
+      offsetY: (ar - wt) / 2
     };
   }, [e, r, o, n]), M = lt(
     (Q, it) => {
@@ -8614,7 +8615,7 @@ function Vu({
     const _ = pt.getBoundingClientRect();
     if (_.width <= 0 || _.height <= 0) return null;
     const dt = (Q - _.left) / _.width * Pn, gt = (it - _.top) / _.height * An, ft = dt - hn, wt = gt - hn;
-    return ft < -0.5 || wt < -0.5 || ft > sr + 0.5 || wt > ir + 0.5 ? null : { ix: ft, iy: wt };
+    return ft < -0.5 || wt < -0.5 || ft > ir + 0.5 || wt > ar + 0.5 ? null : { ix: ft, iy: wt };
   }, []), C = lt(
     (Q, it) => ({
       wx: y + (Q - b) / x,
@@ -8713,8 +8714,8 @@ function Vu({
                 {
                   x: 0,
                   y: 0,
-                  width: sr,
-                  height: ir,
+                  width: ir,
+                  height: ar,
                   fill: "rgba(255,255,255,0.04)",
                   stroke: $,
                   strokeOpacity: 0.5,
@@ -8756,7 +8757,7 @@ function Pr() {
 function bl(t) {
   localStorage.setItem(ml, JSON.stringify(t));
 }
-function Ku(t) {
+function qu(t) {
   try {
     const e = localStorage.getItem(ti + t);
     return e ? ei(JSON.parse(e)) : null;
@@ -8785,7 +8786,7 @@ function xl() {
   return Pr();
 }
 function oi(t) {
-  const e = Ku(t);
+  const e = qu(t);
   return (e == null ? void 0 : e.libraryItems) ?? [];
 }
 function ni(t, e) {
@@ -8801,12 +8802,12 @@ function ni(t, e) {
   const i = Pr();
   return i.push(s), bl(i), s;
 }
-function qu(t) {
+function Uu(t) {
   localStorage.removeItem(ti + t);
   const e = Pr().filter((o) => o.id !== t);
   bl(e);
 }
-function Uu(t) {
+function Zu(t) {
   if (!t.trim()) return [];
   const e = t.toLowerCase(), o = [], n = Pr();
   for (const r of n) {
@@ -8817,7 +8818,7 @@ function Uu(t) {
   }
   return o;
 }
-async function Zu(t, e) {
+async function Qu(t, e) {
   const o = await fetch(t);
   if (!o.ok) throw new Error(`Failed to fetch library: ${o.status}`);
   const n = await o.json();
@@ -8890,7 +8891,7 @@ function ri(t, e, o, n = []) {
     return l.observe(r), () => l.disconnect();
   }, [t, e, o, ...n]);
 }
-function Hn(t) {
+function On(t) {
   const e = Math.round(t) / 100;
   return e < 1 ? e : void 0;
 }
@@ -8924,7 +8925,7 @@ function zl(t) {
 function Pl(t) {
   return t === "right" ? "right" : t === "center" ? "center" : "left";
 }
-function Qu(t) {
+function Ju(t) {
   if (t.roundness || t.strokeSharpness === "round") return "round";
 }
 function is(t, e) {
@@ -8946,8 +8947,8 @@ function is(t, e) {
       strokeWidth: t.strokeWidth || 2,
       strokeStyle: Tl(t.strokeStyle),
       roughness: Math.min(t.roughness ?? 1, 2),
-      opacity: Hn(t.opacity ?? 100),
-      edgeStyle: e === "rect" || e === "diamond" ? Qu(t) : void 0
+      opacity: On(t.opacity ?? 100),
+      edgeStyle: e === "rect" || e === "diamond" ? Ju(t) : void 0
     }
   };
 }
@@ -8961,7 +8962,7 @@ function ra(t, e) {
     strokeWidth: t.strokeWidth || 2,
     strokeStyle: Tl(t.strokeStyle),
     roughness: Math.min(t.roughness ?? 1, 2),
-    opacity: Hn(t.opacity ?? 100)
+    opacity: On(t.opacity ?? 100)
   };
   if (o.length === 2) {
     const [l, d] = o, c = Math.min(l[0], d[0]), a = Math.min(l[1], d[1]), u = Math.max(l[0], d[0]), f = Math.max(l[1], d[1]), y = Math.max(u - c, 1), p = Math.max(f - a, 1);
@@ -8986,7 +8987,7 @@ function ra(t, e) {
     ];
   }
   if (t.backgroundColor && t.backgroundColor !== "transparent") {
-    const l = Ju(t);
+    const l = $u(t);
     if (l) return [l];
   }
   const s = Rt(10), i = [];
@@ -9013,7 +9014,7 @@ function ra(t, e) {
   }
   return i;
 }
-function Ju(t) {
+function $u(t) {
   const e = t.points ?? [];
   if (e.length < 3) return null;
   let o = 1 / 0, n = 1 / 0, r = -1 / 0, s = -1 / 0;
@@ -9040,13 +9041,13 @@ function Ju(t) {
       points: i,
       color: t.strokeColor || "#1e1e2e",
       strokeWidth: t.strokeWidth || 2,
-      opacity: Hn(t.opacity ?? 100),
+      opacity: On(t.opacity ?? 100),
       fill: Cl(t.backgroundColor),
       fillStyle: Il(t.fillStyle)
     }
   };
 }
-function $u(t) {
+function _u(t) {
   const e = t.points;
   if (!e || e.length === 0) return null;
   const o = t.pressures, n = t.simulatePressure !== !1, r = e.map((a, u) => {
@@ -9075,11 +9076,11 @@ function $u(t) {
       points: c,
       color: t.strokeColor || "#1e1e2e",
       strokeWidth: t.strokeWidth || 2,
-      opacity: Hn(t.opacity ?? 100)
+      opacity: On(t.opacity ?? 100)
     }
   };
 }
-function _u(t) {
+function tp(t) {
   return {
     id: Rt(10),
     type: "text",
@@ -9096,11 +9097,11 @@ function _u(t) {
       fontFamily: zl(t.fontFamily),
       color: t.strokeColor || "#1e1e2e",
       align: Pl(t.textAlign),
-      opacity: Hn(t.opacity ?? 100)
+      opacity: On(t.opacity ?? 100)
     }
   };
 }
-function tp(t) {
+function ep(t) {
   return {
     id: Rt(10),
     type: "frame",
@@ -9117,9 +9118,9 @@ function tp(t) {
   };
 }
 function Al(t) {
-  return ep(t.elements);
+  return op(t.elements);
 }
-function ep(t) {
+function op(t) {
   const e = [], o = /* @__PURE__ */ new Map(), n = /* @__PURE__ */ new Map(), r = /* @__PURE__ */ new Map();
   for (const s of t)
     s.isDeleted || s.type === "text" && s.containerId && r.set(s.containerId, s);
@@ -9143,16 +9144,16 @@ function ep(t) {
         i = ra(s, !1);
         break;
       case "freedraw": {
-        const l = $u(s);
+        const l = _u(s);
         l && (i = [l]);
         break;
       }
       case "text":
-        i = [_u(s)];
+        i = [tp(s)];
         break;
       case "frame":
       case "magicframe":
-        i = [tp(s)];
+        i = [ep(s)];
         break;
       case "image":
         continue;
@@ -9169,9 +9170,9 @@ function ep(t) {
     const c = d.data;
     c.label = i.originalText || i.text || "", c.labelFontSize = i.fontSize || 20, c.labelFontFamily = zl(i.fontFamily), c.labelAlign = Pl(i.textAlign);
   }
-  return op(t, e, o, n), np(e), { nodes: e, groupParent: n };
+  return np(t, e, o, n), rp(e), { nodes: e, groupParent: n };
 }
-function op(t, e, o, n) {
+function np(t, e, o, n) {
   var s;
   const r = /* @__PURE__ */ new Map();
   for (const i of t) {
@@ -9189,7 +9190,7 @@ function op(t, e, o, n) {
   for (const [i, l] of r)
     n.set(i, l);
 }
-function np(t) {
+function rp(t) {
   if (t.length === 0) return;
   let e = 1 / 0, o = 1 / 0;
   for (const n of t)
@@ -9210,13 +9211,13 @@ function si(t, e = 60) {
   for (const u of t)
     switch (u.type) {
       case "shape":
-        a.push(rp(u));
-        break;
-      case "draw":
         a.push(sp(u));
         break;
-      case "text":
+      case "draw":
         a.push(ip(u));
+        break;
+      case "text":
+        a.push(ap(u));
         break;
     }
   return `<svg width="${e}" height="${e}" viewBox="${c}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${a.join("")}</svg>`;
@@ -9224,7 +9225,7 @@ function si(t, e = 60) {
 function El(t) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function rp(t) {
+function sp(t) {
   var f, y, p, g;
   const e = t.data, o = t.h === "auto" ? 100 : t.h, n = {
     stroke: e.stroke,
@@ -9261,13 +9262,13 @@ function rp(t) {
   );
   return `${a}${u.join("")}</g>`;
 }
-function sp(t) {
+function ip(t) {
   const e = t.data;
   if (!e.points.length) return "";
   const o = e.points.map(([s, i]) => `${(t.x + s).toFixed(1)},${(t.y + i).toFixed(1)}`).join(" "), n = e.opacity ?? 1, r = e.tool === "vector" && e.fill ? e.fill : "none";
   return `<polygon points="${o}" fill="${r}" stroke="${e.color}" stroke-width="${e.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${n < 1 ? ` opacity="${n}"` : ""}/>`;
 }
-function ip(t) {
+function ap(t) {
   const e = t.data, o = Math.max(e.fontSize, 8), n = e.opacity ?? 1, r = e.text.split(`
 `)[0] || "";
   return `<text x="${t.x}" y="${t.y + o}" fill="${e.color}" font-size="${o}" font-family="sans-serif"${n < 1 ? ` opacity="${n}"` : ""}>${El(r)}</text>`;
@@ -9287,7 +9288,7 @@ function Rl(t) {
 function Dl() {
   return ii();
 }
-function ap(t, e, o) {
+function lp(t, e, o) {
   const n = structuredClone(e);
   if (n.length > 0) {
     let d = 1 / 0, c = 1 / 0;
@@ -9311,7 +9312,7 @@ function ap(t, e, o) {
   }, l = ii();
   return l.unshift(i), Rl(l), i;
 }
-function lp(t) {
+function cp(t) {
   const e = ii().filter((o) => o.id !== t);
   Rl(e);
 }
@@ -9371,7 +9372,7 @@ function Bl(t, e, o, n) {
   t.selectMultiple(r.map((m) => m.id));
 }
 const fn = /* @__PURE__ */ new Map();
-function cp({ item: t }) {
+function dp({ item: t }) {
   const e = Kt(() => {
     const o = fn.get(t.id);
     if (o) return o;
@@ -9413,11 +9414,11 @@ function Nl({
         justifyContent: "center",
         aspectRatio: "1"
       },
-      children: /* @__PURE__ */ h(cp, { item: t })
+      children: /* @__PURE__ */ h(dp, { item: t })
     }
   );
 }
-function dp({ nodes: t }) {
+function hp({ nodes: t }) {
   const e = Kt(() => {
     const o = "personal-" + t.map((s) => s.id).join(","), n = fn.get(o);
     if (n) return n;
@@ -9467,7 +9468,7 @@ function Fl({
               width: "100%",
               height: "100%"
             },
-            children: /* @__PURE__ */ h(dp, { nodes: t.nodes })
+            children: /* @__PURE__ */ h(hp, { nodes: t.nodes })
           }
         ),
         s && /* @__PURE__ */ h(
@@ -9503,7 +9504,7 @@ function Fl({
     }
   );
 }
-function hp({
+function up({
   engine: t,
   open: e,
   onClose: o,
@@ -9552,7 +9553,7 @@ function hp({
     [x]
   ), w = lt(
     (T) => {
-      qu(T), fn.clear(), x();
+      Uu(T), fn.clear(), x();
     },
     [x]
   ), M = lt(
@@ -9567,7 +9568,7 @@ function hp({
     [t]
   ), C = lt(
     (T) => {
-      lp(T), fn.clear(), x();
+      cp(T), fn.clear(), x();
     },
     [x]
   ), z = lt((T) => {
@@ -9577,7 +9578,7 @@ function hp({
     });
   }, []), E = Kt(() => {
     if (!y.trim()) return null;
-    const T = y.toLowerCase(), G = Uu(y), Y = u.filter(
+    const T = y.toLowerCase(), G = Zu(y), Y = u.filter(
       (nt) => nt.name.toLowerCase().includes(T)
     );
     return { excalidraw: G, personal: Y };
@@ -9692,7 +9693,7 @@ function hp({
                 }
               ) : /* @__PURE__ */ S(Mt, { children: [
                 u.length > 0 && /* @__PURE__ */ h(
-                  pp,
+                  fp,
                   {
                     items: u,
                     onPlace: v,
@@ -9720,7 +9721,7 @@ function hp({
                 ) : c.map((T) => {
                   const G = g.has(T.id);
                   return /* @__PURE__ */ h(
-                    up,
+                    pp,
                     {
                       lib: T,
                       expanded: G,
@@ -9804,7 +9805,7 @@ function hp({
     document.body
   );
 }
-function up({
+function pp({
   lib: t,
   expanded: e,
   onToggle: o,
@@ -9923,7 +9924,7 @@ function up({
     )
   ] });
 }
-function pp({
+function fp({
   items: t,
   onPlace: e,
   onRemove: o,
@@ -10016,7 +10017,7 @@ function pp({
     )
   ] });
 }
-async function fp(t, e, o = 1, n = 20, r) {
+async function yp(t, e, o = 1, n = 20, r) {
   const s = `${t}/search?q=${encodeURIComponent(e)}&page=${o}&per_page=${n}`;
   return (await fetch(s, { signal: r, credentials: "include" })).json();
 }
@@ -10042,7 +10043,7 @@ function Hl(t, e, o, n) {
   };
   t.addNode(y), t.select(y.id);
 }
-function yp({
+function gp({
   engine: t,
   open: e,
   onClose: o,
@@ -10071,7 +10072,7 @@ function yp({
     (E, T, G) => {
       if (!E.trim()) return;
       const Y = new AbortController();
-      return p(!0), fp(r, E, T, 30, Y.signal).then((nt) => {
+      return p(!0), yp(r, E, T, 30, Y.signal).then((nt) => {
         const st = nt.data.data.filter((ht) => ht.type !== "ad");
         f((ht) => G ? [...ht, ...st] : st), m(T), b(nt.data.has_next);
       }).catch(() => {
@@ -10192,7 +10193,7 @@ function yp({
                       gap: 4
                     },
                     children: u.map((E) => /* @__PURE__ */ h(
-                      gp,
+                      mp,
                       {
                         item: E,
                         onClick: () => z(E),
@@ -10238,7 +10239,7 @@ function yp({
     document.body
   );
 }
-function gp({
+function mp({
   item: t,
   onClick: e,
   engine: o,
@@ -10295,7 +10296,7 @@ function gp({
     }
   );
 }
-function mp({
+function bp({
   nodes: t,
   onSave: e,
   onCancel: o
@@ -10441,7 +10442,7 @@ function mp({
     document.body
   );
 }
-const gn = vr(
+const gn = Bn(
   null
 );
 function Ar(t, e) {
@@ -10464,12 +10465,12 @@ function Ns(t) {
   const o = e.match(/<svg[\s\S]*?<\/svg>/i);
   return o ? o[0] : null;
 }
-function bp(t) {
+function xp(t) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(t)}`;
 }
 function Ol(t, e, o, n) {
   return new Promise((r) => {
-    const s = bp(t), i = new Image();
+    const s = xp(t), i = new Image();
     i.onload = () => {
       let c = i.naturalWidth || 200, a = i.naturalHeight || 200;
       if (c <= 1 || a <= 1) {
@@ -10496,16 +10497,16 @@ function Ol(t, e, o, n) {
     }, i.onerror = () => r(null), i.src = s;
   });
 }
-async function xp(t, e, o, n) {
+async function wp(t, e, o, n) {
   const { x: r, y: s } = t.screenToCanvas(o, n), i = await Ol(e, r, s, t.nextZ());
   i && (t.addNode(i), t.select(i.id));
 }
-function wp() {
+function kp() {
   if (typeof navigator > "u") return !1;
   const t = navigator.userAgent, e = /iPhone|iPad|iPod/i.test(t);
   return /Chrome|Chromium|EdgA?|OPR|Brave/i.test(t) && !e || /Firefox/i.test(t) ? !1 : e ? !0 : /Safari/i.test(t) && !/Chrome|Chromium|Edg/i.test(t);
 }
-function kp(t) {
+function vp(t) {
   return {
     fromNodeId: t.fromNode.id,
     cursorX: t.cursorX,
@@ -10521,10 +10522,10 @@ function kp(t) {
     attachmentGap: t.attachmentGap
   };
 }
-function vp(t) {
+function Sp(t) {
   return !Number.isFinite(t) || t < 0 ? "" : t < 0.05 ? "<0.05 ms" : t < 10 ? `${t < 1 ? t.toFixed(2) : t.toFixed(1)} ms` : `${Math.round(t)} ms`;
 }
-function Sp(t, e, o) {
+function Mp(t, e, o) {
   if (!t || !o || !e.id) return null;
   const n = t.get(e.type);
   if (!(n != null && n.ports)) return null;
@@ -10535,7 +10536,7 @@ function Sp(t, e, o) {
   }
   return null;
 }
-function Mp(t, e, o, n) {
+function Cp(t, e, o, n) {
   if (t.length === 0) return null;
   const r = 13 / n, s = 7 / n, i = 5 / n, l = 6 / n, d = Math.max(...t.map((u) => u.text.length), 1), c = Math.min(d * l + s * 2, 280 / n), a = t.length * r + i * 2;
   return {
@@ -10558,7 +10559,7 @@ const ia = {
   // gray
   signal: "#ef4444"
   // red
-}, Cp = Le(function({
+}, Ip = Le(function({
   node: e,
   zoom: o,
   showHandles: n = !0,
@@ -10662,7 +10663,7 @@ const ia = {
       )
     ] })
   ] });
-}), Ip = Le(function({
+}), Tp = Le(function({
   edge: e,
   fromNode: o,
   toNode: n,
@@ -10736,7 +10737,7 @@ const ia = {
       primary: !Bt
     }), ct === "ports+compute" && Cs(n) && p && e.data.toId) {
       const Jt = p(e.data.toId);
-      Jt != null && Number.isFinite(Jt) && Gt.push({ text: `compute ${vp(Jt)}`, primary: !1 });
+      Jt != null && Number.isFinite(Jt) && Gt.push({ text: `compute ${Sp(Jt)}`, primary: !1 });
     }
     return Gt;
   }, [
@@ -10748,7 +10749,7 @@ const ia = {
     p,
     n
   ]), Et = Kt(
-    () => e.data.sourcePort && e.data.targetPort ? Sp(l, n, g) : null,
+    () => e.data.sourcePort && e.data.targetPort ? Mp(l, n, g) : null,
     [
       l,
       n,
@@ -10844,7 +10845,7 @@ const ia = {
     e.data.arrowHead === "filled" && /* @__PURE__ */ h(
       "path",
       {
-        d: fr(E, T, nt, K),
+        d: yr(E, T, nt, K),
         fill: tt,
         stroke: "none"
       }
@@ -10883,7 +10884,7 @@ const ia = {
     e.data.arrowTail === "filled" && /* @__PURE__ */ h(
       "path",
       {
-        d: fr(C, z, st, J),
+        d: yr(C, z, st, J),
         fill: tt,
         stroke: "none"
       }
@@ -10898,7 +10899,7 @@ const ia = {
       }
     ),
     (() => {
-      const ct = r.zoom, Bt = 13 / ct, Gt = 5 / ct, Ut = 11 / ct, Jt = 10 / ct, Zt = Mp(Ft, G, Y, ct), yt = 9 / ct, fe = !!Et, de = Zt ? Zt.x0 + Zt.w + yt + 4 / ct : G + yt + 4 / ct, se = Y;
+      const ct = r.zoom, Bt = 13 / ct, Gt = 5 / ct, Ut = 11 / ct, Jt = 10 / ct, Zt = Cp(Ft, G, Y, ct), yt = 9 / ct, fe = !!Et, de = Zt ? Zt.x0 + Zt.w + yt + 4 / ct : G + yt + 4 / ct, se = Y;
       return /* @__PURE__ */ S(Mt, { children: [
         Zt && /* @__PURE__ */ S(Mt, { children: [
           /* @__PURE__ */ h(
@@ -11008,7 +11009,7 @@ const ia = {
     )
   ] });
 });
-function Tp({
+function zp({
   nodes: t,
   viewport: e,
   selection: o,
@@ -11059,7 +11060,7 @@ function Tp({
         bt.map((L) => {
           const K = B.get(L.data.fromId), J = B.get(L.data.toId);
           return !K || !J ? null : /* @__PURE__ */ h(
-            Ip,
+            Tp,
             {
               edge: L,
               fromNode: K,
@@ -11211,7 +11212,7 @@ function Tp({
           const L = !!f || !!y, K = (f == null ? void 0 : f.cursorX) ?? (y == null ? void 0 : y.cursorX) ?? 0, J = (f == null ? void 0 : f.cursorY) ?? (y == null ? void 0 : y.cursorY) ?? 0, q = (f == null ? void 0 : f.fromNode.id) ?? null, O = (f == null ? void 0 : f.sourceDirection) === "output" ? "input" : (f == null ? void 0 : f.sourceDirection) === "input" ? "output" : null;
           let $ = null, rt = null;
           if (L && O) {
-            const Q = wd / e.zoom;
+            const Q = kd / e.zoom;
             let it = 1 / 0;
             for (const pt of t) {
               if (pt.type === "edge" || pt.id === q) continue;
@@ -11249,7 +11250,7 @@ function Tp({
                 zt
               );
               if (!fe) return null;
-              const { px: de, py: se } = fe, ge = vd(
+              const { px: de, py: se } = fe, ge = Sd(
                 Q,
                 yt,
                 { x: de, y: se },
@@ -11303,13 +11304,13 @@ function Tp({
                   }
                 ),
                 (() => {
-                  const I = Ut.label || Ut.id, at = 9 / e.zoom, ae = 5 / e.zoom, ve = 2.5 / e.zoom, ce = I.length * at * 0.62 + ae * 2, Oe = at + ve * 2, qt = yt === "input" ? Je - ce : Je, je = se - Oe / 2, Po = Oe / 2, bn = Ne ? ke : "#1a1a2e", Ao = Ne ? ke : "#2a2a40", Eo = Ne ? "#fff" : "#94a3b8";
+                  const I = Ut.label || Ut.id, at = 9 / e.zoom, ae = 5 / e.zoom, ve = 2.5 / e.zoom, ce = I.length * at * 0.62 + ae * 2, Oe = at + ve * 2, qt = yt === "input" ? Je - ce : Je, Ve = se - Oe / 2, Po = Oe / 2, bn = Ne ? ke : "#1a1a2e", Ao = Ne ? ke : "#2a2a40", Eo = Ne ? "#fff" : "#94a3b8";
                   return /* @__PURE__ */ S("g", { style: { pointerEvents: "none" }, children: [
                     /* @__PURE__ */ h(
                       "rect",
                       {
                         x: qt,
-                        y: je,
+                        y: Ve,
                         width: ce,
                         height: Oe,
                         rx: Po,
@@ -11554,7 +11555,7 @@ function Tp({
             } else
               K = it, J = pt;
           } else {
-            const q = Dd(L, y.cursorX, y.cursorY, n);
+            const q = Wd(L, y.cursorX, y.cursorY, n);
             K = q.x, J = q.y;
           }
           return /* @__PURE__ */ h(
@@ -11572,7 +11573,7 @@ function Tp({
           );
         })(),
         o.size === 1 && x !== "edge" && !f && !y && xt.filter((L) => o.has(L.id)).map((L) => /* @__PURE__ */ h(
-          Cp,
+          Ip,
           {
             node: L,
             zoom: e.zoom,
@@ -11848,7 +11849,7 @@ function Tp({
     }
   );
 }
-function zp({
+function Pp({
   x: t,
   y: e,
   sections: o,
@@ -12013,13 +12014,13 @@ function zp({
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Pp = (t) => t.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase(), Ap = (t) => t.replace(
+const Ap = (t) => t.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase(), Ep = (t) => t.replace(
   /^([A-Z])|[\s-_]+(\w)/g,
   (e, o, n) => n ? n.toUpperCase() : o.toLowerCase()
 ), aa = (t) => {
-  const e = Ap(t);
+  const e = Ep(t);
   return e.charAt(0).toUpperCase() + e.slice(1);
-}, Xl = (...t) => t.filter((e, o, n) => !!e && e.trim() !== "" && n.indexOf(e) === o).join(" ").trim(), Ep = (t) => {
+}, Xl = (...t) => t.filter((e, o, n) => !!e && e.trim() !== "" && n.indexOf(e) === o).join(" ").trim(), Lp = (t) => {
   for (const e in t)
     if (e.startsWith("aria-") || e === "role" || e === "title")
       return !0;
@@ -12030,7 +12031,7 @@ const Pp = (t) => t.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase(), Ap = (
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-var Lp = {
+var Rp = {
   xmlns: "http://www.w3.org/2000/svg",
   width: 24,
   height: 24,
@@ -12047,7 +12048,7 @@ var Lp = {
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Rp = Wa(
+const Dp = Wa(
   ({
     color: t = "currentColor",
     size: e = 24,
@@ -12061,13 +12062,13 @@ const Rp = Wa(
     "svg",
     {
       ref: d,
-      ...Lp,
+      ...Rp,
       width: e,
       height: e,
       stroke: t,
       strokeWidth: n ? Number(o) * 24 / Number(e) : o,
       className: Xl("lucide", r),
-      ...!s && !Ep(l) && { "aria-hidden": "true" },
+      ...!s && !Lp(l) && { "aria-hidden": "true" },
       ...l
     },
     [
@@ -12084,11 +12085,11 @@ const Rp = Wa(
  */
 const Io = (t, e) => {
   const o = Wa(
-    ({ className: n, ...r }, s) => ms(Rp, {
+    ({ className: n, ...r }, s) => ms(Dp, {
       ref: s,
       iconNode: e,
       className: Xl(
-        `lucide-${Pp(aa(t))}`,
+        `lucide-${Ap(aa(t))}`,
         `lucide-${t}`,
         n
       ),
@@ -12103,13 +12104,13 @@ const Io = (t, e) => {
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Dp = [
+const Wp = [
   ["rect", { width: "6", height: "14", x: "2", y: "5", rx: "2", key: "dy24zr" }],
   ["rect", { width: "6", height: "10", x: "16", y: "7", rx: "2", key: "13zkjt" }],
   ["path", { d: "M12 2v20", key: "t6zp3m" }]
-], Wp = Io(
+], Bp = Io(
   "align-horizontal-justify-center",
-  Dp
+  Wp
 );
 /**
  * @license lucide-react v0.555.0 - ISC
@@ -12117,92 +12118,92 @@ const Dp = [
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Bp = [
+const Np = [
   ["rect", { width: "6", height: "14", x: "2", y: "5", rx: "2", key: "dy24zr" }],
   ["rect", { width: "6", height: "10", x: "12", y: "7", rx: "2", key: "1ht384" }],
   ["path", { d: "M22 2v20", key: "40qfg1" }]
-], Np = Io("align-horizontal-justify-end", Bp);
+], Fp = Io("align-horizontal-justify-end", Np);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Fp = [
+const Hp = [
   ["rect", { width: "6", height: "14", x: "6", y: "5", rx: "2", key: "hsirpf" }],
   ["rect", { width: "6", height: "10", x: "16", y: "7", rx: "2", key: "13zkjt" }],
   ["path", { d: "M2 2v20", key: "1ivd8o" }]
-], Hp = Io("align-horizontal-justify-start", Fp);
+], Op = Io("align-horizontal-justify-start", Hp);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Op = [
+const Xp = [
   ["rect", { width: "6", height: "14", x: "3", y: "5", rx: "2", key: "j77dae" }],
   ["rect", { width: "6", height: "10", x: "15", y: "7", rx: "2", key: "bq30hj" }],
   ["path", { d: "M3 2v20", key: "1d2pfg" }],
   ["path", { d: "M21 2v20", key: "p059bm" }]
-], Xp = Io("align-horizontal-space-between", Op);
+], Yp = Io("align-horizontal-space-between", Xp);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Yp = [
+const Gp = [
   ["rect", { width: "14", height: "6", x: "5", y: "16", rx: "2", key: "1i8z2d" }],
   ["rect", { width: "10", height: "6", x: "7", y: "2", rx: "2", key: "ypihtt" }],
   ["path", { d: "M2 12h20", key: "9i4pu4" }]
-], Gp = Io("align-vertical-justify-center", Yp);
+], jp = Io("align-vertical-justify-center", Gp);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const jp = [
+const Vp = [
   ["rect", { width: "14", height: "6", x: "5", y: "12", rx: "2", key: "4l4tp2" }],
   ["rect", { width: "10", height: "6", x: "7", y: "2", rx: "2", key: "ypihtt" }],
   ["path", { d: "M2 22h20", key: "272qi7" }]
-], Vp = Io("align-vertical-justify-end", jp);
+], Kp = Io("align-vertical-justify-end", Vp);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Kp = [
+const qp = [
   ["rect", { width: "14", height: "6", x: "5", y: "16", rx: "2", key: "1i8z2d" }],
   ["rect", { width: "10", height: "6", x: "7", y: "6", rx: "2", key: "13squh" }],
   ["path", { d: "M2 2h20", key: "1ennik" }]
-], qp = Io("align-vertical-justify-start", Kp);
+], Up = Io("align-vertical-justify-start", qp);
 /**
  * @license lucide-react v0.555.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-const Up = [
+const Zp = [
   ["rect", { width: "14", height: "6", x: "5", y: "15", rx: "2", key: "1w91an" }],
   ["rect", { width: "10", height: "6", x: "7", y: "3", rx: "2", key: "17wqzy" }],
   ["path", { d: "M2 21h20", key: "1nyx9w" }],
   ["path", { d: "M2 3h20", key: "91anmk" }]
-], Zp = Io("align-vertical-space-between", Up), ho = {
+], Qp = Io("align-vertical-space-between", Zp), ho = {
   size: 16,
   strokeWidth: 2,
   "aria-hidden": !0
 }, uo = {
-  alignHLeft: /* @__PURE__ */ h(Hp, { ...ho }),
-  alignHCenter: /* @__PURE__ */ h(Wp, { ...ho }),
-  alignHRight: /* @__PURE__ */ h(Np, { ...ho }),
-  distributeH: /* @__PURE__ */ h(Xp, { ...ho }),
-  alignVTop: /* @__PURE__ */ h(qp, { ...ho }),
-  alignVCenter: /* @__PURE__ */ h(Gp, { ...ho }),
-  alignVBottom: /* @__PURE__ */ h(Vp, { ...ho }),
-  distributeV: /* @__PURE__ */ h(Zp, { ...ho })
-}, Fs = "sbd-clipboard", Qp = "sbd-nodes:";
+  alignHLeft: /* @__PURE__ */ h(Op, { ...ho }),
+  alignHCenter: /* @__PURE__ */ h(Bp, { ...ho }),
+  alignHRight: /* @__PURE__ */ h(Fp, { ...ho }),
+  distributeH: /* @__PURE__ */ h(Yp, { ...ho }),
+  alignVTop: /* @__PURE__ */ h(Up, { ...ho }),
+  alignVCenter: /* @__PURE__ */ h(jp, { ...ho }),
+  alignVBottom: /* @__PURE__ */ h(Kp, { ...ho }),
+  distributeV: /* @__PURE__ */ h(Qp, { ...ho })
+}, Fs = "sbd-clipboard", Jp = "sbd-nodes:";
 function Yl(t) {
   const e = JSON.stringify(t), o = new TextEncoder().encode(e);
   let n = "";
@@ -12223,11 +12224,11 @@ function Gl(t) {
   const e = t.match(/data-sbd-nodes="([A-Za-z0-9+/=]+)"/);
   if (e) return la(e[1]);
   const o = t.match(
-    new RegExp(`<!--${Qp}([A-Za-z0-9+/=]+)-->`)
+    new RegExp(`<!--${Jp}([A-Za-z0-9+/=]+)-->`)
   );
   return o ? la(o[1]) : null;
 }
-function ar(t) {
+function lr(t) {
   return !!t.closest(".bn-editor") || t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA";
 }
 function jl(t) {
@@ -12239,7 +12240,7 @@ function jl(t) {
   }).filter(Boolean).join(`
 `);
 }
-function Jp(t) {
+function $p(t) {
   var o;
   const e = [];
   for (const n of t)
@@ -12282,24 +12283,24 @@ function Jp(t) {
 `);
 }
 function ca(t, e) {
-  const o = Jp(e), n = o.split(`
+  const o = $p(e), n = o.split(`
 `).filter(Boolean).map((s) => `<p>${s}</p>`).join(""), r = Yl(e);
   return t.setData(
     "text/html",
     `<!--${Fs}--><div data-sbd-nodes="${r}">${n || "<p></p>"}</div>`
   ), t.setData("text/plain", o), o;
 }
-function $p(t, e) {
+function _p(t, e) {
   let o = (e == null ? void 0 : e.ownerDocument) ?? document, n = o.defaultView ?? window, r = n.innerWidth / 2, s = n.innerHeight / 2, i = null;
   const l = (m) => {
     r = m.clientX, s = m.clientY;
   }, d = (m) => {
-    ar(m.target) || t.selection.size !== 0 && (m.preventDefault(), t.copySelected(), i = ca(
+    lr(m.target) || t.selection.size !== 0 && (m.preventDefault(), t.copySelected(), i = ca(
       m.clipboardData,
       t.getClipboardNodes()
     ));
   }, c = (m) => {
-    ar(m.target) || t.selection.size !== 0 && (m.preventDefault(), t.copySelected(), i = ca(
+    lr(m.target) || t.selection.size !== 0 && (m.preventDefault(), t.copySelected(), i = ca(
       m.clipboardData,
       t.getClipboardNodes()
     ), t.deleteSelected());
@@ -12307,7 +12308,7 @@ function $p(t, e) {
     m.preventDefault(), m.stopImmediatePropagation();
   }, u = async (m) => {
     var T, G, Y;
-    if (ar(m.target)) return;
+    if (lr(m.target)) return;
     const { x, y: b } = t.screenToCanvas(r, s), w = ((T = m.clipboardData) == null ? void 0 : T.getData("text/html")) || "", M = ((G = m.clipboardData) == null ? void 0 : G.getData("text/plain")) || "";
     if (w.includes(Fs) || w.includes("data-sbd-nodes=") || i !== null && M === i) {
       if (i !== null && M === i && t.hasClipboard()) {
@@ -12369,8 +12370,8 @@ function $p(t, e) {
       st && (t.addNode(st), t.select(st.id));
       return;
     }
-    if (Iu(M)) {
-      const nt = Cu(M);
+    if (Tu(M)) {
+      const nt = Iu(M);
       if (nt) {
         a(m);
         const st = {
@@ -12426,7 +12427,7 @@ function $p(t, e) {
     t.hasClipboard() && (a(m), t.pasteClipboard(x, b));
   }, f = (m) => {
     const x = m.target;
-    if (ar(x)) return;
+    if (lr(x)) return;
     if (t.presentationMode) {
       if (m.key === "ArrowRight" || m.key === " ") {
         m.preventDefault(), t.presentationNext();
@@ -12585,7 +12586,7 @@ function $p(t, e) {
 async function da(t, e) {
   const o = t.getAllNodes();
   if (o.length === 0) return;
-  const n = t.measuredHeights, r = _p(o, n, t), s = e.padding ?? 40, i = e.background !== !1, l = e.format === "png", d = r.w + s * 2, c = r.h + s * 2, a = r.x - s, u = r.y - s, f = await Vl(o, t, n, a, u, l), y = i ? Fn(t.boardBackground).canvasBg : "transparent", p = [
+  const n = t.measuredHeights, r = tf(o, n, t), s = e.padding ?? 40, i = e.background !== !1, l = e.format === "png", d = r.w + s * 2, c = r.h + s * 2, a = r.x - s, u = r.y - s, f = await Vl(o, t, n, a, u, l), y = i ? Hn(t.boardBackground).canvasBg : "transparent", p = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${d}" height="${c}" viewBox="0 0 ${d} ${c}">`,
     `<rect width="${d}" height="${c}" fill="${y}"/>`,
     ...f,
@@ -12595,11 +12596,11 @@ async function da(t, e) {
   if (e.format === "svg")
     ha(new Blob([p], { type: "image/svg+xml" }), "board.svg");
   else {
-    const g = e.scale ?? 4, m = await pf(p, d, c, g);
+    const g = e.scale ?? 4, m = await ff(p, d, c, g);
     ha(m, "board.png");
   }
 }
-function _p(t, e, o) {
+function tf(t, e, o) {
   let n = 1 / 0, r = 1 / 0, s = -1 / 0, i = -1 / 0;
   for (const d of t) {
     if (d.type === "edge") continue;
@@ -12636,32 +12637,32 @@ async function Vl(t, e, o, n, r, s) {
     const a = c.x - n, u = c.y - r, f = e.resolveHeight(c);
     switch (c.type) {
       case "frame":
-        d.push(tf(c, a, u, f));
+        d.push(ef(c, a, u, f));
         break;
       case "content":
-        d.push(ef(c, a, u, c.w, f));
+        d.push(of(c, a, u, c.w, f));
         break;
       case "draw":
-        d.push(of(c, n, r));
+        d.push(nf(c, n, r));
         break;
       case "shape":
-        d.push(rf(c, a, u, c.w, f));
-        break;
-      case "text":
         d.push(sf(c, a, u, c.w, f));
         break;
-      case "sticky":
+      case "text":
         d.push(af(c, a, u, c.w, f));
         break;
+      case "sticky":
+        d.push(lf(c, a, u, c.w, f));
+        break;
       case "image":
-        d.push(await lf(c, a, u, c.w, f, s));
+        d.push(await cf(c, a, u, c.w, f, s));
         break;
       case "youtube":
-        d.push(await cf(c, a, u, c.w, f, s));
+        d.push(await df(c, a, u, c.w, f, s));
         break;
       case "edge": {
         const y = c, p = i.get(y.data.fromId), g = i.get(y.data.toId);
-        p && g && d.push(hf(y, p, g, o, n, r));
+        p && g && d.push(uf(y, p, g, o, n, r));
         break;
       }
     }
@@ -12676,24 +12677,24 @@ function To(t, e, o, n, r, s, i) {
   }
   return i !== void 0 && i !== 1 && l.push(`opacity="${i}"`), `<g ${l.join(" ")}>${t}</g>`;
 }
-function tf(t, e, o, n) {
+function ef(t, e, o, n) {
   const r = t.data, s = r.backgroundColor || "rgba(0,0,0,0.02)", i = r.borderColor || "#d1d5db", l = r.borderWidth ?? 1, d = Er(r.borderStyle, l), c = r.label ? yn(r.label) : "";
   let a = `<rect x="${e}" y="${o}" width="${t.w}" height="${n}" rx="4" fill="${s}" stroke="${i}" stroke-width="${l}"` + (d ? ` stroke-dasharray="${d}"` : "") + "/>";
   return c && (a += `<text x="${e + 8}" y="${o - 6}" font-size="12" fill="#6b7280" font-family="sans-serif">${c}</text>`), To(a, e, o, t.w, n, t.rotation, r.opacity);
 }
-function ef(t, e, o, n, r) {
+function of(t, e, o, n, r) {
   var u;
   const s = t.data, i = ((u = s.markdown) == null ? void 0 : u.trim()) || "", l = s.borderColor, d = s.borderWidth ?? 0, c = Er(s.borderStyle, d);
   let a = "";
   return l && d > 0 ? a += `<rect x="${e}" y="${o}" width="${n}" height="${r}" rx="4" fill="white" stroke="${l}" stroke-width="${d}"` + (c ? ` stroke-dasharray="${c}"` : "") + "/>" : a += `<rect x="${e}" y="${o}" width="${n}" height="${r}" rx="4" fill="white"/>`, i && (a += ai(i, e + 12, o + 20, n - 24, 14, 1.6, "#374151", "left", "sans-serif")), To(a, e, o, n, r, t.rotation, s.opacity);
 }
-function of(t, e, o) {
+function nf(t, e, o) {
   const n = t.data, r = n.points.map(
     ([l, d, c]) => [l + t.x - e, d + t.y - o, c]
   );
   if (r.length === 0) return "";
   if (n.tool === "vector")
-    return nf(r, n, t);
+    return rf(r, n, t);
   const s = no(n.strokeStyle);
   let i = "";
   if (n.fill) {
@@ -12712,11 +12713,11 @@ function of(t, e, o) {
   }
   return n.opacity !== void 0 && n.opacity !== 1 ? `<g opacity="${n.opacity}">${i}</g>` : i;
 }
-function nf(t, e, o) {
+function rf(t, e, o) {
   const n = t.map((d, c) => `${c === 0 ? "M" : "L"}${d[0].toFixed(2)},${d[1].toFixed(2)}`).join(" ") + " Z", r = no(e.strokeStyle), s = r ? ` stroke-dasharray="${r.map((d) => d * Math.max(e.strokeWidth, 1)).join(" ")}"` : "", i = `<path d="${n}" fill="${e.fill || "none"}" stroke="${e.color}" stroke-width="${e.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${s}/>`, l = o.h === "auto" ? 0 : o.h;
   return To(i, o.x, o.y, o.w, l, o.rotation, e.opacity);
 }
-function rf(t, e, o, n, r) {
+function sf(t, e, o, n, r) {
   const s = t.data, i = {
     stroke: s.stroke,
     fill: s.fill,
@@ -12757,7 +12758,7 @@ function rf(t, e, o, n, r) {
 `);
   return To(c, e, o, n, r, t.rotation, s.opacity);
 }
-function sf(t, e, o, n, r) {
+function af(t, e, o, n, r) {
   const s = t.data, i = r || s.text.split(`
 `).length * s.fontSize * 1, l = wo(s.fontFamily), d = !!s.borderColor, c = d ? 6 : 0;
   let a = "";
@@ -12778,39 +12779,39 @@ function sf(t, e, o, n, r) {
     l
   ), To(a, e, o, n, i, t.rotation, s.opacity);
 }
-function af(t, e, o, n, r) {
+function lf(t, e, o, n, r) {
   const s = t.data, i = s.fontSize ?? 16, l = `<rect x="${e}" y="${o}" width="${n}" height="${r}" rx="2" fill="${s.color}"/>` + ai(s.text, e + 12, o + 12 + i, n - 24, i, 1.4, "#1e1e2e", "left", "sans-serif");
   return To(l, e, o, n, r, t.rotation, s.opacity);
 }
-async function lf(t, e, o, n, r, s) {
+async function cf(t, e, o, n, r, s) {
   const i = t.data;
   let l = i.src;
   if (s && l && !l.startsWith("data:"))
     try {
-      l = await wr(l);
+      l = await kr(l);
     } catch {
     }
   const d = i.borderColor, c = i.borderWidth ?? 0, a = Er(i.borderStyle, c);
   let u = `<image href="${yn(l)}" x="${e}" y="${o}" width="${n}" height="${r}" preserveAspectRatio="xMidYMid slice"/>`;
   return d && c > 0 && (u += `<rect x="${e}" y="${o}" width="${n}" height="${r}" fill="none" stroke="${d}" stroke-width="${c}"` + (a ? ` stroke-dasharray="${a}"` : "") + "/>"), To(u, e, o, n, r, t.rotation, i.opacity);
 }
-async function cf(t, e, o, n, r, s) {
+async function df(t, e, o, n, r, s) {
   const i = t.data;
-  let l = zu(i.videoId);
+  let l = Pu(i.videoId);
   if (s)
     try {
-      l = await wr(l);
+      l = await kr(l);
     } catch {
     }
   let d = `<rect x="${e}" y="${o}" width="${n}" height="${r}" rx="4" fill="#1a1a1a"/><image href="${yn(l)}" x="${e}" y="${o}" width="${n}" height="${r}" preserveAspectRatio="xMidYMid slice"/>`;
   const c = e + n / 2, a = o + r / 2, u = Math.min(n, r) * 0.12;
-  return d += `<circle cx="${c}" cy="${a}" r="${u}" fill="rgba(0,0,0,0.6)"/><path d="${df(c, a, u * 0.5)}" fill="white"/>`, To(d, e, o, n, r, t.rotation, i.opacity);
+  return d += `<circle cx="${c}" cy="${a}" r="${u}" fill="rgba(0,0,0,0.6)"/><path d="${hf(c, a, u * 0.5)}" fill="white"/>`, To(d, e, o, n, r, t.rotation, i.opacity);
 }
-function df(t, e, o) {
+function hf(t, e, o) {
   const n = o * 0.15, r = t - o * 0.7 + n, s = e - o, i = t + o + n, l = e, d = r, c = e + o;
   return `M${r},${s} L${i},${l} L${d},${c} Z`;
 }
-function hf(t, e, o, n, r, s) {
+function uf(t, e, o, n, r, s) {
   const i = t.data, l = Pe(
     e,
     o,
@@ -12832,7 +12833,7 @@ function hf(t, e, o, n, r, s) {
     if (i.arrowHead === "arrow")
       u += `<path d="${yo(l.x2, l.y2, l.arrowAngle, f)}" fill="none" stroke="${i.color}" stroke-width="${a}" stroke-linecap="round" stroke-linejoin="round"/>`;
     else if (i.arrowHead === "filled")
-      u += `<path d="${fr(l.x2, l.y2, l.arrowAngle, f)}" fill="${i.color}" stroke="none"/>`;
+      u += `<path d="${yr(l.x2, l.y2, l.arrowAngle, f)}" fill="${i.color}" stroke="none"/>`;
     else if (i.arrowHead === "dot") {
       const p = f / 3;
       u += `<circle cx="${l.x2}" cy="${l.y2}" r="${p}" fill="${i.color}"/>`;
@@ -12842,7 +12843,7 @@ function hf(t, e, o, n, r, s) {
     if (i.arrowTail === "arrow")
       u += `<path d="${yo(l.x1, l.y1, l.tailAngle, y)}" fill="none" stroke="${i.color}" stroke-width="${a}" stroke-linecap="round" stroke-linejoin="round"/>`;
     else if (i.arrowTail === "filled")
-      u += `<path d="${fr(l.x1, l.y1, l.tailAngle, y)}" fill="${i.color}" stroke="none"/>`;
+      u += `<path d="${yr(l.x1, l.y1, l.tailAngle, y)}" fill="${i.color}" stroke="none"/>`;
     else if (i.arrowTail === "dot") {
       const p = y / 3;
       u += `<circle cx="${l.x1}" cy="${l.y1}" r="${p}" fill="${i.color}"/>`;
@@ -12852,12 +12853,12 @@ function hf(t, e, o, n, r, s) {
 }
 function ai(t, e, o, n, r, s, i, l, d) {
   if (!t) return "";
-  const c = l === "center" ? "middle" : l === "right" ? "end" : "start", a = uf(t, n, r), u = r * s, f = a.map(
+  const c = l === "center" ? "middle" : l === "right" ? "end" : "start", a = pf(t, n, r), u = r * s, f = a.map(
     (y, p) => `<tspan x="${e}" dy="${p === 0 ? 0 : u}">${yn(y)}</tspan>`
   ).join("");
   return `<text x="${e}" y="${o}" font-size="${r}" fill="${i}" font-family="${yn(d)}" text-anchor="${c}">${f}</text>`;
 }
-function uf(t, e, o) {
+function pf(t, e, o) {
   const n = o * 0.55, r = Math.max(1, Math.floor(e / n)), s = [];
   for (const i of t.split(`
 `)) {
@@ -12883,14 +12884,14 @@ function Er(t, e) {
 function yn(t) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-async function wr(t) {
+async function kr(t) {
   const o = await (await fetch(t)).blob();
   return new Promise((n, r) => {
     const s = new FileReader();
     s.onloadend = () => n(s.result), s.onerror = r, s.readAsDataURL(o);
   });
 }
-function pf(t, e, o, n) {
+function ff(t, e, o, n) {
   return new Promise((r, s) => {
     const i = new Image(), l = new Blob([t], { type: "image/svg+xml;charset=utf-8" }), d = URL.createObjectURL(l);
     i.onload = () => {
@@ -12905,17 +12906,17 @@ function pf(t, e, o, n) {
     }, i.src = d;
   });
 }
-const ff = /* @__PURE__ */ new Set(["sans-serif", "serif", "monospace"]), on = /* @__PURE__ */ new Map(), yf = 12;
-function gf(t) {
+const yf = /* @__PURE__ */ new Set(["sans-serif", "serif", "monospace"]), on = /* @__PURE__ */ new Map(), gf = 12;
+function mf(t) {
   const e = /* @__PURE__ */ new Set();
   for (const o of t)
     if (o.type === "text") {
       const n = o.data.fontFamily;
-      n && !ff.has(n) && e.add(n);
+      n && !yf.has(n) && e.add(n);
     }
   return [...e];
 }
-async function mf(t) {
+async function bf(t) {
   if (t.length === 0) return "";
   const e = [];
   for (const o of t) {
@@ -12926,16 +12927,16 @@ async function mf(t) {
     try {
       let n;
       if (o === "Excalifont")
-        n = await wr(ja);
+        n = await kr(ja);
       else {
         const l = (await (await fetch(
           `https://fonts.googleapis.com/css2?family=${encodeURIComponent(o)}&display=swap`
         )).text()).match(/url\((https:\/\/[^)]+\.woff2)\)/);
         if (!l) continue;
-        n = await wr(l[1]);
+        n = await kr(l[1]);
       }
       const r = `@font-face { font-family: '${o}'; src: url('${n}') format('woff2'); }`;
-      if (on.size >= yf) {
+      if (on.size >= gf) {
         const s = on.keys().next().value;
         s !== void 0 && on.delete(s);
       }
@@ -12946,7 +12947,7 @@ async function mf(t) {
   return e.join(`
 `);
 }
-async function bf(t, e) {
+async function xf(t, e) {
   const o = t.getNode(e);
   if (!o || o.type !== "frame") return "";
   const n = t.resolveHeight(o), r = 0, s = o.w + r * 2, i = n + r * 2, l = o.x - r, d = o.y - r, c = [o], a = /* @__PURE__ */ new Set([e]), u = (b) => {
@@ -12961,7 +12962,7 @@ async function bf(t, e) {
       const w = b;
       a.has(w.data.fromId) && a.has(w.data.toId) && c.push(b);
     }
-  const f = t.measuredHeights, y = await Vl(c, t, f, l, d, !0), p = gf(c), g = await mf(p), m = Fn(t.boardBackground).canvasBg, x = [
+  const f = t.measuredHeights, y = await Vl(c, t, f, l, d, !0), p = mf(c), g = await bf(p), m = Hn(t.boardBackground).canvasBg, x = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${i}" viewBox="0 0 ${s} ${i}">`,
     g ? `<defs><style>${g}</style></defs>` : "",
     `<rect width="${s}" height="${i}" fill="${m}"/>`,
@@ -13018,14 +13019,14 @@ const Kl = [
   { key: "3-4", label: "3:4", w: 768, h: 1024, group: "standard" },
   { key: "1-1", label: "1:1", w: 1e3, h: 1e3, group: "standard" },
   { key: "21-9", label: "21:9", w: 2560, h: 1080, group: "standard" }
-], xf = new Map(Kl.map((t) => [t.key, t]));
+], wf = new Map(Kl.map((t) => [t.key, t]));
 function Hs(t) {
-  return xf.get(t);
+  return wf.get(t);
 }
 function ql(t) {
   return t.w / t.h;
 }
-const wf = {
+const kf = {
   phone: "Phones",
   "phone-landscape": "Phones (Landscape)",
   tablet: "Tablets",
@@ -13033,18 +13034,18 @@ const wf = {
   other: "Devices",
   standard: "Standard"
 };
-function kf() {
+function vf() {
   const t = /* @__PURE__ */ new Map();
   for (const e of Kl) {
     const o = t.get(e.group);
     o ? o.push(e) : t.set(e.group, [e]);
   }
   return Array.from(t.entries()).map(([e, o]) => ({
-    label: wf[e] ?? e,
+    label: kf[e] ?? e,
     presets: o
   }));
 }
-function vf(t) {
+function Sf(t) {
   const e = t.replace("#", ""), o = parseInt(e.substring(0, 2), 16) || 0, n = parseInt(e.substring(2, 4), 16) || 0, r = parseInt(e.substring(4, 6), 16) || 0;
   return (0.299 * o + 0.587 * n + 0.114 * r) / 255 > 0.5 ? "#1e1e2e" : "#ffffff";
 }
@@ -13059,7 +13060,7 @@ function as(t, e, o) {
 function ls(t, e) {
   return t.fromId === e.fromId && t.toId === e.toId && (t.sourceHandle ?? null) === (e.sourceHandle ?? null) && (t.targetHandle ?? null) === (e.targetHandle ?? null) && (t.sourcePort ?? null) === (e.sourcePort ?? null) && (t.targetPort ?? null) === (e.targetPort ?? null);
 }
-async function Sf(t, e, o) {
+async function Mf(t, e, o) {
   try {
     const n = await navigator.clipboard.read();
     let r = null;
@@ -13191,7 +13192,7 @@ async function ya(t) {
     }
   }
 }
-function lr(t) {
+function cr(t) {
   switch (t) {
     case "select":
       return "default";
@@ -13224,7 +13225,7 @@ function ga(t, e) {
   return { dist: Math.sqrt(o * o + n * n), mx: (t.x + e.x) / 2, my: (t.y + e.y) / 2 };
 }
 const nn = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='%23e0e0e0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3a7 7 0 0 1 4.5 12.4l-2 2'/><path d='M14.5 15.4q.5 1.5.5 2.6c0 2-1.5 3-3 3s-2-1-2-2c0-.8.5-1.5 1-2'/><circle cx='12' cy='3' r='1.5' fill='%23e0e0e0' stroke='none'/></svg>") 12 3, crosshair`;
-function Mf({
+function Cf({
   node: t,
   isInteractive: e,
   measuredH: o,
@@ -13267,7 +13268,7 @@ function Mf({
     }
   );
 }
-function Cf({
+function If({
   node: t,
   engine: e,
   onDone: o
@@ -13286,7 +13287,7 @@ function Cf({
       l.current ? (l.current = !1, e.updateNode(u.id, p)) : e.updateNodeWithHistory(u.id, p);
     }
   }, []);
-  const d = t.h === "auto" ? 100 : t.h, c = t.data.labelFontSize ?? 14, a = t.data.fill && t.data.fillStyle === "solid" ? vf(t.data.fill) : t.data.stroke;
+  const d = t.h === "auto" ? 100 : t.h, c = t.data.labelFontSize ?? 14, a = t.data.fill && t.data.fillStyle === "solid" ? Sf(t.data.fill) : t.data.stroke;
   return /* @__PURE__ */ h(
     "div",
     {
@@ -13355,7 +13356,7 @@ const ma = {
   inset: 0,
   pointerEvents: "none"
 };
-function If({
+function Tf({
   safariWebKitWorkaround: t,
   viewport: e,
   viewportTransform: o,
@@ -13399,7 +13400,7 @@ function If({
     }
   );
 }
-function Tf({
+function zf({
   engine: t,
   schema: e,
   registry: o,
@@ -13431,7 +13432,7 @@ function Tf({
       if (P.key === " ") {
         tt.current = !1, Q.current = !1;
         const H = d.current;
-        H && (H.style.cursor = t.lassoSelect ? nn : lr(t.mode));
+        H && (H.style.cursor = t.lassoSelect ? nn : cr(t.mode));
       }
     };
     return window.addEventListener("keydown", k), window.addEventListener("keyup", R), () => {
@@ -13448,7 +13449,7 @@ function Tf({
   const [wt, zt] = et(null), [Ft, Et] = et(null), [ct, Bt] = et(null), Gt = ut(ct);
   St(() => {
     const k = Gt.current;
-    Gt.current = ct, ct ? t.notifyEdgeProgress(kp(ct)) : k && t.notifyEdgeEnd();
+    Gt.current = ct, ct ? t.notifyEdgeProgress(vp(ct)) : k && t.notifyEdgeEnd();
   }, [ct, t]);
   const Ut = ut(Ft);
   St(() => {
@@ -13715,14 +13716,14 @@ function Tf({
       edgesAddedByCrossing: Tt,
       cullingMs: performance.now() - k
     };
-  }, [y, u, g, x, t, o, yt, ct, Jt, w]), je = Kt(() => {
+  }, [y, u, g, x, t, o, yt, ct, Jt, w]), Ve = Kt(() => {
     if (!i) return null;
     const k = /* @__PURE__ */ new Set();
     k.add(i);
     const R = t.getFrameDescendantIds(i);
     for (const P of R) k.add(P);
     return k;
-  }, [i, t, g]), Po = w ? (qt == null ? void 0 : qt.svgNodes) ?? g : g, bn = je ? Po.filter((k) => je.has(k.id)) : Po;
+  }, [i, t, g]), Po = w ? (qt == null ? void 0 : qt.svgNodes) ?? g : g, bn = Ve ? Po.filter((k) => Ve.has(k.id)) : Po;
   St(() => {
     if (!we.isEnabled()) return;
     const k = g.reduce((P, H) => P + (H.type === "edge" ? 1 : 0), 0), R = g.length - k;
@@ -13776,9 +13777,9 @@ function Tf({
         const V = new Set(t.selection);
         return F.size !== V.size || [...F].some((ot) => !V.has(ot)) ? (Lo((ot) => {
           if (!ot || V.has(ot)) return ot;
-          const vt = Vn.current;
+          const vt = Kn.current;
           return vt && vt.id === ot && performance.now() < vt.until ? ot : null;
-        }), Jo((ot) => ot && !V.has(ot) ? null : ot), Ro((ot) => ot && !V.has(ot) ? null : ot), $o((ot) => ot && !V.has(ot) ? null : ot), _o((ot) => ot && !V.has(ot) ? null : ot), Gn(null), V) : F;
+        }), Jo((ot) => ot && !V.has(ot) ? null : ot), Ro((ot) => ot && !V.has(ot) ? null : ot), $o((ot) => ot && !V.has(ot) ? null : ot), _o((ot) => ot && !V.has(ot) ? null : ot), jn(null), V) : F;
       });
     }, N = () => {
       C(t.mode), t.mode === "edge" && t.deselectAll();
@@ -13788,7 +13789,7 @@ function Tf({
     t.on("change", R), t.on("viewport", H), t.on("selection", A), t.on("mode", N), t.on("background", D), t.on("guides", W), t.on("search", j);
     const U = (F) => E(F), X = () => E(null), Z = () => {
       const F = d.current;
-      F && (F.style.cursor = t.lassoSelect ? nn : lr(t.mode));
+      F && (F.style.cursor = t.lassoSelect ? nn : cr(t.mode));
     };
     return t.on("group:enter", U), t.on("group:exit", X), t.on("lassoToggle", Z), () => {
       k !== null && cancelAnimationFrame(k), P !== null && cancelAnimationFrame(P), t.off("change", R), t.off("viewport", H), t.off("selection", A), t.off("mode", N), t.off("background", D), t.off("guides", W), t.off("search", j), t.off("group:enter", U), t.off("group:exit", X), t.off("lassoToggle", Z);
@@ -13808,7 +13809,7 @@ function Tf({
     };
     return k.addEventListener("wheel", R, { passive: !1 }), () => k.removeEventListener("wheel", R);
   }, [t]);
-  const [Eo, Rr] = et(null), [Dr, Wr] = et(null), [Zo, Yn] = et(null), [xn, Gn] = et(null), jn = ut({
+  const [Eo, Rr] = et(null), [Dr, Wr] = et(null), [Zo, Gn] = et(null), [xn, jn] = et(null), Vn = ut({
     x: 0,
     y: 0,
     index: -1
@@ -13827,7 +13828,7 @@ function Tf({
       endY: be.endY
     }) : k && t.notifyRectDragEnd();
   }, [be, t.mode, t]);
-  const [_l, Nr] = et(null), [tc, ec] = et(null), wn = ut(null), oc = Kt(() => {
+  const [tc, Nr] = et(null), [ec, oc] = et(null), wn = ut(null), nc = Kt(() => {
     const k = /* @__PURE__ */ new Set();
     for (const R of g) {
       if (R.type !== "edge") continue;
@@ -13835,16 +13836,16 @@ function Tf({
       P.data.animated && P.data.animatedDirection === "bop" && (k.add(P.data.fromId), k.add(P.data.toId));
     }
     return k;
-  }, [g]), [Qo, Lo] = et(null), Fr = ut(null), [fi, Jo] = et(null), [yi, Ro] = et(null), [kn, $o] = et(null), [_e, _o] = et(null), [nc, gi] = et(null);
+  }, [g]), [Qo, Lo] = et(null), Fr = ut(null), [fi, Jo] = et(null), [yi, Ro] = et(null), [kn, $o] = et(null), [_e, _o] = et(null), [rc, gi] = et(null);
   St(() => {
     const k = (R) => {
-      Bc(() => _o(R));
+      Nc(() => _o(R));
     };
     return t.on("image:cropRequest", k), () => t.off("image:cropRequest", k);
   }, [t]);
-  const mi = Qo || yi || fi || kn || _e || nc, rc = Kt(() => {
+  const mi = Qo || yi || fi || kn || _e || rc, sc = Kt(() => {
     const k = (qt == null ? void 0 : qt.domNodes) ?? g.filter((P) => {
-      if (je && (P.id === i || !je.has(P.id)))
+      if (Ve && (P.id === i || !Ve.has(P.id)))
         return !1;
       if (o) {
         const H = o.get(P.type);
@@ -13855,7 +13856,7 @@ function Tf({
     if (!_e || k.some((P) => P.id === _e)) return k;
     const R = g.find((P) => P.id === _e);
     return R ? [...k, R] : k;
-  }, [qt, g, o, _e, je]), Hr = ut(null), Vn = ut(null), bi = ut(null), [Or, Xr] = et(/* @__PURE__ */ new Set()), ro = ut(/* @__PURE__ */ new Set()), [xi, vn] = et([]), [Kn, Yr] = et(null), Xe = ut([]), so = ut(null), wi = ut(0), Sn = lt(
+  }, [qt, g, o, _e, Ve]), Hr = ut(null), Kn = ut(null), bi = ut(null), [Or, Xr] = et(/* @__PURE__ */ new Set()), ro = ut(/* @__PURE__ */ new Set()), [xi, vn] = et([]), [qn, Yr] = et(null), Xe = ut([]), so = ut(null), wi = ut(0), Sn = lt(
     (k = !1) => {
       if (t.mode !== "erase") return;
       const R = performance.now();
@@ -13868,7 +13869,7 @@ function Tf({
       });
     },
     [t]
-  ), [ki, qn] = et([]), Se = ut([]), tn = ut(null);
+  ), [ki, Un] = et([]), Se = ut([]), tn = ut(null);
   St(() => {
     if (!Qo) return;
     const k = a(), R = (U) => U.querySelector(
@@ -13918,15 +13919,15 @@ function Tf({
       });
     },
     [t]
-  ), Un = lt(
+  ), Zn = lt(
     (k, R, P) => {
       const { x: H, y: A } = t.screenToCanvas(k, R);
       if (P) {
         const X = t.hitTestAll(H, A, yt);
         if (X.length > 0) {
-          const Z = jn.current, F = Math.abs(H - Z.x) + Math.abs(A - Z.y);
+          const Z = Vn.current, F = Math.abs(H - Z.x) + Math.abs(A - Z.y);
           let V = 0;
-          F < 5 && (V = (Z.index + 1) % X.length), jn.current = { x: H, y: A, index: V }, t.select(X[V].id);
+          F < 5 && (V = (Z.index + 1) % X.length), Vn.current = { x: H, y: A, index: V }, t.select(X[V].id);
         } else
           t.deselectAll();
       } else {
@@ -13979,7 +13980,7 @@ function Tf({
             shortcut: "Mod+V",
             disabled: !1,
             action: () => {
-              Sf(t, H, A);
+              Mf(t, H, A);
             }
           }
         ]
@@ -14197,14 +14198,14 @@ function Tf({
       }), W;
     },
     [t, l, yt, y.zoom]
-  ), sc = lt(
+  ), ic = lt(
     (k) => {
       if (k.preventDefault(), t.presentationMode) return;
-      const R = Un(k.clientX, k.clientY, k.altKey);
-      Yn({ x: k.clientX, y: k.clientY, sections: R });
+      const R = Zn(k.clientX, k.clientY, k.altKey);
+      Gn({ x: k.clientX, y: k.clientY, sections: R });
     },
-    [t, Un]
-  ), Zn = lt(
+    [t, Zn]
+  ), Qn = lt(
     (k, R, P) => {
       const H = () => {
         const D = d.current, W = (D == null ? void 0 : D.ownerDocument) ?? document, j = Array.from(
@@ -14235,7 +14236,7 @@ function Tf({
           align: t.activeTool.textAlign ?? "left",
           opacity: t.activeTool.opacity
         }
-      }), t.select(A), Hr.current = A, Vn.current = { id: A, until: performance.now() + 1500 }, Lo(A);
+      }), t.select(A), Hr.current = A, Kn.current = { id: A, until: performance.now() + 1500 }, Lo(A);
       const N = (D = 0) => {
         const W = d.current;
         if (!W) return;
@@ -14243,7 +14244,7 @@ function Tf({
           `[data-node-id="${A}"] [contenteditable="true"]`
         );
         if (j) {
-          H(), j.focus(), Vn.current = null;
+          H(), j.focus(), Kn.current = null;
           return;
         }
         D < 12 && requestAnimationFrame(() => N(D + 1));
@@ -14251,7 +14252,7 @@ function Tf({
       requestAnimationFrame(() => N(0));
     },
     [t]
-  ), ic = lt(
+  ), ac = lt(
     (k) => {
       if (t.presentationMode || t.mode !== "select") return;
       const { x: R, y: P } = t.screenToCanvas(k.clientX, k.clientY), H = t.hitTestAll(R, P, yt), A = H.find((N) => !t.isContainerType(N.type)) ?? H[0] ?? null;
@@ -14298,10 +14299,10 @@ function Tf({
           return;
         }
       }
-      A || (t.deselectAll(), Zn(R, P, 300));
+      A || (t.deselectAll(), Qn(R, P, 300));
     },
-    [t, yt, Zn]
-  ), ac = lt(
+    [t, yt, Qn]
+  ), lc = lt(
     (k) => {
       if (it.current.set(k.pointerId, { x: k.clientX, y: k.clientY }), k.pointerType === "pen" && (_.current = !0), k.button !== 2 && ft(!0), k.pointerType === "touch" && (it.current.size >= 2 || _.current)) {
         pt.current = !0, dt.current && (clearTimeout(dt.current), dt.current = null, gt.current = null);
@@ -14335,12 +14336,12 @@ function Tf({
       }
       if (pt.current || t.presentationMode && !(k.button === 1 || k.button === 0 && tt.current))
         return;
-      if (Zo && Yn(null), k.pointerType === "touch") {
+      if (Zo && Gn(null), k.pointerType === "touch") {
         const A = k.clientX, N = k.clientY, D = k.pointerId;
         gt.current = { clientX: A, clientY: N }, dt.current = setTimeout(() => {
           if (dt.current = null, !gt.current || pt.current) return;
-          const W = Un(A, N, !1);
-          Yn({ x: A, y: N, sections: W }), a().dispatchEvent(
+          const W = Zn(A, N, !1);
+          Gn({ x: A, y: N, sections: W }), a().dispatchEvent(
             new PointerEvent("pointerup", {
               pointerId: D,
               bubbles: !0,
@@ -14368,9 +14369,9 @@ function Tf({
         if (k.altKey) {
           const D = t.hitTestAll(P, H, yt);
           if (D.length > 0) {
-            const W = jn.current, j = Math.abs(P - W.x) + Math.abs(H - W.y);
+            const W = Vn.current, j = Math.abs(P - W.x) + Math.abs(H - W.y);
             let U = 0;
-            j < 5 && (U = (W.index + 1) % D.length), jn.current = { x: P, y: H, index: U }, t.select(D[U].id);
+            j < 5 && (U = (W.index + 1) % D.length), Vn.current = { x: P, y: H, index: U }, t.select(D[U].id);
           }
           return;
         }
@@ -14388,7 +14389,7 @@ function Tf({
               yt,
               Je
             );
-            W && (N ? N.type !== "draw" && N.type !== "shape" && !t.isContainerType(N.type) && W.distance < ed(N, P, H, yt) && (N = W.node) : N = W.node);
+            W && (N ? N.type !== "draw" && N.type !== "shape" && !t.isContainerType(N.type) && W.distance < od(N, P, H, yt) && (N = W.node) : N = W.node);
           }
         }
         if (N || A) {
@@ -14413,7 +14414,7 @@ function Tf({
             const Wt = t.getNode(Nt);
             return { id: Nt, x: Wt.x, y: Wt.y };
           }), V = t.selectionGroupId(), ot = V ? t.groupRotations.get(V) : null, vt = ot == null ? void 0 : ot.cx, Tt = ot == null ? void 0 : ot.cy;
-          Gn(null);
+          jn(null);
           let Dt = !1, It = null, Lt = W, ne = j, Qt = !1;
           const Ct = new Set(Z), At = t.createDragSnapContext(Ct), mt = () => {
             It = null;
@@ -14518,7 +14519,7 @@ function Tf({
         }, U = () => {
           a().removeEventListener("pointermove", j), a().removeEventListener("pointerup", U), $e(null);
           const X = W ? Math.max(Math.abs(D.endX - D.startX), 60) : 300, Z = W ? Math.min(D.startX, D.endX) : A, F = W ? Math.min(D.startY, D.endY) : N;
-          Zn(Z, F, X);
+          Qn(Z, F, X);
         };
         a().addEventListener("pointermove", j), a().addEventListener("pointerup", U);
       } else if (t.mode === "note") {
@@ -14728,7 +14729,7 @@ function Tf({
           }
           if (!F || F.type === "edge" || F.id === A.id)
             return;
-          const V = N ? void 0 : _n(A, P, H, yt), ot = N ? void 0 : _n(F, X, Z, yt), vt = N ? We(F, X, Z, yt).t : void 0;
+          const V = N ? void 0 : tr(A, P, H, yt), ot = N ? void 0 : tr(F, X, Z, yt), vt = N ? We(F, X, Z, yt).t : void 0;
           if (t.getAllNodes().some((It) => {
             if (It.type !== "edge") return !1;
             const Lt = It.data;
@@ -14807,7 +14808,7 @@ function Tf({
       } else if (t.mode === "erase") {
         if (k.button !== 0) return;
         const A = (vt, Tt) => {
-          const Dt = t.hitTestAll(vt, Tt, yt), It = Wd(
+          const Dt = t.hitTestAll(vt, Tt, yt), It = Bd(
             t.nodes,
             vt,
             Tt,
@@ -14853,20 +14854,20 @@ function Tf({
         const A = 1560;
         tn.current !== null && (cancelAnimationFrame(tn.current), tn.current = null);
         const N = performance.now();
-        Se.current.length > 0 && Se.current.push([NaN, NaN, N]), Se.current.push([P, H, N]), qn([...Se.current]), t.notifyLaserProgress([[P, H]]);
+        Se.current.length > 0 && Se.current.push([NaN, NaN, N]), Se.current.push([P, H, N]), Un([...Se.current]), t.notifyLaserProgress([[P, H]]);
         let D = N;
         const W = () => {
           const X = performance.now(), Z = Se.current.length;
           Se.current = Se.current.filter(
             (F) => X - F[2] < A
-          ), (Se.current.length !== Z || Se.current.length > 0) && qn([...Se.current]), X - D >= 60 && (D = X, Se.current.length > 0 && t.notifyLaserProgress(
+          ), (Se.current.length !== Z || Se.current.length > 0) && Un([...Se.current]), X - D >= 60 && (D = X, Se.current.length > 0 && t.notifyLaserProgress(
             Se.current.map((F) => [F[0], F[1]])
-          )), Se.current.length > 0 ? tn.current = requestAnimationFrame(W) : (tn.current = null, qn([]), t.notifyLaserEnd());
+          )), Se.current.length > 0 ? tn.current = requestAnimationFrame(W) : (tn.current = null, Un([]), t.notifyLaserEnd());
         };
         tn.current = requestAnimationFrame(W);
         const j = (X) => {
           const { x: Z, y: F } = t.screenToCanvas(X.clientX, X.clientY), V = performance.now();
-          Se.current.push([Z, F, V]), qn([...Se.current]), t.notifyLaserProgress(
+          Se.current.push([Z, F, V]), Un([...Se.current]), t.notifyLaserProgress(
             Se.current.map((ot) => [ot[0], ot[1]])
           );
         }, U = () => {
@@ -14881,7 +14882,7 @@ function Tf({
         const U = (Z) => {
           t.viewport.x = A + (Z.clientX - D), t.viewport.y = N + (Z.clientY - W), p({ ...t.viewport });
         }, X = () => {
-          j && (j.style.cursor = t.lassoSelect ? nn : lr(t.mode)), a().removeEventListener("pointermove", U), a().removeEventListener("pointerup", X);
+          j && (j.style.cursor = t.lassoSelect ? nn : cr(t.mode)), a().removeEventListener("pointermove", U), a().removeEventListener("pointerup", X);
         };
         a().addEventListener("pointermove", U), a().addEventListener("pointerup", X);
       }
@@ -14889,9 +14890,9 @@ function Tf({
     [
       t,
       vi,
-      Zn,
+      Qn,
       Zo,
-      Un,
+      Zn,
       ce,
       yt,
       I,
@@ -14977,7 +14978,7 @@ function Tf({
       a().addEventListener("pointermove", Tt), a().addEventListener("pointerup", Dt);
     },
     [t, yt]
-  ), lc = lt(
+  ), cc = lt(
     (k, R) => {
       R.stopPropagation(), R.preventDefault();
       const P = t.getNode(k);
@@ -15037,7 +15038,7 @@ function Tf({
         }
         if (!V || V.type === "edge" || V.id === H.id)
           return;
-        const ot = D ? void 0 : _n(V, Z, F, yt), vt = D ? We(V, Z, F, yt).t : void 0;
+        const ot = D ? void 0 : tr(V, Z, F, yt), vt = D ? We(V, Z, F, yt).t : void 0;
         if (t.getAllNodes().some((It) => {
           if (It.type !== "edge") return !1;
           const Lt = It.data;
@@ -15078,7 +15079,7 @@ function Tf({
       a().addEventListener("pointermove", j), a().addEventListener("pointerup", U);
     },
     [t, yt]
-  ), cc = lt(
+  ), dc = lt(
     (k) => {
       let R = null, P = k === "top" || k === "left" ? 1 / 0 : -1 / 0;
       for (const H of t.selection) {
@@ -15105,7 +15106,7 @@ function Tf({
       return R;
     },
     [t, yt]
-  ), dc = lt(
+  ), hc = lt(
     (k, R, P, H) => {
       var F;
       H.stopPropagation(), H.preventDefault();
@@ -15191,18 +15192,18 @@ function Tf({
       a().addEventListener("pointermove", X), a().addEventListener("pointerup", Z);
     },
     [t, o, yt]
-  ), [Qn, hc] = et(0);
+  ), [Jn, uc] = et(0);
   St(() => {
     if (n)
-      return n.onChange(() => hc((k) => k + 1));
+      return n.onChange(() => uc((k) => k + 1));
   }, [n]);
-  const uc = lt(
+  const pc = lt(
     (k) => n == null ? void 0 : n.getLastComputeMs(k),
-    [n, Qn]
-  ), pc = lt(
-    (k, R) => n ? n.getPortValue(k, R) : null,
-    [n, Qn]
+    [n, Jn]
   ), fc = lt(
+    (k, R) => n ? n.getPortValue(k, R) : null,
+    [n, Jn]
+  ), yc = lt(
     (k, R, P, H, A) => {
       A.stopPropagation(), A.preventDefault();
       const N = t.getNode(k);
@@ -15267,7 +15268,7 @@ function Tf({
       a().addEventListener("pointermove", W), a().addEventListener("pointerup", j);
     },
     [t, yt]
-  ), yc = lt(
+  ), gc = lt(
     (k, R, P) => {
       P.stopPropagation(), P.preventDefault();
       const H = t.getNode(k);
@@ -15321,7 +15322,7 @@ function Tf({
         if (ne === Qt) return;
         const Ct = R === "source" ? A : N;
         if (Lt.id === Ct) return;
-        const At = H.data.sourceT !== void 0 || H.data.targetT !== void 0, mt = At ? void 0 : _n(Lt, Dt, It, yt), Pt = At ? We(Lt, Dt, It, yt).t : void 0, Vt = R === "source" ? {
+        const At = H.data.sourceT !== void 0 || H.data.targetT !== void 0, mt = At ? void 0 : tr(Lt, Dt, It, yt), Pt = At ? We(Lt, Dt, It, yt).t : void 0, Vt = R === "source" ? {
           fromId: ne,
           toId: Qt,
           sourceHandle: mt ?? D,
@@ -15343,7 +15344,7 @@ function Tf({
       a().addEventListener("pointermove", ot), a().addEventListener("pointerup", vt);
     },
     [t, yt]
-  ), gc = lt(
+  ), mc = lt(
     (k) => {
       if (k.stopPropagation(), k.preventDefault(), t.presentationMode) return;
       const R = Array.from(t.selection).map((Pt) => t.getNode(Pt)).filter(Boolean);
@@ -15387,7 +15388,7 @@ function Tf({
         Qt || (Qt = !0, t.pushHistorySnapshot());
         const { x: Vt, y: Nt } = t.screenToCanvas(Pt.clientX, Pt.clientY);
         let Ht = (Math.atan2(Nt - D, Vt - N) - ne) * (180 / Math.PI);
-        (Pt.shiftKey || t.snapToGrid) && !(Pt.metaKey || Pt.ctrlKey) && (Ht = Math.round(Ht / 15) * 15), Ct = W + Ht, Gn({ angle: Ct, cx: N, cy: D, bounds: Dt });
+        (Pt.shiftKey || t.snapToGrid) && !(Pt.metaKey || Pt.ctrlKey) && (Ht = Math.round(Ht / 15) * 15), Ct = W + Ht, jn({ angle: Ct, cx: N, cy: D, bounds: Dt });
         const ue = Ht * Math.PI / 180, Yt = Math.cos(ue), pe = Math.sin(ue), he = U.map((ye) => {
           const Me = ye.cx - N, Ie = ye.cy - D, to = N + Me * Yt - Ie * pe, Mn = D + Me * pe + Ie * Yt;
           return {
@@ -15401,12 +15402,12 @@ function Tf({
         });
         t.updateMany(he);
       }, mt = () => {
-        H && t.groupRotations.set(H, { angle: Ct, cx: N, cy: D }), Gn({ angle: Ct, cx: N, cy: D, bounds: Dt }), a().removeEventListener("pointermove", At), a().removeEventListener("pointerup", mt);
+        H && t.groupRotations.set(H, { angle: Ct, cx: N, cy: D }), jn({ angle: Ct, cx: N, cy: D, bounds: Dt }), a().removeEventListener("pointermove", At), a().removeEventListener("pointerup", mt);
       };
       a().addEventListener("pointermove", At), a().addEventListener("pointerup", mt);
     },
     [t, yt, I]
-  ), mc = lt(
+  ), bc = lt(
     (k, R) => {
       if (R.stopPropagation(), R.preventDefault(), t.presentationMode) return;
       const P = Array.from(t.selection).map((mt) => t.getNode(mt)).filter(Boolean);
@@ -15471,7 +15472,7 @@ function Tf({
             Ie.data = {
               ...Yt.drawData,
               points: Yt.origPoints.map(
-                ([vc, Sc, Mc]) => [vc * to, Sc * Mn, Mc]
+                ([Sc, Mc, Cc]) => [Sc * to, Mc * Mn, Cc]
               )
             };
           }
@@ -15494,9 +15495,9 @@ function Tf({
     [t, yt, I]
   );
   St(() => {
-    d.current && (d.current.style.cursor = t.lassoSelect ? nn : lr(v)), v !== "select" && v !== "edge" && (wn.current = null, Nr(null)), v !== "erase" && (so.current !== null && (cancelAnimationFrame(so.current), so.current = null), ro.current = /* @__PURE__ */ new Set(), Xr(/* @__PURE__ */ new Set()), Xe.current = [], vn([]), t.notifyEraserEnd());
+    d.current && (d.current.style.cursor = t.lassoSelect ? nn : cr(v)), v !== "select" && v !== "edge" && (wn.current = null, Nr(null)), v !== "erase" && (so.current !== null && (cancelAnimationFrame(so.current), so.current = null), ro.current = /* @__PURE__ */ new Set(), Xr(/* @__PURE__ */ new Set()), Xe.current = [], vn([]), t.notifyEraserEnd());
   }, [v, t]);
-  const jr = ut(null), Mi = ut(null), bc = lt(
+  const jr = ut(null), Mi = ut(null), xc = lt(
     (k) => {
       if (dt.current && k.pointerType === "touch" && gt.current) {
         const R = k.clientX - gt.current.clientX, P = k.clientY - gt.current.clientY;
@@ -15519,7 +15520,7 @@ function Tf({
             const Z = We(X, H, A, yt), F = Math.hypot(Z.x - H, Z.y - A);
             F < U && (U = F, j = X.id);
           }
-          j !== wn.current && (wn.current = j, Nr(j)), ec({ x: H, y: A });
+          j !== wn.current && (wn.current = j, Nr(j)), oc({ x: H, y: A });
           return;
         }
         if (t.selection.size >= 2 && ce && H >= ce.x && H <= ce.x + ce.w && A >= ce.y && A <= ce.y + ce.h) {
@@ -15546,9 +15547,9 @@ function Tf({
       })));
     },
     [t, ce, yt, I, Je]
-  ), xc = lt((k) => {
+  ), wc = lt((k) => {
     (k.dataTransfer.types.includes("Files") || k.dataTransfer.types.includes(Ds) || k.dataTransfer.types.includes(Ws) || k.dataTransfer.types.includes(Bs)) && (k.preventDefault(), k.dataTransfer.dropEffect = "copy");
-  }, []), wc = lt(
+  }, []), kc = lt(
     (k) => {
       if (k.preventDefault(), t.presentationMode) return;
       const R = k.dataTransfer.getData(Bs);
@@ -15607,7 +15608,7 @@ function Tf({
         const F = new FileReader();
         F.onload = () => {
           const V = F.result, ot = Ns(V);
-          ot && xp(t, ot, k.clientX, k.clientY);
+          ot && wp(t, ot, k.clientX, k.clientY);
         }, F.readAsText(A);
         return;
       }
@@ -15631,7 +15632,7 @@ function Tf({
       }, Z.readAsDataURL(A);
     },
     [t]
-  ), kc = `translate(${y.x}px, ${y.y}px) scale(${y.zoom})`, Vr = T.activeIndex >= 0 ? ((Ii = T.matches[T.activeIndex]) == null ? void 0 : Ii.nodeId) ?? null : null, Ci = Kt(() => {
+  ), vc = `translate(${y.x}px, ${y.y}px) scale(${y.zoom})`, Vr = T.activeIndex >= 0 ? ((Ii = T.matches[T.activeIndex]) == null ? void 0 : Ii.nodeId) ?? null : null, Ci = Kt(() => {
     if (!T.query || T.matches.length === 0) return /* @__PURE__ */ new Set();
     const k = /* @__PURE__ */ new Set();
     for (const R of T.matches)
@@ -15698,26 +15699,26 @@ function Tf({
         position: "relative",
         userSelect: "none",
         touchAction: "none",
-        background: Fn(q).canvasBg
+        background: Hn(q).canvasBg
       },
-      onPointerDown: ac,
-      onPointerMove: bc,
-      onDoubleClick: ic,
-      onContextMenu: sc,
-      onDragOver: xc,
-      onDrop: wc,
+      onPointerDown: lc,
+      onPointerMove: xc,
+      onDoubleClick: ac,
+      onContextMenu: ic,
+      onDragOver: wc,
+      onDrop: kc,
       children: [
-        /* @__PURE__ */ h(Xu, { viewport: y, gridSize: xt, background: q, gridVisible: st }),
+        /* @__PURE__ */ h(Yu, { viewport: y, gridSize: xt, background: q, gridVisible: st }),
         /* @__PURE__ */ S(
-          If,
+          Tf,
           {
-            safariWebKitWorkaround: wp(),
+            safariWebKitWorkaround: kp(),
             viewport: y,
-            viewportTransform: kc,
+            viewportTransform: vc,
             children: [
-              rc.sort((k, R) => k.z - R.z).map((k) => {
+              sc.sort((k, R) => k.z - R.z).map((k) => {
                 var D;
-                const R = Or.has(k.id), P = oc.has(k.id), A = -(k.id.split("").reduce((W, j) => W + j.charCodeAt(0), 0) % 240 / 100);
+                const R = Or.has(k.id), P = nc.has(k.id), A = -(k.id.split("").reduce((W, j) => W + j.charCodeAt(0), 0) % 240 / 100);
                 let N;
                 if (o) {
                   const W = o.get(k.type);
@@ -15745,12 +15746,12 @@ function Tf({
                           onEditEnd: () => {
                             k.type === "text" ? Lo((F) => {
                               if (F !== k.id) return F;
-                              const V = Vn.current;
+                              const V = Kn.current;
                               return V && V.id === F && performance.now() < V.until ? F : null;
                             }) : k.type === "sticky" ? Ro((F) => F === k.id ? null : F) : k.type === "frame" ? Jo((F) => F === k.id ? null : F) : k.type === "shape" ? $o((F) => F === k.id ? null : F) : k.type === "image" ? _o((F) => F === k.id ? null : F) : k.type === "youtube" && gi((F) => F === k.id ? null : F);
                           }
                         },
-                        portValues: n && ((D = W.ports) != null && D.length) && Qn >= 0 ? n.getAllPortValues(k.id) : void 0,
+                        portValues: n && ((D = W.ports) != null && D.length) && Jn >= 0 ? n.getAllPortValues(k.id) : void 0,
                         updateData: (F) => {
                           const V = rt();
                           t.updateNodeWithHistoryCoalesced(
@@ -15765,7 +15766,7 @@ function Tf({
                       W.handlesOwnLayout ? k.id : void 0
                     );
                     W.handlesOwnLayout ? N = Z : N = /* @__PURE__ */ h(
-                      Mf,
+                      Cf,
                       {
                         node: k,
                         isInteractive: X,
@@ -15930,7 +15931,7 @@ function Tf({
                   );
                 } else {
                   const W = k;
-                  W.type === "draw" ? N = /* @__PURE__ */ h(xr, { node: W }, k.id) : N = /* @__PURE__ */ h(xr, { node: W, editingLabel: kn === k.id }, k.id);
+                  W.type === "draw" ? N = /* @__PURE__ */ h(wr, { node: W }, k.id) : N = /* @__PURE__ */ h(wr, { node: W, editingLabel: kn === k.id }, k.id);
                 }
                 return R || P ? /* @__PURE__ */ h(
                   "div",
@@ -15977,7 +15978,7 @@ function Tf({
                 if (!k || k.type !== "shape") return null;
                 const R = k.data;
                 return R.shape === "line" || R.shape === "arrow" ? null : /* @__PURE__ */ h(
-                  Cf,
+                  If,
                   {
                     node: k,
                     engine: t,
@@ -15990,7 +15991,7 @@ function Tf({
           }
         ),
         /* @__PURE__ */ h(
-          Tp,
+          zp,
           {
             nodes: bn,
             viewport: y,
@@ -16010,10 +16011,10 @@ function Tf({
               edgeStyle: void 0
             } : null,
             onResizeHandleDown: Gr,
-            onRotateStart: lc,
+            onRotateStart: cc,
             onConnectionHandleDown: Si,
-            onEdgeEndpointDown: yc,
-            onKinkHandleDown: fc,
+            onEdgeEndpointDown: gc,
+            onKinkHandleDown: yc,
             edgePreview: ct,
             edgeReconnect: Jt,
             eraserMarkedIds: Or.size > 0 ? Or : void 0,
@@ -16021,20 +16022,20 @@ function Tf({
             laserTrail: ki.length > 1 ? ki : void 0,
             mode: v,
             freeFormEdges: t.freeFormEdges,
-            hoveredNodeId: _l,
-            cursorCanvasPos: tc,
+            hoveredNodeId: tc,
+            cursorCanvasPos: ec,
             registry: o,
-            onPortHandleDown: dc,
-            cycleNodeIds: n && Qn >= 0 ? n.cycleNodeIds : void 0,
+            onPortHandleDown: hc,
+            cycleNodeIds: n && Jn >= 0 ? n.cycleNodeIds : void 0,
             dataFlowEdgeOverlay: n ? r : "off",
-            getLastComputeMs: n ? uc : void 0,
-            getDataFlowPortValue: n ? pc : void 0,
+            getLastComputeMs: n ? pc : void 0,
+            getDataFlowPortValue: n ? fc : void 0,
             containerTypes: t.containerTypes,
             alignGuides: K,
             suppressNodeOverlayId: _e
           }
         ),
-        ce && !_e && v !== "edge" && !ct && !Jt && (() => {
+        ce && !_e && v !== "edge" && !ct && !Jt && !t.readOnly && (() => {
           const k = t.selectionGroupId(), R = k ? t.groupRotations.get(k) : void 0;
           let P, H, A, N;
           if (xn)
@@ -16096,7 +16097,7 @@ function Tf({
                     strokeWidth: 1.5 / y.zoom,
                     style: { cursor: Mr(X, H), pointerEvents: "auto" },
                     onPointerDown: (V) => {
-                      V.stopPropagation(), mc(X, V);
+                      V.stopPropagation(), bc(X, V);
                     }
                   },
                   X
@@ -16131,7 +16132,7 @@ function Tf({
                           stroke: "#3b82f6",
                           strokeWidth: 1.5 / y.zoom,
                           style: { cursor: "grab", pointerEvents: "auto" },
-                          onPointerDown: (vt) => gc(vt)
+                          onPointerDown: (vt) => mc(vt)
                         }
                       );
                     })()
@@ -16157,7 +16158,7 @@ function Tf({
                       style: { cursor: "crosshair", pointerEvents: "auto" },
                       onPointerDown: (Dt) => {
                         Dt.stopPropagation();
-                        const It = cc(ot);
+                        const It = dc(ot);
                         It && Si(It, ot, Dt);
                       }
                     },
@@ -16281,7 +16282,7 @@ function Tf({
           }
         ),
         s && /* @__PURE__ */ h(
-          Vu,
+          Ku,
           {
             engine: t,
             nodes: g,
@@ -16291,20 +16292,20 @@ function Tf({
           }
         ),
         Zo && /* @__PURE__ */ h(
-          zp,
+          Pp,
           {
             x: Zo.x,
             y: Zo.y,
             sections: Zo.sections,
-            onClose: () => Yn(null)
+            onClose: () => Gn(null)
           }
         ),
-        Kn && /* @__PURE__ */ h(
-          mp,
+        qn && /* @__PURE__ */ h(
+          bp,
           {
-            nodes: Kn.nodes,
+            nodes: qn.nodes,
             onSave: (k) => {
-              ap(k, Kn.nodes, Kn.groupParent), Yr(null);
+              lp(k, qn.nodes, qn.groupParent), Yr(null);
             },
             onCancel: () => Yr(null)
           }
@@ -16313,7 +16314,7 @@ function Tf({
     }
   ) });
 }
-const eo = 52, dn = 300, L0 = eo + dn, zf = [
+const eo = 52, dn = 300, R0 = eo + dn, Pf = [
   "#1e1e2e",
   "#e74c3c",
   "#2ecc71",
@@ -16324,19 +16325,19 @@ const eo = 52, dn = 300, L0 = eo + dn, zf = [
   { key: "hachure", label: "Hachure" },
   { key: "cross-hatch", label: "Cross-hatch" },
   { key: "solid", label: "Solid" }
-], Pf = [
+], Af = [
   { key: "solid", label: "Solid", dash: "" },
   { key: "dashed", label: "Dashed", dash: "6,3" },
   { key: "dotted", label: "Dotted", dash: "2,2" }
-], kr = [
+], vr = [
   { value: 0, label: "Architect" },
   { value: 1, label: "Artist" },
   { value: 2, label: "Cartoonist" }
-], Ul = [1, 2, 3, 5, 8, 12], ci = [1, 2, 3, 4, 6, 8], Zl = [1, 2, 3, 4, 6], Af = ci, Ql = [14, 20, 28, 36], di = [
+], Ul = [1, 2, 3, 5, 8, 12], ci = [1, 2, 3, 4, 6, 8], Zl = [1, 2, 3, 4, 6], Ef = ci, Ql = [14, 20, 28, 36], di = [
   { key: "left", label: "←" },
   { key: "center", label: "↔" },
   { key: "right", label: "→" }
-], Ef = [
+], Lf = [
   "#FEF3C7",
   "#FCE7F3",
   "#DBEAFE",
@@ -16344,14 +16345,14 @@ const eo = 52, dn = 300, L0 = eo + dn, zf = [
   "#EDE9FE",
   "#FFEDD5"
 ], He = [
-  { name: "Standard", colors: zf },
+  { name: "Standard", colors: Pf },
   { name: "Pastel", colors: ["#F8B4B4", "#FDBA74", "#FDE68A", "#86EFAC", "#93C5FD", "#C4B5FD"] },
   { name: "Earth", colors: ["#78350F", "#92400E", "#6B7280", "#065F46", "#1E3A5F", "#7C2D12"] },
   { name: "Neon", colors: ["#FF1493", "#39FF14", "#00FFFF", "#FF6600", "#FFFF00", "#BF00FF"] },
   { name: "Crayon", colors: ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#A855F7"] },
   { name: "Mono", colors: ["#000000", "#404040", "#737373", "#A3A3A3", "#D4D4D4", "#FFFFFF"] }
-], hi = He, Lf = [
-  { name: "Standard", colors: Ef },
+], hi = He, Rf = [
+  { name: "Standard", colors: Lf },
   { name: "Bright", colors: ["#FDE047", "#FB923C", "#F87171", "#4ADE80", "#60A5FA", "#C084FC"] },
   { name: "Earth", colors: ["#D6CFC7", "#E8D5B7", "#C4B5A0", "#B8C5A3", "#A3B5C4", "#C7B8A8"] },
   { name: "Cool", colors: ["#BFDBFE", "#A5F3FC", "#C7D2FE", "#DDD6FE", "#BAE6FD", "#E0E7FF"] }
@@ -16372,8 +16373,8 @@ const eo = 52, dn = 300, L0 = eo + dn, zf = [
   justifyContent: "center",
   padding: 0,
   flexShrink: 0
-}, Rf = "https://libraries.excalidraw.com/libraries.json", Os = "https://libraries.excalidraw.com/libraries";
-function Df({
+}, Df = "https://libraries.excalidraw.com/libraries.json", Os = "https://libraries.excalidraw.com/libraries";
+function Wf({
   onClose: t,
   onInstalled: e
 }) {
@@ -16385,7 +16386,7 @@ function Df({
     let w = !1;
     return (async () => {
       try {
-        const M = await fetch(Rf);
+        const M = await fetch(Df);
         if (!M.ok) throw new Error(`HTTP ${M.status}`);
         const v = await M.json();
         w || (s(v), l(!1));
@@ -16410,7 +16411,7 @@ function Df({
       y(w.id);
       try {
         const M = `${Os}/${w.source}`;
-        await Zu(M, w.name), m(), e();
+        await Qu(M, w.name), m(), e();
       } catch (M) {
         console.error("Failed to install library:", M);
       } finally {
@@ -16580,7 +16581,7 @@ function Df({
                         `${Os}/${w.source}`
                       ), C = f === w.id;
                       return /* @__PURE__ */ h(
-                        Wf,
+                        Bf,
                         {
                           entry: w,
                           isInstalled: v,
@@ -16622,7 +16623,7 @@ function Df({
     document.body
   );
 }
-function Wf({
+function Bf({
   entry: t,
   isInstalled: e,
   isInstalling: o,
@@ -16727,13 +16728,13 @@ function Wf({
     }
   );
 }
-const Bf = /^[A-Za-z][A-Za-z0-9_:-]*$/, ba = /^[A-Za-z][A-Za-z0-9_]*$/;
-function Nf(t) {
+const Nf = /^[A-Za-z][A-Za-z0-9_:-]*$/, ba = /^[A-Za-z][A-Za-z0-9_]*$/;
+function Ff(t) {
   const e = t.trim();
   return e.startsWith('"') && e.endsWith('"') || e.startsWith("'") && e.endsWith("'") ? e.slice(1, -1).trim() : e;
 }
 function Ye(t) {
-  return Nf(t).replace(/<br\s*\/?>/gi, `
+  return Ff(t).replace(/<br\s*\/?>/gi, `
 `).replace(/\\n/g, `
 `);
 }
@@ -16745,9 +16746,9 @@ function Fo(t) {
   const e = t.trim();
   if (!e) return null;
   let o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\(\(([\s\S]+)\)\)$/);
-  return o ? { key: o[1], label: Ye(o[2]), shape: "circle" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\(([\s\S]+)\)$/), o ? { key: o[1], label: Ye(o[2]), shape: "round" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\{([\s\S]+)\}$/), o ? { key: o[1], label: Ye(o[2]), shape: "diamond" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\[([\s\S]+)\]$/), o ? { key: o[1], label: Ye(o[2]), shape: "rect" } : Bf.test(e) ? { key: e, label: e, shape: "rect" } : null)));
+  return o ? { key: o[1], label: Ye(o[2]), shape: "circle" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\(([\s\S]+)\)$/), o ? { key: o[1], label: Ye(o[2]), shape: "round" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\{([\s\S]+)\}$/), o ? { key: o[1], label: Ye(o[2]), shape: "diamond" } : (o = e.match(/^([A-Za-z][A-Za-z0-9_:-]*)\s*\[([\s\S]+)\]$/), o ? { key: o[1], label: Ye(o[2]), shape: "rect" } : Nf.test(e) ? { key: e, label: e, shape: "rect" } : null)));
 }
-function Ff(t) {
+function Hf(t) {
   let e = t.match(/^(.*?)\s*--\s*\|([^|]+)\|\s*-->\s*(.*?)$/);
   if (e) {
     const o = Fo(e[1]), n = Fo(e[3]);
@@ -16763,13 +16764,13 @@ function Ff(t) {
   }
   return null;
 }
-function Hf(t) {
+function Of(t) {
   const e = t.match(/\b(TB|TD|BT|LR|RL)\b/i);
   if (!e) return "TB";
   const o = e[1].toUpperCase();
   return o === "TD" ? "TB" : o === "TB" || o === "BT" || o === "LR" || o === "RL" ? o : "TB";
 }
-function Of(t) {
+function Xf(t) {
   const e = t.match(/^subgraph(?:\s+([\s\S]+))?$/i);
   if (!e) return null;
   const o = (e[1] ?? "").trim();
@@ -16777,21 +16778,21 @@ function Of(t) {
   const n = o.match(/^[A-Za-z][A-Za-z0-9_:-]*\s*\[([\s\S]+)\]$/);
   return n ? { label: Ye(n[1]) } : { label: Ye(o) };
 }
-function Xf(t) {
+function Yf(t) {
   const o = { direction: "TB", nodes: /* @__PURE__ */ new Map(), edges: [], groups: [] }, n = t.replace(/\r\n/g, `
 `).split(`
 `).map((d) => d.replace(/%%.*$/, "").trim()).filter(Boolean);
   if (n.length === 0)
     throw new Error("Paste a Mermaid flowchart first.");
   const r = n[0];
-  /^(flowchart|graph)\b/i.test(r) && (o.direction = Hf(r), n.shift());
+  /^(flowchart|graph)\b/i.test(r) && (o.direction = Of(r), n.shift());
   const i = [], l = (d) => {
     for (const c of i) c.nodeKeys.add(d);
   };
   for (const d of n) {
     const c = d.split(";").map((a) => a.trim()).filter(Boolean);
     for (const a of c) {
-      const u = Of(a);
+      const u = Xf(a);
       if (u) {
         i.push({ label: u.label, nodeKeys: /* @__PURE__ */ new Set() });
         continue;
@@ -16804,7 +16805,7 @@ function Xf(t) {
         });
         continue;
       }
-      const f = Ff(a);
+      const f = Hf(a);
       if (f) {
         const p = cs(o, f.from), g = cs(o, f.to);
         l(p.key), l(g.key), o.edges.push({ fromKey: p.key, toKey: g.key, label: f.label });
@@ -16828,7 +16829,7 @@ function Xf(t) {
     throw new Error("Could not parse Mermaid nodes. Try simple flowchart syntax like A-->B.");
   return o;
 }
-function Yf(t) {
+function Gf(t) {
   const e = t.indexOf(":");
   if (e < 0) return null;
   const o = t.slice(0, e).trim(), n = t.slice(e + 1).trim();
@@ -16860,7 +16861,7 @@ function Yf(t) {
   }
   return null;
 }
-function Gf(t) {
+function jf(t) {
   const e = t.match(/^Note\s+(left|right|over)\s+of\s+([A-Za-z][A-Za-z0-9_:-]*)\s*:\s*([\s\S]+)$/i);
   return e ? {
     side: e[1].toLowerCase(),
@@ -16868,7 +16869,7 @@ function Gf(t) {
     text: Ye(e[3])
   } : null;
 }
-function jf(t) {
+function Vf(t) {
   return t ? /^#[0-9a-f]{3,8}$/i.test(t) || /^(rgb|rgba|hsl|hsla)\(/i.test(t) ? !0 : (/* @__PURE__ */ new Set([
     "red",
     "green",
@@ -16898,15 +16899,15 @@ function jf(t) {
     "rebeccapurple"
   ])).has(t.toLowerCase()) : !1;
 }
-function Vf(t) {
+function Kf(t) {
   const e = t.match(/^box(?:\s+(.+))?$/i);
   if (!e) return null;
   const o = (e[1] ?? "").trim();
   if (!o) return {};
   const n = o.indexOf(" "), r = n >= 0 ? o.slice(0, n) : o, s = n >= 0 ? o.slice(n + 1).trim() : "";
-  return jf(r) ? { color: r, label: s || void 0 } : { label: o };
+  return Vf(r) ? { color: r, label: s || void 0 } : { label: o };
 }
-function Kf(t) {
+function qf(t) {
   const e = t.replace(/\r\n/g, `
 `).split(`
 `).map((f) => f.replace(/%%.*$/, "").trim()).filter(Boolean);
@@ -16923,7 +16924,7 @@ function Kf(t) {
   for (let f = 1; f < e.length; f++) {
     const y = e[f];
     if (/^autonumber\b/i.test(y)) continue;
-    const p = Vf(y);
+    const p = Kf(y);
     if (p) {
       d.push({ type: "box", label: p.label, color: p.color, participants: /* @__PURE__ */ new Set() });
       continue;
@@ -16953,12 +16954,12 @@ function Kf(t) {
       a(m[1]);
       continue;
     }
-    const x = Gf(y);
+    const x = jf(y);
     if (x) {
       a(x.of), s.push({ step: c, note: x });
       continue;
     }
-    const b = Yf(y);
+    const b = Gf(y);
     if (b) {
       a(b.from), a(b.to), r.push(b), c += 1;
       continue;
@@ -16995,10 +16996,10 @@ function Kf(t) {
     })).filter((f) => f.participants.length > 0)
   };
 }
-function cr(t) {
+function dr(t) {
   return t === "diamond" ? { w: 200, h: 120 } : t === "circle" ? { w: 140, h: 140 } : { w: 200, h: 96 };
 }
-function qf(t) {
+function Uf(t) {
   const e = Array.from(t.nodes.keys()).sort(), o = /* @__PURE__ */ new Map(), n = /* @__PURE__ */ new Map();
   for (const c of e)
     o.set(c, 0), n.set(c, []);
@@ -17025,8 +17026,8 @@ function qf(t) {
   }
   return Array.from(d.entries()).sort((c, a) => c[0] - a[0]).map(([, c]) => c.sort());
 }
-function Uf(t, e, o, n) {
-  const r = Kf(t), s = [], i = [], l = 6, d = "#94a3b8", c = 3, a = "#475569", u = 180, f = 64, y = 270, p = o - 140, g = p + f + 8, m = 88, x = Math.max(1, r.messages.length), b = g + x * m + 40, w = b + 12, M = w + f, v = /* @__PURE__ */ new Map();
+function Zf(t, e, o, n) {
+  const r = qf(t), s = [], i = [], l = 6, d = "#94a3b8", c = 3, a = "#475569", u = 180, f = 64, y = 270, p = o - 140, g = p + f + 8, m = 88, x = Math.max(1, r.messages.length), b = g + x * m + 40, w = b + 12, M = w + f, v = /* @__PURE__ */ new Map();
   for (const C of r.groups) {
     const z = C.participants.map((st) => v.get(st)).filter((st) => typeof st == "number");
     if (z.length === 0)
@@ -17332,16 +17333,16 @@ function Uf(t, e, o, n) {
   }
   return { nodes: s, shapeNodeIds: i };
 }
-function Zf(t, e, o, n) {
+function Qf(t, e, o, n) {
   const r = t.trimStart();
   if (/^sequenceDiagram\b/i.test(r))
-    return Uf(t, e, o, n);
-  const s = Xf(t), i = qf(s), l = Array.from(s.nodes.values()).map((m) => cr(m.shape)), d = l.length > 0 ? Math.max(...l.map((m) => m.h)) : 96, c = Math.max(d + 130, 260), a = /* @__PURE__ */ new Map(), u = i.length;
+    return Zf(t, e, o, n);
+  const s = Yf(t), i = Uf(s), l = Array.from(s.nodes.values()).map((m) => dr(m.shape)), d = l.length > 0 ? Math.max(...l.map((m) => m.h)) : 96, c = Math.max(d + 130, 260), a = /* @__PURE__ */ new Map(), u = i.length;
   for (let m = 0; m < i.length; m++) {
     const x = i[m], b = x.length, w = (m - (u - 1) / 2) * c, M = x.length > 0 ? Math.max(
       ...x.map((C) => {
         const z = s.nodes.get(C);
-        return z ? cr(z.shape).w : 200;
+        return z ? dr(z.shape).w : 200;
       })
     ) : 200, v = Math.max(M + 90, 260);
     for (let C = 0; C < x.length; C++) {
@@ -17361,7 +17362,7 @@ function Zf(t, e, o, n) {
     const x = m.nodeKeys.map((z) => {
       const E = s.nodes.get(z), T = a.get(z);
       if (!E || !T) return null;
-      const G = cr(E.shape);
+      const G = dr(E.shape);
       return { x: T.x - G.w / 2, y: T.y - G.h / 2, w: G.w, h: G.h };
     }).filter((z) => !!z);
     if (!x.length) continue;
@@ -17406,7 +17407,7 @@ function Zf(t, e, o, n) {
     }
   }
   for (const [m, x] of s.nodes) {
-    const b = a.get(m) ?? { x: e, y: o }, w = cr(x.shape), M = {
+    const b = a.get(m) ?? { x: e, y: o }, w = dr(x.shape), M = {
       id: Rt(10),
       type: "shape",
       x: b.x - w.w / 2,
@@ -17461,7 +17462,7 @@ const xa = `flowchart LR
   B -- Yes --> C[Ship]
   B -- No --> D[Refine]
   D --> B`;
-function Qf({
+function Jf({
   engine: t,
   open: e,
   onClose: o,
@@ -17484,7 +17485,7 @@ function Qf({
     [s.mermaidSupportedHint]
   ), p = lt(() => {
     try {
-      const g = window.innerWidth / 2, m = window.innerHeight / 2, x = t.screenToCanvas(g, m), { nodes: b, shapeNodeIds: w } = Zf(l, x.x, x.y, () => t.nextZ());
+      const g = window.innerWidth / 2, m = window.innerHeight / 2, x = t.screenToCanvas(g, m), { nodes: b, shapeNodeIds: w } = Qf(l, x.x, x.y, () => t.nextZ());
       if (b.length === 0)
         throw new Error(s.mermaidNoNodesParsed);
       t.addNodes(b), w.length > 0 && t.selectMultiple(w), a(null), f(
@@ -17587,7 +17588,7 @@ function Qf({
     document.body
   );
 }
-const Jf = [
+const $f = [
   { key: "select", shortcut: "S", num: "" },
   { key: "hand", shortcut: "P", num: "" },
   { key: "draw", shortcut: "D", num: "" },
@@ -17709,7 +17710,7 @@ function Vo({ name: t, size: e = 18, textGlyph: o = "T" }) {
     ] })
   ] });
 }
-function $f({
+function _f({
   engine: t,
   background: e
 }) {
@@ -17857,7 +17858,7 @@ function $f({
     u
   ] });
 }
-function _f({ engine: t }) {
+function ty({ engine: t }) {
   const e = oe(), { labels: o } = _t(), [n, r] = et(!1), s = ut(null), i = ut(null);
   Ml(n, s, i, []), St(() => {
     if (!n) return;
@@ -17961,7 +17962,7 @@ function _f({ engine: t }) {
     l
   ] });
 }
-function ty({ engine: t }) {
+function ey({ engine: t }) {
   const e = oe(), { labels: o } = _t(), [n, r] = et(!1), [s, i] = et(!1), l = ut(null), [d, c] = et(null), a = lt(() => {
     r((y) => (!y && l.current && c(l.current.getBoundingClientRect()), !y));
   }, []), u = lt(() => r(!1), []), f = lt(() => {
@@ -17986,7 +17987,7 @@ function ty({ engine: t }) {
       }
     ),
     /* @__PURE__ */ h(
-      hp,
+      up,
       {
         engine: t,
         open: n,
@@ -17996,7 +17997,7 @@ function ty({ engine: t }) {
       }
     ),
     s && /* @__PURE__ */ h(
-      Df,
+      Wf,
       {
         onClose: () => i(!1),
         onInstalled: () => {
@@ -18008,7 +18009,7 @@ function ty({ engine: t }) {
     )
   ] });
 }
-function ey({ engine: t, baseUrl: e }) {
+function oy({ engine: t, baseUrl: e }) {
   const o = oe(), { labels: n } = _t(), [r, s] = et(!1), i = ut(null), [l, d] = et(null), c = lt(() => {
     s((u) => (!u && i.current && d(i.current.getBoundingClientRect()), !u));
   }, []), a = lt(() => s(!1), []);
@@ -18031,7 +18032,7 @@ function ey({ engine: t, baseUrl: e }) {
       }
     ),
     /* @__PURE__ */ h(
-      yp,
+      gp,
       {
         engine: t,
         open: r,
@@ -18042,7 +18043,7 @@ function ey({ engine: t, baseUrl: e }) {
     )
   ] });
 }
-function oy({ engine: t }) {
+function ny({ engine: t }) {
   const e = oe(), { labels: o } = _t(), [n, r] = et(!1), s = ut(null), [i, l] = et(null), d = lt(() => {
     r((a) => (!a && s.current && l(s.current.getBoundingClientRect()), !a));
   }, []), c = lt(() => r(!1), []);
@@ -18065,7 +18066,7 @@ function oy({ engine: t }) {
       }
     ),
     /* @__PURE__ */ h(
-      Qf,
+      Jf,
       {
         engine: t,
         open: n,
@@ -18075,7 +18076,7 @@ function oy({ engine: t }) {
     )
   ] });
 }
-function ny({ engine: t, gifApiBaseUrl: e }) {
+function ry({ engine: t, gifApiBaseUrl: e }) {
   const o = oe(), { labels: n } = _t(), [r, s] = et(t.mode), [i, l] = et(t.boardBackground), [d, c] = et(t.lassoSelect);
   St(() => {
     const u = () => s(t.mode), f = () => l(t.boardBackground), y = () => c(t.lassoSelect);
@@ -18083,7 +18084,7 @@ function ny({ engine: t, gifApiBaseUrl: e }) {
       t.off("mode", u), t.off("background", f), t.off("lassoToggle", y);
     };
   }, [t]);
-  const a = Jf.map((u) => ({
+  const a = $f.map((u) => ({
     ...u,
     label: u.key === "select" ? n.toolSelect : u.key === "hand" ? n.toolHand : u.key === "draw" ? n.toolDraw : u.key === "shape" ? n.toolShape : u.key === "text" ? n.toolText : u.key === "note" ? n.toolNote : u.key === "sticky" ? n.toolSticky : u.key === "frame" ? n.toolFrame : u.key === "erase" ? n.toolEraser : n.toolLaser
   }));
@@ -18184,29 +18185,29 @@ function ny({ engine: t, gifApiBaseUrl: e }) {
           }
         ),
         /* @__PURE__ */ h("div", { style: { width: 28, height: 1, background: o.separator, margin: "8px 0" } }),
-        /* @__PURE__ */ h($f, { engine: t, background: i }),
-        /* @__PURE__ */ h(_f, { engine: t }),
+        /* @__PURE__ */ h(_f, { engine: t, background: i }),
         /* @__PURE__ */ h(ty, { engine: t }),
-        /* @__PURE__ */ h(oy, { engine: t }),
-        e && /* @__PURE__ */ h(ey, { engine: t, baseUrl: e })
+        /* @__PURE__ */ h(ey, { engine: t }),
+        /* @__PURE__ */ h(ny, { engine: t }),
+        e && /* @__PURE__ */ h(oy, { engine: t, baseUrl: e })
       ]
     }
   );
 }
-const ry = /* @__PURE__ */ new Set(["shape", "draw", "text", "image", "content", "frame", "sticky"]), sy = /* @__PURE__ */ new Set(["text", "image", "content", "frame"]);
+const sy = /* @__PURE__ */ new Set(["shape", "draw", "text", "image", "content", "frame", "sticky"]), iy = /* @__PURE__ */ new Set(["text", "image", "content", "frame"]);
 function wa(t) {
   return t.data.opacity ?? 1;
 }
 function rn(t, e) {
   return t.data[e];
 }
-function iy(t) {
-  const e = {}, o = t.filter((r) => ry.has(r.type));
+function ay(t) {
+  const e = {}, o = t.filter((r) => sy.has(r.type));
   if (o.length > 0) {
     const r = wa(o[0]), s = o.every((i) => wa(i) === r);
     e.opacity = s ? r : "mixed";
   }
-  const n = t.filter((r) => sy.has(r.type));
+  const n = t.filter((r) => iy.has(r.type));
   if (n.length > 0) {
     const r = rn(n[0], "borderColor"), s = n.every(
       (a) => rn(a, "borderColor") === r
@@ -18223,7 +18224,7 @@ function iy(t) {
   }
   return e;
 }
-function ay(t) {
+function ly(t) {
   const [e, o] = et(t.mode), [n, r] = et(new Set(t.selection)), [, s] = et(0);
   if (St(() => {
     const a = () => o(t.mode), u = () => {
@@ -18251,15 +18252,15 @@ function ay(t) {
   const d = [];
   for (const [a, u] of l)
     d.push({ type: a, nodes: u });
-  const c = iy(i);
+  const c = ay(i);
   return {
     target: { kind: "multi", nodes: i, typeGroups: d },
     commonProps: c
   };
 }
-const On = vr(null);
+const Xn = Bn(null);
 function Qe(t, e) {
-  const o = Ke(On), n = Ke(gn);
+  const o = Ge(Xn), n = Ge(gn);
   return lt(
     (r) => {
       const s = n == null ? void 0 : n(), i = {
@@ -18299,7 +18300,7 @@ function Qe(t, e) {
     [t, e, o, n]
   );
 }
-function Ge({
+function je({
   value: t,
   onChange: e,
   mixed: o
@@ -18321,7 +18322,7 @@ function Ge({
     /* @__PURE__ */ h("span", { style: { width: 28, textAlign: "right", fontSize: 10, color: o ? n.textFaint : n.text }, children: o ? "--" : s })
   ] });
 }
-const ly = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const cy = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 function Ae({
   label: t,
   palettes: e,
@@ -18356,7 +18357,7 @@ function Ae({
     const T = d.trim();
     if (!T) return;
     const G = T.startsWith("#") ? T : `#${T}`;
-    ly.test(G) && (n(G), c(""));
+    cy.test(G) && (n(G), c(""));
   }, E = e.some(
     (T) => T.colors.some((G) => G.toLowerCase() === C)
   );
@@ -18554,7 +18555,7 @@ function Ko({
   const r = oe();
   return /* @__PURE__ */ S("div", { style: Xt, children: [
     /* @__PURE__ */ h("span", { style: { ...Ot, color: r.textMuted }, children: t }),
-    Pf.map((s) => /* @__PURE__ */ h(
+    Af.map((s) => /* @__PURE__ */ h(
       "button",
       {
         title: s.label,
@@ -18585,7 +18586,7 @@ function Ko({
 }
 function qo({
   label: t,
-  widths: e = Af,
+  widths: e = Ef,
   value: o,
   onChange: n,
   mixed: r
@@ -18621,7 +18622,7 @@ function qo({
     )) })
   ] });
 }
-function Xn({
+function Yn({
   borderColor: t,
   borderStyle: e,
   borderWidth: o,
@@ -18780,7 +18781,7 @@ function ui({ style: t }) {
     /* @__PURE__ */ h("line", { x1: 8, y1: 2, x2: 14, y2: 14, stroke: e.text, strokeWidth: 1.2 })
   ] }) : /* @__PURE__ */ h("svg", { width: 20, height: 16, viewBox: "0 0 20 16", children: /* @__PURE__ */ h("rect", { x: 2, y: 2, width: 16, height: 12, fill: e.text, rx: 2 }) });
 }
-const cy = /* @__PURE__ */ S("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+const dy = /* @__PURE__ */ S("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
   /* @__PURE__ */ h("circle", { cx: "11", cy: "11", r: "8" }),
   /* @__PURE__ */ h("path", { d: "m21 21-4.35-4.35" })
 ] });
@@ -18795,7 +18796,7 @@ function Lr({
     () => o.filter((w) => w.toLowerCase().includes(f)),
     [o, f]
   ), p = Kt(
-    () => dr.filter(
+    () => hr.filter(
       (w) => !o.includes(w.key) && (w.key.toLowerCase().includes(f) || w.label.toLowerCase().includes(f))
     ),
     [o, f]
@@ -18867,7 +18868,7 @@ function Lr({
                 color: "#64748b",
                 fontFamily: "sans-serif"
               },
-              children: fd(C)
+              children: yd(C)
             }
           ),
           /* @__PURE__ */ h("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis" }, children: v })
@@ -18901,7 +18902,7 @@ function Lr({
           ...n
         },
         children: [
-          /* @__PURE__ */ h("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: ((x = dr.find((w) => w.key === t)) == null ? void 0 : x.label) ?? t }),
+          /* @__PURE__ */ h("span", { style: { overflow: "hidden", textOverflow: "ellipsis" }, children: ((x = hr.find((w) => w.key === t)) == null ? void 0 : x.label) ?? t }),
           /* @__PURE__ */ h(
             "span",
             {
@@ -18950,7 +18951,7 @@ function Lr({
                   background: "#fafafa"
                 },
                 children: [
-                  /* @__PURE__ */ h("span", { style: { color: "#64748b", display: "flex" }, children: cy }),
+                  /* @__PURE__ */ h("span", { style: { color: "#64748b", display: "flex" }, children: dy }),
                   /* @__PURE__ */ h(
                     "input",
                     {
@@ -18989,7 +18990,7 @@ function Lr({
                     children: "In this scene"
                   }
                 ),
-                y.map((w) => m(w, dr.find((M) => M.key === w)))
+                y.map((w) => m(w, hr.find((M) => M.key === w)))
               ] }),
               /* @__PURE__ */ S("div", { children: [
                 /* @__PURE__ */ h(
@@ -19040,19 +19041,19 @@ function pi({ name: t, size: e = 16 }) {
     t === "round" && /* @__PURE__ */ h("rect", { x: "4", y: "4", width: "16", height: "16", rx: "4", ...o })
   ] });
 }
-const dy = [
+const hy = [
   { label: "S", size: 14 },
   { label: "M", size: 20 },
   { label: "L", size: 28 },
   { label: "XL", size: 36 }
-], hy = [
+], uy = [
   { key: "rect", label: "Rectangle" },
   { key: "ellipse", label: "Ellipse" },
   { key: "diamond", label: "Diamond" },
   { key: "line", label: "Line" },
   { key: "arrow", label: "Arrow" }
 ];
-function uy({ name: t, size: e = 16 }) {
+function py({ name: t, size: e = 16 }) {
   const o = {
     stroke: "currentColor",
     strokeWidth: 1.5,
@@ -19075,13 +19076,13 @@ function Wo(t, e) {
   const o = e(t[0]);
   return !t.every((n) => e(n) === o);
 }
-function py({ engine: t, node: e, fontsInScene: o }) {
-  const n = oe(), { labels: r } = _t(), s = Qe(t, e), i = Ke(On) ?? [e], { data: l } = e, d = l.fill ?? null, c = l.fillStyle ?? "hachure", a = l.strokeStyle ?? "solid", u = Wo(i, (b) => b.data.stroke), f = Wo(i, (b) => b.data.fill ?? null), y = Wo(i, (b) => b.data.fillStyle ?? "hachure"), p = Wo(i, (b) => b.data.strokeStyle ?? "solid"), g = Wo(i, (b) => b.data.strokeWidth), m = Wo(i, (b) => b.data.roughness), x = Wo(i, (b) => b.data.opacity ?? 1);
+function fy({ engine: t, node: e, fontsInScene: o }) {
+  const n = oe(), { labels: r } = _t(), s = Qe(t, e), i = Ge(Xn) ?? [e], { data: l } = e, d = l.fill ?? null, c = l.fillStyle ?? "hachure", a = l.strokeStyle ?? "solid", u = Wo(i, (b) => b.data.stroke), f = Wo(i, (b) => b.data.fill ?? null), y = Wo(i, (b) => b.data.fillStyle ?? "hachure"), p = Wo(i, (b) => b.data.strokeStyle ?? "solid"), g = Wo(i, (b) => b.data.strokeWidth), m = Wo(i, (b) => b.data.roughness), x = Wo(i, (b) => b.data.opacity ?? 1);
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ S(Ee, { title: r.inspectorStructure, persistKey: "shape.structure", children: [
       /* @__PURE__ */ S("div", { style: Xt, children: [
         /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorShape }),
-        hy.map((b) => /* @__PURE__ */ h(
+        uy.map((b) => /* @__PURE__ */ h(
           "button",
           {
             title: b.label,
@@ -19094,7 +19095,7 @@ function py({ engine: t, node: e, fontsInScene: o }) {
               color: n.text,
               borderRadius: n.controlBorderRadius
             },
-            children: /* @__PURE__ */ h(uy, { name: b.key })
+            children: /* @__PURE__ */ h(py, { name: b.key })
           },
           b.key
         ))
@@ -19159,7 +19160,7 @@ function py({ engine: t, node: e, fontsInScene: o }) {
       ] }),
       /* @__PURE__ */ S("div", { style: Xt, children: [
         /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorSize }),
-        dy.map((b) => /* @__PURE__ */ h(
+        hy.map((b) => /* @__PURE__ */ h(
           "button",
           {
             onClick: () => s({ labelFontSize: b.size === 14 ? void 0 : b.size }),
@@ -19263,7 +19264,7 @@ function py({ engine: t, node: e, fontsInScene: o }) {
         }
       ),
       /* @__PURE__ */ h(
-        Ge,
+        je,
         {
           value: l.opacity ?? 1,
           mixed: x,
@@ -19273,7 +19274,7 @@ function py({ engine: t, node: e, fontsInScene: o }) {
     ] }),
     /* @__PURE__ */ h(Ee, { title: r.inspectorSketch, defaultOpen: !1, persistKey: "shape.sketch", children: /* @__PURE__ */ S("div", { style: Xt, children: [
       /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorRoughness }),
-      kr.map((b) => {
+      vr.map((b) => {
         const w = b.value === 0 ? r.roughnessArchitect : b.value === 1 ? r.roughnessArtist : r.roughnessCartoonist;
         return /* @__PURE__ */ h(
           "button",
@@ -19302,8 +19303,8 @@ function sn(t, e) {
   const o = e(t[0]);
   return !t.every((n) => e(n) === o);
 }
-function fy({ engine: t, node: e }) {
-  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ke(On) ?? [e], { data: i } = e, l = i.fill ?? null, d = i.fillStyle ?? "hachure", c = i.strokeStyle ?? "solid", a = sn(s, (m) => m.data.color), u = sn(s, (m) => m.data.fill ?? null), f = sn(s, (m) => m.data.fillStyle ?? "hachure"), y = sn(s, (m) => m.data.strokeStyle ?? "solid"), p = sn(s, (m) => m.data.strokeWidth), g = sn(s, (m) => m.data.opacity ?? 1);
+function yy({ engine: t, node: e }) {
+  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ge(Xn) ?? [e], { data: i } = e, l = i.fill ?? null, d = i.fillStyle ?? "hachure", c = i.strokeStyle ?? "solid", a = sn(s, (m) => m.data.color), u = sn(s, (m) => m.data.fill ?? null), f = sn(s, (m) => m.data.fillStyle ?? "hachure"), y = sn(s, (m) => m.data.strokeStyle ?? "solid"), p = sn(s, (m) => m.data.strokeWidth), g = sn(s, (m) => m.data.opacity ?? 1);
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ h(
       Ae,
@@ -19367,7 +19368,7 @@ function fy({ engine: t, node: e }) {
       }
     ),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: i.opacity ?? 1,
         mixed: g,
@@ -19376,7 +19377,7 @@ function fy({ engine: t, node: e }) {
     )
   ] });
 }
-function yy({ engine: t, node: e, fontsInScene: o }) {
+function gy({ engine: t, node: e, fontsInScene: o }) {
   const n = oe(), { labels: r } = _t(), s = Qe(t, e), { data: i } = e;
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ S(Ee, { title: r.inspectorTypography, persistKey: "text.typography", children: [
@@ -19444,7 +19445,7 @@ function yy({ engine: t, node: e, fontsInScene: o }) {
         }
       ),
       /* @__PURE__ */ h(
-        Xn,
+        Yn,
         {
           borderColor: i.borderColor ?? null,
           borderStyle: i.borderStyle,
@@ -19453,7 +19454,7 @@ function yy({ engine: t, node: e, fontsInScene: o }) {
         }
       ),
       /* @__PURE__ */ h(
-        Ge,
+        je,
         {
           value: i.opacity ?? 1,
           onChange: (l) => s({ opacity: l })
@@ -19462,18 +19463,18 @@ function yy({ engine: t, node: e, fontsInScene: o }) {
     ] })
   ] });
 }
-const ka = { top: 0, right: 0.25, bottom: 0.5, left: 0.75 }, gy = [[0, "top"], [0.25, "right"], [0.5, "bottom"], [0.75, "left"]];
+const ka = { top: 0, right: 0.25, bottom: 0.5, left: 0.75 }, my = [[0, "top"], [0.25, "right"], [0.5, "bottom"], [0.75, "left"]];
 function va(t) {
   let e = "top", o = 1 / 0;
-  for (const [n, r] of gy) {
+  for (const [n, r] of my) {
     const s = Math.min(Math.abs(t - n), Math.abs(t - n - 1), Math.abs(t - n + 1));
     s < o && (o = s, e = r);
   }
   return e;
 }
-const my = ["forward"], by = ["forward", "reverse", "both", "bop"];
-function xy({ engine: t, node: e }) {
-  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ke(On), { data: i } = e, l = !!(i.sourcePort && i.targetPort), d = l ? my : by, c = Kt(() => !(s != null && s.length) || !s.every((a) => a.type === "edge") ? null : [...s].map((a) => a.id).sort().join("|"), [s]);
+const by = ["forward"], xy = ["forward", "reverse", "both", "bop"];
+function wy({ engine: t, node: e }) {
+  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ge(Xn), { data: i } = e, l = !!(i.sourcePort && i.targetPort), d = l ? by : xy, c = Kt(() => !(s != null && s.length) || !s.every((a) => a.type === "edge") ? null : [...s].map((a) => a.id).sort().join("|"), [s]);
   return St(() => {
     const a = c !== null ? c.split("|") : [e.id];
     for (const u of a) {
@@ -19703,7 +19704,7 @@ function xy({ engine: t, node: e }) {
       ] }),
       /* @__PURE__ */ S("div", { style: Xt, children: [
         /* @__PURE__ */ h("span", { style: { ...Ot, color: o.textMuted }, children: n.inspectorRoughness }),
-        kr.map((a) => {
+        vr.map((a) => {
           const u = a.value === 0 ? n.roughnessArchitect : a.value === 1 ? n.roughnessArtist : n.roughnessCartoonist;
           return /* @__PURE__ */ h(
             "button",
@@ -19750,11 +19751,11 @@ function xy({ engine: t, node: e }) {
     ] }) })
   ] });
 }
-function wy({ engine: t, node: e }) {
+function ky({ engine: t, node: e }) {
   const o = oe(), { labels: n } = _t(), r = Qe(t, e), { data: s } = e, i = !!s.crop;
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ h(
-      Xn,
+      Yn,
       {
         borderColor: s.borderColor ?? null,
         borderStyle: s.borderStyle,
@@ -19798,7 +19799,7 @@ function wy({ engine: t, node: e }) {
       )
     ] }),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: s.opacity ?? 1,
         onChange: (l) => r({ opacity: l })
@@ -19806,11 +19807,11 @@ function wy({ engine: t, node: e }) {
     )
   ] });
 }
-function ky({ engine: t, node: e }) {
+function vy({ engine: t, node: e }) {
   const o = oe(), n = Qe(t, e), { data: r } = e;
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ h(
-      Xn,
+      Yn,
       {
         borderColor: r.borderColor ?? null,
         borderStyle: r.borderStyle,
@@ -19842,7 +19843,7 @@ function ky({ engine: t, node: e }) {
       ))
     ] }),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: r.opacity ?? 1,
         onChange: (s) => n({ opacity: s })
@@ -19858,8 +19859,8 @@ const En = {
   fold: 700,
   cube: 1200,
   none: 0
-}, vy = kf();
-function Sy({
+}, Sy = vf();
+function My({
   value: t,
   onChange: e,
   theme: o,
@@ -19902,8 +19903,8 @@ function Sy({
     /* @__PURE__ */ h("span", { style: { fontSize: 10, color: o.textMuted }, children: r })
   ] });
 }
-function My({ engine: t, node: e }) {
-  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ke(gn), { data: i } = e, l = lt(
+function Cy({ engine: t, node: e }) {
+  const o = oe(), { labels: n } = _t(), r = Qe(t, e), s = Ge(gn), { data: i } = e, l = lt(
     (u) => {
       var b;
       if (!u) {
@@ -19993,7 +19994,7 @@ function My({ engine: t, node: e }) {
           },
           children: [
             /* @__PURE__ */ h("option", { value: "", children: n.frameFreeform }),
-            vy.map((u) => /* @__PURE__ */ h("optgroup", { label: a[u.label] ?? u.label, children: u.presets.map((f) => /* @__PURE__ */ S("option", { value: f.key, children: [
+            Sy.map((u) => /* @__PURE__ */ h("optgroup", { label: a[u.label] ?? u.label, children: u.presets.map((f) => /* @__PURE__ */ S("option", { value: f.key, children: [
               f.label,
               " (",
               f.w,
@@ -20049,7 +20050,7 @@ function My({ engine: t, node: e }) {
       }
     ),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: i.opacity ?? 1,
         onChange: (u) => r({ opacity: u })
@@ -20117,7 +20118,7 @@ function My({ engine: t, node: e }) {
       )
     ] }),
     (i.transition ?? "pan") !== "none" && /* @__PURE__ */ h(
-      Sy,
+      My,
       {
         value: i.transitionDuration ?? En[i.transition ?? "pan"],
         onChange: (u) => r({ transitionDuration: u === En[i.transition ?? "pan"] ? void 0 : u }),
@@ -20128,14 +20129,14 @@ function My({ engine: t, node: e }) {
     )
   ] });
 }
-function Cy({ engine: t, node: e }) {
+function Iy({ engine: t, node: e }) {
   const o = oe(), { labels: n } = _t(), r = Qe(t, e), { data: s } = e;
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ h(
       Ae,
       {
         label: n.inspectorStroke,
-        palettes: Lf,
+        palettes: Rf,
         value: s.color,
         onChange: (i) => {
           i && r({ color: i });
@@ -20186,7 +20187,7 @@ function Cy({ engine: t, node: e }) {
       ))
     ] }),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: s.opacity ?? 1,
         onChange: (i) => r({ opacity: i })
@@ -20194,7 +20195,7 @@ function Cy({ engine: t, node: e }) {
     )
   ] });
 }
-function Iy({ engine: t, node: e }) {
+function Ty({ engine: t, node: e }) {
   const o = oe(), n = Qe(t, e), { data: r } = e;
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ S("div", { style: Xt, children: [
@@ -20221,7 +20222,7 @@ function Iy({ engine: t, node: e }) {
       )
     ] }),
     /* @__PURE__ */ h(
-      Xn,
+      Yn,
       {
         borderColor: r.borderColor ?? null,
         borderStyle: r.borderStyle,
@@ -20230,7 +20231,7 @@ function Iy({ engine: t, node: e }) {
       }
     ),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: r.opacity ?? 1,
         onChange: (s) => n({ opacity: s })
@@ -20238,7 +20239,7 @@ function Iy({ engine: t, node: e }) {
     )
   ] });
 }
-function Ty({ name: t, size: e = 16 }) {
+function zy({ name: t, size: e = 16 }) {
   const o = {
     stroke: "currentColor",
     strokeWidth: 1.5,
@@ -20256,14 +20257,14 @@ function Ty({ name: t, size: e = 16 }) {
     ] })
   ] });
 }
-const zy = [
+const Py = [
   { key: "rect", label: "Rectangle" },
   { key: "ellipse", label: "Ellipse" },
   { key: "diamond", label: "Diamond" },
   { key: "line", label: "Line" },
   { key: "arrow", label: "Arrow" }
 ];
-function Py({ engine: t, mode: e, fontsInScene: o }) {
+function Ay({ engine: t, mode: e, fontsInScene: o }) {
   const n = oe(), { labels: r } = _t(), [, s] = et(0), i = lt(() => s((g) => g + 1), []), l = t.activeTool;
   if (e === "text") {
     const g = l.fontFamily ?? xo, m = l.fontSize ?? 20, x = l.textAlign ?? "left", b = l.color;
@@ -20338,7 +20339,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
         }
       ),
       /* @__PURE__ */ h(
-        Ge,
+        je,
         {
           value: l.opacity ?? 1,
           onChange: (w) => {
@@ -20457,7 +20458,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
       ] }),
       /* @__PURE__ */ S("div", { style: Xt, children: [
         /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorRoughness }),
-        kr.map((m) => {
+        vr.map((m) => {
           const x = m.value === 0 ? r.roughnessArchitect : m.value === 1 ? r.roughnessArtist : r.roughnessCartoonist;
           return /* @__PURE__ */ h(
             "button",
@@ -20487,7 +20488,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
   return /* @__PURE__ */ S(Mt, { children: [
     d && /* @__PURE__ */ S("div", { style: Xt, children: [
       /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorShape }),
-      zy.map((g) => /* @__PURE__ */ h(
+      Py.map((g) => /* @__PURE__ */ h(
         "button",
         {
           title: g.label,
@@ -20502,7 +20503,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
             color: n.text,
             borderRadius: n.controlBorderRadius
           },
-          children: /* @__PURE__ */ h(Ty, { name: g.key })
+          children: /* @__PURE__ */ h(zy, { name: g.key })
         },
         g.key
       ))
@@ -20576,7 +20577,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
     ),
     d && /* @__PURE__ */ S("div", { style: Xt, children: [
       /* @__PURE__ */ h("span", { style: { ...Ot, color: n.textMuted }, children: r.inspectorRoughness }),
-      kr.map((g) => {
+      vr.map((g) => {
         const m = g.value === 0 ? r.roughnessArchitect : g.value === 1 ? r.roughnessArtist : r.roughnessCartoonist;
         return /* @__PURE__ */ h(
           "button",
@@ -20601,7 +20602,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
       })
     ] }),
     /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: l.opacity ?? 1,
         onChange: (g) => {
@@ -20611,7 +20612,7 @@ function Py({ engine: t, mode: e, fontsInScene: o }) {
     )
   ] });
 }
-function Ay(t) {
+function Ey(t) {
   return t.split(/[-_]/).filter(Boolean).map((e) => e.charAt(0).toUpperCase() + e.slice(1).toLowerCase()).join(" ");
 }
 function Sa({
@@ -20621,7 +20622,7 @@ function Sa({
   docs: n
 }) {
   const r = Qe(t, e), s = oe(), { labels: i } = _t(), [l, d] = et(!1), c = n ? n.id ?? e.type : null, a = c ? i.customNodeDocs[c] : void 0, u = !!(a != null && a.body), f = Kt(
-    () => (a == null ? void 0 : a.title) ?? Ay(e.type),
+    () => (a == null ? void 0 : a.title) ?? Ey(e.type),
     [a == null ? void 0 : a.title, e.type]
   ), y = n != null && u ? /* @__PURE__ */ S("div", { style: { marginBottom: o ? 10 : 0 }, children: [
     /* @__PURE__ */ S(
@@ -20699,7 +20700,7 @@ function Sa({
     /* @__PURE__ */ h(o, { node: e, data: e.data, engine: t, updateData: r })
   ] }) : y;
 }
-const Ey = /* @__PURE__ */ new Set(["shape", "draw", "text", "image", "content", "frame", "sticky", "youtube"]), Ly = /* @__PURE__ */ new Set(["text", "image", "content", "frame", "youtube"]);
+const Ly = /* @__PURE__ */ new Set(["shape", "draw", "text", "image", "content", "frame", "sticky", "youtube"]), Ry = /* @__PURE__ */ new Set(["text", "image", "content", "frame", "youtube"]);
 function Jl(t) {
   return {
     shape: t.typeShape,
@@ -20713,7 +20714,7 @@ function Jl(t) {
     youtube: t.typeYouTube
   };
 }
-function Ry(t) {
+function Dy(t) {
   const e = /* @__PURE__ */ new Set(), o = [];
   for (const n of t.getAllNodes()) {
     let r;
@@ -20721,7 +20722,7 @@ function Ry(t) {
   }
   return o;
 }
-function Dy({ label: t }) {
+function Wy({ label: t }) {
   const e = oe();
   return /* @__PURE__ */ h(
     "div",
@@ -20738,7 +20739,7 @@ function Dy({ label: t }) {
     }
   );
 }
-function Wy({
+function By({
   engine: t,
   open: e,
   onToggle: o
@@ -20876,23 +20877,23 @@ function $l({
 }) {
   switch (e.type) {
     case "shape":
-      return /* @__PURE__ */ h(py, { engine: t, node: e, fontsInScene: n });
+      return /* @__PURE__ */ h(fy, { engine: t, node: e, fontsInScene: n });
     case "draw":
-      return /* @__PURE__ */ h(fy, { engine: t, node: e });
+      return /* @__PURE__ */ h(yy, { engine: t, node: e });
     case "text":
-      return /* @__PURE__ */ h(yy, { engine: t, node: e, fontsInScene: n });
+      return /* @__PURE__ */ h(gy, { engine: t, node: e, fontsInScene: n });
     case "edge":
-      return /* @__PURE__ */ h(xy, { engine: t, node: e });
-    case "image":
       return /* @__PURE__ */ h(wy, { engine: t, node: e });
-    case "content":
+    case "image":
       return /* @__PURE__ */ h(ky, { engine: t, node: e });
+    case "content":
+      return /* @__PURE__ */ h(vy, { engine: t, node: e });
     case "frame":
-      return /* @__PURE__ */ h(My, { engine: t, node: e });
-    case "sticky":
       return /* @__PURE__ */ h(Cy, { engine: t, node: e });
-    case "youtube":
+    case "sticky":
       return /* @__PURE__ */ h(Iy, { engine: t, node: e });
+    case "youtube":
+      return /* @__PURE__ */ h(Ty, { engine: t, node: e });
     default: {
       const r = o == null ? void 0 : o.get(e.type);
       return r != null && r.propertiesPanel ? /* @__PURE__ */ h(
@@ -20911,7 +20912,7 @@ function Ma({
   engine: t,
   nodes: e
 }) {
-  const o = oe(), { labels: n } = _t(), r = Ke(gn), s = Math.round(e[0].rotation ?? 0), l = e.every(
+  const o = oe(), { labels: n } = _t(), r = Ge(gn), s = Math.round(e[0].rotation ?? 0), l = e.every(
     (u) => Math.round(u.rotation ?? 0) === s
   ) ? s : null, [d, c] = et(null), a = lt(
     (u) => {
@@ -21029,14 +21030,14 @@ function Ca({
     )
   ] });
 }
-function By({
+function Ny({
   engine: t,
   nodes: e,
   commonProps: o
 }) {
-  const n = Ke(gn), r = lt(
+  const n = Ge(gn), r = lt(
     (s, i) => {
-      const l = s === "opacity" ? Ey : Ly, d = e.filter((a) => l.has(a.type)).map((a) => ({
+      const l = s === "opacity" ? Ly : Ry, d = e.filter((a) => l.has(a.type)).map((a) => ({
         id: a.id,
         patch: {
           data: { ...a.data, [s]: i }
@@ -21048,7 +21049,7 @@ function By({
   );
   return /* @__PURE__ */ S(Mt, { children: [
     o.opacity !== void 0 && /* @__PURE__ */ h(
-      Ge,
+      je,
       {
         value: o.opacity === "mixed" ? void 0 : o.opacity,
         mixed: o.opacity === "mixed",
@@ -21056,7 +21057,7 @@ function By({
       }
     ),
     o.borderColor !== void 0 && /* @__PURE__ */ h(
-      Xn,
+      Yn,
       {
         borderColor: o.borderColor === "mixed" ? void 0 : o.borderColor,
         borderStyle: o.borderStyle === "mixed" ? void 0 : o.borderStyle,
@@ -21071,7 +21072,7 @@ function By({
     )
   ] });
 }
-function Ny({
+function Fy({
   engine: t,
   target: e
 }) {
@@ -21179,7 +21180,7 @@ function Ny({
     a.label
   )) }) });
 }
-function Fy({
+function Hy({
   engine: t,
   group: e,
   registry: o,
@@ -21188,7 +21189,7 @@ function Fy({
   onToggle: s
 }) {
   const { labels: i } = _t(), d = Jl(i)[e.type] ?? e.type, c = e.nodes.length, a = e.nodes[0], u = `${d} (${c})`;
-  return /* @__PURE__ */ h(Ee, { title: u, defaultOpen: !1, variant: "group", open: r, onToggle: s, children: /* @__PURE__ */ h(On.Provider, { value: e.nodes, children: /* @__PURE__ */ h(
+  return /* @__PURE__ */ h(Ee, { title: u, defaultOpen: !1, variant: "group", open: r, onToggle: s, children: /* @__PURE__ */ h(Xn.Provider, { value: e.nodes, children: /* @__PURE__ */ h(
     $l,
     {
       engine: t,
@@ -21198,7 +21199,7 @@ function Fy({
     }
   ) }) });
 }
-function Hy(t, e) {
+function Oy(t, e) {
   const o = Jl(e);
   switch (t.kind) {
     case "none":
@@ -21219,7 +21220,7 @@ function Ia({
   target: o,
   commonProps: n
 }) {
-  const { labels: r } = _t(), s = Kt(() => Ry(t), [t, o]), i = Hy(o, r), [l, d] = et("shared"), [c, a] = et(!1), u = Kt(() => {
+  const { labels: r } = _t(), s = Kt(() => Dy(t), [t, o]), i = Oy(o, r), [l, d] = et("shared"), [c, a] = et(!1), u = Kt(() => {
     switch (o.kind) {
       case "single":
         return o.node.id;
@@ -21245,17 +21246,17 @@ function Ia({
     }
     (/* @__PURE__ */ new Set(["canvas", "shared", ...o.typeGroups.map((p) => p.type)])).has(l) || d("shared");
   }, [o, l]), /* @__PURE__ */ S(gn.Provider, { value: f, children: [
-    /* @__PURE__ */ h(Dy, { label: i }),
+    /* @__PURE__ */ h(Wy, { label: i }),
     /* @__PURE__ */ h(
-      Wy,
+      By,
       {
         engine: t,
         open: o.kind === "multi" ? l === "canvas" : void 0,
         onToggle: o.kind === "multi" ? () => d((y) => y === "canvas" ? "" : "canvas") : void 0
       }
     ),
-    c && /* @__PURE__ */ h(Ny, { engine: t, target: o }),
-    o.kind === "tool" && /* @__PURE__ */ h(Py, { engine: t, mode: o.mode, fontsInScene: s }),
+    c && /* @__PURE__ */ h(Fy, { engine: t, target: o }),
+    o.kind === "tool" && /* @__PURE__ */ h(Ay, { engine: t, mode: o.mode, fontsInScene: s }),
     o.kind === "single" && /* @__PURE__ */ S(Mt, { children: [
       /* @__PURE__ */ h(
         $l,
@@ -21279,14 +21280,14 @@ function Ia({
           open: l === "shared",
           onToggle: () => d((y) => y === "shared" ? "" : "shared"),
           children: [
-            /* @__PURE__ */ h(By, { engine: t, nodes: o.nodes, commonProps: n }),
+            /* @__PURE__ */ h(Ny, { engine: t, nodes: o.nodes, commonProps: n }),
             /* @__PURE__ */ h(Ma, { engine: t, nodes: o.nodes }),
             /* @__PURE__ */ h(Ca, { engine: t, nodes: o.nodes })
           ]
         }
       ),
       o.typeGroups.map((y) => /* @__PURE__ */ h(
-        Fy,
+        Hy,
         {
           engine: t,
           group: y,
@@ -21300,8 +21301,8 @@ function Ia({
     ] })
   ] });
 }
-function Oy({ engine: t, registry: e }) {
-  const o = oe(), { isRTL: n, labels: r } = _t(), { target: s, commonProps: i } = ay(t), l = s.kind !== "none";
+function Xy({ engine: t, registry: e }) {
+  const o = oe(), { isRTL: n, labels: r } = _t(), { target: s, commonProps: i } = ly(t), l = s.kind !== "none";
   lt((q, O) => {
     const $ = q.trim();
     if ($.startsWith("#")) {
@@ -21621,7 +21622,7 @@ function Oy({ engine: t, registry: e }) {
     }
   ) : null;
 }
-function Xy({ engine: t, registry: e, gifApiBaseUrl: o }) {
+function Yy({ engine: t, registry: e, gifApiBaseUrl: o }) {
   const { isRTL: n } = _t();
   return /* @__PURE__ */ S(Mt, { children: [
     /* @__PURE__ */ h(
@@ -21638,22 +21639,22 @@ function Xy({ engine: t, registry: e, gifApiBaseUrl: o }) {
           zIndex: 100
         },
         onPointerDown: (r) => r.stopPropagation(),
-        children: /* @__PURE__ */ h(ny, { engine: t, gifApiBaseUrl: o })
+        children: /* @__PURE__ */ h(ry, { engine: t, gifApiBaseUrl: o })
       }
     ),
-    /* @__PURE__ */ h(Oy, { engine: t, registry: e })
+    /* @__PURE__ */ h(Xy, { engine: t, registry: e })
   ] });
 }
 const Ln = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
-function Yy(t) {
+function Gy(t) {
   const e = t.viewport.zoom, o = Ln.find((n) => n > e + 1e-3) ?? Ln[Ln.length - 1];
   t.viewport.zoom = o, t.pan(0, 0);
 }
-function Gy(t) {
+function jy(t) {
   const e = t.viewport.zoom, o = [...Ln].reverse().find((n) => n < e - 1e-3) ?? Ln[0];
   t.viewport.zoom = o, t.pan(0, 0);
 }
-const jy = {
+const Vy = {
   display: "flex",
   alignItems: "center",
   overflow: "hidden"
@@ -21730,7 +21731,7 @@ function Fe({ name: t, size: e = 16 }) {
     t === "bookmark-fill" && /* @__PURE__ */ h("path", { d: "M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", fill: "currentColor" })
   ] });
 }
-function Vy({
+function Ky({
   engine: t,
   framesPanelOpen: e,
   onToggleFramesPanel: o,
@@ -21753,7 +21754,7 @@ function Vy({
     };
   }, [t]);
   const w = l.panelBg, M = `1px solid ${l.border}`, v = {
-    ...jy,
+    ...Vy,
     borderRadius: l.panelBorderRadius
   }, C = {
     width: 1,
@@ -21782,7 +21783,7 @@ function Vy({
             "button",
             {
               title: d.zoomOut,
-              onClick: () => Gy(t),
+              onClick: () => jy(t),
               style: { ...De, width: 32, height: 32, color: l.text },
               children: /* @__PURE__ */ h(Fe, { name: "minus" })
             }
@@ -21816,7 +21817,7 @@ function Vy({
             "button",
             {
               title: d.zoomIn,
-              onClick: () => Yy(t),
+              onClick: () => Gy(t),
               style: { ...De, width: 32, height: 32, color: l.text },
               children: /* @__PURE__ */ h(Fe, { name: "plus" })
             }
@@ -21989,11 +21990,11 @@ function Vy({
     }
   );
 }
-function Ky(t) {
+function qy(t) {
   return t.matches.length === 0 ? "0/0" : `${t.activeIndex >= 0 ? t.activeIndex + 1 : 0}/${t.matches.length}`;
 }
-function qy({ engine: t }) {
-  const e = oe(), { labels: o } = _t(), [n, r] = et(!1), [s, i] = et(() => t.getSearchState()), l = ut(null), d = Kt(() => Ky(s), [s]);
+function Uy({ engine: t }) {
+  const e = oe(), { labels: o } = _t(), [n, r] = et(!1), [s, i] = et(() => t.getSearchState()), l = ut(null), d = Kt(() => qy(s), [s]);
   return St(() => {
     const c = () => i(t.getSearchState()), a = () => {
       r(!0), requestAnimationFrame(() => {
@@ -22162,28 +22163,28 @@ function us(t) {
     transitionDuration: a.transitionDuration
   }));
 }
-const Uy = {
+const Zy = {
   stroke: "currentColor",
   strokeWidth: 1.5,
   strokeLinecap: "round",
   strokeLinejoin: "round"
 };
-function Zy() {
-  return /* @__PURE__ */ h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", children: /* @__PURE__ */ h("path", { d: "M18 6L6 18M6 6l12 12", ...Uy }) });
+function Qy() {
+  return /* @__PURE__ */ h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", children: /* @__PURE__ */ h("path", { d: "M18 6L6 18M6 6l12 12", ...Zy }) });
 }
-function Qy(t, e, o) {
+function Jy(t, e, o) {
   const [n, r] = et("");
   return St(() => {
     let s = !1;
-    return bf(t, e).then((i) => {
+    return xf(t, e).then((i) => {
       s || r(i);
     }), () => {
       s = !0;
     };
   }, [t, e, o]), n;
 }
-function Jy({ engine: t, frameId: e, tick: o }) {
-  const n = Qy(t, e, o);
+function $y({ engine: t, frameId: e, tick: o }) {
+  const n = Jy(t, e, o);
   return n ? /* @__PURE__ */ h(
     "img",
     {
@@ -22209,7 +22210,7 @@ function Jy({ engine: t, frameId: e, tick: o }) {
     }
   );
 }
-const $y = ["pan", "fade", "dissolve", "zoom", "fold", "cube", "none"];
+const _y = ["pan", "fade", "dissolve", "zoom", "fold", "cube", "none"];
 function za({ type: t, size: e = 12 }) {
   const o = { stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
   return /* @__PURE__ */ S("svg", { width: e, height: e, viewBox: "0 0 16 16", fill: "none", children: [
@@ -22238,8 +22239,8 @@ function za({ type: t, size: e = 12 }) {
     t === "none" && /* @__PURE__ */ h("path", { d: "M4 4l8 8M12 4l-8 8", ...o })
   ] });
 }
-const _y = [200, 300, 400, 500, 600, 800, 1e3, 1500, 2e3];
-function t0({
+const t0 = [200, 300, 400, 500, 600, 800, 1e3, 1500, 2e3];
+function e0({
   value: t,
   durationMs: e,
   onChange: o,
@@ -22321,7 +22322,7 @@ function t0({
                 minWidth: 100,
                 boxShadow: "0 4px 12px rgba(0,0,0,0.25)"
               },
-              children: $y.map((m) => /* @__PURE__ */ S(
+              children: _y.map((m) => /* @__PURE__ */ S(
                 "button",
                 {
                   onClick: () => {
@@ -22380,7 +22381,7 @@ function t0({
                 minWidth: 64,
                 boxShadow: "0 4px 12px rgba(0,0,0,0.25)"
               },
-              children: _y.map((m) => /* @__PURE__ */ S(
+              children: t0.map((m) => /* @__PURE__ */ S(
                 "button",
                 {
                   onClick: () => {
@@ -22412,7 +22413,7 @@ function t0({
     }
   );
 }
-function e0({ engine: t, open: e, onClose: o }) {
+function o0({ engine: t, open: e, onClose: o }) {
   const n = oe(), { isRTL: r, labels: s } = _t(), [i, l] = et(() => us(t)), [d, c] = et(() => new Set(t.selection)), [a, u] = et(0), f = Ar(t, "frames-panel"), y = ut(null), p = ut(null), g = ut(0), m = ut(!1), x = ut(i);
   x.current = i;
   const b = ut(!1), w = ut(!1), [M, v] = et(null), [C, z] = et(null), [E, T] = et(0), G = ut([]), Y = ut(null), nt = lt(() => {
@@ -22554,7 +22555,7 @@ function e0({ engine: t, open: e, onClose: o }) {
                     borderRadius: 4,
                     padding: 0
                   },
-                  children: /* @__PURE__ */ h(Zy, {})
+                  children: /* @__PURE__ */ h(Qy, {})
                 }
               )
             ]
@@ -22611,9 +22612,9 @@ function e0({ engine: t, open: e, onClose: o }) {
                     it
                   );
                 };
-                return /* @__PURE__ */ S(Ac.Fragment, { children: [
+                return /* @__PURE__ */ S(Ec.Fragment, { children: [
                   M === null && /* @__PURE__ */ h(
-                    t0,
+                    e0,
                     {
                       value: L.transition ?? "pan",
                       durationMs: L.transitionDuration,
@@ -22645,7 +22646,7 @@ function e0({ engine: t, open: e, onClose: o }) {
                         position: "relative",
                         flexShrink: 0
                       },
-                      children: /* @__PURE__ */ h(Jy, { engine: t, frameId: L.id, tick: a })
+                      children: /* @__PURE__ */ h($y, { engine: t, frameId: L.id, tick: a })
                     }
                   )
                 ] }, L.id);
@@ -22657,7 +22658,7 @@ function e0({ engine: t, open: e, onClose: o }) {
     }
   );
 }
-const Bo = 50, ps = 30, o0 = `
+const Bo = 50, ps = 30, n0 = `
 attribute vec2 aUV;
 uniform float uLayPos;
 uniform float uRadius;
@@ -22727,7 +22728,7 @@ void main() {
 
   gl_Position = vec4(x * s * 2.0, y * s, -z * 0.01, 1.0);
 }
-`, n0 = `
+`, r0 = `
 precision mediump float;
 varying float vLight;
 varying float vSpec;
@@ -22746,13 +22747,13 @@ function Pa(t, e, o) {
   const n = t.createShader(e);
   return n ? (t.shaderSource(n, o), t.compileShader(n), t.getShaderParameter(n, t.COMPILE_STATUS) ? n : (t.deleteShader(n), null)) : null;
 }
-function r0(t, e, o) {
+function s0(t, e, o) {
   const n = Pa(t, t.VERTEX_SHADER, e), r = Pa(t, t.FRAGMENT_SHADER, o);
   if (!n || !r) return null;
   const s = t.createProgram();
   return t.attachShader(s, n), t.attachShader(s, r), t.linkProgram(s), t.getProgramParameter(s, t.LINK_STATUS) ? s : null;
 }
-function s0() {
+function i0() {
   const t = [], e = [];
   for (let o = 0; o <= ps; o++)
     for (let n = 0; n <= Bo; n++)
@@ -22764,7 +22765,7 @@ function s0() {
     }
   return { vertices: new Float32Array(t), indices: new Uint16Array(e) };
 }
-function i0({ phase: t, progress: e }) {
+function a0({ phase: t, progress: e }) {
   const o = ut(null), n = ut(null);
   return St(() => {
     const r = o.current;
@@ -22773,10 +22774,10 @@ function i0({ phase: t, progress: e }) {
     r.width = r.clientWidth * s, r.height = r.clientHeight * s;
     const i = r.getContext("webgl", { alpha: !0, premultipliedAlpha: !1, antialias: !0 });
     if (!i) return;
-    const l = r0(i, o0, n0);
+    const l = s0(i, n0, r0);
     if (!l) return;
     i.useProgram(l);
-    const { vertices: d, indices: c } = s0(), a = i.createBuffer();
+    const { vertices: d, indices: c } = i0(), a = i.createBuffer();
     i.bindBuffer(i.ARRAY_BUFFER, a), i.bufferData(i.ARRAY_BUFFER, d, i.STATIC_DRAW);
     const u = i.createBuffer();
     i.bindBuffer(i.ELEMENT_ARRAY_BUFFER, u), i.bufferData(i.ELEMENT_ARRAY_BUFFER, c, i.STATIC_DRAW);
@@ -22810,7 +22811,7 @@ function i0({ phase: t, progress: e }) {
     }
   );
 }
-const a0 = {
+const l0 = {
   position: "absolute",
   bottom: 0,
   left: 0,
@@ -22847,7 +22848,7 @@ function Aa({ dir: t }) {
     t === "right" && /* @__PURE__ */ h("polyline", { points: "9,6 15,12 9,18", ...Xs })
   ] });
 }
-function l0() {
+function c0() {
   return /* @__PURE__ */ h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", children: /* @__PURE__ */ h("path", { d: "M18 6L6 18M6 6l12 12", ...Xs }) });
 }
 function Ea(t) {
@@ -22862,13 +22863,13 @@ function Ra(t, e) {
   let r;
   return t <= 0.1 ? r = 0 : t <= 0.5 ? r = -e * 90 * La((t - 0.1) / 0.4) : t <= 0.9 ? r = e * 90 * (1 - La((t - 0.5) / 0.4)) : r = 0, { zoom: n, angle: r };
 }
-function c0(t, e, o, n) {
+function d0(t, e, o, n) {
   t.style.transform = `perspective(1200px) scale(${o}) rotateY(${n}deg)`, t.style.transformOrigin = "50% 50%", t.style.backfaceVisibility = "hidden", t.style.overflow = "visible", e.style.background = "#0a0a15";
 }
 function Da(t, e) {
   t.style.transform = "", t.style.transformOrigin = "", t.style.backfaceVisibility = "", t.style.overflow = "", e.style.background = "";
 }
-function d0({ engine: t }) {
+function h0({ engine: t }) {
   const [e, o] = et(t.presentationMode), [n, r] = et(t.presentationIndex), [s, i] = et(t.presentationSlides.length), [l, d] = et(""), [c, a] = et(t.transitionOverlay), u = ut(null), f = ut(null);
   if (St(() => {
     const p = document.querySelector("[data-sb-canvas]");
@@ -22883,7 +22884,7 @@ function d0({ engine: t }) {
       const m = t.transitionOverlay, x = u.current, b = f.current;
       if (x && b && m && m.type === "cube" && m.t != null) {
         const M = m.direction ?? 1, { zoom: v, angle: C } = Ra(m.t, M);
-        c0(x, b, v, C);
+        d0(x, b, v, C);
       } else x && b && Da(x, b);
     };
     return t.on("presentation", g), () => {
@@ -22920,7 +22921,7 @@ function d0({ engine: t }) {
             }
           }
         ),
-        c && c.type === "fold" && /* @__PURE__ */ h(i0, { phase: c.phase, progress: c.progress }),
+        c && c.type === "fold" && /* @__PURE__ */ h(a0, { phase: c.phase, progress: c.progress }),
         y > 0.01 && /* @__PURE__ */ h(
           "div",
           {
@@ -22934,14 +22935,14 @@ function d0({ engine: t }) {
             }
           }
         ),
-        /* @__PURE__ */ S("div", { style: a0, onPointerDown: (p) => p.stopPropagation(), children: [
+        /* @__PURE__ */ S("div", { style: l0, onPointerDown: (p) => p.stopPropagation(), children: [
           /* @__PURE__ */ h(
             "button",
             {
               style: { ...fs, position: "absolute", right: 16 },
               title: "Exit presentation (Esc)",
               onClick: () => t.exitPresentation(),
-              children: /* @__PURE__ */ h(l0, {})
+              children: /* @__PURE__ */ h(c0, {})
             }
           ),
           /* @__PURE__ */ h(
@@ -22998,7 +22999,7 @@ function po(t) {
 function Ce(t, e) {
   return { label: t, value: e };
 }
-function h0() {
+function u0() {
   const t = oe(), { labels: e } = _t(), [o, n] = et(() => we.getSnapshot());
   St(() => {
     let s = 0;
@@ -23071,9 +23072,13 @@ function h0() {
     }
   );
 }
-const u0 = Rc(() => import("./DebugPanel-zN9hOqMI.js"));
-function R0({
-  nodeTypes: t = Ru,
+const _l = Bn(!1);
+function D0() {
+  return Ge(_l);
+}
+const p0 = Dc(() => import("./DebugPanel-CIbw3CCt.js"));
+function W0({
+  nodeTypes: t = Du,
   engine: e,
   keyboardShortcuts: o = !0,
   style: n,
@@ -23093,10 +23098,10 @@ function R0({
   singleFrameId: x
 }) {
   const b = Kt(
-    () => e ?? new $d(),
+    () => e ?? new _d(),
     [e]
-  ), w = Kt(() => new eh(t), [t]);
-  St(() => yd(), []), St(() => {
+  ), w = Kt(() => new oh(t), [t]);
+  St(() => gd(), []), St(() => {
     b.setRegistry(w);
   }, [b, w]), St(() => {
     b.setReadOnly(m);
@@ -23120,12 +23125,12 @@ function R0({
   const v = ut(null);
   St(() => {
     if (o)
-      return $p(b, v.current);
+      return _p(b, v.current);
   }, [b, o]);
   const C = Kt(() => t.some((L) => {
     var K;
     return (K = L.ports) == null ? void 0 : K.length;
-  }) ? new Du(b, w) : null, [b, w, t]);
+  }) ? new Wu(b, w) : null, [b, w, t]);
   St(() => {
     if (C)
       return C.connect();
@@ -23133,7 +23138,7 @@ function R0({
   const z = Kt(
     () => d ? { ...Ls, ...d } : Ls,
     [d]
-  ), E = Gu(u, f), [T, G] = et(!1), [Y, nt] = et(p), [st, ht] = et(!g), [xt, bt] = et(!1);
+  ), E = ju(u, f), [T, G] = et(!1), [Y, nt] = et(p), [st, ht] = et(!g), [xt, bt] = et(!1);
   return St(() => {
     we.setEnabled(g ? !1 : xt);
   }, [g, xt]), St(() => {
@@ -23142,7 +23147,7 @@ function R0({
       G(L), c == null || c(L);
     };
     return b.on("presentation", B), () => b.off("presentation", B);
-  }, [b, c]), /* @__PURE__ */ h(yl.Provider, { value: E, children: /* @__PURE__ */ h(fl.Provider, { value: z, children: /* @__PURE__ */ S(
+  }, [b, c]), /* @__PURE__ */ h(yl.Provider, { value: E, children: /* @__PURE__ */ h(fl.Provider, { value: z, children: /* @__PURE__ */ h(_l.Provider, { value: m, children: /* @__PURE__ */ S(
     "div",
     {
       ref: v,
@@ -23154,8 +23159,8 @@ function R0({
         ...n
       },
       children: [
-        s && !T && !m && /* @__PURE__ */ h(Xy, { engine: b, registry: w, gifApiBaseUrl: a }),
-        i && /* @__PURE__ */ h(Lc, { fallback: null, children: /* @__PURE__ */ h(u0, { engine: b, extraBoards: l }) }),
+        s && !T && !m && /* @__PURE__ */ h(Yy, { engine: b, registry: w, gifApiBaseUrl: a }),
+        i && /* @__PURE__ */ h(Rc, { fallback: null, children: /* @__PURE__ */ h(p0, { engine: b, extraBoards: l }) }),
         /* @__PURE__ */ S(
           "div",
           {
@@ -23169,7 +23174,7 @@ function R0({
             },
             children: [
               /* @__PURE__ */ h(
-                Tf,
+                zf,
                 {
                   engine: b,
                   schema: Gs,
@@ -23180,9 +23185,9 @@ function R0({
                   singleFrameId: x
                 }
               ),
-              !g && !T && /* @__PURE__ */ h(qy, { engine: b }),
+              !g && !T && /* @__PURE__ */ h(Uy, { engine: b }),
               !g && !T && /* @__PURE__ */ h(
-                Vy,
+                Ky,
                 {
                   engine: b,
                   framesPanelOpen: Y,
@@ -23193,24 +23198,48 @@ function R0({
                   onTogglePerfOverlay: () => bt((B) => !B)
                 }
               ),
-              !g && !T && xt && /* @__PURE__ */ h(h0, {}),
+              !g && !T && xt && /* @__PURE__ */ h(u0, {}),
               !g && !T && /* @__PURE__ */ h(
-                e0,
+                o0,
                 {
                   engine: b,
                   open: Y,
                   onClose: () => nt(!1)
                 }
               ),
-              !g && /* @__PURE__ */ h(d0, { engine: b })
+              !g && /* @__PURE__ */ h(h0, { engine: b }),
+              m && !T && !g && /* @__PURE__ */ h(
+                "div",
+                {
+                  "data-sb-readonly-pill": !0,
+                  style: {
+                    position: "absolute",
+                    top: 12,
+                    [E.isRTL ? "left" : "right"]: 12,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    lineHeight: 1.2,
+                    background: z.panelBg,
+                    color: z.textMuted,
+                    border: `1px solid ${z.border}`,
+                    boxShadow: z.panelShadow,
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    zIndex: 10
+                  },
+                  children: E.labels.viewOnly ?? "View only"
+                }
+              )
             ]
           }
         )
       ]
     }
-  ) }) });
+  ) }) }) });
 }
-const p0 = [
+const f0 = [
   { key: "select", label: "Select", shortcut: "V" },
   { key: "draw", label: "Draw", shortcut: "D" },
   { key: "shape", label: "Shape", shortcut: "S" },
@@ -23286,7 +23315,7 @@ function zn({ name: t, size: e = 18 }) {
     ] })
   ] });
 }
-function D0({ engine: t }) {
+function B0({ engine: t }) {
   const [e, o] = et(t.mode), [n, r] = et(!1), [s, i] = et(!1), [l, d] = et(t.boardBackground);
   return St(() => {
     const c = () => o(t.mode), a = () => {
@@ -23314,7 +23343,7 @@ function D0({ engine: t }) {
         zIndex: 100
       },
       children: [
-        p0.map((c) => /* @__PURE__ */ h(
+        f0.map((c) => /* @__PURE__ */ h(
           "button",
           {
             title: `${c.label} (${c.shortcut})`,
@@ -23463,7 +23492,7 @@ const fo = [
   "#3498db",
   "#f39c12",
   "#9b59b6"
-], f0 = [
+], y0 = [
   null,
   // no fill
   "#1e1e2e",
@@ -23472,7 +23501,7 @@ const fo = [
   "#3498db",
   "#f39c12",
   "#9b59b6"
-], y0 = [
+], g0 = [
   { key: "hachure", label: "Hachure" },
   { key: "cross-hatch", label: "Cross-hatch" },
   { key: "solid", label: "Solid" }
@@ -23480,17 +23509,17 @@ const fo = [
   { key: "solid", label: "Solid", dash: "" },
   { key: "dashed", label: "Dashed", dash: "6,3" },
   { key: "dotted", label: "Dotted", dash: "2,2" }
-], g0 = [
+], m0 = [
   { value: 0, label: "Architect" },
   { value: 1, label: "Artist" },
   { value: 2, label: "Cartoonist" }
-], cn = [1, 2.5, 5, 10, 20], m0 = [
+], cn = [1, 2.5, 5, 10, 20], b0 = [
   { key: "rect", label: "Rectangle" },
   { key: "ellipse", label: "Ellipse" },
   { key: "diamond", label: "Diamond" },
   { key: "line", label: "Line" },
   { key: "arrow", label: "Arrow" }
-], b0 = [14, 20, 28, 36], x0 = [
+], x0 = [14, 20, 28, 36], w0 = [
   { key: "left", label: "←" },
   { key: "center", label: "↔" },
   { key: "right", label: "→" }
@@ -23513,7 +23542,7 @@ const fo = [
   padding: 0,
   flexShrink: 0
 };
-function W0({
+function N0({
   engine: t,
   registry: e
 }) {
@@ -23539,7 +23568,7 @@ function W0({
     const I = (ce) => {
       var Ao;
       if (!a.current) return;
-      const Oe = ce.clientX - a.current.startX, qt = ce.clientY - a.current.startY, je = ((Ao = c.current) == null ? void 0 : Ao.ownerDocument.defaultView) ?? window, Po = Math.max(48, Math.min(je.innerWidth - ys - 8, a.current.startLeft + Oe)), bn = Math.max(8, Math.min(je.innerHeight - 100, a.current.startTop + qt));
+      const Oe = ce.clientX - a.current.startX, qt = ce.clientY - a.current.startY, Ve = ((Ao = c.current) == null ? void 0 : Ao.ownerDocument.defaultView) ?? window, Po = Math.max(48, Math.min(Ve.innerWidth - ys - 8, a.current.startLeft + Oe)), bn = Math.max(8, Math.min(Ve.innerHeight - 100, a.current.startTop + qt));
       d({ x: Po, y: bn });
     }, at = () => {
       a.current = null, f(!1);
@@ -23774,7 +23803,7 @@ function W0({
           ] }),
           /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Size" }),
-            b0.map((I) => /* @__PURE__ */ h(
+            x0.map((I) => /* @__PURE__ */ h(
               "button",
               {
                 onClick: () => Ne(I),
@@ -23794,7 +23823,7 @@ function W0({
           ] }),
           /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Align" }),
-            x0.map((I) => /* @__PURE__ */ h(
+            w0.map((I) => /* @__PURE__ */ h(
               "button",
               {
                 title: I.key,
@@ -23926,7 +23955,7 @@ function W0({
         Et && /* @__PURE__ */ S(Mt, { children: [
           O && /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Shape" }),
-            m0.map((I) => /* @__PURE__ */ h(
+            b0.map((I) => /* @__PURE__ */ h(
               "button",
               {
                 title: I.label,
@@ -23941,7 +23970,7 @@ function W0({
                   color: "white",
                   borderRadius: 6
                 },
-                children: /* @__PURE__ */ h(w0, { name: I.key })
+                children: /* @__PURE__ */ h(k0, { name: I.key })
               },
               I.key
             ))
@@ -23966,7 +23995,7 @@ function W0({
           ] }),
           ct && /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Fill" }),
-            f0.map((I, at) => /* @__PURE__ */ h(
+            y0.map((I, at) => /* @__PURE__ */ h(
               "button",
               {
                 onClick: () => Zt(I),
@@ -24000,7 +24029,7 @@ function W0({
           ] }),
           ct && _ && /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Fill pattern" }),
-            y0.map((I) => /* @__PURE__ */ h(
+            g0.map((I) => /* @__PURE__ */ h(
               "button",
               {
                 title: I.label,
@@ -24014,7 +24043,7 @@ function W0({
                   fontSize: 9,
                   borderRadius: 6
                 },
-                children: /* @__PURE__ */ h(k0, { style: I.key })
+                children: /* @__PURE__ */ h(v0, { style: I.key })
               },
               I.key
             ))
@@ -24080,7 +24109,7 @@ function W0({
           ] }),
           Gt && /* @__PURE__ */ S("div", { style: te, children: [
             /* @__PURE__ */ h("span", { style: ee, children: "Roughness" }),
-            g0.map((I) => /* @__PURE__ */ h(
+            m0.map((I) => /* @__PURE__ */ h(
               "button",
               {
                 title: I.label,
@@ -24736,7 +24765,7 @@ function W0({
     }
   );
 }
-function w0({ name: t, size: e = 16 }) {
+function k0({ name: t, size: e = 16 }) {
   const o = {
     stroke: "currentColor",
     strokeWidth: 1.5,
@@ -24754,7 +24783,7 @@ function w0({ name: t, size: e = 16 }) {
     ] })
   ] });
 }
-function k0({ style: t }) {
+function v0({ style: t }) {
   return t === "hachure" ? /* @__PURE__ */ S("svg", { width: 20, height: 16, viewBox: "0 0 20 16", children: [
     /* @__PURE__ */ h("line", { x1: 2, y1: 14, x2: 8, y2: 2, stroke: "white", strokeWidth: 1.5 }),
     /* @__PURE__ */ h("line", { x1: 8, y1: 14, x2: 14, y2: 2, stroke: "white", strokeWidth: 1.5 }),
@@ -24767,7 +24796,7 @@ function k0({ style: t }) {
     /* @__PURE__ */ h("line", { x1: 8, y1: 2, x2: 14, y2: 14, stroke: "white", strokeWidth: 1.2 })
   ] }) : /* @__PURE__ */ h("svg", { width: 20, height: 16, viewBox: "0 0 20 16", children: /* @__PURE__ */ h("rect", { x: 2, y: 2, width: 16, height: 12, fill: "white", rx: 2 }) });
 }
-function B0({
+function F0({
   preview: t,
   engine: e,
   zoom: o
@@ -24923,7 +24952,7 @@ function B0({
     )
   ] });
 }
-function N0({
+function H0({
   preview: t,
   zoom: e
 }) {
@@ -24955,10 +24984,10 @@ function N0({
   );
 }
 const gs = 400;
-function v0(t, e) {
+function S0(t, e) {
   return t.h !== "auto" ? t.h : e[t.id] ?? 100;
 }
-function F0({
+function O0({
   eraser: t,
   engine: e,
   zoom: o
@@ -25020,7 +25049,7 @@ function F0({
   for (const u of t.markedIds ?? []) {
     const f = e.getNode(u);
     if (!f || f.type === "edge") continue;
-    const y = v0(f, i);
+    const y = S0(f, i);
     if (f.w < 1 || y < 1) continue;
     const p = f.rotation ?? 0, g = f.x + f.w / 2, m = f.y + y / 2;
     c.push(
@@ -25045,49 +25074,51 @@ function F0({
   ] });
 }
 export {
-  md as A,
-  Do as B,
-  wp as C,
+  Cs as A,
+  bd as B,
+  Do as C,
   xo as D,
-  Uo as E,
-  kp as F,
-  hd as G,
-  $p as H,
-  cu as I,
-  Mu as J,
-  no as K,
-  bu as L,
-  _t as M,
-  eh as N,
-  oe as O,
+  kp as E,
+  Uo as F,
+  vp as G,
+  ud as H,
+  _p as I,
+  du as J,
+  Cu as K,
+  no as L,
+  xu as M,
+  oh as N,
+  _t as O,
   pn as P,
-  B0 as R,
-  L0 as S,
-  D0 as T,
+  oe as Q,
+  F0 as R,
+  R0 as S,
+  B0 as T,
+  D0 as U,
   Rs as a,
   Ls as b,
-  Du as c,
-  W0 as d,
-  F0 as e,
-  N0 as f,
-  Xy as g,
-  R0 as h,
-  Tf as i,
-  $d as j,
-  Ru as k,
-  ch as l,
-  au as m,
+  Wu as c,
+  N0 as d,
+  O0 as e,
+  H0 as f,
+  Yy as g,
+  W0 as h,
+  _l as i,
+  zf as j,
+  _d as k,
+  Du as l,
+  dh as m,
   Rt as n,
-  hu as o,
-  wu as p,
-  Fn as q,
-  zr as r,
-  Tr as s,
-  Ir as t,
-  Oo as u,
-  Wn as v,
-  Qs as w,
-  yu as x,
-  Vs as y,
-  Cs as z
+  lu as o,
+  uu as p,
+  ku as q,
+  Hn as r,
+  zr as s,
+  Tr as t,
+  Ir as u,
+  Oo as v,
+  Wn as w,
+  Qs as x,
+  gu as y,
+  Vs as z
 };

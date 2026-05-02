@@ -27,6 +27,7 @@ import {
   type SpatialBoardDirection,
   type SpatialBoardLocalization,
 } from "./LocalizationContext";
+import { SpatialBoardReadOnlyContext } from "./SpatialBoardReadOnlyContext";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -224,6 +225,7 @@ export default function SpatialBoard({
   return (
     <SBLocalizationContext.Provider value={localizationValue}>
     <SBThemeContext.Provider value={resolvedTheme}>
+    <SpatialBoardReadOnlyContext.Provider value={readOnly}>
     <div
       ref={boardRef}
       dir={localizationValue.dir}
@@ -282,8 +284,36 @@ export default function SpatialBoard({
           />
         )}
         {!isPreview && <PresentationOverlay engine={engine} />}
+        {/* small "View only" pill so the absence of editing
+            chrome is obviously by design rather than broken. Sits above
+            the BottomBar so it doesn't crowd the play / slides controls. */}
+        {readOnly && !presenting && !isPreview && (
+          <div
+            data-sb-readonly-pill
+            style={{
+              position: "absolute",
+              top: 12,
+              [localizationValue.isRTL ? "left" : "right"]: 12,
+              padding: "4px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 500,
+              lineHeight: 1.2,
+              background: resolvedTheme.panelBg,
+              color: resolvedTheme.textMuted,
+              border: `1px solid ${resolvedTheme.border}`,
+              boxShadow: resolvedTheme.panelShadow,
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 10,
+            }}
+          >
+            {localizationValue.labels.viewOnly ?? "View only"}
+          </div>
+        )}
       </div>
     </div>
+    </SpatialBoardReadOnlyContext.Provider>
     </SBThemeContext.Provider>
     </SBLocalizationContext.Provider>
   );
