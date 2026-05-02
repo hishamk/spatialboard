@@ -5015,7 +5015,11 @@ export default function SpatialCanvas({
               if (def) {
                 const Component = def.component;
                 const isSelected = selection.has(node.id) && mode !== "edge";
-                const isInteractive = mode === "select" || mode === "text" || mode === "note" || mode === "sticky";
+                // AND `!engine.readOnly` so every Block already
+                // gating inline edit affordances on `interactive` (Text /
+                // Sticky / Image / YouTube / Content / etc.) hides them
+                // for viewers automatically — no per-block change needed.
+                const isInteractive = !engine.readOnly && (mode === "select" || mode === "text" || mode === "note" || mode === "sticky");
                 const componentEl = (
                   <Component
                     key={def.handlesOwnLayout ? node.id : undefined}
@@ -5035,8 +5039,17 @@ export default function SpatialCanvas({
                     editClickPos={editingNodeId === node.id ? editClickRef.current : null}
                     callbacks={{
                       onMeasuredHeight: handleMeasuredHeight,
-                      onResizeHandleDown: handleResizeHandleDown as NodeCallbacks["onResizeHandleDown"],
+                      // drop resize-handle starts in readOnly. The
+                      // canvas selection-frame is hidden in that mode but a
+                      // node-internal resize handle (if any) shouldn't fire
+                      // either.
+                      onResizeHandleDown: engine.readOnly
+                        ? undefined
+                        : (handleResizeHandleDown as NodeCallbacks["onResizeHandleDown"]),
                       onEditStart: (id: string) => {
+                        // never enter inline edit mode in readOnly
+                        // even if a misbehaving node fires onEditStart.
+                        if (engine.readOnly) return;
                         const n = engine.getNode(id);
                         if (!n) return;
                         if (n.type === "text") setEditingTextId(id);

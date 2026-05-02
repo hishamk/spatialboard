@@ -15723,7 +15723,7 @@ function zf({
                 if (o) {
                   const W = o.get(k.type);
                   if (W) {
-                    const j = W.component, U = x.has(k.id) && v !== "edge", X = v === "select" || v === "text" || v === "note" || v === "sticky", Z = /* @__PURE__ */ h(
+                    const j = W.component, U = x.has(k.id) && v !== "edge", X = !t.readOnly && (v === "select" || v === "text" || v === "note" || v === "sticky"), Z = /* @__PURE__ */ h(
                       j,
                       {
                         node: k,
@@ -15738,8 +15738,13 @@ function zf({
                         editClickPos: mi === k.id ? Fr.current : null,
                         callbacks: {
                           onMeasuredHeight: de,
-                          onResizeHandleDown: Gr,
+                          // drop resize-handle starts in readOnly. The
+                          // canvas selection-frame is hidden in that mode but a
+                          // node-internal resize handle (if any) shouldn't fire
+                          // either.
+                          onResizeHandleDown: t.readOnly ? void 0 : Gr,
                           onEditStart: (F) => {
+                            if (t.readOnly) return;
                             const V = t.getNode(F);
                             V && (V.type === "text" ? Lo(F) : V.type === "sticky" ? Ro(F) : V.type === "frame" ? Jo(F) : V.type === "shape" ? $o(F) : V.type === "image" ? _o(F) : V.type === "youtube" && gi(F));
                           },
@@ -23076,7 +23081,7 @@ const _l = Bn(!1);
 function D0() {
   return Ge(_l);
 }
-const p0 = Dc(() => import("./DebugPanel-CIbw3CCt.js"));
+const p0 = Dc(() => import("./DebugPanel-DQL_NDba.js"));
 function W0({
   nodeTypes: t = Du,
   engine: e,
