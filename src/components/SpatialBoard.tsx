@@ -234,6 +234,8 @@ export default function SpatialBoard({
         ...style,
       }}
     >
+      {/* sidebar (creation tool strip) hidden in readOnly: viewers
+          can't add nodes anyway, no point in surfacing the affordance. */}
       {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
@@ -256,7 +258,11 @@ export default function SpatialBoard({
           singleFrameId={singleFrameId}
         />
         {!isPreview && !presenting && <CanvasSearchBar engine={engine} />}
-        {!isPreview && !presenting && !readOnly && (
+        {/* BottomBar + FramesPanel stay visible in readOnly so
+            viewers can launch presentation mode and browse the slides
+            list. Edit affordances inside FramesPanel (rename, reorder)
+            silently no-op via the engine's readOnly guard. */}
+        {!isPreview && !presenting && (
           <BottomBar
             engine={engine}
             framesPanelOpen={framesPanelOpen}
@@ -268,7 +274,7 @@ export default function SpatialBoard({
           />
         )}
         {!isPreview && !presenting && showPerfOverlay && <PerformanceOverlay />}
-        {!isPreview && !presenting && !readOnly && (
+        {!isPreview && !presenting && (
           <FramesPanel
             engine={engine}
             open={framesPanelOpen}

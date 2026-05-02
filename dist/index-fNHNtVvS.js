@@ -23071,7 +23071,7 @@ function h0() {
     }
   );
 }
-const u0 = Rc(() => import("./DebugPanel-1w0_oMTN.js"));
+const u0 = Rc(() => import("./DebugPanel-zN9hOqMI.js"));
 function R0({
   nodeTypes: t = Ru,
   engine: e,
@@ -23181,7 +23181,7 @@ function R0({
                 }
               ),
               !g && !T && /* @__PURE__ */ h(qy, { engine: b }),
-              !g && !T && !m && /* @__PURE__ */ h(
+              !g && !T && /* @__PURE__ */ h(
                 Vy,
                 {
                   engine: b,
@@ -23194,7 +23194,7 @@ function R0({
                 }
               ),
               !g && !T && xt && /* @__PURE__ */ h(h0, {}),
-              !g && !T && !m && /* @__PURE__ */ h(
+              !g && !T && /* @__PURE__ */ h(
                 e0,
                 {
                   engine: b,
