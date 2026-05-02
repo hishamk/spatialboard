@@ -6,6 +6,7 @@ import { renderFrameToSVG } from "../export/canvas-export";
 import { useSBTheme } from "./sidebar/ThemeContext";
 import { useSBI18n } from "./LocalizationContext";
 import { usePropertyHistorySession } from "./sidebar/PropertyHistoryCoalesceContext";
+import { useSpatialBoardReadOnly } from "./SpatialBoardReadOnlyContext";
 
 const PANEL_WIDTH = 240;
 const CARD_GAP = 6;
@@ -381,6 +382,11 @@ interface FramesPanelProps {
 export default function FramesPanel({ engine, open, onClose }: FramesPanelProps) {
   const theme = useSBTheme();
   const { isRTL, labels } = useSBI18n();
+  // viewer mode: hide TransitionPicker, drop drag-reorder,
+  // skip rename-on-double-click. The engine guards already drop the
+  // mutations that would have happened; this just removes the
+  // visible affordance so it doesn't feel broken.
+  const readOnly = useSpatialBoardReadOnly();
   const [frames, setFrames] = useState<FrameEntry[]>(() => buildOrderedFrames(engine));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(engine.selection));
   // Tick counter bumped when thumbnails need refreshing
@@ -732,7 +738,7 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
           return (
             <React.Fragment key={frame.id}>
               {/* Transition picker between slides (and above first slide) */}
-              {dragIndex === null && (
+              {!readOnly && dragIndex === null && (
                 <TransitionPicker
                   value={frame.transition ?? "pan"}
                   durationMs={frame.transitionDuration}
@@ -744,7 +750,10 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
               )}
               <div
                 data-frame-card
-                onPointerDown={(e) => handlePointerDown(e, index)}
+                // Drag-reorder is editing → disabled in readOnly. Double-click
+                // is navigate-to-frame (engine.select + zoomToNode, both
+                // view-state) → kept so viewers can still jump between slides.
+                onPointerDown={readOnly ? undefined : (e) => handlePointerDown(e, index)}
                 onDoubleClick={() => handleFrameDoubleClick(frame.id)}
                 style={{
                   borderRadius: 6,
@@ -752,9 +761,9 @@ export default function FramesPanel({ engine, open, onClose }: FramesPanelProps)
                     ? `2px solid ${frame.borderColor || theme.text}`
                     : `1px solid ${theme.border}`,
                   background: isSelected ? theme.controlBgActive : "transparent",
-                  cursor: isDragging ? "grabbing" : "grab",
+                  cursor: readOnly ? "pointer" : isDragging ? "grabbing" : "grab",
                   userSelect: "none",
-                  touchAction: "none",
+                  touchAction: readOnly ? "auto" : "none",
                   transition: (isDragging || suppressTransitionRef.current) ? "none" : "transform 0.15s ease, border-color 0.1s ease",
                   transform: `translateY(${translateY}px)`,
                   zIndex: isDragging ? 10 : 1,
