@@ -48,9 +48,23 @@ export interface SpatialBoardProps {
      */
     preview?: boolean;
     /**
+     * Read-only viewer mode. Sets `engine.readOnly = true` so every local
+     * doc-mutating method (addNode/updateNode/deleteNode/etc.) is a no-op, and hides
+     * the sidebar (creation tool strip) + bottom bar (frames panel toggle, minimap
+     * controls) since their affordances would silently fail.
+     *
+     * Differs from `preview`: `preview` is for thumbnails (auto-fits viewport, hides
+     * everything including the search bar). `readOnly` is for viewers who can still
+     * pan, zoom, search, and select to inspect the board — they just can't change it.
+     *
+     * Remote-op methods (`addRemoteNode`, etc.) are NOT guarded — incoming sync from
+     * peers still applies, so viewers see live edits from collaborators.
+     */
+    readOnly?: boolean;
+    /**
      * Render only this frame and its children. Hides everything else.
      * Viewport is auto-fitted to the frame. Used for flashcard study mode.
      */
     singleFrameId?: string;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

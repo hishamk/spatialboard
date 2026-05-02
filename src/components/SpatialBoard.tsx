@@ -73,6 +73,20 @@ export interface SpatialBoardProps {
    */
   preview?: boolean;
   /**
+   * Read-only viewer mode. Sets `engine.readOnly = true` so every local
+   * doc-mutating method (addNode/updateNode/deleteNode/etc.) is a no-op, and hides
+   * the sidebar (creation tool strip) + bottom bar (frames panel toggle, minimap
+   * controls) since their affordances would silently fail.
+   *
+   * Differs from `preview`: `preview` is for thumbnails (auto-fits viewport, hides
+   * everything including the search bar). `readOnly` is for viewers who can still
+   * pan, zoom, search, and select to inspect the board — they just can't change it.
+   *
+   * Remote-op methods (`addRemoteNode`, etc.) are NOT guarded — incoming sync from
+   * peers still applies, so viewers see live edits from collaborators.
+   */
+  readOnly?: boolean;
+  /**
    * Render only this frame and its children. Hides everything else.
    * Viewport is auto-fitted to the frame. Used for flashcard study mode.
    */
@@ -96,6 +110,7 @@ export default function SpatialBoard({
   dataFlowEdgeOverlay = "off",
   initialFramesPanelOpen = false,
   preview: isPreview = false,
+  readOnly = false,
   singleFrameId,
 }: SpatialBoardProps) {
   const engine = useMemo(
@@ -112,6 +127,14 @@ export default function SpatialBoard({
   useEffect(() => {
     engine.setRegistry(registry);
   }, [engine, registry]);
+
+  // propagate read-only into the engine. Local mutators
+  // (addNode/updateNode/deleteNode/etc.) early-return when this is
+  // true; remote-op methods are unaffected so viewers still see
+  // live edits from collaborators.
+  useEffect(() => {
+    engine.setReadOnly(readOnly);
+  }, [engine, readOnly]);
 
   // Register custom container types (nodes with isContainer: true)
   useEffect(() => {
@@ -211,14 +234,14 @@ export default function SpatialBoard({
         ...style,
       }}
     >
-      {showSidebar && !presenting && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} />}
+      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
           position: "absolute",
-          left: showSidebar && !presenting && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          left: showSidebar && !presenting && !readOnly && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           top: 0,
-          right: showSidebar && !presenting && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          right: showSidebar && !presenting && !readOnly && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           bottom: 0,
           overflow: "hidden",
         }}
@@ -233,7 +256,7 @@ export default function SpatialBoard({
           singleFrameId={singleFrameId}
         />
         {!isPreview && !presenting && <CanvasSearchBar engine={engine} />}
-        {!isPreview && !presenting && (
+        {!isPreview && !presenting && !readOnly && (
           <BottomBar
             engine={engine}
             framesPanelOpen={framesPanelOpen}
@@ -245,7 +268,7 @@ export default function SpatialBoard({
           />
         )}
         {!isPreview && !presenting && showPerfOverlay && <PerformanceOverlay />}
-        {!isPreview && !presenting && (
+        {!isPreview && !presenting && !readOnly && (
           <FramesPanel
             engine={engine}
             open={framesPanelOpen}

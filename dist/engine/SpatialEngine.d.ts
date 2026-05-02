@@ -117,6 +117,21 @@ export declare class SpatialEngine {
     smartGuides: boolean;
     lassoSelect: boolean;
     freeFormEdges: boolean;
+    /**
+     * When true, every local doc-mutating method on this engine is a
+     * no-op (addNode, updateNode, deleteNode, …). View state — viewport,
+     * selection, search, measured heights, mode — keeps responding so
+     * the user can still pan, zoom, and select to inspect.
+     *
+     * Remote-op methods (`addRemoteNode`, `applyRemoteNodeUpdate`,
+     * `deleteRemoteNode`) are NOT guarded — incoming sync from peers
+     * must still apply, otherwise a viewer wouldn't see live edits.
+     *
+     * Driven externally via `setReadOnly` (typically by the host's
+     * collab perm signal). The host should also hide creation chrome
+     * (sidebar, bottom bar) so guarded ops don't fail visibly.
+     */
+    readOnly: boolean;
     presentationMode: boolean;
     presentationSlides: string[];
     presentationIndex: number;
@@ -174,6 +189,8 @@ export declare class SpatialEngine {
     setCollabMode(enabled: boolean): void;
     /** Whether the engine is in collaborative mode. */
     get isCollabMode(): boolean;
+    /** Toggle read-only mode. See `readOnly` field for semantics. */
+    setReadOnly(value: boolean): void;
     /** Register a node type as a container (frame-like behavior). */
     registerContainerType(type: string): void;
     /** Check whether a node type behaves as a container. */

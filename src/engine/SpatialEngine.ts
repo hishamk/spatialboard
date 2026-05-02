@@ -238,6 +238,21 @@ export class SpatialEngine {
   smartGuides = true;
   lassoSelect = false;
   freeFormEdges = true;
+  /**
+   * When true, every local doc-mutating method on this engine is a
+   * no-op (addNode, updateNode, deleteNode, …). View state — viewport,
+   * selection, search, measured heights, mode — keeps responding so
+   * the user can still pan, zoom, and select to inspect.
+   *
+   * Remote-op methods (`addRemoteNode`, `applyRemoteNodeUpdate`,
+   * `deleteRemoteNode`) are NOT guarded — incoming sync from peers
+   * must still apply, otherwise a viewer wouldn't see live edits.
+   *
+   * Driven externally via `setReadOnly` (typically by the host's
+   * collab perm signal). The host should also hide creation chrome
+   * (sidebar, bottom bar) so guarded ops don't fail visibly.
+   */
+  readOnly = false;
   presentationMode = false;
   presentationSlides: string[] = [];
   presentationIndex = 0;
@@ -317,6 +332,11 @@ export class SpatialEngine {
   /** Whether the engine is in collaborative mode. */
   get isCollabMode(): boolean {
     return this._collabMode;
+  }
+
+  /** Toggle read-only mode. See `readOnly` field for semantics. */
+  setReadOnly(value: boolean): void {
+    this.readOnly = value;
   }
 
   /** Register a node type as a container (frame-like behavior). */
@@ -1080,6 +1100,7 @@ export class SpatialEngine {
   // --- Board Background ---
 
   setBoardBackground(bg: BoardBackground): void {
+    if (this.readOnly) return;
     if (this.boardBackground === bg) return;
     this.boardBackground = bg;
     this.emit("background");
@@ -1261,6 +1282,7 @@ export class SpatialEngine {
   // --- Node CRUD ---
 
   addNode(node: SpatialNode): void {
+    if (this.readOnly) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     this.nodes.set(node.id, node);
@@ -1292,6 +1314,7 @@ export class SpatialEngine {
   }
 
   addNodes(nodes: SpatialNode[]): void {
+    if (this.readOnly) return;
     if (nodes.length === 0) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
@@ -1320,6 +1343,7 @@ export class SpatialEngine {
   }
 
   updateNode(id: string, patch: Partial<SpatialNode>): void {
+    if (this.readOnly) return;
     const existing = this.nodes.get(id);
     if (!existing) return;
 
@@ -1393,6 +1417,7 @@ export class SpatialEngine {
   updateMany(
     updates: Array<{ id: string; patch: Partial<SpatialNode> }>
   ): void {
+    if (this.readOnly) return;
     let changed = false;
     let dataChanged = false;
     for (const { id, patch } of updates) {
@@ -1473,6 +1498,7 @@ export class SpatialEngine {
   }
 
   updateNodeWithHistory(id: string, patch: Partial<SpatialNode>): void {
+    if (this.readOnly) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
     this.updateNode(id, patch);
@@ -1488,6 +1514,7 @@ export class SpatialEngine {
     patch: Partial<SpatialNode>,
     sessionKey: string,
   ): void {
+    if (this.readOnly) return;
     if (this._collabMode) {
       this.updateNode(id, patch);
       return;
@@ -1536,6 +1563,7 @@ export class SpatialEngine {
   }
 
   deleteNode(id: string): void {
+    if (this.readOnly) return;
     if (!this.nodes.has(id)) return;
     if (this.nodes.get(id)?.locked) return;
     this._historyCoalesceKey = null;
@@ -1687,6 +1715,7 @@ export class SpatialEngine {
    *  Each node is assigned only to its smallest containing frame.
    *  Frames can be nested inside other frames (but not inside themselves or their descendants). */
   updateFrameMembership(nodeIds: string[]): void {
+    if (this.readOnly) return;
     for (const nodeId of nodeIds) {
       const node = this.nodes.get(nodeId);
       if (!node || node.type === "edge") continue;
@@ -2060,6 +2089,7 @@ export class SpatialEngine {
   }
 
   deleteSelected(): void {
+    if (this.readOnly) return;
     if (this.selection.size === 0) return;
     // Filter out locked nodes
     const toDelete = new Set(
@@ -2165,6 +2195,7 @@ export class SpatialEngine {
   }
 
   deleteNodes(ids: string[]): void {
+    if (this.readOnly) return;
     if (ids.length === 0) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
@@ -2453,6 +2484,7 @@ export class SpatialEngine {
   // --- Grouping ---
 
   groupSelected(): void {
+    if (this.readOnly) return;
     if (this.selection.size < 2) return;
     if (this.activeGroupId) return; // Can't nest groups while inside one
     this._historyCoalesceKey = null;
@@ -2496,6 +2528,7 @@ export class SpatialEngine {
   }
 
   ungroupSelected(): void {
+    if (this.readOnly) return;
     if (this.selection.size === 0) return;
 
     // Find the outermost group(s) of the selection to ungroup
@@ -2701,6 +2734,7 @@ export class SpatialEngine {
   }
 
   duplicateSelected(): void {
+    if (this.readOnly) return;
     if (this.selection.size === 0) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
@@ -2775,6 +2809,7 @@ export class SpatialEngine {
    * If no position given, uses viewport center.
    */
   pasteClipboard(canvasX?: number, canvasY?: number): void {
+    if (this.readOnly) return;
     if (this.clipboard.length === 0) return;
     this.pasteCount++;
 
@@ -2966,6 +3001,7 @@ export class SpatialEngine {
   }
 
   undo(): void {
+    if (this.readOnly) return;
     const restored = this.history.undo(this.nodes, this.groupParent);
     if (restored) {
       this._historyCoalesceKey = null;
@@ -2983,6 +3019,7 @@ export class SpatialEngine {
   }
 
   redo(): void {
+    if (this.readOnly) return;
     const restored = this.history.redo(this.nodes, this.groupParent);
     if (restored) {
       this._historyCoalesceKey = null;
