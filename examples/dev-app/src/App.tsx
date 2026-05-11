@@ -85,6 +85,165 @@ export default function App() {
     w.__nodeTypeDocs = DEV_CUSTOM_NODE_DOCS;
   }, [engine]);
 
+  // ── Agent demo ──────────────────────────────────────────────
+
+  const CURSOR_SPEED = 280; // pixels per second for tweened cursor movement
+
+  const agentCursorRef = useRef<HTMLDivElement | null>(null);
+  const agentRunningRef = useRef(false);
+  const cursorPosRef = useRef({ x: 0, y: 0 });
+
+  const agentMoveCursor = useCallback((screenX: number, screenY: number): number => {
+    let el = agentCursorRef.current;
+    if (!el) {
+      el = document.createElement("div");
+      el.style.cssText = "position:fixed;width:20px;height:20px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 12px rgba(239,68,68,0.6),0 0 0 4px rgba(239,68,68,0.2);pointer-events:none;z-index:99999;transform:translate(-50%,-50%);";
+      document.body.appendChild(el);
+      agentCursorRef.current = el;
+      // First placement: no transition
+      el.style.left = screenX + "px";
+      el.style.top = screenY + "px";
+      cursorPosRef.current = { x: screenX, y: screenY };
+      return 0;
+    }
+
+    const dx = screenX - cursorPosRef.current.x;
+    const dy = screenY - cursorPosRef.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const duration = Math.max(100, Math.round((dist / CURSOR_SPEED) * 1000));
+
+    el.style.transition = `left ${duration}ms ease-out, top ${duration}ms ease-out`;
+    el.style.left = screenX + "px";
+    el.style.top = screenY + "px";
+    cursorPosRef.current = { x: screenX, y: screenY };
+
+    return duration;
+  }, []);
+
+  const agentShowCursor = useCallback((visible: boolean) => {
+    if (agentCursorRef.current) {
+      agentCursorRef.current.style.display = visible ? "block" : "none";
+    }
+  }, []);
+
+  const agentRemoveCursor = useCallback(() => {
+    agentCursorRef.current?.remove();
+    agentCursorRef.current = null;
+  }, []);
+
+  /** Convert canvas coords to screen coords using the engine viewport + container. */
+  const agentCanvasToScreen = useCallback((cx: number, cy: number): { x: number; y: number } => {
+    const vp = engine.viewport;
+    const cont = engine.containerOffset;
+    return {
+      x: cx * vp.zoom + vp.x + cont.x,
+      y: cy * vp.zoom + vp.y + cont.y,
+    };
+  }, [engine]);
+
+  /** Tween cursor to a canvas position, wait for it to arrive, then pause. */
+  const agentPointAt = useCallback(async (cx: number, cy: number, label?: string) => {
+    const screen = agentCanvasToScreen(cx, cy);
+    const duration = agentMoveCursor(screen.x, screen.y);
+    agentShowCursor(true);
+    if (label) {
+      const statusEl = document.getElementById("agent-status");
+      if (statusEl) statusEl.textContent = label;
+    }
+    // Wait for tweened cursor to finish moving + brief settle pause
+    await new Promise(r => setTimeout(r, duration + 180));
+  }, [agentCanvasToScreen, agentMoveCursor, agentShowCursor]);
+
+  const agentDemo = useCallback(async () => {
+    if (agentRunningRef.current) return;
+    agentRunningRef.current = true;
+
+    // Add a floating status bar
+    const statusBar = document.createElement("div");
+    statusBar.id = "agent-status";
+    statusBar.style.cssText = "position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 20px;border-radius:8px;font:14px/1.4 monospace;z-index:99998;box-shadow:0 4px 20px rgba(0,0,0,0.5);border:1px solid #333;white-space:nowrap;pointer-events:none;";
+    statusBar.textContent = "🤖 Agent starting...";
+    document.body.appendChild(statusBar);
+
+    try {
+      // Clear board
+      engine.setMode("select");
+      engine.deselectAll();
+      for (const n of engine.getAllNodes()) engine.deleteNode(n.id);
+      await agentPointAt(100, 50, "Clearing the board...");
+
+      // ── Step 1: Draw a big rounded rect (background frame) ──
+      await engine.animatePanTo(300, 225, 300);
+      await agentPointAt(80, 80, "Drawing a frame...");
+      const frameId = engine.createFrame(50, 30, 500, 390, {
+        label: "Agent Demo", backgroundColor: "#1e1e3015", borderColor: "#6366f1",
+      });
+
+      // ── Step 2: Draw a shape (rect) ──
+      await agentPointAt(160, 140, "Creating a shape node...");
+      const shapeId1 = engine.createShape("rect", 90, 90, 140, 80, {
+        fill: "#3b82f6", label: "Hello Agent", stroke: "#1e40af",
+      });
+
+      // ── Step 3: Draw another shape ──
+      await agentPointAt(380, 140, "Creating another shape...");
+      const shapeId2 = engine.createShape("rect", 320, 90, 140, 80, {
+        fill: "#10b981", label: "Draw Stuff", stroke: "#047857",
+      });
+
+      // ── Step 4: Draw a diamond in the middle ──
+      await agentPointAt(270, 280, "Adding a decision diamond...");
+      const diamondId = engine.createShape("diamond", 200, 220, 140, 130, {
+        fill: "#f59e0b", label: "More?", stroke: "#d97706",
+      });
+
+      // ── Step 5: Draw a freehand stroke (under the diamond) ──
+      await agentPointAt(270, 360, "Drawing a freehand underline...");
+      const pts: Array<[number, number, number?]> = [];
+      for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        pts.push([180 + t * 180, 360 + Math.sin(t * Math.PI * 2) * 8, 0.5]);
+      }
+      engine.createDrawStroke(pts, { color: "#ef4444", width: 4 });
+
+      // ── Step 6: Add a sticky note ──
+      await engine.animatePanTo(480, 360, 300);
+      await agentPointAt(500, 200, "Adding a sticky reminder...");
+      engine.createSticky("This was drawn\nby an AI agent!", 440, 300, {
+        color: "#FEF3C7", w: 150, h: 90,
+      });
+
+      // ── Step 7: Connect the shapes with edges ──
+      await engine.animatePanTo(240, 140, 300);
+      await agentPointAt(230, 130, "Connecting nodes...");
+      engine.createEdge(shapeId1, diamondId, {
+        color: "#6366f1", arrowHead: "filled", label: "start",
+      });
+
+      await agentPointAt(360, 140, "Connecting more nodes...");
+      engine.createEdge(shapeId2, diamondId, {
+        color: "#6366f1", arrowHead: "filled", label: "end",
+      });
+
+      // ── Step 8: Pan to fit everything ──
+      await agentPointAt(300, 260, "Zooming out to show everything...");
+      
+      // Transition cursor away
+      agentShowCursor(false);
+      statusBar.textContent = "✅ Agent demo complete!";
+      await engine.animateViewport({ zoom: 0.7 }, { duration: 600 });
+      await new Promise(r => setTimeout(r, 1000));
+      await engine.fitToContent();
+    } finally {
+      statusBar.textContent = "✅ Done!";
+      setTimeout(() => {
+        agentRemoveCursor();
+        statusBar.remove();
+        agentRunningRef.current = false;
+      }, 2000);
+    }
+  }, [engine, agentPointAt, agentShowCursor, agentRemoveCursor, agentCanvasToScreen]);
+
   const debugBoards = useMemo(() => exemplarDebugBoards, []);
 
   // ── Add-node callbacks ──────────────────────────────────────
@@ -533,9 +692,20 @@ export default function App() {
           { name: "3D Cube", color: "#d946ef", icon: <Ic d="M12 2l10 6v8l-10 6L2 16V8zM12 22V10M2 8l10 6 10-6" />, onClick: addCube },
         ] as PaletteItem[],
       },
+      {
+        label: "Agent",
+        items: [
+          {
+            name: "Run Demo",
+            color: "#ef4444",
+            icon: <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={12} cy={12} r={10}/><path d="M12 6v6l4 2"/></svg>,
+            onClick: agentDemo,
+          },
+        ] as PaletteItem[],
+      },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [engine],
+    [engine, agentDemo],
   );
 
   // ── Palette state ───────────────────────────────────────────

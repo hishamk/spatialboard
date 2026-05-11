@@ -26,6 +26,8 @@ export type {
   AnySpatialNode,
   EdgeType,
   HandleSide,
+  AgentCanvasState,
+  AgentStateOptions,
 } from "./engine/types";
 
 // ── Node type registry ───────────────────────────────────────

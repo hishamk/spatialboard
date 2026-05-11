@@ -238,3 +238,51 @@ export interface ActiveTool {
   arrowTail?: "none" | "arrow" | "filled" | "dot";
   attachmentGap?: number;
 }
+
+/**
+ * JSON-safe snapshot of the engine state, optimized for agent/LLM consumption.
+ * Every field is plain data — no Maps, Sets, or class instances.
+ */
+export interface AgentCanvasState {
+  mode: Mode;
+  viewport: Viewport;
+  selection: string[];
+  activeTool: ActiveTool;
+  /** Total nodes on the canvas (regardless of `nodes[]` truncation). */
+  nodeCount: number;
+  /** Number of nodes returned in `nodes[]` after limit + filters. */
+  returnedCount: number;
+  /** True if `nodes[]` was truncated by `limit` (more nodes exist than returned). */
+  truncated: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  nodes: Array<{
+    id: string;
+    type: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number | "auto";
+    rotation?: number;
+    locked?: boolean;
+    groupId?: string;
+    /** Extracted text content (text blocks, sticky notes, shape labels). */
+    text?: string;
+    /** Shape / edge / frame label. */
+    label?: string;
+    /** Primary color (stroke / fill / color). */
+    color?: string;
+  }>;
+}
+
+/** Filters/pagination for `SpatialEngine.getAgentState()`. */
+export interface AgentStateOptions {
+  /** Maximum nodes to return. Default 200. */
+  limit?: number;
+  /** Restrict to specific node ids. */
+  nodeIds?: string[];
+  /** Restrict to specific node types. */
+  types?: NodeType[];
+  /** Restrict to nodes overlapping this canvas-coordinate rect. */
+  region?: { x: number; y: number; w: number; h: number };
+}

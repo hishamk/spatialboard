@@ -36,7 +36,10 @@ export default function PaletteColorPicker({
 
   const palette = palettes[activePalette] ?? palettes[0];
   const displayPaletteName = palette.name === "Standard" ? labels.paletteStandard : palette.name;
-  const valueLower = value?.toLowerCase();
+  // Coerce: collab/agent payloads can land here as numbers/objects despite the
+  // string type — guard so the inspector doesn't crash the whole canvas.
+  const safeValue = typeof value === "string" ? value : undefined;
+  const valueLower = safeValue?.toLowerCase();
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -108,7 +111,7 @@ export default function PaletteColorPicker({
                 height: 20,
                 background: "transparent",
                 border:
-                  !mixed && value == null
+                  !mixed && safeValue == null
                     ? `2px solid ${theme.swatchBorderActive}`
                     : `2px solid ${theme.textDisabled}`,
                 borderRadius: "50%",
@@ -152,13 +155,13 @@ export default function PaletteColorPicker({
           })}
 
           {/* Custom color swatch (shown when value isn't in any palette) */}
-          {value && !inPalette && !mixed && (
+          {safeValue && !inPalette && !mixed && (
             <div
               style={{
                 width: 20,
                 height: 20,
                 borderRadius: "50%",
-                background: value,
+                background: safeValue,
                 border: `2px solid ${theme.swatchBorderActive}`,
                 flexShrink: 0,
               }}
@@ -277,7 +280,7 @@ export default function PaletteColorPicker({
               if (e.key === "Enter") commitHex();
             }}
             onBlur={commitHex}
-            placeholder={value ?? "#000000"}
+            placeholder={safeValue ?? "#000000"}
             style={{
               width: 84,
               height: 28,

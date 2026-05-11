@@ -3,12 +3,20 @@ import type {
   SpatialNode,
   DrawNode,
   ShapeNode,
+  TextNode,
+  StickyNoteNode,
+  ContentNode,
+  EdgeNode,
   Viewport,
   Mode,
   ActiveTool,
   NodeType,
   ImageNode,
   FrameNode,
+  HandleSide,
+  EdgeType,
+  AgentCanvasState,
+  AgentStateOptions,
 } from "./types";
 import { TEMPLATES } from "../templates";
 import { History } from "./history";
@@ -285,6 +293,14 @@ export class SpatialEngine {
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
   private _suppressEvents = false;
   private _collabMode = false;
+  /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
+   *  so a single `beginAgentAction()` snapshot covers multiple operations. */
+  private _agentActionDepth = 0;
+  /** Auto-reset timer for `beginAgentAction()` when no matching `endAgentAction()`
+   *  arrives in time (cross-process MCP callers can crash between begin/end). */
+  private _agentActionTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Max ms between begin/end before depth is force-reset to 0. */
+  private static readonly AGENT_ACTION_TIMEOUT_MS = 60_000;
   private clipboard: SpatialNode[] = [];
   private pasteCount = 0;
   private nextZValue = 1;
@@ -1283,8 +1299,10 @@ export class SpatialEngine {
 
   addNode(node: SpatialNode): void {
     if (this.readOnly) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
+    if (this._agentActionDepth === 0) {
+      this._historyCoalesceKey = null;
+      this.history.pushSnapshot(this.nodes, this.groupParent);
+    }
     this.nodes.set(node.id, node);
     this.quadTree.insert(node);
     if (node.z < this._minZ) this._minZ = node.z;
@@ -1316,8 +1334,10 @@ export class SpatialEngine {
   addNodes(nodes: SpatialNode[]): void {
     if (this.readOnly) return;
     if (nodes.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
+    if (this._agentActionDepth === 0) {
+      this._historyCoalesceKey = null;
+      this.history.pushSnapshot(this.nodes, this.groupParent);
+    }
     for (const node of nodes) {
       this.nodes.set(node.id, node);
       this.quadTree.insert(node);
@@ -3292,5 +3312,658 @@ export class SpatialEngine {
     this.emit("viewport");
     this.emit("selection");
     this.emit("history");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Agent API
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── History grouping ─────────────────────────────────────────
+
+  /** Begin a grouped agent action. All subsequent `addNode`/`addNodes` calls
+   *  share one undo snapshot until `endAgentAction()` is called.
+   *  Calling this while already inside a group is a no-op (idempotent).
+   *
+   *  Safety: if `endAgentAction()` is not called within `AGENT_ACTION_TIMEOUT_MS`
+   *  (default 60s), the depth is force-reset to 0 so a crashed MCP client can't
+   *  permanently disable per-op undo snapshots. In-process JS callers should
+   *  prefer `runAgentAction(fn)` which handles begin/end via try/finally. */
+  beginAgentAction(): void {
+    if (this._agentActionDepth === 0) {
+      this._historyCoalesceKey = null;
+      this.history.pushSnapshot(this.nodes, this.groupParent);
+      this.emit("history");
+    }
+    this._agentActionDepth++;
+    if (this._agentActionTimer) clearTimeout(this._agentActionTimer);
+    this._agentActionTimer = setTimeout(() => {
+      console.warn(
+        `[SpatialEngine] Agent action timed out after ${SpatialEngine.AGENT_ACTION_TIMEOUT_MS}ms — force-resetting depth (was ${this._agentActionDepth}).`,
+      );
+      this._agentActionDepth = 0;
+      this._agentActionTimer = null;
+    }, SpatialEngine.AGENT_ACTION_TIMEOUT_MS);
+  }
+
+  /** End a grouped agent action. The undo snapshot pushed by `beginAgentAction()`
+   *  now covers all intermediate mutations. */
+  endAgentAction(): void {
+    if (this._agentActionDepth > 0) {
+      this._agentActionDepth--;
+    }
+    if (this._agentActionDepth === 0 && this._agentActionTimer) {
+      clearTimeout(this._agentActionTimer);
+      this._agentActionTimer = null;
+    }
+  }
+
+  /** Run a callback inside a `begin/end` agent action with try/finally semantics.
+   *  Use this from in-process JS callers (the dev-app demo, tests, etc.) so a
+   *  thrown exception can never leak `_agentActionDepth`. Supports sync + async. */
+  runAgentAction<T>(fn: () => T | Promise<T>): T | Promise<T> {
+    this.beginAgentAction();
+    try {
+      const result = fn();
+      if (result && typeof (result as { then?: unknown }).then === "function") {
+        return (result as Promise<T>).finally(() => this.endAgentAction());
+      }
+      this.endAgentAction();
+      return result;
+    } catch (err) {
+      this.endAgentAction();
+      throw err;
+    }
+  }
+
+  /** Whether the engine is inside a `beginAgentAction()` / `endAgentAction()` block. */
+  get isInAgentAction(): boolean {
+    return this._agentActionDepth > 0;
+  }
+
+  // ── Mode + tool bundling ────────────────────────────────────
+
+  /** Set mode and active tool in a single call — reduces agent round-trips. */
+  activateTool(config: {
+    mode: Mode;
+    color?: string;
+    width?: number;
+    shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+    fillColor?: string;
+    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    strokeStyle?: "solid" | "dashed" | "dotted";
+    roughness?: number;
+    opacity?: number;
+    fontSize?: number;
+    fontFamily?: string;
+    textAlign?: "left" | "center" | "right";
+    edgeType?: EdgeType;
+    arrowHead?: "none" | "arrow" | "filled" | "dot";
+    arrowTail?: "none" | "arrow" | "filled" | "dot";
+  }): void {
+    this.setMode(config.mode);
+    if (config.color !== undefined) this.activeTool.color = config.color;
+    if (config.width !== undefined) this.activeTool.width = config.width;
+    if (config.shapeType !== undefined) this.activeTool.shapeType = config.shapeType;
+    if (config.fillColor !== undefined) this.activeTool.fillColor = config.fillColor;
+    if (config.fillStyle !== undefined) this.activeTool.fillStyle = config.fillStyle;
+    if (config.strokeStyle !== undefined) this.activeTool.strokeStyle = config.strokeStyle;
+    if (config.roughness !== undefined) this.activeTool.roughness = config.roughness;
+    if (config.opacity !== undefined) this.activeTool.opacity = config.opacity;
+    if (config.fontSize !== undefined) this.activeTool.fontSize = config.fontSize;
+    if (config.fontFamily !== undefined) this.activeTool.fontFamily = config.fontFamily;
+    if (config.textAlign !== undefined) this.activeTool.textAlign = config.textAlign;
+    if (config.edgeType !== undefined) this.activeTool.edgeType = config.edgeType;
+    if (config.arrowHead !== undefined) this.activeTool.arrowHead = config.arrowHead;
+    if (config.arrowTail !== undefined) this.activeTool.arrowTail = config.arrowTail;
+    this.emit("change");
+  }
+
+  // ── Convenience creation methods ────────────────────────────
+
+  /** Create a shape node (rect, ellipse, diamond, line, arrow).
+   *  Returns the new node id. */
+  createShape(
+    shape: "rect" | "ellipse" | "diamond" | "line" | "arrow",
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    options?: {
+      stroke?: string;
+      strokeWidth?: number;
+      fill?: string;
+      fillStyle?: "hachure" | "cross-hatch" | "solid";
+      roughness?: number;
+      opacity?: number;
+      label?: string;
+      labelFontSize?: number;
+      strokeStyle?: "solid" | "dashed" | "dotted";
+      edgeStyle?: "sharp" | "round";
+    },
+  ): string {
+    const isLinear = shape === "line" || shape === "arrow";
+    const data: ShapeNode["data"] = {
+      shape,
+      stroke: options?.stroke ?? this.activeTool.color,
+      strokeWidth: options?.strokeWidth ?? this.activeTool.width,
+      fill: options?.fill ?? this.activeTool.fillColor ?? undefined,
+      fillStyle: options?.fillStyle ?? this.activeTool.fillStyle ?? undefined,
+      strokeStyle: options?.strokeStyle ?? this.activeTool.strokeStyle ?? undefined,
+      roughness: options?.roughness ?? this.activeTool.roughness ?? 1,
+      opacity: options?.opacity ?? this.activeTool.opacity ?? 1,
+      label: options?.label ?? undefined,
+      labelFontSize: options?.labelFontSize ?? undefined,
+      edgeStyle: options?.edgeStyle ?? undefined,
+    };
+    if (isLinear) {
+      data.startPoint = [0, 0];
+      data.endPoint = [w, h];
+    }
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "shape",
+      x, y, w, h,
+      z: this.nextZ(),
+      data,
+    } as ShapeNode);
+    return id;
+  }
+
+  /** Create a text node. Returns the new node id. */
+  createText(
+    text: string,
+    x: number,
+    y: number,
+    options?: {
+      w?: number;
+      fontSize?: number;
+      fontFamily?: string;
+      color?: string;
+      align?: "left" | "center" | "right";
+      opacity?: number;
+      borderColor?: string;
+      borderWidth?: number;
+      borderStyle?: "solid" | "dashed" | "dotted";
+    },
+  ): string {
+    const id = nanoid(10);
+    const w = options?.w ?? 200;
+    const h: number = this.estimateTextBlockHeight(text, options?.fontSize ?? 16, w);
+    this.addNode({
+      id,
+      type: "text",
+      x, y, w, h,
+      z: this.nextZ(),
+      data: {
+        text,
+        fontSize: options?.fontSize ?? 16,
+        fontFamily: options?.fontFamily ?? "sans-serif",
+        color: options?.color ?? "#1e1e2e",
+        align: options?.align ?? "left",
+        opacity: options?.opacity ?? 1,
+        borderColor: options?.borderColor ?? undefined,
+        borderWidth: options?.borderWidth ?? undefined,
+        borderStyle: options?.borderStyle ?? undefined,
+      },
+    } as TextNode);
+    return id;
+  }
+
+  /** Estimate text block height from rough line count. */
+  private estimateTextBlockHeight(text: string, fontSize: number, w: number): number {
+    const avgCharWidth = fontSize * 0.6;
+    const charsPerLine = Math.max(1, Math.floor(w / avgCharWidth));
+    const lines = text.split("\n").reduce((count, paragraph) => {
+      return count + Math.max(1, Math.ceil(paragraph.length / charsPerLine));
+    }, 0);
+    return lines * fontSize * 1.4 + 16;
+  }
+
+  /** Create a sticky note. Returns the new node id. */
+  createSticky(
+    text: string,
+    x: number,
+    y: number,
+    options?: {
+      w?: number;
+      h?: number;
+      color?: string;
+      fontSize?: number;
+      opacity?: number;
+      edgeStyle?: "sharp" | "round";
+    },
+  ): string {
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "sticky",
+      x, y,
+      w: options?.w ?? 200,
+      h: options?.h ?? 150,
+      z: this.nextZ(),
+      data: {
+        text,
+        color: options?.color ?? "#FEF3C7",
+        fontSize: options?.fontSize ?? 14,
+        opacity: options?.opacity ?? 1,
+        edgeStyle: options?.edgeStyle ?? undefined,
+      },
+    } as StickyNoteNode);
+    return id;
+  }
+
+  /** Create a rich-content block (BlockNote). Returns the new node id. */
+  createContentBlock(
+    blocks: unknown[],
+    x: number,
+    y: number,
+    options?: {
+      w?: number;
+      h?: number | "auto";
+      markdown?: string;
+      borderColor?: string;
+      borderWidth?: number;
+      borderStyle?: "solid" | "dashed" | "dotted";
+      opacity?: number;
+      edgeStyle?: "sharp" | "round";
+    },
+  ): string {
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "content",
+      x, y,
+      w: options?.w ?? 300,
+      h: options?.h ?? "auto",
+      z: this.nextZ(),
+      data: {
+        blocks,
+        markdown: options?.markdown ?? undefined,
+        borderColor: options?.borderColor ?? undefined,
+        borderWidth: options?.borderWidth ?? undefined,
+        borderStyle: options?.borderStyle ?? undefined,
+        opacity: options?.opacity ?? undefined,
+        edgeStyle: options?.edgeStyle ?? undefined,
+      },
+    } as ContentNode);
+    return id;
+  }
+
+  /** Create a frame node. Returns the new node id. */
+  createFrame(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    options?: {
+      label?: string;
+      backgroundColor?: string;
+      borderColor?: string;
+      borderWidth?: number;
+      borderStyle?: "solid" | "dashed" | "dotted";
+      opacity?: number;
+      slideOrder?: number;
+      devicePreset?: string;
+    },
+  ): string {
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "frame",
+      x, y, w, h,
+      z: this.nextZ(),
+      data: {
+        label: options?.label ?? undefined,
+        backgroundColor: options?.backgroundColor ?? undefined,
+        borderColor: options?.borderColor ?? undefined,
+        borderWidth: options?.borderWidth ?? undefined,
+        borderStyle: options?.borderStyle ?? undefined,
+        opacity: options?.opacity ?? undefined,
+        slideOrder: options?.slideOrder ?? undefined,
+        devicePreset: options?.devicePreset ?? undefined,
+      },
+    } as FrameNode);
+    return id;
+  }
+
+  /** Create an image node. Returns the new node id. */
+  createImage(
+    src: string,
+    x: number,
+    y: number,
+    options?: {
+      w?: number;
+      h?: number;
+      alt?: string;
+      opacity?: number;
+      flipH?: boolean;
+      flipV?: boolean;
+      borderColor?: string;
+      borderWidth?: number;
+      borderStyle?: "solid" | "dashed" | "dotted";
+    },
+  ): string {
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "image",
+      x, y,
+      w: options?.w ?? 200,
+      h: options?.h ?? 150,
+      z: this.nextZ(),
+      data: {
+        src,
+        alt: options?.alt ?? undefined,
+        opacity: options?.opacity ?? 1,
+        flipH: options?.flipH ?? undefined,
+        flipV: options?.flipV ?? undefined,
+        borderColor: options?.borderColor ?? undefined,
+        borderWidth: options?.borderWidth ?? undefined,
+        borderStyle: options?.borderStyle ?? undefined,
+      },
+    } as ImageNode);
+    return id;
+  }
+
+  /** Create a draw stroke (freehand drawing). Returns the new node id.
+   *  Points are in canvas coordinates; they are normalized relative to the
+   *  computed bounding box internally. */
+  createDrawStroke(
+    points: Array<[number, number, number?]>,
+    options?: {
+      color?: string;
+      width?: number;
+      tool?: "pen" | "pencil" | "highlighter" | "vector";
+      opacity?: number;
+      fill?: string;
+      fillStyle?: "hachure" | "cross-hatch" | "solid";
+      strokeStyle?: "solid" | "dashed" | "dotted";
+    },
+  ): string {
+    if (points.length === 0) throw new Error("createDrawStroke: must provide at least one point");
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [px, py] of points) {
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+
+    const relativePoints = points.map(
+      ([px, py, p]) => [px - minX, py - minY, p ?? 0.5] as [number, number, number],
+    );
+
+    const id = nanoid(10);
+    this.addNode({
+      id,
+      type: "draw",
+      x: minX,
+      y: minY,
+      w: Math.max(maxX - minX, 1),
+      h: Math.max(maxY - minY, 1),
+      z: this.nextZ(),
+      data: {
+        tool: options?.tool ?? "pen",
+        points: relativePoints,
+        color: options?.color ?? this.activeTool.color,
+        strokeWidth: options?.width ?? this.activeTool.width,
+        opacity: options?.opacity ?? this.activeTool.opacity ?? 1,
+        fill: options?.fill ?? undefined,
+        fillStyle: options?.fillStyle ?? undefined,
+        strokeStyle: options?.strokeStyle ?? undefined,
+      },
+    } as DrawNode);
+    return id;
+  }
+
+  /** Create an edge connecting two nodes. Returns the new node id. */
+  createEdge(
+    fromId: string,
+    toId: string,
+    options?: {
+      label?: string;
+      color?: string;
+      strokeWidth?: number;
+      edgeType?: EdgeType;
+      arrowHead?: "none" | "arrow" | "filled" | "dot";
+      arrowTail?: "none" | "arrow" | "filled" | "dot";
+      sourceHandle?: HandleSide;
+      targetHandle?: HandleSide;
+      style?: "solid" | "dashed" | "dotted";
+      animated?: boolean;
+      animatedDirection?: "forward" | "reverse" | "both" | "bop";
+      sourcePort?: string;
+      targetPort?: string;
+      roughness?: number;
+      attachmentGap?: number;
+    },
+  ): string {
+    if (!this.nodes.has(fromId)) throw new Error(`createEdge: source node "${fromId}" not found`);
+    if (!this.nodes.has(toId)) throw new Error(`createEdge: target node "${toId}" not found`);
+
+    const id = nanoid(10);
+
+    // Edges store zero bounds — the renderer derives geometry from fromId/toId
+    // at draw time. Matches SpatialCanvas.tsx:3169, templates/index.ts, etc.
+    this.addNode({
+      id,
+      type: "edge",
+      x: 0, y: 0, w: 0, h: 0,
+      z: this.nextZ(),
+      data: {
+        fromId,
+        toId,
+        label: options?.label ?? undefined,
+        style: options?.style ?? "solid",
+        color: options?.color ?? this.activeTool.color,
+        strokeWidth: options?.strokeWidth ?? this.activeTool.width,
+        arrowHead: options?.arrowHead ?? "arrow",
+        arrowTail: options?.arrowTail ?? "none",
+        edgeType: options?.edgeType ?? this.activeTool.edgeType ?? "bezier",
+        animated: options?.animated ?? undefined,
+        animatedDirection: options?.animatedDirection ?? undefined,
+        sourceHandle: options?.sourceHandle ?? undefined,
+        targetHandle: options?.targetHandle ?? undefined,
+        sourcePort: options?.sourcePort ?? undefined,
+        targetPort: options?.targetPort ?? undefined,
+        roughness: options?.roughness ?? undefined,
+        attachmentGap: options?.attachmentGap ?? undefined,
+      },
+    } as EdgeNode);
+    return id;
+  }
+
+  // ── State observation ───────────────────────────────────────
+
+  /** Full structured snapshot of the engine for agent/LLM consumption.
+   *
+   *  Defaults to a 200-node cap to keep LLM context manageable on large boards.
+   *  Pass `limit: 0` to disable the cap (caller takes responsibility for size).
+   *  Use `nodeIds` / `types` / `region` to narrow before truncation. */
+  getAgentState(options?: AgentStateOptions): AgentCanvasState {
+    const limit = options?.limit ?? 200;
+    const nodeIdSet = options?.nodeIds ? new Set(options.nodeIds) : null;
+    const typeSet = options?.types ? new Set<string>(options.types) : null;
+    const region = options?.region;
+
+    const allNodes = this.getAllNodes();
+    const filtered: SpatialNode[] = [];
+    for (const n of allNodes) {
+      if (nodeIdSet && !nodeIdSet.has(n.id)) continue;
+      if (typeSet && !typeSet.has(n.type)) continue;
+      if (region) {
+        const nh = this.resolveHeight(n);
+        if (
+          n.x + n.w < region.x ||
+          n.y + nh < region.y ||
+          n.x > region.x + region.w ||
+          n.y > region.y + region.h
+        ) continue;
+      }
+      filtered.push(n);
+    }
+
+    const truncated = limit > 0 && filtered.length > limit;
+    const nodeList = truncated ? filtered.slice(0, limit) : filtered;
+
+    return {
+      mode: this.mode,
+      viewport: { ...this.viewport },
+      selection: Array.from(this.selection),
+      activeTool: { ...this.activeTool },
+      nodeCount: this.nodes.size,
+      returnedCount: nodeList.length,
+      truncated,
+      canUndo: this.canUndo(),
+      canRedo: this.canRedo(),
+      nodes: nodeList.map((n) => {
+        const data = n.data as Record<string, unknown> | undefined;
+        let text: string | undefined;
+        let label: string | undefined;
+        let color: string | undefined;
+        if (n.type === "text" && data) {
+          text = (data as TextNode["data"]).text;
+          color = (data as TextNode["data"]).color;
+        } else if (n.type === "sticky" && data) {
+          text = (data as StickyNoteNode["data"]).text;
+          color = (data as StickyNoteNode["data"]).color;
+        } else if (n.type === "shape" && data) {
+          label = (data as ShapeNode["data"]).label;
+          color = (data as ShapeNode["data"]).stroke;
+        } else if (n.type === "edge" && data) {
+          label = (data as EdgeNode["data"]).label;
+          color = (data as EdgeNode["data"]).color;
+        } else if (n.type === "frame" && data) {
+          label = (data as FrameNode["data"]).label;
+        } else if (n.type === "content" && data) {
+          const md = (data as ContentNode["data"]).markdown;
+          if (md) text = md.length > 200 ? md.slice(0, 197) + "..." : md;
+        }
+        return {
+          id: n.id,
+          type: n.type,
+          x: n.x, y: n.y,
+          w: n.w, h: n.h,
+          rotation: n.rotation,
+          locked: n.locked,
+          groupId: n.groupId,
+          text,
+          label,
+          color,
+        };
+      }),
+    };
+  }
+
+  /** Human-readable markdown summary of the current canvas, optimized for LLM prompts. */
+  getAgentStateMarkdown(options?: AgentStateOptions): string {
+    const s = this.getAgentState(options);
+    const lines: string[] = [];
+    lines.push(`**Mode:** ${s.mode}  **Nodes:** ${s.nodeCount}  **Selected:** ${s.selection.length}`);
+    lines.push(`**Viewport:** center (${Math.round(s.viewport.x)} ${Math.round(s.viewport.y)}), zoom ${s.viewport.zoom.toFixed(2)}`);
+    if (s.truncated) {
+      lines.push(`**Showing:** first ${s.returnedCount} of ${s.nodeCount} nodes (truncated — pass \`limit\` / \`region\` / \`types\` to narrow).`);
+    }
+    if (s.canUndo) lines.push("**Undo available:** yes");
+    if (s.canRedo) lines.push("**Redo available:** yes");
+
+    const byType = new Map<string, typeof s.nodes>();
+    for (const n of s.nodes) {
+      const group = byType.get(n.type) || [];
+      group.push(n);
+      byType.set(n.type, group);
+    }
+
+    for (const [type, nodes] of byType) {
+      lines.push(`\n**${type}** (${nodes.length}):`);
+      for (const n of nodes.slice(0, 20)) {
+        const pos = `(${Math.round(n.x)}, ${Math.round(n.y)})`;
+        const size = `${Math.round(n.w)}×${n.h === "auto" ? "auto" : Math.round(n.h as number)}`;
+        const desc = [n.label, n.text].filter(Boolean).join(" — ");
+        lines.push(`  • \`${n.id.slice(0, 8)}\` ${type} at ${pos} ${size}${desc ? ` — ${desc.slice(0, 80)}` : ""}`);
+      }
+      if (nodes.length > 20) lines.push(`  … and ${nodes.length - 20} more`);
+    }
+
+    return lines.join("\n");
+  }
+
+  // ── Viewport animation ──────────────────────────────────────
+
+  /** Smoothly animate the viewport to a target position/zoom.
+   *  Returns a Promise that resolves when the animation completes. */
+  animateViewport(
+    target: { x?: number; y?: number; zoom?: number },
+    options?: { duration?: number },
+  ): Promise<void> {
+    const duration = options?.duration ?? 400;
+    const from = { ...this.viewport };
+    const to = {
+      x: target.x ?? this.viewport.x,
+      y: target.y ?? this.viewport.y,
+      zoom: target.zoom ?? this.viewport.zoom,
+    };
+    return new Promise((resolve) => {
+      const startTime = performance.now();
+      const animate = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        this.viewport.x = from.x + (to.x - from.x) * ease;
+        this.viewport.y = from.y + (to.y - from.y) * ease;
+        this.viewport.zoom = from.zoom + (to.zoom - from.zoom) * ease;
+        this.emit("viewport");
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(animate);
+    });
+  }
+
+  /** Smoothly pan so the canvas point (cx, cy) is centered.
+   *  Returns a Promise that resolves when the animation completes. */
+  animatePanTo(cx: number, cy: number, duration?: number): Promise<void> {
+    const screenW = this._containerWidth;
+    const screenH = this._containerHeight;
+    return this.animateViewport(
+      { x: screenW / 2 - cx * this.viewport.zoom, y: screenH / 2 - cy * this.viewport.zoom },
+      { duration },
+    );
+  }
+
+  /** Smoothly zoom to a level. Returns a Promise that resolves when done. */
+  animateZoomTo(level: number, duration?: number): Promise<void> {
+    const clamped = clamp(level, 0.1, 5);
+    return this.animateViewport({ zoom: clamped }, { duration });
+  }
+
+  /** Smoothly zoom and center on a specific node, sized to fit with padding.
+   *  Returns a Promise that resolves when the animation completes. */
+  animateZoomToNode(nodeId: string, duration?: number): Promise<void> {
+    const node = this.nodes.get(nodeId);
+    if (!node) return Promise.reject(new Error(`Node "${nodeId}" not found`));
+    const h = this.resolveHeight(node);
+    const cx = node.x + node.w / 2;
+    const cy = node.y + h / 2;
+    const screenW = this._containerWidth;
+    const screenH = this._containerHeight;
+    const padding = 80;
+    const targetZoom = clamp(
+      Math.min(
+        (screenW - padding * 2) / Math.max(node.w, 1),
+        (screenH - padding * 2) / Math.max(h, 1),
+      ),
+      0.2,
+      5,
+    );
+    return this.animateViewport({
+      x: screenW / 2 - cx * targetZoom,
+      y: screenH / 2 - cy * targetZoom,
+      zoom: targetZoom,
+    }, { duration });
   }
 }
