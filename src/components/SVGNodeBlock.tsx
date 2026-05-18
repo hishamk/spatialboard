@@ -154,9 +154,12 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
     return { kind: "rough" as const, paths: allRoughPaths, regions };
   }, [node.data.fill, node.data.fillStyle, node.data.points, node.data.strokeWidth]);
 
-  const h = node.h === "auto" ? 0 : (node.h as number);
+  const rawH = node.h === "auto" ? 0 : (node.h as number);
+  const w = Number.isFinite(node.w) ? (node.w as number) : 0;
+  const h = Number.isFinite(rawH) ? rawH : 0;
   // Add padding around the stroke so it doesn't clip at edges
-  const pad = node.data.strokeWidth * 4;
+  const strokeWidth = Number.isFinite(node.data.strokeWidth) ? node.data.strokeWidth : 0;
+  const pad = strokeWidth * 4;
 
   return (
     <div
@@ -164,7 +167,7 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
         position: "absolute",
         left: node.x - pad,
         top: node.y - pad,
-        width: node.w + pad * 2,
+        width: w + pad * 2,
         height: h + pad * 2,
         zIndex: node.z,
         pointerEvents: "none",
@@ -173,7 +176,7 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
       }}
     >
       <svg
-        width={node.w + pad * 2}
+        width={w + pad * 2}
         height={h + pad * 2}
         style={{ overflow: "visible" }}
       >
@@ -241,8 +244,11 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
 
 /** Clean vector polygon rendering for precise shapes (icons, logos). */
 const VectorBlock = memo(function VectorBlock({ node }: { node: DrawNode }) {
-  const h = node.h === "auto" ? 0 : (node.h as number);
-  const pad = node.data.strokeWidth * 2;
+  const rawH = node.h === "auto" ? 0 : (node.h as number);
+  const w = Number.isFinite(node.w) ? (node.w as number) : 0;
+  const h = Number.isFinite(rawH) ? rawH : 0;
+  const strokeWidth = Number.isFinite(node.data.strokeWidth) ? node.data.strokeWidth : 0;
+  const pad = strokeWidth * 2;
 
   const polyPath = useMemo(() => {
     const pts = node.data.points;
@@ -264,7 +270,7 @@ const VectorBlock = memo(function VectorBlock({ node }: { node: DrawNode }) {
         position: "absolute",
         left: node.x - pad,
         top: node.y - pad,
-        width: node.w + pad * 2,
+        width: w + pad * 2,
         height: h + pad * 2,
         zIndex: node.z,
         pointerEvents: "none",
@@ -273,7 +279,7 @@ const VectorBlock = memo(function VectorBlock({ node }: { node: DrawNode }) {
       }}
     >
       <svg
-        width={node.w + pad * 2}
+        width={w + pad * 2}
         height={h + pad * 2}
         style={{ overflow: "visible" }}
       >
@@ -302,14 +308,17 @@ const VectorBlock = memo(function VectorBlock({ node }: { node: DrawNode }) {
 });
 
 const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: ShapeNode; editingLabel?: boolean }) {
-  const h = node.h === "auto" ? 100 : (node.h as number);
-  const pad = node.data.strokeWidth * 2;
+  const rawH = node.h === "auto" ? 100 : (node.h as number);
+  const w = Number.isFinite(node.w) ? (node.w as number) : 0;
+  const h = Number.isFinite(rawH) ? rawH : 100;
+  const strokeWidth = Number.isFinite(node.data.strokeWidth) ? node.data.strokeWidth : 0;
+  const pad = strokeWidth * 2;
   const dashArray = strokeStyleToDash(node.data.strokeStyle);
 
   // Get line/arrow endpoints (relative to node origin)
   const x1 = node.data.startPoint?.[0] ?? 0;
   const y1 = node.data.startPoint?.[1] ?? h / 2;
-  const x2 = node.data.endPoint?.[0] ?? node.w;
+  const x2 = node.data.endPoint?.[0] ?? w;
   const y2 = node.data.endPoint?.[1] ?? h / 2;
 
   const paths = useMemo(() => {
@@ -328,11 +337,11 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
     const isRounded = node.data.edgeStyle === "round";
     switch (node.data.shape) {
       case "rect":
-        return getRoughRectPaths(0, 0, node.w, h, opts, isRounded);
+        return getRoughRectPaths(0, 0, w, h, opts, isRounded);
       case "ellipse":
-        return getRoughEllipsePaths(node.w / 2, h / 2, node.w, h, opts);
+        return getRoughEllipsePaths(w / 2, h / 2, w, h, opts);
       case "diamond":
-        return getRoughDiamondPaths(0, 0, node.w, h, opts, isRounded);
+        return getRoughDiamondPaths(0, 0, w, h, opts, isRounded);
       case "line":
         return getRoughLinePaths(x1, y1, x2, y2, opts);
       case "arrow":
@@ -340,7 +349,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
       default:
         return null;
     }
-  }, [node, dashArray, x1, y1, x2, y2, h]);
+  }, [node, dashArray, x1, y1, x2, y2, w, h]);
 
   // For solid fill + roughness > 0, use clean geometry behind rough stroke
   // to avoid fill-stroke boundary misalignment from independent randomization.
@@ -360,7 +369,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
         position: "absolute",
         left: node.x,
         top: node.y,
-        width: node.w,
+        width: w,
         height: h,
         zIndex: node.z,
         pointerEvents: "none",
@@ -370,7 +379,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
       }}
     >
       <svg
-        width={node.w + pad * 2}
+        width={w + pad * 2}
         height={h + pad * 2}
         style={{ overflow: "visible", marginLeft: -pad, marginTop: -pad }}
       >
@@ -378,7 +387,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
           {solidFillBehind && (
             <CleanShapeFill
               shape={node.data.shape}
-              w={node.w}
+              w={w}
               h={h}
               fill={node.data.fill!}
               rounded={node.data.edgeStyle === "round"}
@@ -404,7 +413,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
           ) : (
             <CleanShape
               shape={node.data.shape}
-              w={node.w}
+              w={w}
               h={h}
               x1={x1}
               y1={y1}
@@ -420,7 +429,7 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
           {/* Invisible hit area — captures pointer events on the shape geometry */}
           <ShapeHitArea
             shape={node.data.shape}
-            w={node.w}
+            w={w}
             h={h}
             x1={x1}
             y1={y1}
