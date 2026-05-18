@@ -8,9 +8,10 @@ export interface FreehandOptions {
 }
 
 export function getStrokePath(
-  points: Array<[number, number, number]>,
+  points: Array<[number, number, number]> | undefined | null,
   options: FreehandOptions = {}
 ): string {
+  if (!Array.isArray(points) || points.length === 0) return "";
   const outlinePoints = getStroke(points, {
     size: options.size || 4,
     thinning: options.thinning ?? 0.5,

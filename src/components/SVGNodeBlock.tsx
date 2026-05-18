@@ -68,7 +68,7 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
   const centerLinePath = useMemo(() => {
     if (!isDashed) return null;
     const pts = node.data.points;
-    if (pts.length < 2) return "";
+    if (!pts || pts.length < 2) return "";
     const d: (string | number)[] = ["M", pts[0][0], pts[0][1]];
     for (let i = 1; i < pts.length; i++) {
       const [px, py] = pts[i];
@@ -84,7 +84,7 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
   // The <clipPath> (stroke outline) constrains fill to the interior,
   // so no centroid shrink is needed — use original points directly.
   const fillData = useMemo(() => {
-    if (!node.data.fill || node.data.points.length < 3) return null;
+    if (!node.data.fill || !node.data.points || node.data.points.length < 3) return null;
     const raw = node.data.points.map((p) => [p[0], p[1]] as [number, number]);
 
     // Apply the same streamline filter as perfect-freehand so fill
