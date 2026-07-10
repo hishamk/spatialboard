@@ -393,6 +393,15 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     const target = e.target as HTMLElement;
     if (isEditorTarget(target)) return;
 
+    // Scope shortcuts to the board that holds keyboard focus. Several boards
+    // can be mounted at once (e.g. FlexLayout panel tabs); this window-level
+    // listener would otherwise fire select-all / delete on EVERY board when
+    // the user is working in a different panel. The board is made focusable
+    // and focuses itself on pointer-down (see SpatialBoard), so "contains the
+    // active element" is a reliable "this board is active" signal. When no
+    // container was provided we keep the legacy global behavior.
+    if (container && !container.contains(currentDoc.activeElement)) return;
+
     // ── Presentation mode ──
     if (engine.presentationMode) {
       if (e.key === "ArrowRight" || e.key === " ") {

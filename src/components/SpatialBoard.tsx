@@ -229,10 +229,28 @@ export default function SpatialBoard({
     <div
       ref={boardRef}
       dir={localizationValue.dir}
+      // Focusable so keyboard shortcuts can be scoped to the active board
+      // (setupKeyboardHandler only reacts when this element holds focus).
+      // Pointer-down inside focuses it — unless the target is a text field
+      // (node text editing), which must keep its own focus.
+      tabIndex={keyboardShortcuts ? 0 : undefined}
+      onPointerDownCapture={
+        keyboardShortcuts
+          ? (e) => {
+              const t = e.target as HTMLElement;
+              if (t.closest('input, textarea, [contenteditable="true"]')) return;
+              const el = boardRef.current;
+              if (el && !el.contains(el.ownerDocument.activeElement)) {
+                el.focus({ preventScroll: true });
+              }
+            }
+          : undefined
+      }
       style={{
         width: "100%",
         height: "100%",
         position: "relative",
+        outline: "none",
         ...style,
       }}
     >
