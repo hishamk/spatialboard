@@ -1,6 +1,6 @@
 import { jsxs as f, jsx as i } from "react/jsx-runtime";
 import { useState as y, useEffect as $ } from "react";
-import { n as v } from "./index-Cd_bJLSC.js";
+import { n as v } from "./index-DjNLPF6Q.js";
 async function I(n) {
   console.log("Starting Benchmark...");
   const a = 1e4, t = 1e3, s = 5e3;

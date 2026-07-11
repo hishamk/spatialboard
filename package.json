@@ -61,7 +61,7 @@
     "react-dom": "^18"
   },
   "dependencies": {
-    "lucide-react": "^0.555.0",
+    "@phosphor-icons/react": "^2.1.10",
     "nanoid": "^5",
     "perfect-freehand": "^1.2",
     "roughjs": "^4.6"

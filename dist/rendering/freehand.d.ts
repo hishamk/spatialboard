@@ -4,7 +4,7 @@ export interface FreehandOptions {
     smoothing?: number;
     streamline?: number;
 }
-export declare function getStrokePath(points: Array<[number, number, number]>, options?: FreehandOptions): string;
+export declare function getStrokePath(points: Array<[number, number, number]> | undefined | null, options?: FreehandOptions): string;
 /**
  * Replicate perfect-freehand's streamline smoothing (EMA filter) so that
  * fill boundaries track the stroke center line exactly.

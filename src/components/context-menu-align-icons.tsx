@@ -1,29 +1,29 @@
 import type { ReactNode } from "react";
 import {
-  AlignHorizontalJustifyCenter,
-  AlignHorizontalJustifyEnd,
-  AlignHorizontalJustifyStart,
-  AlignHorizontalSpaceBetween,
-  AlignVerticalJustifyCenter,
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
-  AlignVerticalSpaceBetween,
-} from "lucide-react";
+  AlignBottom,
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignLeft,
+  AlignRight,
+  AlignTop,
+  ArrowsOutLineHorizontal,
+  ArrowsOutLineVertical,
+} from "@phosphor-icons/react";
 
 const p = {
   size: 16,
-  strokeWidth: 2,
+  weight: "duotone" as const,
   "aria-hidden": true as boolean,
 };
 
-/** Lucide icons for align / distribute rows in the canvas context menu. */
+/** Phosphor duotone icons for align / distribute rows in the canvas context menu. */
 export const SB_ALIGN_MENU_ICONS: Record<string, ReactNode> = {
-  alignHLeft: <AlignHorizontalJustifyStart {...p} />,
-  alignHCenter: <AlignHorizontalJustifyCenter {...p} />,
-  alignHRight: <AlignHorizontalJustifyEnd {...p} />,
-  distributeH: <AlignHorizontalSpaceBetween {...p} />,
-  alignVTop: <AlignVerticalJustifyStart {...p} />,
-  alignVCenter: <AlignVerticalJustifyCenter {...p} />,
-  alignVBottom: <AlignVerticalJustifyEnd {...p} />,
-  distributeV: <AlignVerticalSpaceBetween {...p} />,
+  alignHLeft: <AlignLeft {...p} />,
+  alignHCenter: <AlignCenterHorizontal {...p} />,
+  alignHRight: <AlignRight {...p} />,
+  distributeH: <ArrowsOutLineHorizontal {...p} />,
+  alignVTop: <AlignTop {...p} />,
+  alignVCenter: <AlignCenterVertical {...p} />,
+  alignVBottom: <AlignBottom {...p} />,
+  distributeV: <ArrowsOutLineVertical {...p} />,
 };

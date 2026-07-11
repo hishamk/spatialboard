@@ -1,4 +1,4 @@
-import type { SpatialNode, Viewport, Mode, ActiveTool, NodeType } from "./types";
+import type { SpatialNode, Viewport, Mode, ActiveTool, NodeType, HandleSide, EdgeType, AgentCanvasState, AgentStateOptions } from "./types";
 import type { NodeTypeRegistry, SpatialNodeTypeCatalogEntry } from "../nodes/registry";
 import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
 import type { RectDragAwareness } from "../collab/rect-drag-awareness";
@@ -162,6 +162,14 @@ export declare class SpatialEngine {
     private listeners;
     private _suppressEvents;
     private _collabMode;
+    /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
+     *  so a single `beginAgentAction()` snapshot covers multiple operations. */
+    private _agentActionDepth;
+    /** Auto-reset timer for `beginAgentAction()` when no matching `endAgentAction()`
+     *  arrives in time (cross-process MCP callers can crash between begin/end). */
+    private _agentActionTimer;
+    /** Max ms between begin/end before depth is force-reset to 0. */
+    private static readonly AGENT_ACTION_TIMEOUT_MS;
     private clipboard;
     private pasteCount;
     private nextZValue;
@@ -530,5 +538,167 @@ export declare class SpatialEngine {
         viewport?: Viewport;
         groupParent?: [string, string][];
     }): void;
+    /** Begin a grouped agent action. All subsequent `addNode`/`addNodes` calls
+     *  share one undo snapshot until `endAgentAction()` is called.
+     *  Calling this while already inside a group is a no-op (idempotent).
+     *
+     *  Safety: if `endAgentAction()` is not called within `AGENT_ACTION_TIMEOUT_MS`
+     *  (default 60s), the depth is force-reset to 0 so a crashed MCP client can't
+     *  permanently disable per-op undo snapshots. In-process JS callers should
+     *  prefer `runAgentAction(fn)` which handles begin/end via try/finally. */
+    beginAgentAction(): void;
+    /** End a grouped agent action. The undo snapshot pushed by `beginAgentAction()`
+     *  now covers all intermediate mutations. */
+    endAgentAction(): void;
+    /** Run a callback inside a `begin/end` agent action with try/finally semantics.
+     *  Use this from in-process JS callers (the dev-app demo, tests, etc.) so a
+     *  thrown exception can never leak `_agentActionDepth`. Supports sync + async. */
+    runAgentAction<T>(fn: () => T | Promise<T>): T | Promise<T>;
+    /** Whether the engine is inside a `beginAgentAction()` / `endAgentAction()` block. */
+    get isInAgentAction(): boolean;
+    /** Set mode and active tool in a single call — reduces agent round-trips. */
+    activateTool(config: {
+        mode: Mode;
+        color?: string;
+        width?: number;
+        shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+        fillColor?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        strokeStyle?: "solid" | "dashed" | "dotted";
+        roughness?: number;
+        opacity?: number;
+        fontSize?: number;
+        fontFamily?: string;
+        textAlign?: "left" | "center" | "right";
+        edgeType?: EdgeType;
+        arrowHead?: "none" | "arrow" | "filled" | "dot";
+        arrowTail?: "none" | "arrow" | "filled" | "dot";
+    }): void;
+    /** Create a shape node (rect, ellipse, diamond, line, arrow).
+     *  Returns the new node id. */
+    createShape(shape: "rect" | "ellipse" | "diamond" | "line" | "arrow", x: number, y: number, w: number, h: number, options?: {
+        stroke?: string;
+        strokeWidth?: number;
+        fill?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        roughness?: number;
+        opacity?: number;
+        label?: string;
+        labelFontSize?: number;
+        strokeStyle?: "solid" | "dashed" | "dotted";
+        edgeStyle?: "sharp" | "round";
+    }): string;
+    /** Create a text node. Returns the new node id. */
+    createText(text: string, x: number, y: number, options?: {
+        w?: number;
+        fontSize?: number;
+        fontFamily?: string;
+        color?: string;
+        align?: "left" | "center" | "right";
+        opacity?: number;
+        borderColor?: string;
+        borderWidth?: number;
+        borderStyle?: "solid" | "dashed" | "dotted";
+    }): string;
+    /** Estimate text block height from rough line count. */
+    private estimateTextBlockHeight;
+    /** Create a sticky note. Returns the new node id. */
+    createSticky(text: string, x: number, y: number, options?: {
+        w?: number;
+        h?: number;
+        color?: string;
+        fontSize?: number;
+        opacity?: number;
+        edgeStyle?: "sharp" | "round";
+    }): string;
+    /** Create a rich-content block (BlockNote). Returns the new node id. */
+    createContentBlock(blocks: unknown[], x: number, y: number, options?: {
+        w?: number;
+        h?: number | "auto";
+        markdown?: string;
+        borderColor?: string;
+        borderWidth?: number;
+        borderStyle?: "solid" | "dashed" | "dotted";
+        opacity?: number;
+        edgeStyle?: "sharp" | "round";
+    }): string;
+    /** Create a frame node. Returns the new node id. */
+    createFrame(x: number, y: number, w: number, h: number, options?: {
+        label?: string;
+        backgroundColor?: string;
+        borderColor?: string;
+        borderWidth?: number;
+        borderStyle?: "solid" | "dashed" | "dotted";
+        opacity?: number;
+        slideOrder?: number;
+        devicePreset?: string;
+    }): string;
+    /** Create an image node. Returns the new node id. */
+    createImage(src: string, x: number, y: number, options?: {
+        w?: number;
+        h?: number;
+        alt?: string;
+        opacity?: number;
+        flipH?: boolean;
+        flipV?: boolean;
+        borderColor?: string;
+        borderWidth?: number;
+        borderStyle?: "solid" | "dashed" | "dotted";
+    }): string;
+    /** Create a draw stroke (freehand drawing). Returns the new node id.
+     *  Points are in canvas coordinates; they are normalized relative to the
+     *  computed bounding box internally. */
+    createDrawStroke(points: Array<[number, number, number?]>, options?: {
+        color?: string;
+        width?: number;
+        tool?: "pen" | "pencil" | "highlighter" | "vector";
+        opacity?: number;
+        fill?: string;
+        fillStyle?: "hachure" | "cross-hatch" | "solid";
+        strokeStyle?: "solid" | "dashed" | "dotted";
+    }): string;
+    /** Create an edge connecting two nodes. Returns the new node id. */
+    createEdge(fromId: string, toId: string, options?: {
+        label?: string;
+        color?: string;
+        strokeWidth?: number;
+        edgeType?: EdgeType;
+        arrowHead?: "none" | "arrow" | "filled" | "dot";
+        arrowTail?: "none" | "arrow" | "filled" | "dot";
+        sourceHandle?: HandleSide;
+        targetHandle?: HandleSide;
+        style?: "solid" | "dashed" | "dotted";
+        animated?: boolean;
+        animatedDirection?: "forward" | "reverse" | "both" | "bop";
+        sourcePort?: string;
+        targetPort?: string;
+        roughness?: number;
+        attachmentGap?: number;
+    }): string;
+    /** Full structured snapshot of the engine for agent/LLM consumption.
+     *
+     *  Defaults to a 200-node cap to keep LLM context manageable on large boards.
+     *  Pass `limit: 0` to disable the cap (caller takes responsibility for size).
+     *  Use `nodeIds` / `types` / `region` to narrow before truncation. */
+    getAgentState(options?: AgentStateOptions): AgentCanvasState;
+    /** Human-readable markdown summary of the current canvas, optimized for LLM prompts. */
+    getAgentStateMarkdown(options?: AgentStateOptions): string;
+    /** Smoothly animate the viewport to a target position/zoom.
+     *  Returns a Promise that resolves when the animation completes. */
+    animateViewport(target: {
+        x?: number;
+        y?: number;
+        zoom?: number;
+    }, options?: {
+        duration?: number;
+    }): Promise<void>;
+    /** Smoothly pan so the canvas point (cx, cy) is centered.
+     *  Returns a Promise that resolves when the animation completes. */
+    animatePanTo(cx: number, cy: number, duration?: number): Promise<void>;
+    /** Smoothly zoom to a level. Returns a Promise that resolves when done. */
+    animateZoomTo(level: number, duration?: number): Promise<void>;
+    /** Smoothly zoom and center on a specific node, sized to fit with padding.
+     *  Returns a Promise that resolves when the animation completes. */
+    animateZoomToNode(nodeId: string, duration?: number): Promise<void>;
 }
 export {};
