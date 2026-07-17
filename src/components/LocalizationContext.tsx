@@ -11,6 +11,8 @@ export interface CustomNodeDocEntry {
 export interface SpatialBoardLocalization {
   inspectorTitle: string;
   autoHide: string;
+  popOut: string;
+  dockIn: string;
   performanceTitle: string;
   perfVirtualization: string;
   perfOn: string;
@@ -252,6 +254,8 @@ export interface SpatialBoardLocalization {
 export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   inspectorTitle: "Inspector",
   autoHide: "Auto-hide",
+  popOut: "Pop out",
+  dockIn: "Dock back into the canvas",
   performanceTitle: "Performance",
   perfVirtualization: "Virtualization",
   perfOn: "on",

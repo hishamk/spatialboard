@@ -55,6 +55,12 @@ export interface SpatialBoardProps {
   onPresentationChange?: (presenting: boolean) => void;
   /** Base URL for GIF search API proxy (e.g. "/api/v1/gifs"). */
   gifApiBaseUrl?: string;
+  /**
+   * Whether the host surface (e.g. the app panel embedding this board) is the
+   * active/frontmost one. Only affects the popped-out inspector: when false it
+   * hides so it doesn't float over unrelated content. Defaults to true.
+   */
+  hostActive?: boolean;
   /** Layout direction for board chrome (sidebar/panels): ltr, rtl, or auto (uses document direction). */
   direction?: SpatialBoardDirection;
   /** Override UI labels for board chrome. */
@@ -106,6 +112,7 @@ export default function SpatialBoard({
   theme,
   onPresentationChange,
   gifApiBaseUrl,
+  hostActive,
   direction,
   localization,
   dataFlowEdgeOverlay = "off",
@@ -256,7 +263,7 @@ export default function SpatialBoard({
     >
       {/* sidebar (creation tool strip) hidden in readOnly: viewers
           can't add nodes anyway, no point in surfacing the affordance. */}
-      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} />}
+      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{

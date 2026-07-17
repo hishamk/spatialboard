@@ -11,9 +11,10 @@ interface SidebarProps {
   engine: SpatialEngine;
   registry?: NodeTypeRegistry;
   gifApiBaseUrl?: string;
+  hostActive?: boolean;
 }
 
-export default function Sidebar({ engine, registry, gifApiBaseUrl }: SidebarProps) {
+export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive }: SidebarProps) {
   const { isRTL } = useSBI18n();
   return (
     <>
@@ -32,7 +33,7 @@ export default function Sidebar({ engine, registry, gifApiBaseUrl }: SidebarProp
       >
         <ToolStrip engine={engine} gifApiBaseUrl={gifApiBaseUrl} />
       </div>
-      <FloatingProperties engine={engine} registry={registry} />
+      <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} />
     </>
   );
 }

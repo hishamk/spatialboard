@@ -6,5 +6,6 @@ interface SidebarProps {
     engine: SpatialEngine;
     registry?: NodeTypeRegistry;
     gifApiBaseUrl?: string;
+    hostActive?: boolean;
 }
-export default function Sidebar({ engine, registry, gifApiBaseUrl }: SidebarProps): import("react/jsx-runtime").JSX.Element;
+export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive }: SidebarProps): import("react/jsx-runtime").JSX.Element;
