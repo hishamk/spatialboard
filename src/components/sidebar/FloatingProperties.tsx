@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { useMultiSelection } from "./useMultiSelection";
@@ -10,9 +11,11 @@ import { useSBI18n } from "../LocalizationContext";
 interface FloatingPropertiesProps {
   engine: SpatialEngine;
   registry?: NodeTypeRegistry;
+  /** When false, a popped-out inspector hides (its host panel is backgrounded). */
+  hostActive?: boolean;
 }
 
-export default function FloatingProperties({ engine, registry }: FloatingPropertiesProps) {
+export default function FloatingProperties({ engine, registry, hostActive }: FloatingPropertiesProps) {
   const theme = useSBTheme();
   const { isRTL, labels } = useSBI18n();
   const { target, commonProps } = useMultiSelection(engine);
@@ -73,6 +76,9 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
     startTop: number;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  // Pop-out: portal the inspector to document.body (position: fixed) so it can
+  // float outside the canvas panel. Docking back resets to the default corner.
+  const [poppedOut, setPoppedOut] = useState(false);
 
   const getContainerSize = useCallback(() => {
     const container = panelRef.current?.offsetParent as HTMLElement | null;
@@ -129,7 +135,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       autoHideInitializedRef.current = true;
     }
     return () => ro.disconnect();
-  }, [computeCompactScreen]);
+  }, [computeCompactScreen, poppedOut]);
 
   // On compact screens (iPad + smaller), auto-hide inspector while user is actively
   // interacting with the canvas (draw/select/drag/edit), then restore shortly after.
@@ -239,10 +245,13 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       const { width: cw, height: ch } = getContainerSize();
-      const minX = isRTL ? 8 : TOOL_STRIP_WIDTH;
-      const maxX = isRTL
-        ? cw - PROPERTIES_WIDTH - TOOL_STRIP_WIDTH - 8
-        : cw - PROPERTIES_WIDTH - 8;
+      // Popped out: fixed to the viewport — full-window bounds, no tool-strip inset.
+      const minX = poppedOut ? 8 : isRTL ? 8 : TOOL_STRIP_WIDTH;
+      const maxX = poppedOut
+        ? cw - PROPERTIES_WIDTH - 8
+        : isRTL
+          ? cw - PROPERTIES_WIDTH - TOOL_STRIP_WIDTH - 8
+          : cw - PROPERTIES_WIDTH - 8;
       const newX = Math.max(
         minX,
         Math.min(maxX, dragRef.current.startLeft + dx)
@@ -253,12 +262,27 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       );
       setPosition({ x: newX, y: newY });
     },
-    [getContainerSize, isRTL]
+    [getContainerSize, isRTL, poppedOut]
   );
 
   const handleDragPointerUp = useCallback(() => {
     dragRef.current = null;
     setIsDragging(false);
+  }, []);
+
+  const handlePopOut = useCallback(() => {
+    // Keep the panel visually in place: fixed positioning uses viewport
+    // coords, so seed them from the current on-screen rect.
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (rect) setPosition({ x: rect.left, y: rect.top });
+    setPoppedOut(true);
+  }, []);
+
+  const handleDockIn = useCallback(() => {
+    setPoppedOut(false);
+    // Back to the default docked corner (recomputed by the layout effect).
+    setPosition(null);
+    hasSetInitial.current = false;
   }, []);
 
   const shouldHideForInteraction = autoHideEnabled && canvasInteracting;
@@ -355,12 +379,12 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
     );
   }
 
-  return (
+  const desktopPanel = (
     <div
       ref={panelRef}
       data-sb-props-panel
       style={{
-        position: "absolute",
+        position: poppedOut ? "fixed" : "absolute",
         left: panelPos.x,
         top: panelPos.y,
         width: PROPERTIES_WIDTH,
@@ -369,10 +393,10 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         padding: "0 0 12px",
         display: "flex",
         flexDirection: "column",
-        zIndex: 99,
+        zIndex: poppedOut ? 9990 : 99,
         color: theme.text,
         fontSize: 11,
-        maxHeight: "calc(100% - 40px)",
+        maxHeight: poppedOut ? "calc(100vh - 40px)" : "calc(100% - 40px)",
         boxShadow: theme.panelShadow,
         backdropFilter: "blur(8px) saturate(120%)",
         WebkitBackdropFilter: "blur(8px) saturate(120%)",
@@ -406,6 +430,7 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
         }}
       >
         <span style={{ fontWeight: 600, letterSpacing: "0.02em" }}>{labels.inspectorTitle}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <label
           data-no-panel-drag
           style={{
@@ -427,6 +452,43 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
             style={{ accentColor: theme.accentColor }}
           />
         </label>
+        <button
+          type="button"
+          data-no-panel-drag
+          title={poppedOut ? labels.dockIn : labels.popOut}
+          aria-label={poppedOut ? labels.dockIn : labels.popOut}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={poppedOut ? handleDockIn : handlePopOut}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 20,
+            height: 20,
+            padding: 0,
+            border: "none",
+            borderRadius: 5,
+            background: "transparent",
+            color: theme.textMuted,
+            cursor: "pointer",
+          }}
+        >
+          {poppedOut ? (
+            /* dock back: arrow into a corner box */
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4.5 1.5h5a1 1 0 0 1 1 1v5" />
+              <rect x="1.5" y="4.5" width="6" height="6" rx="1" />
+            </svg>
+          ) : (
+            /* pop out: box + outward arrow */
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 1.5H2.5a1 1 0 0 0-1 1V9.5a1 1 0 0 0 1 1H9.5a1 1 0 0 0 1-1V7" />
+              <path d="M7.5 1.5h3v3" />
+              <path d="M10.5 1.5 6 6" />
+            </svg>
+          )}
+        </button>
+        </span>
       </div>
 
       {/* Scrollable content */}
@@ -450,4 +512,12 @@ export default function FloatingProperties({ engine, registry }: FloatingPropert
       </div>
     </div>
   );
+
+  // Popped out: escape the canvas panel entirely via a body portal. When the
+  // host panel isn't the active one, keep it mounted (position/state survive)
+  // but hidden — a floating inspector over unrelated content is just noise.
+  if (poppedOut && hostActive === false) {
+    return createPortal(<div style={{ display: "none" }}>{desktopPanel}</div>, document.body);
+  }
+  return poppedOut ? createPortal(desktopPanel, document.body) : desktopPanel;
 }

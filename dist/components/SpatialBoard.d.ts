@@ -29,6 +29,12 @@ export interface SpatialBoardProps {
     onPresentationChange?: (presenting: boolean) => void;
     /** Base URL for GIF search API proxy (e.g. "/api/v1/gifs"). */
     gifApiBaseUrl?: string;
+    /**
+     * Whether the host surface (e.g. the app panel embedding this board) is the
+     * active/frontmost one. Only affects the popped-out inspector: when false it
+     * hides so it doesn't float over unrelated content. Defaults to true.
+     */
+    hostActive?: boolean;
     /** Layout direction for board chrome (sidebar/panels): ltr, rtl, or auto (uses document direction). */
     direction?: SpatialBoardDirection;
     /** Override UI labels for board chrome. */
@@ -67,4 +73,4 @@ export interface SpatialBoardProps {
      */
     singleFrameId?: string;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

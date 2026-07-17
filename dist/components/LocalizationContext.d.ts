@@ -7,6 +7,8 @@ export interface CustomNodeDocEntry {
 export interface SpatialBoardLocalization {
     inspectorTitle: string;
     autoHide: string;
+    popOut: string;
+    dockIn: string;
     performanceTitle: string;
     perfVirtualization: string;
     perfOn: string;
