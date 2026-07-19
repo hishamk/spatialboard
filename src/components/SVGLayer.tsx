@@ -25,6 +25,7 @@ import {
   PORT_EDGE_SNAP_RADIUS_PX,
 } from "../engine/edge-geometry";
 import type { NodeTypeRegistry } from "../nodes/registry";
+import { resolveNodePorts, nodeTypeHasPorts } from "../nodes/registry";
 import type { PortDataType, PortValue } from "../engine/data-flow-types";
 import { nodeShowsEdgeComputeOverlay } from "../engine/data-flow-types";
 import { getRotatedCursor } from "../interactions/resize-cursors";
@@ -49,8 +50,9 @@ function getDownstreamPortErrorMessage(
 ): string | null {
   if (!registry || !getPortValue || !toNode.id) return null;
   const def = registry.get(toNode.type);
-  if (!def?.ports) return null;
-  for (const p of def.ports) {
+  const ports = resolveNodePorts(def, toNode);
+  if (!ports) return null;
+  for (const p of ports) {
     if (p.direction !== "output") continue;
     if (p.id !== "error" && p.id !== "err") continue;
     const v = getPortValue(toNode.id, p.id);
@@ -404,14 +406,16 @@ const EdgeRenderer = memo(function EdgeRenderer({
   let targetPortPos: { x: number; y: number } | undefined;
   if (registry && edge.data.sourcePort) {
     const srcDef = registry.get(fromNode.type);
-    if (srcDef?.ports) {
-      sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef.portAnchor ?? "bbox") ?? undefined;
+    const srcPorts = resolveNodePorts(srcDef, fromNode);
+    if (srcPorts) {
+      sourcePortPos = getPortPosition(fromNode, srcPorts, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef!.portAnchor ?? "bbox") ?? undefined;
     }
   }
   if (registry && edge.data.targetPort) {
     const tgtDef = registry.get(toNode.type);
-    if (tgtDef?.ports) {
-      targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef.portAnchor ?? "bbox") ?? undefined;
+    const tgtPorts = resolveNodePorts(tgtDef, toNode);
+    if (tgtPorts) {
+      targetPortPos = getPortPosition(toNode, tgtPorts, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef!.portAnchor ?? "bbox") ?? undefined;
     }
   }
 
@@ -960,7 +964,7 @@ export default function SVGLayer({
             for (const n of nodes) {
               if (n.type === "edge" || n.id === dragSourceId) continue;
               // Skip nodes with ports — those use port handles instead
-              if (registry?.get(n.type)?.ports?.length) continue;
+              if (nodeTypeHasPorts(registry?.get(n.type))) continue;
               const nh = n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : n.h;
               // Check if cursor is within 20% expanded bounds
               const padX = n.w * 0.2;
@@ -1018,7 +1022,7 @@ export default function SVGLayer({
             .filter((n) => {
               if (n.type === "edge") return false;
               if (suppressNodeOverlayId && n.id === suppressNodeOverlayId) return false;
-              if (registry?.get(n.type)?.ports?.length) return false;
+              if (nodeTypeHasPorts(registry?.get(n.type))) return false;
               // Free-form edges use perimeter hit-testing; DOM images have no SVG frame — skip fixed anchors.
               if (freeFormEdges && n.type === "image") return false;
               return (selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
@@ -1142,16 +1146,17 @@ export default function SVGLayer({
             for (const n of nodes) {
               if (n.type === "edge" || n.id === dragSourceNodeId) continue;
               const def = registry.get(n.type);
-              if (!def?.ports?.length) continue;
-              const portsOfDir = def.ports.filter((p) => p.direction === expectedDir);
+              const nPorts = resolveNodePorts(def, n);
+              if (!nPorts?.length) continue;
+              const portsOfDir = nPorts.filter((p) => p.direction === expectedDir);
               for (const port of portsOfDir) {
                 const pos = getPortPosition(
                   n,
-                  def.ports,
+                  nPorts,
                   port.id,
                   viewport.zoom,
                   measuredHeights,
-                  def.portAnchor ?? "bbox",
+                  def!.portAnchor ?? "bbox",
                 );
                 if (!pos) continue;
                 const dist = Math.hypot(pos.x - cursorX, pos.y - cursorY);
@@ -1170,11 +1175,11 @@ export default function SVGLayer({
               if (suppressNodeOverlayId && n.id === suppressNodeOverlayId) return false;
               const def = registry.get(n.type);
               // Always show ports on nodes that have port definitions
-              return !!def?.ports?.length;
+              return nodeTypeHasPorts(def);
             })
             .map((node) => {
               const def = registry.get(node.type)!;
-              const ports = def.ports!;
+              const ports = resolveNodePorts(def, node)!;
               const nh = node.h === "auto" ? (measuredHeights?.[node.id] ?? 100) : node.h;
               const rotation = node.rotation || 0;
               const ncx = node.x + node.w / 2;
@@ -1352,20 +1357,21 @@ export default function SVGLayer({
           const dotR = 4 / viewport.zoom;
 
           const fromDef = registry?.get(edgePreview.fromNode.type);
+          const fromPorts = resolveNodePorts(fromDef, edgePreview.fromNode);
           const sourcePortPos =
-            edgePreview.sourcePort && fromDef?.ports
+            edgePreview.sourcePort && fromPorts
               ? getPortPosition(
                 edgePreview.fromNode,
-                fromDef.ports,
+                fromPorts,
                 edgePreview.sourcePort,
                 viewport.zoom,
                 measuredHeights,
-                fromDef.portAnchor ?? "bbox",
+                fromDef!.portAnchor ?? "bbox",
               ) ?? undefined
               : undefined;
           const sourcePortMeta =
-            edgePreview.sourcePort && fromDef?.ports
-              ? fromDef.ports.find((p) => p.id === edgePreview.sourcePort)
+            edgePreview.sourcePort && fromPorts
+              ? fromPorts.find((p) => p.id === edgePreview.sourcePort)
               : undefined;
 
           const portSnapExpectedDir: "input" | "output" | null =
@@ -1382,8 +1388,9 @@ export default function SVGLayer({
             for (const n of nodes) {
               if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
               const nDef = registry.get(n.type);
-              if (!nDef?.ports?.length) continue;
-              const portsOfDir = nDef.ports.filter((p) => p.direction === portSnapExpectedDir);
+              const nPorts = resolveNodePorts(nDef, n);
+              if (!nPorts?.length) continue;
+              const portsOfDir = nPorts.filter((p) => p.direction === portSnapExpectedDir);
               for (const port of portsOfDir) {
                 if (
                   sourcePortMeta.dataType !== "any" &&
@@ -1394,11 +1401,11 @@ export default function SVGLayer({
                 }
                 const pos = getPortPosition(
                   n,
-                  nDef.ports,
+                  nPorts,
                   port.id,
                   viewport.zoom,
                   measuredHeights,
-                  nDef.portAnchor ?? "bbox",
+                  nDef!.portAnchor ?? "bbox",
                 );
                 if (!pos) continue;
                 const dist = Math.hypot(pos.x - curX, pos.y - curY);
@@ -1431,15 +1438,16 @@ export default function SVGLayer({
           }
 
           const snapDef = snapTargetNode ? registry?.get(snapTargetNode.type) : undefined;
+          const snapPorts = resolveNodePorts(snapDef, snapTargetNode ?? undefined);
           const targetPortPos =
-            snapTargetNode && snapTargetPortId && snapDef?.ports
+            snapTargetNode && snapTargetPortId && snapPorts
               ? getPortPosition(
                 snapTargetNode,
-                snapDef.ports,
+                snapPorts,
                 snapTargetPortId,
                 viewport.zoom,
                 measuredHeights,
-                snapDef.portAnchor ?? "bbox",
+                snapDef!.portAnchor ?? "bbox",
               ) ?? undefined
               : undefined;
 

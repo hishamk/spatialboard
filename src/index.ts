@@ -31,7 +31,7 @@ export type {
 } from "./engine/types";
 
 // ── Node type registry ───────────────────────────────────────
-export { NodeTypeRegistry } from "./nodes/registry";
+export { NodeTypeRegistry, resolveNodePorts, nodeTypeHasPorts } from "./nodes/registry";
 export type {
   NodeTypeDefinition,
   NodeRendererProps,

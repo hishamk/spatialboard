@@ -1,7 +1,7 @@
 export { SpatialEngine } from "./engine/SpatialEngine";
 export type { BoardBackground, SelectionAlignMode, SelectionDistributeAxis, SpatialSearchField, SpatialSearchMatch, SpatialSearchState, } from "./engine/SpatialEngine";
 export type { SpatialNode, Viewport, ActiveTool, Mode, BuiltinNodeType, NodeType, ContentNode, DrawNode, ShapeNode, EdgeNode, ImageNode, TextNode, FrameNode, StickyNoteNode, AnySpatialNode, EdgeType, HandleSide, AgentCanvasState, AgentStateOptions, } from "./engine/types";
-export { NodeTypeRegistry } from "./nodes/registry";
+export { NodeTypeRegistry, resolveNodePorts, nodeTypeHasPorts } from "./nodes/registry";
 export type { NodeTypeDefinition, NodeRendererProps, NodeCallbacks, NodePropertiesPanelProps, SpatialNodeTypeCatalogEntry, SpatialNodeTypeCatalogPort, } from "./nodes/registry";
 export { contentNodeType } from "./nodes/content";
 export { drawNodeType } from "./nodes/draw";

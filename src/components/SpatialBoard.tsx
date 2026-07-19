@@ -9,7 +9,7 @@ import type { DebugBoardEntry } from "./DebugPanel";
 const DebugPanel = lazy(() => import("./DebugPanel"));
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
 import { schema } from "../schema";
-import { NodeTypeRegistry } from "../nodes/registry";
+import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
 import { builtinNodeTypes } from "../nodes";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import { loadGoogleFonts } from "../fonts";
@@ -195,7 +195,7 @@ export default function SpatialBoard({
 
   // Data-flow engine — created only when node types have ports
   const dataFlow = useMemo(() => {
-    const hasPorts = nodeTypes.some((nt) => nt.ports?.length);
+    const hasPorts = nodeTypes.some((nt) => nodeTypeHasPorts(nt));
     return hasPorts ? new DataFlowEngine(engine, registry) : null;
   }, [engine, registry, nodeTypes]);
 

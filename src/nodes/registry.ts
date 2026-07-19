@@ -155,8 +155,17 @@ export interface NodeTypeDefinition<TData = unknown> {
   ) => void;
 
   // ── Data-flow ports ──────────────────────────────
-  /** Port definitions for this node type. If present, enables data-flow behavior. */
-  ports?: PortDefinition[];
+  /**
+   * Port definitions for this node type. If present, enables data-flow behavior.
+   *
+   * Either a STATIC array (the common case — the type has a fixed port set) OR a
+   * per-node RESOLVER `(node) => PortDefinition[]` for node types whose port set
+   * depends on the individual node's `data` (e.g. an N-way branch node that grows
+   * one out-port per configured branch). The resolver is read at every port
+   * consumer via `resolveNodePorts(def, node)`; an array-valued def resolves to
+   * the exact same array, so static-port nodes are byte-identical.
+   */
+  ports?: PortDefinition[] | ((node: SpatialNode) => PortDefinition[]);
 
   /**
    * Where ports attach horizontally: `bbox` uses the full node rect (default).
@@ -172,6 +181,39 @@ export interface NodeTypeDefinition<TData = unknown> {
     inputs: Record<string, PortValue>,
     data: TData,
   ) => Record<string, PortValue> | Promise<Record<string, PortValue>>;
+}
+
+// ── Dynamic-port resolution ───────────────────────────────────
+
+/**
+ * The port set for a specific node. When `def.ports` is a static array it is
+ * returned verbatim (byte-identical to the pre-dynamic behavior); when it is a
+ * `(node) => PortDefinition[]` resolver it is invoked with the node. Returns
+ * `undefined` for a non-data-flow type (no `ports`). This is the single seam
+ * every port consumer reads through so a node type can grow/shrink ports per
+ * instance (e.g. an N-way branch node).
+ */
+export function resolveNodePorts(
+  def: NodeTypeDefinition<unknown> | undefined,
+  node: SpatialNode | undefined,
+): PortDefinition[] | undefined {
+  const p = def?.ports;
+  if (!p) return undefined;
+  if (typeof p === "function") return node ? p(node) : [];
+  return p;
+}
+
+/**
+ * Whether a node type participates in data-flow (declares ports) — presence is
+ * TYPE-level, so this holds for both array- and resolver-valued `ports` without
+ * needing a node instance. Prefer this over `def.ports?.length` (a resolver is a
+ * function whose `.length` is its arity, not a port count).
+ */
+export function nodeTypeHasPorts(
+  def: NodeTypeDefinition<unknown> | undefined,
+): boolean {
+  const p = def?.ports;
+  return typeof p === "function" || (Array.isArray(p) && p.length > 0);
 }
 
 // ── Agent / MCP catalog (JSON-safe) ───────────────────────────
@@ -230,8 +272,11 @@ function catalogEntryFromDefinition(
     type: def.type,
     origin: SPATIALBOARD_BUILTIN_TYPE_IDS.has(def.type) ? "builtin" : "custom",
     docsLocalizationKey,
-    isDataFlow: Boolean(def.ports?.length),
-    ports: (def.ports ?? []).map((p) => ({
+    isDataFlow: nodeTypeHasPorts(def),
+    // The catalog is a TYPE-level description; a resolver-valued `ports` has no
+    // single instance to resolve against, so it contributes an empty port list
+    // (still flagged data-flow via isDataFlow).
+    ports: (Array.isArray(def.ports) ? def.ports : []).map((p) => ({
       id: p.id,
       label: p.label,
       direction: p.direction,

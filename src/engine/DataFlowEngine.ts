@@ -1,6 +1,7 @@
 import type { SpatialEngine } from "./SpatialEngine";
 import type { SpatialNode, EdgeNode } from "./types";
 import type { NodeTypeRegistry, NodeTypeDefinition } from "../nodes/registry";
+import { resolveNodePorts } from "../nodes/registry";
 import type { PortValue, PortDefinition } from "./data-flow-types";
 import { portKey } from "./data-flow-types";
 import type { PortKey } from "./data-flow-types";
@@ -64,13 +65,13 @@ export class DataFlowEngine {
 
   /** Get all input values for a node, resolved from connected edges. */
   getInputs(nodeId: string): Record<string, PortValue> {
-    const def = this.registry.get(
-      this.spatial.nodes.get(nodeId)?.type ?? "",
-    );
-    if (!def?.ports) return {};
+    const node = this.spatial.nodes.get(nodeId);
+    const def = this.registry.get(node?.type ?? "");
+    const ports = resolveNodePorts(def, node);
+    if (!ports) return {};
 
     const inputs: Record<string, PortValue> = {};
-    const inputPorts = def.ports.filter((p) => p.direction === "input");
+    const inputPorts = ports.filter((p) => p.direction === "input");
 
     for (const port of inputPorts) {
       // Check if there's an edge connected to this input port
@@ -97,13 +98,13 @@ export class DataFlowEngine {
 
   /** Get all output values for a node. */
   getOutputs(nodeId: string): Record<string, PortValue> {
-    const def = this.registry.get(
-      this.spatial.nodes.get(nodeId)?.type ?? "",
-    );
-    if (!def?.ports) return {};
+    const node = this.spatial.nodes.get(nodeId);
+    const def = this.registry.get(node?.type ?? "");
+    const ports = resolveNodePorts(def, node);
+    if (!ports) return {};
 
     const outputs: Record<string, PortValue> = {};
-    for (const port of def.ports) {
+    for (const port of ports) {
       if (port.direction === "output") {
         outputs[port.id] =
           this.values.get(portKey(nodeId, port.id)) ?? null;
@@ -123,13 +124,13 @@ export class DataFlowEngine {
 
   /** Get all port values (inputs + outputs) for a node. */
   getAllPortValues(nodeId: string): Record<string, PortValue> {
-    const def = this.registry.get(
-      this.spatial.nodes.get(nodeId)?.type ?? "",
-    );
-    if (!def?.ports) return {};
+    const node = this.spatial.nodes.get(nodeId);
+    const def = this.registry.get(node?.type ?? "");
+    const ports = resolveNodePorts(def, node);
+    if (!ports) return {};
 
     const result: Record<string, PortValue> = {};
-    for (const port of def.ports) {
+    for (const port of ports) {
       if (port.direction === "input") {
         // Resolve input from connected edge
         const edges = this.spatial.getEdgesForNode(nodeId);
@@ -198,8 +199,9 @@ export class DataFlowEngine {
       } else {
         // Clean up port values for deleted node
         const def = this.registry.get(node.type);
-        if (def?.ports) {
-          for (const port of def.ports) {
+        const ports = resolveNodePorts(def, node);
+        if (ports) {
+          for (const port of ports) {
             this.values.delete(portKey(node.id, port.id));
           }
           // Mark any downstream nodes dirty
@@ -410,7 +412,8 @@ export class DataFlowEngine {
     const def = this.registry.get(node.type) as
       | NodeTypeDefinition<unknown>
       | undefined;
-    if (!def?.compute || !def.ports) return false;
+    const ports = resolveNodePorts(def, node);
+    if (!def?.compute || !ports) return false;
 
     const inputs = this.getInputs(nodeId);
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
@@ -423,7 +426,7 @@ export class DataFlowEngine {
         if (gen !== this.generation) return; // stale
         const t1 = typeof performance !== "undefined" ? performance.now() : 0;
         this.lastComputeMs.set(nodeId, t1 - t0);
-        const didChange = this.applyOutputs(nodeId, def.ports!, outputs);
+        const didChange = this.applyOutputs(nodeId, ports, outputs);
         if (didChange) {
           // Mark downstream dirty and flush again
           this.markDownstream(nodeId);
@@ -439,7 +442,7 @@ export class DataFlowEngine {
     // Synchronous compute
     const t1 = typeof performance !== "undefined" ? performance.now() : 0;
     this.lastComputeMs.set(nodeId, t1 - t0);
-    return this.applyOutputs(nodeId, def.ports, result);
+    return this.applyOutputs(nodeId, ports, result);
   }
 
   /** Apply computed outputs to the values map. Returns true if any value changed. */

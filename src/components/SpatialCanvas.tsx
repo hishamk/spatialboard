@@ -23,6 +23,7 @@ import type {
 import type { BoardBackground } from "../engine/SpatialEngine";
 import type { SBDSchema } from "../schema";
 import type { NodeTypeRegistry, NodeCallbacks } from "../nodes/registry";
+import { resolveNodePorts, nodeTypeHasPorts } from "../nodes/registry";
 import type { DataFlowEngine } from "../engine/DataFlowEngine";
 import type { DataFlowEdgeOverlay, HandlePosition } from "./SVGLayer";
 import GridBackground from "./GridBackground";
@@ -917,14 +918,16 @@ export default function SpatialCanvas({
       let targetPortPos: { x: number; y: number } | undefined;
       if (registry && edge.data.sourcePort) {
         const srcDef = registry.get(fromNode.type);
-        if (srcDef?.ports) {
-          sourcePortPos = getPortPosition(fromNode, srcDef.ports, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef.portAnchor ?? "bbox") ?? undefined;
+        const srcPorts = resolveNodePorts(srcDef, fromNode);
+        if (srcPorts) {
+          sourcePortPos = getPortPosition(fromNode, srcPorts, edge.data.sourcePort, viewport.zoom, measuredHeights, srcDef!.portAnchor ?? "bbox") ?? undefined;
         }
       }
       if (registry && edge.data.targetPort) {
         const tgtDef = registry.get(toNode.type);
-        if (tgtDef?.ports) {
-          targetPortPos = getPortPosition(toNode, tgtDef.ports, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef.portAnchor ?? "bbox") ?? undefined;
+        const tgtPorts = resolveNodePorts(tgtDef, toNode);
+        if (tgtPorts) {
+          targetPortPos = getPortPosition(toNode, tgtPorts, edge.data.targetPort, viewport.zoom, measuredHeights, tgtDef!.portAnchor ?? "bbox") ?? undefined;
         }
       }
       return { sourcePortPos, targetPortPos };
@@ -3889,7 +3892,7 @@ export default function SpatialCanvas({
       if (!sourceNode || !registry) return;
 
       const sourceDef = registry.get(sourceNode.type);
-      const sourcePort = sourceDef?.ports?.find((p) => p.id === portId);
+      const sourcePort = resolveNodePorts(sourceDef, sourceNode)?.find((p) => p.id === portId);
       if (!sourcePort) return;
 
       // Determine which side the port is on (inputs=left, outputs=right)
@@ -3937,9 +3940,10 @@ export default function SpatialCanvas({
         for (const n of engine.getAllNodes()) {
           if (n.type === "edge" || n.id === sourceNode.id) continue;
           const nDef = registry.get(n.type);
-          if (!nDef?.ports?.length) continue;
+          const nPorts = resolveNodePorts(nDef, n);
+          if (!nPorts?.length) continue;
 
-          for (const p of nDef.ports) {
+          for (const p of nPorts) {
             // Only consider ports in the expected direction
             if (p.direction !== expectedDir) continue;
             // Type compatibility
@@ -3947,11 +3951,11 @@ export default function SpatialCanvas({
 
             const pos = getPortPosition(
               n,
-              nDef.ports,
+              nPorts,
               p.id,
               engine.viewport.zoom,
               engine.measuredHeights,
-              nDef.portAnchor ?? "bbox",
+              nDef!.portAnchor ?? "bbox",
             );
             if (!pos) continue;
 
@@ -5080,7 +5084,7 @@ export default function SpatialCanvas({
                         }
                       },
                     }}
-                    portValues={dataFlow && def.ports?.length && dataFlowVersion >= 0 ? dataFlow.getAllPortValues(node.id) : undefined}
+                    portValues={dataFlow && nodeTypeHasPorts(def) && dataFlowVersion >= 0 ? dataFlow.getAllPortValues(node.id) : undefined}
                     updateData={(patch: Record<string, unknown>) => {
                       const k = getCoalesceKey();
                       engine.updateNodeWithHistoryCoalesced(

@@ -1,5 +1,6 @@
 import type { SpatialNode, EdgeNode } from "./types";
 import type { NodeTypeRegistry } from "../nodes/registry";
+import { resolveNodePorts } from "../nodes/registry";
 import { nodeShowsEdgeComputeOverlay } from "./data-flow-types";
 import {
   computeEdgePath,
@@ -326,10 +327,11 @@ function nodeBBoxAtLayout(
   let padL = 0;
   let padR = 0;
   const def = registry?.get(n.type);
-  if (def?.ports?.length) {
+  const ports = resolveNodePorts(def, n);
+  if (ports?.length) {
     const pad = (PORT_ANCHOR_OUTSIDE_PX + 12) / Math.max(0.35, zoom);
-    if (def.ports.some((p) => p.direction === "input")) padL = pad;
-    if (def.ports.some((p) => p.direction === "output")) padR = pad;
+    if (ports.some((p) => p.direction === "input")) padL = pad;
+    if (ports.some((p) => p.direction === "output")) padR = pad;
   }
   return {
     x: pos.x - padL,
@@ -460,27 +462,29 @@ function estimateWireLabelBBox(
     (() => {
       if (!d.sourcePort || !registry) return undefined;
       const def = registry.get(fromN.type);
-      if (!def?.ports) return undefined;
+      const ports = resolveNodePorts(def, fromN);
+      if (!ports) return undefined;
       return getPortPosition(
           fromN,
-          def.ports,
+          ports,
           d.sourcePort,
           zoom,
           measured,
-          def.portAnchor ?? "bbox",
+          def!.portAnchor ?? "bbox",
         ) ?? undefined;
     })(),
     (() => {
       if (!d.targetPort || !registry) return undefined;
       const def = registry.get(toN.type);
-      if (!def?.ports) return undefined;
+      const ports = resolveNodePorts(def, toN);
+      if (!ports) return undefined;
       return getPortPosition(
           toN,
-          def.ports,
+          ports,
           d.targetPort,
           zoom,
           measured,
-          def.portAnchor ?? "bbox",
+          def!.portAnchor ?? "bbox",
         ) ?? undefined;
     })(),
     d.sourceT,

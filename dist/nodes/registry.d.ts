@@ -88,8 +88,17 @@ export interface NodeTypeDefinition<TData = unknown> {
     onDeselect?: (node: SpatialNode, engine: SpatialEngine) => void;
     /** Called when node.data is updated. */
     onDataChange?: (node: SpatialNode, oldData: TData, newData: TData, engine: SpatialEngine) => void;
-    /** Port definitions for this node type. If present, enables data-flow behavior. */
-    ports?: PortDefinition[];
+    /**
+     * Port definitions for this node type. If present, enables data-flow behavior.
+     *
+     * Either a STATIC array (the common case — the type has a fixed port set) OR a
+     * per-node RESOLVER `(node) => PortDefinition[]` for node types whose port set
+     * depends on the individual node's `data` (e.g. an N-way branch node that grows
+     * one out-port per configured branch). The resolver is read at every port
+     * consumer via `resolveNodePorts(def, node)`; an array-valued def resolves to
+     * the exact same array, so static-port nodes are byte-identical.
+     */
+    ports?: PortDefinition[] | ((node: SpatialNode) => PortDefinition[]);
     /**
      * Where ports attach horizontally: `bbox` uses the full node rect (default).
      * `inscribed-circle` uses the circle inscribed in `min(w,h)` — for round nodes
@@ -101,6 +110,22 @@ export interface NodeTypeDefinition<TData = unknown> {
      *  Returns: outputs (keyed by port id). */
     compute?: (inputs: Record<string, PortValue>, data: TData) => Record<string, PortValue> | Promise<Record<string, PortValue>>;
 }
+/**
+ * The port set for a specific node. When `def.ports` is a static array it is
+ * returned verbatim (byte-identical to the pre-dynamic behavior); when it is a
+ * `(node) => PortDefinition[]` resolver it is invoked with the node. Returns
+ * `undefined` for a non-data-flow type (no `ports`). This is the single seam
+ * every port consumer reads through so a node type can grow/shrink ports per
+ * instance (e.g. an N-way branch node).
+ */
+export declare function resolveNodePorts(def: NodeTypeDefinition<unknown> | undefined, node: SpatialNode | undefined): PortDefinition[] | undefined;
+/**
+ * Whether a node type participates in data-flow (declares ports) — presence is
+ * TYPE-level, so this holds for both array- and resolver-valued `ports` without
+ * needing a node instance. Prefer this over `def.ports?.length` (a resolver is a
+ * function whose `.length` is its arity, not a port count).
+ */
+export declare function nodeTypeHasPorts(def: NodeTypeDefinition<unknown> | undefined): boolean;
 /** One port row in `SpatialNodeTypeCatalogEntry`. */
 export interface SpatialNodeTypeCatalogPort {
     id: string;

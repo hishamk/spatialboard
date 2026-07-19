@@ -8,6 +8,7 @@ import {
   PORT_EDGE_SNAP_RADIUS_PX,
 } from "../engine/edge-geometry";
 import type { SpatialEngine } from "../engine/SpatialEngine";
+import { resolveNodePorts } from "../nodes/registry";
 import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
 
 /**
@@ -53,20 +54,21 @@ export function RemoteEdgeCreationPreview({
   };
 
   const fromDef = registry?.get(edgePreview.fromNode.type);
+  const fromPorts = resolveNodePorts(fromDef, edgePreview.fromNode);
   const sourcePortPos =
-    edgePreview.sourcePort && fromDef?.ports
+    edgePreview.sourcePort && fromPorts
       ? getPortPosition(
           edgePreview.fromNode,
-          fromDef.ports,
+          fromPorts,
           edgePreview.sourcePort,
           zoom,
           measuredHeights,
-          fromDef.portAnchor ?? "bbox",
+          fromDef!.portAnchor ?? "bbox",
         ) ?? undefined
       : undefined;
   const sourcePortMeta =
-    edgePreview.sourcePort && fromDef?.ports
-      ? fromDef.ports.find((p) => p.id === edgePreview.sourcePort)
+    edgePreview.sourcePort && fromPorts
+      ? fromPorts.find((p) => p.id === edgePreview.sourcePort)
       : undefined;
 
   const portSnapExpectedDir: "input" | "output" | null =
@@ -86,8 +88,9 @@ export function RemoteEdgeCreationPreview({
     for (const n of nodes) {
       if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
       const nDef = registry.get(n.type);
-      if (!nDef?.ports?.length) continue;
-      const portsOfDir = nDef.ports.filter((p) => p.direction === portSnapExpectedDir);
+      const nPorts = resolveNodePorts(nDef, n);
+      if (!nPorts?.length) continue;
+      const portsOfDir = nPorts.filter((p) => p.direction === portSnapExpectedDir);
       for (const port of portsOfDir) {
         if (
           sourcePortMeta.dataType !== "any" &&
@@ -96,7 +99,7 @@ export function RemoteEdgeCreationPreview({
         ) {
           continue;
         }
-        const pos = getPortPosition(n, nDef.ports, port.id, zoom, measuredHeights, nDef.portAnchor ?? "bbox");
+        const pos = getPortPosition(n, nPorts, port.id, zoom, measuredHeights, nDef!.portAnchor ?? "bbox");
         if (!pos) continue;
         const dist = Math.hypot(pos.x - curX, pos.y - curY);
         if (dist < snapR && dist < bestDist) {
@@ -132,15 +135,16 @@ export function RemoteEdgeCreationPreview({
   }
 
   const snapDef = snapTargetNode ? registry?.get(snapTargetNode.type) : undefined;
+  const snapPorts = resolveNodePorts(snapDef, snapTargetNode ?? undefined);
   const targetPortPos =
-    snapTargetNode && snapTargetPortId && snapDef?.ports
+    snapTargetNode && snapTargetPortId && snapPorts
       ? getPortPosition(
           snapTargetNode,
-          snapDef.ports,
+          snapPorts,
           snapTargetPortId,
           zoom,
           measuredHeights,
-          snapDef.portAnchor ?? "bbox",
+          snapDef!.portAnchor ?? "bbox",
         ) ?? undefined
       : undefined;
 
