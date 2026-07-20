@@ -13,6 +13,7 @@ export type {
   Viewport,
   ActiveTool,
   Mode,
+  ToolKey,
   BuiltinNodeType,
   NodeType,
   ContentNode,

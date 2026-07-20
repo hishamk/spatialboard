@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../engine/SpatialEngine";
-import type { ContentNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, YouTubeNode } from "../engine/types";
+import type { ContentNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
 import { htmlToBlocks, markdownToBlocks } from "../serialization/blocknote-markdown";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
 import { isYouTubeUrl, extractYouTubeVideoId } from "../utils/youtube";
@@ -148,7 +148,11 @@ function writeToClipboard(
   return textFallback;
 }
 
-export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElement | null): () => void {
+export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElement | null, tools?: ToolKey[]): () => void {
+  // Toolbar-visibility allowlist (undefined ⇒ all shortcuts active, canvas
+  // byte-identical). When provided, a mode/lasso shortcut whose tool is not
+  // listed no-ops — so e.g. `F` (frame) can't enter a hidden mode in workflow.
+  const toolAllowed = (k: ToolKey) => !tools || tools.includes(k);
   let currentDoc = container?.ownerDocument ?? document;
   let currentWin = currentDoc.defaultView ?? window;
   let lastClientX = currentWin.innerWidth / 2;
@@ -494,23 +498,25 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     }
 
     // ── Mode shortcuts — only when NO modifier is held ──
+    // Each is gated by the `tools` allowlist: a shortcut whose tool the host has
+    // hidden no-ops (so a hidden tool can't be reached by keyboard either).
     if (!mod && !e.altKey && !e.shiftKey) {
-      if (e.key === "s") { engine.setMode("select"); return; }
-      if (e.key === "p") { engine.setMode("hand"); return; }
-      if (e.key === "d") { engine.setMode("draw"); return; }
-      if (e.key === "g") { engine.setMode("shape"); return; }
-      if (e.key === "t") { engine.setMode("text"); return; }
-      if (e.key === "b") { engine.setMode("note"); return; }
-      if (e.key === "y") { engine.setMode("sticky"); return; }
-      if (e.key === "f") { engine.setMode("frame"); return; }
-      if (e.key === "c") { engine.setMode("edge"); return; }
-      if (e.key === "e") { engine.setMode("erase"); return; }
+      if (e.key === "s") { if (toolAllowed("select")) engine.setMode("select"); return; }
+      if (e.key === "p") { if (toolAllowed("hand")) engine.setMode("hand"); return; }
+      if (e.key === "d") { if (toolAllowed("draw")) engine.setMode("draw"); return; }
+      if (e.key === "g") { if (toolAllowed("shape")) engine.setMode("shape"); return; }
+      if (e.key === "t") { if (toolAllowed("text")) engine.setMode("text"); return; }
+      if (e.key === "b") { if (toolAllowed("note")) engine.setMode("note"); return; }
+      if (e.key === "y") { if (toolAllowed("sticky")) engine.setMode("sticky"); return; }
+      if (e.key === "f") { if (toolAllowed("frame")) engine.setMode("frame"); return; }
+      if (e.key === "c") { if (toolAllowed("edge")) engine.setMode("edge"); return; }
+      if (e.key === "e") { if (toolAllowed("erase")) engine.setMode("erase"); return; }
       if (e.key === "l") {
-        engine.toggleLassoSelect();
+        if (toolAllowed("lasso")) engine.toggleLassoSelect();
         return;
       }
       if (e.key === "z") {
-        engine.setMode("laser");
+        if (toolAllowed("laser")) engine.setMode("laser");
         return;
       }
     }

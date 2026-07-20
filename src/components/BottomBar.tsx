@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { SpatialEngine } from "../engine/SpatialEngine";
+import type { ToolKey } from "../engine/types";
 import { useSBTheme } from "./sidebar/ThemeContext";
 import { useSBI18n } from "./LocalizationContext";
 
@@ -127,6 +128,10 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
 
 interface BottomBarProps {
   engine: SpatialEngine;
+  /** Toolbar-visibility allowlist (undefined ⇒ all controls). When it omits
+   *  `frame` the present + slides-panel controls are hidden (a graph has no
+   *  slides); zoom, fit, minimap, and undo/redo always stay. */
+  tools?: ToolKey[];
   framesPanelOpen?: boolean;
   onToggleFramesPanel?: () => void;
   showMinimap?: boolean;
@@ -137,6 +142,7 @@ interface BottomBarProps {
 
 export default function BottomBar({
   engine,
+  tools,
   framesPanelOpen,
   onToggleFramesPanel,
   showMinimap,
@@ -146,6 +152,8 @@ export default function BottomBar({
 }: BottomBarProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
+  // Slides/present are canvas-only chrome; hidden when `frame` is not allowed.
+  const showSlides = !tools || tools.includes("frame");
   const [zoom, setZoom] = useState(engine.viewport.zoom);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -298,6 +306,7 @@ export default function BottomBar({
 
       {/* Present & Slides */}
       <div data-sb-bar-present style={{ ...pill, overflow: "visible", background: pillBg, border, boxShadow: theme.panelShadow }}>
+        {showSlides && (
         <button
           title={labels.presentSlides}
           onClick={() => engine.enterPresentation()}
@@ -305,7 +314,8 @@ export default function BottomBar({
         >
           <Icon name="play" />
         </button>
-        {onToggleFramesPanel && (
+        )}
+        {showSlides && onToggleFramesPanel && (
           <>
             <div style={sep} />
             <button
@@ -347,7 +357,7 @@ export default function BottomBar({
         )}
         {onToggleMinimap && (
           <>
-            <div style={sep} />
+            {showSlides && <div style={sep} />}
             <button
               title={labels.toggleMinimap}
               onClick={onToggleMinimap}

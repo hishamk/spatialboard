@@ -28,6 +28,7 @@ import {
   type SpatialBoardLocalization,
 } from "./LocalizationContext";
 import { SpatialBoardReadOnlyContext } from "./SpatialBoardReadOnlyContext";
+import type { ToolKey } from "../engine/types";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -43,6 +44,23 @@ export interface SpatialBoardProps {
   initialData?: string;
   /** Show sidebar (tools + properties). Default: true. */
   toolbar?: boolean;
+  /**
+   * Allowlist of which toolbar tools render. Omitted (default) ⇒ every tool
+   * renders ⇒ the canvas item type is byte-identical. When provided, only the
+   * listed `ToolKey`s show in the ToolStrip (creation modes + lasso + the
+   * content pickers), and the BottomBar's present/slides controls are hidden
+   * unless `frame` is listed. Used by the workflow Flow tab to surface only
+   * `['select', 'hand', 'sticky']`. Mirrors the additive dynamic-ports
+   * precedent: widen the lib, keep the canvas path on the defaults.
+   */
+  tools?: ToolKey[];
+  /**
+   * Whether the built-in floating node inspector (`FloatingProperties`) renders.
+   * Default: true (canvas unchanged). A host that provides its own docked
+   * inspector (the workflow Flow tab) passes `false` to retire the floating
+   * overlay so there is exactly one inspector.
+   */
+  nodeInspector?: boolean;
   /** @deprecated Properties are now part of the sidebar. This prop is ignored. */
   propertiesPanel?: boolean;
   /** Show debug panel. Default: false. */
@@ -107,6 +125,8 @@ export default function SpatialBoard({
   style,
   initialData,
   toolbar: showSidebar = true,
+  tools,
+  nodeInspector = true,
   debugPanel: showDebugPanel = false,
   debugBoards,
   theme,
@@ -190,8 +210,14 @@ export default function SpatialBoard({
   // Keyboard shortcuts
   useEffect(() => {
     if (!keyboardShortcuts) return;
-    return setupKeyboardHandler(engine, boardRef.current);
-  }, [engine, keyboardShortcuts]);
+    return setupKeyboardHandler(engine, boardRef.current, tools);
+  }, [engine, keyboardShortcuts, tools]);
+
+  // Slides/frames are canvas-only chrome (a graph has no slides). When `tools`
+  // is provided and omits `frame`, the frames side panel must not MOUNT at all
+  // (open=false only slides it off-screen — it can still be revealed). Omitted
+  // `tools` ⇒ true ⇒ canvas byte-identical.
+  const showSlides = !tools || tools.includes("frame");
 
   // Data-flow engine — created only when node types have ports
   const dataFlow = useMemo(() => {
@@ -263,7 +289,7 @@ export default function SpatialBoard({
     >
       {/* sidebar (creation tool strip) hidden in readOnly: viewers
           can't add nodes anyway, no point in surfacing the affordance. */}
-      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} />}
+      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
@@ -292,6 +318,7 @@ export default function SpatialBoard({
         {!isPreview && !presenting && (
           <BottomBar
             engine={engine}
+            tools={tools}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
             showMinimap={minimapVisible}
@@ -301,7 +328,7 @@ export default function SpatialBoard({
           />
         )}
         {!isPreview && !presenting && showPerfOverlay && <PerformanceOverlay />}
-        {!isPreview && !presenting && (
+        {!isPreview && !presenting && showSlides && (
           <FramesPanel
             engine={engine}
             open={framesPanelOpen}

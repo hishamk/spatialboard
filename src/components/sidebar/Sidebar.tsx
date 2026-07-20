@@ -1,5 +1,6 @@
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { NodeTypeRegistry } from "../../nodes/registry";
+import type { ToolKey } from "../../engine/types";
 import ToolStrip from "./ToolStrip";
 import FloatingProperties from "./FloatingProperties";
 import { TOOL_STRIP_WIDTH } from "./styles";
@@ -12,9 +13,13 @@ interface SidebarProps {
   registry?: NodeTypeRegistry;
   gifApiBaseUrl?: string;
   hostActive?: boolean;
+  /** Toolbar-visibility allowlist (undefined ⇒ all tools). */
+  tools?: ToolKey[];
+  /** Render the built-in floating inspector. Default true. */
+  nodeInspector?: boolean;
 }
 
-export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive }: SidebarProps) {
+export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, tools, nodeInspector = true }: SidebarProps) {
   const { isRTL } = useSBI18n();
   return (
     <>
@@ -31,9 +36,9 @@ export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive }:
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <ToolStrip engine={engine} gifApiBaseUrl={gifApiBaseUrl} />
+        <ToolStrip engine={engine} gifApiBaseUrl={gifApiBaseUrl} tools={tools} />
       </div>
-      <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} />
+      {nodeInspector && <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} />}
     </>
   );
 }

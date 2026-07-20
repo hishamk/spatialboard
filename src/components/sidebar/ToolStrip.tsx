@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useFitSidePopoverPosition } from "../../hooks/useFitSidePopoverPosition";
 import { createPortal } from "react-dom";
 import type { SpatialEngine, BoardBackground } from "../../engine/SpatialEngine";
-import type { Mode } from "../../engine/types";
+import type { Mode, ToolKey } from "../../engine/types";
 import { TOOL_STRIP_WIDTH } from "./styles";
 import { useSBTheme } from "./ThemeContext";
 import { PAPER_TYPES, type PaperGroup } from "../paper-types";
@@ -632,9 +632,13 @@ function MermaidPicker({ engine }: { engine: SpatialEngine }) {
   );
 }
 
-export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEngine; gifApiBaseUrl?: string }) {
+export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: SpatialEngine; gifApiBaseUrl?: string; tools?: ToolKey[] }) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
+  // Toolbar-visibility allowlist: undefined ⇒ everything renders (canvas
+  // byte-identical); otherwise only listed keys show.
+  const show = (key: ToolKey) => !tools || tools.includes(key);
+  const anyPicker = show("paper") || show("template") || show("library") || show("mermaid") || (!!gifApiBaseUrl && show("gif"));
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [background, setBackground] = useState<BoardBackground>(engine.boardBackground);
   const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
@@ -653,7 +657,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
     };
   }, [engine]);
 
-  const modes = MODE_KEYS.map((m) => ({
+  const modes = MODE_KEYS.filter((m) => show(m.key)).map((m) => ({
     ...m,
     label:
       m.key === "select" ? labels.toolSelect :
@@ -728,6 +732,8 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
         );
       })}
 
+      {show("lasso") && (
+      <>
       <div style={{ width: 28, height: 1, background: theme.separator, margin: "8px 0" }} />
 
       {/* Lasso select toggle */}
@@ -771,23 +777,27 @@ export default function ToolStrip({ engine, gifApiBaseUrl }: { engine: SpatialEn
           L
         </span>
       </button>
+      </>
+      )}
 
-      <div style={{ width: 28, height: 1, background: theme.separator, margin: "8px 0" }} />
+      {anyPicker && (
+        <div style={{ width: 28, height: 1, background: theme.separator, margin: "8px 0" }} />
+      )}
 
       {/* Board background picker */}
-      <PaperPicker engine={engine} background={background} />
+      {show("paper") && <PaperPicker engine={engine} background={background} />}
 
       {/* Template picker */}
-      <TemplatePicker engine={engine} />
+      {show("template") && <TemplatePicker engine={engine} />}
 
       {/* Library picker */}
-      <LibraryPicker engine={engine} />
+      {show("library") && <LibraryPicker engine={engine} />}
 
       {/* Mermaid sketch importer */}
-      <MermaidPicker engine={engine} />
+      {show("mermaid") && <MermaidPicker engine={engine} />}
 
       {/* GIF search */}
-      {gifApiBaseUrl && <GifPicker engine={engine} baseUrl={gifApiBaseUrl} />}
+      {gifApiBaseUrl && show("gif") && <GifPicker engine={engine} baseUrl={gifApiBaseUrl} />}
     </div>
   );
 }

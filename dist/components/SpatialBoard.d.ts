@@ -4,6 +4,7 @@ import type { DebugBoardEntry } from "./DebugPanel";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import { type SpatialBoardDirection, type SpatialBoardLocalization } from "./LocalizationContext";
+import type { ToolKey } from "../engine/types";
 export interface SpatialBoardProps {
     /** Node type definitions. Defaults to all built-in types. */
     nodeTypes?: NodeTypeDefinition<any>[];
@@ -17,6 +18,23 @@ export interface SpatialBoardProps {
     initialData?: string;
     /** Show sidebar (tools + properties). Default: true. */
     toolbar?: boolean;
+    /**
+     * Allowlist of which toolbar tools render. Omitted (default) ⇒ every tool
+     * renders ⇒ the canvas item type is byte-identical. When provided, only the
+     * listed `ToolKey`s show in the ToolStrip (creation modes + lasso + the
+     * content pickers), and the BottomBar's present/slides controls are hidden
+     * unless `frame` is listed. Used by the workflow Flow tab to surface only
+     * `['select', 'hand', 'sticky']`. Mirrors the additive dynamic-ports
+     * precedent: widen the lib, keep the canvas path on the defaults.
+     */
+    tools?: ToolKey[];
+    /**
+     * Whether the built-in floating node inspector (`FloatingProperties`) renders.
+     * Default: true (canvas unchanged). A host that provides its own docked
+     * inspector (the workflow Flow tab) passes `false` to retire the floating
+     * overlay so there is exactly one inspector.
+     */
+    nodeInspector?: boolean;
     /** @deprecated Properties are now part of the sidebar. This prop is ignored. */
     propertiesPanel?: boolean;
     /** Show debug panel. Default: false. */
@@ -73,4 +91,4 @@ export interface SpatialBoardProps {
      */
     singleFrameId?: string;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

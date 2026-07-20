@@ -5,6 +5,18 @@ export type BuiltinNodeType = "content" | "draw" | "shape" | "edge" | "image" | 
 export type NodeType = BuiltinNodeType;
 export type Mode = "select" | "draw" | "shape" | "text" | "note" | "sticky" | "edge" | "erase" | "frame" | "hand" | "laser";
 
+/**
+ * A toolbar-visibility key for the `tools` allowlist prop on `<SpatialBoard>`.
+ * Covers every creation Mode plus the non-Mode ToolStrip affordances (the
+ * `lasso` toggle + the paper/template/library/mermaid/gif content pickers).
+ * When the `tools` prop is omitted the toolbar renders everything (the default,
+ * so the canvas item type is byte-identical); when provided, only the listed
+ * keys render. `frame` additionally gates the BottomBar's present/slides
+ * controls. This is an allowlist of what the HOST wants surfaced — the engine
+ * itself is unchanged.
+ */
+export type ToolKey = Mode | "lasso" | "paper" | "template" | "library" | "mermaid" | "gif";
+
 export interface SpatialNode {
   id: string;
   type: string;
