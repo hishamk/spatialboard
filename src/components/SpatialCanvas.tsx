@@ -99,6 +99,19 @@ function pointInPolygon(px: number, py: number, polygon: Array<[number, number]>
   return inside;
 }
 
+/**
+ * Host render-scope membership (loop sub-canvas filter). A non-edge node is in
+ * scope iff its id is in the set; an EDGE node is in scope iff BOTH its endpoints
+ * are — so a boundary edge to a scoped-out node is hidden without dangling.
+ */
+function hostNodeInScope(n: SpatialNode, ids: ReadonlySet<string>): boolean {
+  if (n.type === "edge") {
+    const d = (n.data ?? {}) as { fromId?: string; toId?: string };
+    return !!d.fromId && !!d.toId && ids.has(d.fromId) && ids.has(d.toId);
+  }
+  return ids.has(n.id);
+}
+
 function isExactEdgeConnectionDuplicate(
   data: EdgeNode["data"],
   candidate: {
@@ -648,6 +661,8 @@ export default function SpatialCanvas({
   portConnectHold = false,
   minimapVisible = true,
   singleFrameId,
+  hostVisibleNodeIds = null,
+  overlayNodes = null,
 }: {
   engine: SpatialEngine;
   schema: SBDSchema;
@@ -673,6 +688,13 @@ export default function SpatialCanvas({
   minimapVisible?: boolean;
   /** When set, only render this frame and its children. */
   singleFrameId?: string;
+  /** Host render scope: when non-null, render ONLY these node ids (+ edges whose
+   *  both endpoints are in the set). null = render everything (default). */
+  hostVisibleNodeIds?: ReadonlySet<string> | null;
+  /** Ephemeral overlay nodes (cards + edges) rendered but NOT in the engine —
+   *  merged into the DOM/SVG render lists AFTER the scope filter, so they always
+   *  show. Serialize/history never see them (they live only in this prop). */
+  overlayNodes?: readonly SpatialNode[] | null;
 }) {
   const { labels } = useSBI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1346,9 +1368,22 @@ export default function SpatialCanvas({
 
   const svgLayerNodesRaw = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
   // Apply single-frame filter to SVG layer too
-  const svgLayerNodes = _singleFrameIds
+  const svgLayerNodesFramed = _singleFrameIds
     ? svgLayerNodesRaw.filter(n => _singleFrameIds.has(n.id))
     : svgLayerNodesRaw;
+  // Host render-scope filter (loop sub-canvas): a non-edge node renders iff it is
+  // in the scope; an EDGE renders iff BOTH endpoints are in the scope (so a
+  // boundary edge to a hidden node is naturally hidden). null = render all.
+  const svgLayerNodesScoped = hostVisibleNodeIds
+    ? svgLayerNodesFramed.filter((n) => hostNodeInScope(n, hostVisibleNodeIds))
+    : svgLayerNodesFramed;
+  // Ephemeral overlay nodes (cards + edges) are appended UNCONDITIONALLY (they
+  // bypass the scope filter — they ARE the frame). SVGLayer resolves edge/port
+  // endpoints from this merged list (nodeMap), so a synthetic edge to a real body
+  // node renders natively even though the synthetic node isn't in the engine.
+  const svgLayerNodes = overlayNodes && overlayNodes.length
+    ? [...svgLayerNodesScoped, ...overlayNodes]
+    : svgLayerNodesScoped;
 
   useEffect(() => {
     if (!spatialPerf.isEnabled()) return;
@@ -1639,7 +1674,7 @@ export default function SpatialCanvas({
   const editingNodeId = editingTextId || editingStickyId || editingFrameLabelId || editingShapeLabelId || croppingImageId || editingYouTubeId;
 
   const domLayerNodes = useMemo(() => {
-    const base =
+    let base =
       virtualizedView?.domNodes ??
       nodes.filter((n) => {
         // Single-frame filter: only render descendants (hide the frame border itself)
@@ -1661,10 +1696,18 @@ export default function SpatialCanvas({
           n.type === "sticky"
         );
       });
+    // Host render-scope filter (loop sub-canvas). DOM nodes are non-edge, so a
+    // plain id-membership test suffices. null = render all (default).
+    if (hostVisibleNodeIds) base = base.filter((n) => hostVisibleNodeIds.has(n.id));
+    // Append ephemeral overlay CARDS (non-edge) — always rendered (the frame).
+    if (overlayNodes && overlayNodes.length) {
+      const cards = overlayNodes.filter((n) => n.type !== "edge");
+      if (cards.length) base = [...base, ...cards];
+    }
     if (!croppingImageId || base.some((n) => n.id === croppingImageId)) return base;
     const pinned = nodes.find((n) => n.id === croppingImageId);
     return pinned ? [...base, pinned] : base;
-  }, [virtualizedView, nodes, registry, croppingImageId, _singleFrameIds]);
+  }, [virtualizedView, nodes, registry, croppingImageId, _singleFrameIds, hostVisibleNodeIds, overlayNodes]);
 
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);

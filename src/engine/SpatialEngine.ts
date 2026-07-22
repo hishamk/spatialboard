@@ -1213,13 +1213,29 @@ export class SpatialEngine {
     this.emit("viewport");
   }
 
-  fitToContent(): void {
-    if (this.nodes.size === 0) return;
+  /** The viewport that frames a bounding box (minX..maxY) with padding, or null
+   *  when the box is empty. Shared by the instant + animated fit methods. */
+  private _boundsViewport(
+    minX: number, minY: number, maxX: number, maxY: number, padding: number,
+  ): { x: number; y: number; zoom: number } | null {
+    if (!Number.isFinite(minX)) return null;
+    minX -= padding; minY -= padding; maxX += padding; maxY += padding;
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+    const screenW = this._containerWidth;
+    const screenH = this._containerHeight;
+    const zoom = clamp(Math.min(screenW / contentW, screenH / contentH), 0.1, 5);
+    return {
+      x: (screenW - contentW * zoom) / 2 - minX * zoom,
+      y: (screenH - contentH * zoom) / 2 - minY * zoom,
+      zoom,
+    };
+  }
 
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
+  /** The fit-to-all-content target viewport (null when the board is empty). */
+  private _contentViewport(): { x: number; y: number; zoom: number } | null {
+    if (this.nodes.size === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const node of this.nodes.values()) {
       const h = node.h === "auto" ? 100 : node.h;
       if (node.x < minX) minX = node.x;
@@ -1227,29 +1243,90 @@ export class SpatialEngine {
       if (node.x + node.w > maxX) maxX = node.x + node.w;
       if (node.y + h > maxY) maxY = node.y + h;
     }
+    return this._boundsViewport(minX, minY, maxX, maxY, 50);
+  }
 
-    const padding = 50;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
+  /** The fit-to-subset target viewport (null when no node id is found). Edges
+   *  are skipped (no meaningful box). */
+  private _nodesViewport(ids: readonly string[]): { x: number; y: number; zoom: number } | null {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = 0;
+    for (const id of ids) {
+      const node = this.nodes.get(id);
+      if (!node || node.type === "edge") continue;
+      const h = node.h === "auto" ? 100 : (node.h as number);
+      if (node.x < minX) minX = node.x;
+      if (node.y < minY) minY = node.y;
+      if (node.x + node.w > maxX) maxX = node.x + node.w;
+      if (node.y + h > maxY) maxY = node.y + h;
+      found++;
+    }
+    if (found === 0) return null;
+    return this._boundsViewport(minX, minY, maxX, maxY, 60);
+  }
 
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    const screenW = this._containerWidth;
-    const screenH = this._containerHeight;
-
-    const zoom = clamp(
-      Math.min(screenW / contentW, screenH / contentH),
-      0.1,
-      5
+  private _prefersReducedMotion(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
     );
-    this.viewport = {
-      x: (screenW - contentW * zoom) / 2 - minX * zoom,
-      y: (screenH - contentH * zoom) / 2 - minY * zoom,
-      zoom,
-    };
+  }
+
+  /** Move the camera to `target` — animated (reuses the existing ease-out
+   *  `_transitionPan` rAF tween) unless reduced-motion is preferred, in which
+   *  case snap instantly (`_transitionNone`). Additive; no other caller affected. */
+  private _animateOrSnap(target: { x: number; y: number; zoom: number }, durationMs?: number): void {
+    if (this._prefersReducedMotion()) this._transitionNone(target);
+    else this._transitionPan(target, durationMs ?? 380);
+  }
+
+  fitToContent(): void {
+    const v = this._contentViewport();
+    if (!v) return;
+    this.viewport = v;
     this.emit("viewport");
+  }
+
+  /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera tween.
+   *  Additive; the instant fitToContent is unchanged for other callers. */
+  fitToContentAnimated(opts?: { durationMs?: number }): void {
+    const v = this._contentViewport();
+    if (!v) return;
+    this._animateOrSnap(v, opts?.durationMs);
+  }
+
+  /**
+   * Fit the viewport to a SUBSET of nodes (their union AABB), ignoring the rest.
+   * Additive helper for host render-scope views (e.g. the workflow Loop node's
+   * nested sub-canvas — frame the loop + its body). Falls back to fitToContent
+   * when the subset is empty/unknown. Edge nodes are skipped (no meaningful box).
+   */
+  fitToNodes(ids: readonly string[]): void {
+    const v = this._nodesViewport(ids);
+    if (!v) return this.fitToContent();
+    this.viewport = v;
+    this.emit("viewport");
+  }
+
+  /** Animated fit-to-subset (zoom-in) — reuses the ease-out camera tween.
+   *  Additive; the instant fitToNodes is unchanged for other callers. */
+  fitToNodesAnimated(ids: readonly string[], opts?: { durationMs?: number }): void {
+    const v = this._nodesViewport(ids);
+    if (!v) return this.fitToContentAnimated(opts);
+    this._animateOrSnap(v, opts?.durationMs);
+  }
+
+  /** Animated fit to an arbitrary canvas-space rectangle (frame ephemeral overlay
+   *  content the engine doesn't own — e.g. the Loop mini-flow's synthetic Start/End
+   *  cards + body). Additive; reuses the same ease-out camera tween. */
+  fitToRectAnimated(
+    minX: number, minY: number, maxX: number, maxY: number,
+    opts?: { durationMs?: number; padding?: number },
+  ): void {
+    const v = this._boundsViewport(minX, minY, maxX, maxY, opts?.padding ?? 60);
+    if (!v) return;
+    this._animateOrSnap(v, opts?.durationMs);
   }
 
   /**

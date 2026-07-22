@@ -310,7 +310,44 @@ export declare class SpatialEngine {
     zoomOut(): void;
     /** Zoom and pan to center a node for editing (e.g. after double-click on placeholder) */
     zoomToNode(nodeId: string, targetZoom?: number): void;
+    /** The viewport that frames a bounding box (minX..maxY) with padding, or null
+     *  when the box is empty. Shared by the instant + animated fit methods. */
+    private _boundsViewport;
+    /** The fit-to-all-content target viewport (null when the board is empty). */
+    private _contentViewport;
+    /** The fit-to-subset target viewport (null when no node id is found). Edges
+     *  are skipped (no meaningful box). */
+    private _nodesViewport;
+    private _prefersReducedMotion;
+    /** Move the camera to `target` — animated (reuses the existing ease-out
+     *  `_transitionPan` rAF tween) unless reduced-motion is preferred, in which
+     *  case snap instantly (`_transitionNone`). Additive; no other caller affected. */
+    private _animateOrSnap;
     fitToContent(): void;
+    /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera tween.
+     *  Additive; the instant fitToContent is unchanged for other callers. */
+    fitToContentAnimated(opts?: {
+        durationMs?: number;
+    }): void;
+    /**
+     * Fit the viewport to a SUBSET of nodes (their union AABB), ignoring the rest.
+     * Additive helper for host render-scope views (e.g. the workflow Loop node's
+     * nested sub-canvas — frame the loop + its body). Falls back to fitToContent
+     * when the subset is empty/unknown. Edge nodes are skipped (no meaningful box).
+     */
+    fitToNodes(ids: readonly string[]): void;
+    /** Animated fit-to-subset (zoom-in) — reuses the ease-out camera tween.
+     *  Additive; the instant fitToNodes is unchanged for other callers. */
+    fitToNodesAnimated(ids: readonly string[], opts?: {
+        durationMs?: number;
+    }): void;
+    /** Animated fit to an arbitrary canvas-space rectangle (frame ephemeral overlay
+     *  content the engine doesn't own — e.g. the Loop mini-flow's synthetic Start/End
+     *  cards + body). Additive; reuses the same ease-out camera tween. */
+    fitToRectAnimated(minX: number, minY: number, maxX: number, maxY: number, opts?: {
+        durationMs?: number;
+        padding?: number;
+    }): void;
     /**
      * Fit viewport to a single frame node, ignoring everything else.
      * Used by single-frame rendering (e.g. flashcard study mode).

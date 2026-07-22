@@ -123,5 +123,23 @@ export interface SpatialBoardProps {
      * Viewport is auto-fitted to the frame. Used for flashcard study mode.
      */
     singleFrameId?: string;
+    /**
+     * Host-supplied render scope: when non-null, render ONLY the nodes whose id is
+     * in this set (and only edges whose BOTH endpoints are in the set). `null`/
+     * omitted = today's behavior (render everything). Purely a render filter — the
+     * engine still owns the full graph (serialize is unaffected). Used by the
+     * workflow Loop node's nested sub-canvas (scope into a loop's body). Composable
+     * with (independent of) `singleFrameId`.
+     */
+    visibleNodeIds?: ReadonlySet<string> | null;
+    /**
+     * Host-supplied EPHEMERAL overlay nodes rendered ON TOP of the engine's graph
+     * (cards + edges) but NEVER added to the engine — so serialize/history/undo are
+     * completely unaffected. Rendered through the SAME card/port/edge pipeline
+     * (SVGLayer resolves endpoints from the render list, not the engine). Used by
+     * the workflow Loop node's scoped mini-flow (synthetic Start/End frame cards).
+     * The host owns their lifecycle; they carry no persistence.
+     */
+    overlayNodes?: readonly import("../engine/types").SpatialNode[] | null;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, visibleNodeIds, overlayNodes, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
