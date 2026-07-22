@@ -2418,6 +2418,17 @@ export default function SpatialCanvas({
     [engine, measuredHeights, createTextNodeAndEdit]
   );
 
+  // Host render-scope (loop sub-canvas): hit-testing must respect it so the
+  // HIDDEN engine nodes/edges (the scoped-out loop node, its edges, off-scope
+  // nodes) don't hijack selection/drag inside the scope. Kept in a ref so the
+  // large pointer callback needn't re-create on scope change. null = no filter.
+  const hostVisibleRef = useRef(hostVisibleNodeIds);
+  hostVisibleRef.current = hostVisibleNodeIds;
+  const hitEligible = useCallback((n: SpatialNode): boolean => {
+    const ids = hostVisibleRef.current;
+    return !ids || hostNodeInScope(n, ids);
+  }, []);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       // Track all active pointers for multi-touch detection
@@ -2586,7 +2597,7 @@ export default function SpatialCanvas({
 
         // Alt+click: cycle through overlapping nodes at this position
         if (e.altKey) {
-          const allHits = engine.hitTestAll(cx, cy, measuredHeights);
+          const allHits = engine.hitTestAll(cx, cy, measuredHeights).filter(hitEligible);
           if (allHits.length > 0) {
             // Check if clicking near the same spot as last Alt+click
             const prev = altClickRef.current;
@@ -2623,7 +2634,7 @@ export default function SpatialCanvas({
         // of rotated nodes don't count as hits.
         let hit: SpatialNode | null = null;
         if (!engine.lassoSelect) {
-          const allHits = engine.hitTestAll(cx, cy, measuredHeights);
+          const allHits = engine.hitTestAll(cx, cy, measuredHeights).filter(hitEligible);
           hit = allHits.find((n) => engine.selection.has(n.id) && !engine.isContainerType(n.type)) ?? allHits.find((n) => !engine.isContainerType(n.type)) ?? allHits[0] ?? null;
           if (!insideSelectionBox) {
             const edgePick = getClosestEdgeHit(
@@ -2634,7 +2645,9 @@ export default function SpatialCanvas({
               measuredHeights,
               resolvePortPositions
             );
-            if (edgePick) {
+            // Ignore edges that aren't in the render scope (both endpoints must be
+            // visible) so the hidden loop's edges can't be picked in scope.
+            if (edgePick && hitEligible(edgePick.node)) {
               if (!hit) {
                 hit = edgePick.node;
               } else if (
@@ -2848,7 +2861,7 @@ export default function SpatialCanvas({
               if (doHitTest) {
                 const hits = getNodesInMarqueeRect(
                   { x: rx, y: ry, w: rw, h: rh },
-                  engine.getAllNodes()
+                  engine.getAllNodes().filter(hitEligible)
                 );
                 const hitIds = hits.map((n) => n.id);
                 const newIds = e.shiftKey
