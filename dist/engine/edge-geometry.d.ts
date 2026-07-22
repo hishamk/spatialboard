@@ -12,6 +12,8 @@ export declare const PORT_EDGE_SNAP_RADIUS_PX = 52;
  * is on the port dot (rendered ~6px radius + stroke in SVGLayer).
  */
 export declare const PORT_DOT_HIGHLIGHT_RADIUS_PX = 8;
+/** Rendered port-dot radius in screen pixels (SVGLayer circle). */
+export declare const PORT_DOT_RADIUS_PX = 6;
 /**
  * Canvas coordinates for a point in the node's unrotated AABB space
  * (same convention as stacked port placement).

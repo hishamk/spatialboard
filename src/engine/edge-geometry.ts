@@ -22,6 +22,9 @@ export const PORT_EDGE_SNAP_RADIUS_PX = 52;
  */
 export const PORT_DOT_HIGHLIGHT_RADIUS_PX = 8;
 
+/** Rendered port-dot radius in screen pixels (SVGLayer circle). */
+export const PORT_DOT_RADIUS_PX = 6;
+
 /**
  * Canvas coordinates for a point in the node's unrotated AABB space
  * (same convention as stacked port placement).
@@ -69,7 +72,10 @@ export function getPortOuterLocal(
   const idx = portsOfDir.indexOf(port);
   if (idx < 0) return null;
 
-  const py = node.y + (nh / (portsOfDir.length + 1)) * (idx + 1);
+  const py =
+    typeof port.sideT === "number" && Number.isFinite(port.sideT)
+      ? node.y + nh * Math.min(1, Math.max(0, port.sideT))
+      : node.y + (nh / (portsOfDir.length + 1)) * (idx + 1);
   let px: number;
   if (portAnchor === "inscribed-circle") {
     const r = Math.min(node.w, nh) / 2;

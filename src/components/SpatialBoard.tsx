@@ -28,11 +28,29 @@ import {
   type SpatialBoardLocalization,
 } from "./LocalizationContext";
 import { SpatialBoardReadOnlyContext } from "./SpatialBoardReadOnlyContext";
+
+/** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
+export type PortConnectEmptyEvent = {
+  nodeId: string;
+  portId: string;
+  direction: "input" | "output";
+  canvasX: number;
+  canvasY: number;
+  clientX: number;
+  clientY: number;
+};
 import type { ToolKey } from "../engine/types";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /**
+   * Node type catalog for this board. Default: spatialboard built-ins.
+   * When a host passes a custom list (e.g. workflow `wf-*` kinds), it is
+   * **merged** with the built-ins — host entries override the same `type` —
+   * so toolbar tools that still create built-ins (`sticky` / Note, text, …)
+   * keep resolving. Passing the default alone is unchanged.
+   */
   nodeTypes?: NodeTypeDefinition<any>[];
   /** Provide your own engine instance (advanced usage). */
   engine?: SpatialEngine;
@@ -89,6 +107,22 @@ export interface SpatialBoardProps {
    * Wires themselves are instantaneous — the timer is always for the **downstream** node's `compute`.
    */
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /**
+   * When false, hide the In/Out (etc.) label pills next to port dots.
+   * Dots stay interactive. Default true.
+   */
+  showPortLabels?: boolean;
+  /**
+   * Fired when a port-drag is released on empty canvas (no compatible port
+   * under the cursor). Hosts can open an "add node" picker and wire the new
+   * node to the source port — competitor-style port→menu gesture.
+   */
+  onPortConnectEmpty?: (event: PortConnectEmptyEvent) => void;
+  /**
+   * Keep the rubber-band edge + skeleton ghost visible while the host's
+   * add-node menu is open (set true after `onPortConnectEmpty`, false on close).
+   */
+  portConnectHold?: boolean;
   /** Open the frames/slides panel on mount. Default: false. */
   initialFramesPanelOpen?: boolean;
   /**
@@ -136,6 +170,9 @@ export default function SpatialBoard({
   direction,
   localization,
   dataFlowEdgeOverlay = "off",
+  showPortLabels = true,
+  onPortConnectEmpty,
+  portConnectHold = false,
   initialFramesPanelOpen = false,
   preview: isPreview = false,
   readOnly = false,
@@ -146,7 +183,17 @@ export default function SpatialBoard({
     [externalEngine],
   );
 
-  const registry = useMemo(() => new NodeTypeRegistry(nodeTypes), [nodeTypes]);
+  const registry = useMemo(() => {
+    // Custom catalogs are additive: keep built-ins (sticky, text, …) so toolbar
+    // tools like workflow's Note still resolve; host types override by `type`.
+    if (nodeTypes === builtinNodeTypes) {
+      return new NodeTypeRegistry(builtinNodeTypes);
+    }
+    const byType = new Map<string, NodeTypeDefinition>();
+    for (const nt of builtinNodeTypes) byType.set(nt.type, nt);
+    for (const nt of nodeTypes) byType.set(nt.type, nt);
+    return new NodeTypeRegistry([...byType.values()]);
+  }, [nodeTypes]);
 
   // Load Google Fonts on mount
   useEffect(() => loadGoogleFonts(), []);
@@ -307,6 +354,9 @@ export default function SpatialBoard({
           registry={registry}
           dataFlow={dataFlow}
           dataFlowEdgeOverlay={dataFlowEdgeOverlay}
+          showPortLabels={showPortLabels}
+          onPortConnectEmpty={onPortConnectEmpty}
+          portConnectHold={portConnectHold}
           minimapVisible={isPreview ? false : minimapVisible}
           singleFrameId={singleFrameId}
         />

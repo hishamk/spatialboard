@@ -4,9 +4,26 @@ import type { DebugBoardEntry } from "./DebugPanel";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import { type SpatialBoardDirection, type SpatialBoardLocalization } from "./LocalizationContext";
+/** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
+export type PortConnectEmptyEvent = {
+    nodeId: string;
+    portId: string;
+    direction: "input" | "output";
+    canvasX: number;
+    canvasY: number;
+    clientX: number;
+    clientY: number;
+};
 import type { ToolKey } from "../engine/types";
 export interface SpatialBoardProps {
     /** Node type definitions. Defaults to all built-in types. */
+    /**
+     * Node type catalog for this board. Default: spatialboard built-ins.
+     * When a host passes a custom list (e.g. workflow `wf-*` kinds), it is
+     * **merged** with the built-ins — host entries override the same `type` —
+     * so toolbar tools that still create built-ins (`sticky` / Note, text, …)
+     * keep resolving. Passing the default alone is unchanged.
+     */
     nodeTypes?: NodeTypeDefinition<any>[];
     /** Provide your own engine instance (advanced usage). */
     engine?: SpatialEngine;
@@ -63,6 +80,22 @@ export interface SpatialBoardProps {
      * Wires themselves are instantaneous — the timer is always for the **downstream** node's `compute`.
      */
     dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+    /**
+     * When false, hide the In/Out (etc.) label pills next to port dots.
+     * Dots stay interactive. Default true.
+     */
+    showPortLabels?: boolean;
+    /**
+     * Fired when a port-drag is released on empty canvas (no compatible port
+     * under the cursor). Hosts can open an "add node" picker and wire the new
+     * node to the source port — competitor-style port→menu gesture.
+     */
+    onPortConnectEmpty?: (event: PortConnectEmptyEvent) => void;
+    /**
+     * Keep the rubber-band edge + skeleton ghost visible while the host's
+     * add-node menu is open (set true after `onPortConnectEmpty`, false on close).
+     */
+    portConnectHold?: boolean;
     /** Open the frames/slides panel on mount. Default: false. */
     initialFramesPanelOpen?: boolean;
     /**
@@ -91,4 +124,4 @@ export interface SpatialBoardProps {
      */
     singleFrameId?: string;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import type {
   SpatialNode,
   EdgeNode,
@@ -23,12 +23,14 @@ import {
   nearestPerimeterPoint,
   PORT_DOT_HIGHLIGHT_RADIUS_PX,
   PORT_EDGE_SNAP_RADIUS_PX,
+  PORT_DOT_RADIUS_PX,
 } from "../engine/edge-geometry";
 import type { NodeTypeRegistry } from "../nodes/registry";
 import { resolveNodePorts, nodeTypeHasPorts } from "../nodes/registry";
 import type { PortDataType, PortValue } from "../engine/data-flow-types";
 import { nodeShowsEdgeComputeOverlay } from "../engine/data-flow-types";
 import { getRotatedCursor } from "../interactions/resize-cursors";
+import { useSBTheme } from "./sidebar/ThemeContext";
 
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
@@ -150,6 +152,10 @@ interface SVGLayerProps {
     edgeStyle?: "solid" | "dashed" | "dotted";
     edgeType?: EdgeType;
     attachmentGap?: number;
+    /** Held after empty-canvas drop while host add-node menu is open. */
+    held?: boolean;
+    /** Skeleton ghost node at the drop (competitor-style). */
+    ghost?: { w: number; h: number; attach: "in" | "out" };
   } | null;
   onEdgeEndpointDown?: (
     edgeId: string,
@@ -192,6 +198,8 @@ interface SVGLayerProps {
   cycleNodeIds?: ReadonlySet<string>;
   /** When not `off`, port-connected edges show `sourcePort → targetPort`; `ports+compute` adds target node's last `compute` duration. */
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /** When false, hide In/Out pills beside port dots. Default true. */
+  showPortLabels?: boolean;
   /** From `DataFlowEngine.getLastComputeMs` — used when `dataFlowEdgeOverlay` is `ports+compute`. */
   getLastComputeMs?: (nodeId: string) => number | undefined;
   /** From `DataFlowEngine.getPortValue` — shows (!) on port edges when the target's `error`/`err` output is non-empty. */
@@ -214,6 +222,9 @@ const SelectionBox = memo(function SelectionBox({
   node,
   zoom,
   showHandles = true,
+  showResizeHandles = true,
+  showRotateHandle = true,
+  cornerRadius = 0,
   measuredHeights,
   onHandlePointerDown,
   onRotateStart,
@@ -221,6 +232,12 @@ const SelectionBox = memo(function SelectionBox({
   node: SpatialNode;
   zoom: number;
   showHandles?: boolean;
+  /** When false, keep the selection outline but hide resize squares. */
+  showResizeHandles?: boolean;
+  /** When false, hide the top rotate diamond. */
+  showRotateHandle?: boolean;
+  /** Matches the node's visual corner radius (canvas units). */
+  cornerRadius?: number;
   measuredHeights?: Record<string, number>;
   onHandlePointerDown?: (
     nodeId: string,
@@ -240,6 +257,7 @@ const SelectionBox = memo(function SelectionBox({
   const half = handleSize / 2;
   const rotateGap = 25 / zoom;
   const isLocked = !!node.locked;
+  const rx = Math.max(0, Math.min(cornerRadius, node.w / 2, h / 2));
 
   const handles: { pos: HandlePosition; cx: number; cy: number }[] = [
     { pos: "nw", cx: node.x, cy: node.y },
@@ -260,6 +278,8 @@ const SelectionBox = memo(function SelectionBox({
         y={node.y}
         width={node.w}
         height={h}
+        rx={rx}
+        ry={rx}
         fill="none"
         stroke={isLocked ? "#f59e0b" : "#3b82f6"}
         strokeWidth={1.5 / zoom}
@@ -286,7 +306,7 @@ const SelectionBox = memo(function SelectionBox({
         );
       })()}
       {/* Resize handles */}
-      {showHandles && !isLocked && handles.map(({ pos, cx: hx, cy: hy }) => (
+      {showHandles && showResizeHandles && !isLocked && handles.map(({ pos, cx: hx, cy: hy }) => (
         <rect
           key={pos}
           x={hx - half}
@@ -307,7 +327,7 @@ const SelectionBox = memo(function SelectionBox({
         />
       ))}
       {/* Rotation handle — line from top-center + rotate icon */}
-      {showHandles && !isLocked && (
+      {showHandles && showRotateHandle && !isLocked && (
         <>
           <line
             x1={node.x + node.w / 2}
@@ -419,31 +439,97 @@ const EdgeRenderer = memo(function EdgeRenderer({
     }
   }
 
+  const sw = edge.data.strokeWidth;
+  const defaultMarkerSize = Math.max(8, sw * 3);
+  const headSize = edge.data.arrowHeadSize ?? defaultMarkerSize;
+  const tailSize = edge.data.arrowTailSize ?? defaultMarkerSize;
+  const hasHead = !!edge.data.arrowHead && edge.data.arrowHead !== "none";
+  const hasTail = !!edge.data.arrowTail && edge.data.arrowTail !== "none";
+
+  // Port-connected heads: tip should kiss the near rim of the port dot (not
+  // bury into its center). Pull the path end back by portRadius + headSize so
+  // the path stops at the arrow base and the tip lands on the rim.
+  let pathTargetPos = targetPortPos;
+  let pathSourcePos = sourcePortPos;
+  if (targetPortPos && hasHead) {
+    const probe = computeEdgePath(
+      fromNode, toNode, edgeType, measuredHeights,
+      edge.data.sourceHandle, edge.data.targetHandle,
+      edge.data.midpointOffset, edge.data.curveOffset,
+      sourcePortPos, targetPortPos,
+      edge.data.sourceT, edge.data.targetT,
+      edge.data.attachmentGap,
+    );
+    const ux = Math.cos(probe.arrowAngle);
+    const uy = Math.sin(probe.arrowAngle);
+    const portR = PORT_DOT_RADIUS_PX / viewport.zoom;
+    const pull = portR + headSize;
+    pathTargetPos = {
+      x: targetPortPos.x - ux * pull,
+      y: targetPortPos.y - uy * pull,
+    };
+  }
+  if (sourcePortPos && hasTail) {
+    const probe = computeEdgePath(
+      fromNode, toNode, edgeType, measuredHeights,
+      edge.data.sourceHandle, edge.data.targetHandle,
+      edge.data.midpointOffset, edge.data.curveOffset,
+      sourcePortPos, pathTargetPos ?? targetPortPos,
+      edge.data.sourceT, edge.data.targetT,
+      edge.data.attachmentGap,
+    );
+    const ux = Math.cos(probe.tailAngle);
+    const uy = Math.sin(probe.tailAngle);
+    const portR = PORT_DOT_RADIUS_PX / viewport.zoom;
+    const pull = portR + tailSize;
+    // tailAngle points back along the path (toward/past source); pull along that
+    // direction from the port center to place the tail base outside the dot.
+    pathSourcePos = {
+      x: sourcePortPos.x - ux * pull,
+      y: sourcePortPos.y - uy * pull,
+    };
+  }
+
   const pathResult = computeEdgePath(
     fromNode, toNode, edgeType, measuredHeights,
     edge.data.sourceHandle, edge.data.targetHandle,
     edge.data.midpointOffset, edge.data.curveOffset,
-    sourcePortPos, targetPortPos,
+    pathSourcePos, pathTargetPos,
     edge.data.sourceT, edge.data.targetT,
     edge.data.attachmentGap,
   );
   const { path, x1, y1, x2, y2, labelX, labelY, arrowAngle, tailAngle, kinkHandle } = pathResult;
 
+  // Arrow tip sits one headSize along the tangent from the (shortened) path end,
+  // which is the near rim of the port when pathTargetPos was adjusted above.
+  // Non-port edges keep the legacy "centered on endpoint" placement.
+  const headCenteredOnTip = !!(targetPortPos && hasHead);
+  const headCx = headCenteredOnTip ? x2 + Math.cos(arrowAngle) * (headSize / 2) : x2;
+  const headCy = headCenteredOnTip ? y2 + Math.sin(arrowAngle) * (headSize / 2) : y2;
+  const tailCenteredOnTip = !!(sourcePortPos && hasTail);
+  const tailCx = tailCenteredOnTip ? x1 + Math.cos(tailAngle) * (tailSize / 2) : x1;
+  const tailCy = tailCenteredOnTip ? y1 + Math.sin(tailAngle) * (tailSize / 2) : y1;
+
   const isSelected = selection.has(edge.id);
-  const sw = edge.data.strokeWidth;
+  const isReconnecting = edgeReconnect?.edgeId === edge.id;
+  // Port-wired edges (workflow) don't expose freeform kink / endpoint reconnect
+  // chrome. Also hide whenever more than one thing is selected — marquee
+  // multiselect was littering the board with midpoint anchors.
+  const showEdgeEditHandles =
+    isSelected &&
+    !isReconnecting &&
+    selection.size === 1 &&
+    !edge.data.sourcePort &&
+    !edge.data.targetPort;
   const dashArray =
     edge.data.style === "dashed"
       ? `${8 * sw},${4 * sw}`
       : edge.data.style === "dotted"
         ? `${2 * sw},${3 * sw}`
         : undefined;
-  const defaultMarkerSize = Math.max(8, sw * 3);
-  const headSize = edge.data.arrowHeadSize ?? defaultMarkerSize;
-  const tailSize = edge.data.arrowTailSize ?? defaultMarkerSize;
   const isAnimated = edge.data.animated;
 
   const isEraserMarked = eraserMarkedIds?.has(edge.id);
-  const isReconnecting = edgeReconnect?.edgeId === edge.id;
 
   // Detect if this edge is part of a dependency cycle
   const isCycleEdge = !!(
@@ -477,10 +563,10 @@ const EdgeRenderer = memo(function EdgeRenderer({
   if (roughOpts) {
     roughEdgePaths = getRoughPathPaths(path, roughOpts);
     if (edge.data.arrowHead === "arrow") {
-      roughHeadPaths = getRoughPathPaths(arrowHeadPath(x2, y2, arrowAngle, headSize), { ...roughOpts, strokeLineDash: undefined });
+      roughHeadPaths = getRoughPathPaths(arrowHeadPath(headCx, headCy, arrowAngle, headSize), { ...roughOpts, strokeLineDash: undefined });
     }
     if (edge.data.arrowTail === "arrow") {
-      roughTailPaths = getRoughPathPaths(arrowHeadPath(x1, y1, tailAngle, tailSize), { ...roughOpts, strokeLineDash: undefined });
+      roughTailPaths = getRoughPathPaths(arrowHeadPath(tailCx, tailCy, tailAngle, tailSize), { ...roughOpts, strokeLineDash: undefined });
     }
   }
 
@@ -656,7 +742,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
           ))
         ) : (
           <path
-            d={arrowHeadPath(x2, y2, arrowAngle, headSize)}
+            d={arrowHeadPath(headCx, headCy, arrowAngle, headSize)}
             fill="none"
             stroke={edgeColor}
             strokeWidth={sw}
@@ -667,14 +753,14 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {edge.data.arrowHead === "filled" && (
         <path
-          d={filledArrowHeadPath(x2, y2, arrowAngle, headSize)}
+          d={filledArrowHeadPath(headCx, headCy, arrowAngle, headSize)}
           fill={edgeColor}
           stroke="none"
         />
       )}
       {edge.data.arrowHead === "dot" && (
         <circle
-          cx={x2} cy={y2}
+          cx={headCx} cy={headCy}
           r={headSize * 0.25}
           fill={edgeColor}
         />
@@ -695,7 +781,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
           ))
         ) : (
           <path
-            d={arrowHeadPath(x1, y1, tailAngle, tailSize)}
+            d={arrowHeadPath(tailCx, tailCy, tailAngle, tailSize)}
             fill="none"
             stroke={edgeColor}
             strokeWidth={sw}
@@ -706,14 +792,14 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {edge.data.arrowTail === "filled" && (
         <path
-          d={filledArrowHeadPath(x1, y1, tailAngle, tailSize)}
+          d={filledArrowHeadPath(tailCx, tailCy, tailAngle, tailSize)}
           fill={edgeColor}
           stroke="none"
         />
       )}
       {edge.data.arrowTail === "dot" && (
         <circle
-          cx={x1} cy={y1}
+          cx={tailCx} cy={tailCy}
           r={tailSize * 0.25}
           fill={edgeColor}
         />
@@ -784,8 +870,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
           </>
         );
       })()}
-      {/* Edge endpoint handles — draggable to reconnect */}
-      {isSelected && !isReconnecting && (
+      {/* Edge endpoint handles — draggable to reconnect (sole freeform selection only) */}
+      {showEdgeEditHandles && (
         <>
           <circle
             cx={x1} cy={y1}
@@ -814,7 +900,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
         </>
       )}
       {/* Kink handle — draggable to reposition step/smoothstep bend */}
-      {isSelected && !isReconnecting && kinkHandle && (
+      {showEdgeEditHandles && kinkHandle && (
         <circle
           cx={kinkHandle.x} cy={kinkHandle.y}
           r={5 / viewport.zoom}
@@ -869,12 +955,15 @@ export default function SVGLayer({
   onPortHandleDown,
   cycleNodeIds,
   dataFlowEdgeOverlay = "off",
+  showPortLabels = true,
   getLastComputeMs,
   getDataFlowPortValue,
   containerTypes,
   alignGuides,
   suppressNodeOverlayId,
 }: SVGLayerProps) {
+  const theme = useSBTheme();
+  const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null);
   const svgTransform = `translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`;
 
   // Nodes that need selection boxes (everything except edges, content, and image
@@ -1184,7 +1273,7 @@ export default function SVGLayer({
               const rotation = node.rotation || 0;
               const ncx = node.x + node.w / 2;
               const ncy = node.y + nh / 2;
-              const portR = 6 / viewport.zoom;
+              const portR = PORT_DOT_RADIUS_PX / viewport.zoom;
               const portAnchor: PortAnchorMode = def.portAnchor ?? "bbox";
 
               const inputPorts = ports.filter((p) => p.direction === "input");
@@ -1211,20 +1300,30 @@ export default function SVGLayer({
                   portAnchor,
                 );
                 const color = PORT_COLORS[port.dataType] || PORT_COLORS.any;
+                const portKey = `${node.id}:${port.id}`;
+                const isHovered = !isDragging && isInteractive && hoveredPortKey === portKey;
                 const isNearest = nearestPortNodeId === node.id && nearestPortId === port.id;
-                const highlightR = isNearest ? 8 / viewport.zoom : portR;
+                const highlightR = isNearest ? 8 / viewport.zoom : isHovered ? portR * 1.35 : portR;
                 const labelGap = 2.5 / viewport.zoom;
                 const labelX = direction === "input" ? px - portR - labelGap : px + portR + labelGap;
+                const plusColor = theme.accentColor || "#14b8a6";
+                // Plus glyph sized to the hover disc (screen-ish thickness).
+                const plusArm = highlightR * 0.55;
+                const plusThick = Math.max(1.25 / viewport.zoom, highlightR * 0.22);
 
                 return (
-                  <g key={`port-${node.id}-${port.id}`}>
+                  <g
+                    key={`port-${node.id}-${port.id}`}
+                    onPointerEnter={isInteractive ? () => setHoveredPortKey(portKey) : undefined}
+                    onPointerLeave={isInteractive ? () => setHoveredPortKey((k) => (k === portKey ? null : k)) : undefined}
+                  >
                     {/* Connection line from port dot to node body */}
                     <line
                       x1={px} y1={py}
                       x2={inner.x} y2={inner.y}
-                      stroke={color}
-                      strokeWidth={1.5 / viewport.zoom}
-                      opacity={0.4}
+                      stroke={isHovered ? plusColor : color}
+                      strokeWidth={(isHovered ? 2.5 : 1.5) / viewport.zoom}
+                      opacity={isHovered ? 0.9 : 0.4}
                       style={{ pointerEvents: "none" }}
                     />
                     {/* Glow ring when highlighted */}
@@ -1239,25 +1338,54 @@ export default function SVGLayer({
                         style={{ pointerEvents: "none" }}
                       />
                     )}
+                    {/* Larger invisible hit target for easier hover / drag */}
+                    <circle
+                      cx={px}
+                      cy={py}
+                      r={Math.max(highlightR, 10 / viewport.zoom)}
+                      fill="transparent"
+                      style={{
+                        cursor: isInteractive ? "crosshair" : "default",
+                        pointerEvents: isInteractive ? "auto" : "none",
+                      }}
+                      onPointerDown={isInteractive ? (e) => {
+                        e.stopPropagation();
+                        setHoveredPortKey(null);
+                        onPortHandleDown?.(node.id, port.id, direction, e);
+                      } : undefined}
+                    />
                     <circle
                       cx={px}
                       cy={py}
                       r={highlightR}
-                      fill={isNearest ? "white" : color}
-                      stroke={isNearest ? color : "#1a1a2e"}
+                      fill={isNearest ? "white" : isHovered ? plusColor : color}
+                      stroke={isNearest ? color : isHovered ? plusColor : "#1a1a2e"}
                       strokeWidth={2 / viewport.zoom}
-                      style={{
-                        cursor: isInteractive ? "crosshair" : "default",
-                        pointerEvents: isInteractive ? "auto" : "none",
-                        transition: "r 0.1s, fill 0.1s",
-                      }}
-                      onPointerDown={isInteractive ? (e) => {
-                        e.stopPropagation();
-                        onPortHandleDown?.(node.id, port.id, direction, e);
-                      } : undefined}
+                      style={{ pointerEvents: "none", transition: "r 0.1s, fill 0.1s" }}
                     />
+                    {/* gptbots-style + affordance: drag onto empty canvas to add a node */}
+                    {isHovered && !isNearest && (
+                      <g style={{ pointerEvents: "none" }}>
+                        <rect
+                          x={px - plusArm}
+                          y={py - plusThick / 2}
+                          width={plusArm * 2}
+                          height={plusThick}
+                          rx={plusThick / 2}
+                          fill="#fff"
+                        />
+                        <rect
+                          x={px - plusThick / 2}
+                          y={py - plusArm}
+                          width={plusThick}
+                          height={plusArm * 2}
+                          rx={plusThick / 2}
+                          fill="#fff"
+                        />
+                      </g>
+                    )}
                     {/* Port label pill */}
-                    {(() => {
+                    {showPortLabels && (() => {
                       const labelText = port.label || port.id;
                       const fs = 9 / viewport.zoom;
                       const pillPadX = 5 / viewport.zoom;
@@ -1269,9 +1397,9 @@ export default function SVGLayer({
                         : labelX;
                       const pillY = py - pillH / 2;
                       const pillR = pillH / 2;
-                      const pillFill = isNearest ? color : "#1a1a2e";
-                      const pillStroke = isNearest ? color : "#2a2a40";
-                      const textFill = isNearest ? "#fff" : "#94a3b8";
+                      const pillFill = isNearest ? color : isHovered ? plusColor : "#1a1a2e";
+                      const pillStroke = isNearest ? color : isHovered ? plusColor : "#2a2a40";
+                      const textFill = isNearest || isHovered ? "#fff" : "#94a3b8";
                       return (
                         <g style={{ pointerEvents: "none" }}>
                           <rect
@@ -1282,7 +1410,7 @@ export default function SVGLayer({
                             rx={pillR}
                             ry={pillR}
                             fill={pillFill}
-                            fillOpacity={isNearest ? 0.9 : 0.85}
+                            fillOpacity={isNearest || isHovered ? 0.9 : 0.85}
                             stroke={pillStroke}
                             strokeWidth={1 / viewport.zoom}
                           />
@@ -1348,13 +1476,16 @@ export default function SVGLayer({
         {edgePreview && (() => {
           const curX = edgePreview.cursorX;
           const curY = edgePreview.cursorY;
-          const color = edgePreview.edgeColor || "#3b82f6";
-          const sw = edgePreview.edgeStrokeWidth || 2;
+          const color = edgePreview.edgeColor || "#6b7280";
+          const sw = edgePreview.edgeStrokeWidth || 1.5;
           const style = edgePreview.edgeStyle || "solid";
           const dashArr = style === "dashed" ? `${8 * sw},${4 * sw}`
             : style === "dotted" ? `${2 * sw},${3 * sw}` : undefined;
           const headSize = Math.max(8, sw * 3);
           const dotR = 4 / viewport.zoom;
+          const held = !!edgePreview.held;
+          const ghost = edgePreview.ghost;
+          const edgeType = edgePreview.edgeType || "bezier";
 
           const fromDef = registry?.get(edgePreview.fromNode.type);
           const fromPorts = resolveNodePorts(fromDef, edgePreview.fromNode);
@@ -1382,7 +1513,8 @@ export default function SVGLayer({
           let snapTargetT: number | undefined;
           let snapTargetPortId: string | null = null;
 
-          if (registry && edgePreview.sourcePort && portSnapExpectedDir && sourcePortMeta) {
+          // While the add-node menu holds the preview, lock onto the ghost — no port snap.
+          if (!held && registry && edgePreview.sourcePort && portSnapExpectedDir && sourcePortMeta) {
             const snapR = PORT_EDGE_SNAP_RADIUS_PX / viewport.zoom;
             let bestDist = Infinity;
             for (const n of nodes) {
@@ -1418,7 +1550,7 @@ export default function SVGLayer({
             }
           }
 
-          if (!snapTargetPortId) {
+          if (!held && !snapTargetPortId) {
             const snapThreshold = 50 / viewport.zoom;
             for (const n of nodes) {
               if (n.type === "edge" || n.id === edgePreview.fromNode.id) continue;
@@ -1439,7 +1571,7 @@ export default function SVGLayer({
 
           const snapDef = snapTargetNode ? registry?.get(snapTargetNode.type) : undefined;
           const snapPorts = resolveNodePorts(snapDef, snapTargetNode ?? undefined);
-          const targetPortPos =
+          let targetPortPos =
             snapTargetNode && snapTargetPortId && snapPorts
               ? getPortPosition(
                 snapTargetNode,
@@ -1454,12 +1586,91 @@ export default function SVGLayer({
           const previewSourceT = sourcePortPos ? undefined : edgePreview.sourceT;
           const previewTargetT = targetPortPos ? undefined : snapTargetT;
 
-          let previewPath;
-          if (snapTargetNode) {
-            previewPath = computeEdgePath(
+          // Phantom / skeleton target so free-drag + held previews get the same
+          // left/right port tangents as real edges (not a 0×0 point at the cursor).
+          let targetNode: SpatialNode | null = snapTargetNode;
+          let ghostEl: React.ReactNode = null;
+          const attachIn =
+            ghost?.attach === "in" ||
+            (!ghost && edgePreview.sourceDirection === "output");
+          const phantomW = ghost?.w ?? 200;
+          const phantomH = ghost?.h ?? 100;
+
+          if (!targetNode && (held || edgePreview.sourcePort)) {
+            const gx = attachIn ? curX : curX - phantomW;
+            const gy = curY - phantomH / 2;
+            targetNode = {
+              id: "__preview__",
+              type: "shape" as any,
+              x: gx,
+              y: gy,
+              w: phantomW,
+              h: phantomH,
+              z: 0,
+              data: { shape: "rect", stroke: "#000", strokeWidth: 1, roughness: 0 },
+            };
+            targetPortPos = {
+              x: attachIn ? gx : gx + phantomW,
+              y: curY,
+            };
+
+            if (held && ghost) {
+              const z = viewport.zoom;
+              const pad = 14;
+              const barH = 8;
+              const barGap = 10;
+              const portR = PORT_DOT_RADIUS_PX / z;
+              ghostEl = (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect
+                    x={gx}
+                    y={gy}
+                    width={phantomW}
+                    height={phantomH}
+                    rx={12}
+                    ry={12}
+                    fill="var(--sb-card, #f4f4f5)"
+                    fillOpacity={0.92}
+                    stroke="var(--sb-muted-foreground, #94a3b8)"
+                    strokeWidth={1.5 / z}
+                    strokeDasharray={`${5 / z} ${4 / z}`}
+                  />
+                  <rect x={gx + pad} y={gy + pad + 4} width={phantomW * 0.45} height={barH} rx={3} fill="var(--sb-muted-foreground, #94a3b8)" opacity={0.28} />
+                  <rect x={gx + pad} y={gy + pad + 4 + barH + barGap} width={phantomW * 0.72} height={barH} rx={3} fill="var(--sb-muted-foreground, #94a3b8)" opacity={0.2} />
+                  <rect x={gx + pad} y={gy + pad + 4 + (barH + barGap) * 2} width={phantomW * 0.55} height={barH} rx={3} fill="var(--sb-muted-foreground, #94a3b8)" opacity={0.16} />
+                  <circle
+                    cx={targetPortPos.x}
+                    cy={targetPortPos.y}
+                    r={portR}
+                    fill={color}
+                    stroke="var(--sb-card, #fff)"
+                    strokeWidth={2 / z}
+                  />
+                </g>
+              );
+            }
+          }
+
+          if (!targetNode) {
+            targetNode = {
+              id: "__preview__",
+              type: "shape" as any,
+              x: curX,
+              y: curY,
+              w: 0,
+              h: 0,
+              z: 0,
+              data: { shape: "rect", stroke: "#000", strokeWidth: 1, roughness: 0 },
+            };
+          }
+
+          // Match real port edges: pull tip back so a filled arrow kisses the port rim.
+          let pathTargetPos = targetPortPos;
+          if (targetPortPos) {
+            const probe = computeEdgePath(
               edgePreview.fromNode,
-              snapTargetNode,
-              edgePreview.edgeType || "bezier",
+              targetNode,
+              edgeType,
               measuredHeights,
               edgePreview.sourceHandle,
               undefined,
@@ -1471,34 +1682,45 @@ export default function SVGLayer({
               previewTargetT,
               edgePreview.attachmentGap,
             );
-          } else {
-            const virtualTarget: SpatialNode = {
-              id: "__preview__", type: "shape" as any,
-              x: curX, y: curY, w: 0, h: 0, z: 0,
-              data: { shape: "rect", stroke: "#000", strokeWidth: 1, roughness: 0 },
+            const ux = Math.cos(probe.arrowAngle);
+            const uy = Math.sin(probe.arrowAngle);
+            const portR = PORT_DOT_RADIUS_PX / viewport.zoom;
+            const pull = portR + headSize;
+            pathTargetPos = {
+              x: targetPortPos.x - ux * pull,
+              y: targetPortPos.y - uy * pull,
             };
-            previewPath = computeEdgePath(
-              edgePreview.fromNode,
-              virtualTarget,
-              edgePreview.edgeType || "bezier",
-              measuredHeights,
-              edgePreview.sourceHandle,
-              undefined,
-              undefined,
-              undefined,
-              sourcePortPos,
-              undefined,
-              previewSourceT,
-              undefined,
-              edgePreview.attachmentGap,
-            );
           }
+
+          const previewPath = computeEdgePath(
+            edgePreview.fromNode,
+            targetNode,
+            edgeType,
+            measuredHeights,
+            edgePreview.sourceHandle,
+            undefined,
+            undefined,
+            undefined,
+            sourcePortPos,
+            pathTargetPos,
+            previewSourceT,
+            previewTargetT,
+            edgePreview.attachmentGap,
+          );
 
           const showSourceDot = !sourcePortPos;
           const showTargetDot = Boolean(snapTargetNode && !targetPortPos);
+          const headCenteredOnTip = !!targetPortPos;
+          const headCx = headCenteredOnTip
+            ? previewPath.x2 + Math.cos(previewPath.arrowAngle) * (headSize / 2)
+            : previewPath.x2;
+          const headCy = headCenteredOnTip
+            ? previewPath.y2 + Math.sin(previewPath.arrowAngle) * (headSize / 2)
+            : previewPath.y2;
 
           return (
             <g>
+              {ghostEl}
               <path
                 d={previewPath.path}
                 stroke={color}
@@ -1508,12 +1730,9 @@ export default function SVGLayer({
                 fill="none"
               />
               <path
-                d={arrowHeadPath(previewPath.x2, previewPath.y2, previewPath.arrowAngle, headSize)}
-                fill="none"
-                stroke={color}
-                strokeWidth={sw}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                d={filledArrowHeadPath(headCx, headCy, previewPath.arrowAngle, headSize)}
+                fill={color}
+                stroke="none"
               />
               {showSourceDot && (
                 <circle cx={previewPath.x1} cy={previewPath.y1} r={dotR}
@@ -1584,17 +1803,25 @@ export default function SVGLayer({
         {/* Selection boxes for SVG nodes (single selection only — multi uses unified bounding box) */}
         {selection.size === 1 && mode !== "edge" && !edgePreview && !edgeReconnect && svgNodes
           .filter((n) => selection.has(n.id))
-          .map((node) => (
-            <SelectionBox
-              key={`sel-${node.id}`}
-              node={node}
-              zoom={viewport.zoom}
-              showHandles={selection.size === 1}
-              measuredHeights={measuredHeights}
-              onHandlePointerDown={onResizeHandleDown}
-              onRotateStart={onRotateStart}
-            />
-          ))}
+          .map((node) => {
+            const def = registry?.get(node.type);
+            // Node-owned selection chrome lives in the DOM wrapper (z-order safe).
+            if (def?.selectionInNode) return null;
+            return (
+              <SelectionBox
+                key={`sel-${node.id}`}
+                node={node}
+                zoom={viewport.zoom}
+                showHandles={selection.size === 1}
+                showResizeHandles={def?.resizable !== false}
+                showRotateHandle={def?.rotatable !== false}
+                cornerRadius={def?.selectionRadius ?? 0}
+                measuredHeights={measuredHeights}
+                onHandlePointerDown={onResizeHandleDown}
+                onRotateStart={onRotateStart}
+              />
+            );
+          })}
 
         {/* Active stroke being drawn */}
         {activeStroke && activeStroke.points.length > 1 && (() => {

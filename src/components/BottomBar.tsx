@@ -122,6 +122,14 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
       {name === "bookmark-fill" && (
         <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="currentColor" />
       )}
+      {name === "arrange" && (
+        <>
+          <rect x="3" y="4" width="7" height="6" rx="1" {...sp} />
+          <rect x="14" y="4" width="7" height="6" rx="1" {...sp} />
+          <rect x="14" y="14" width="7" height="6" rx="1" {...sp} />
+          <path d="M6.5 10v5.5H14" {...sp} />
+        </>
+      )}
     </svg>
   );
 }
@@ -158,6 +166,7 @@ export default function BottomBar({
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [hasOriginView, setHasOriginView] = useState(() => engine.originView != null);
+  const [canArrangeBoard, setCanArrangeBoard] = useState(false);
   const [frameCount, setFrameCount] = useState(
     () => engine.getAllNodes().filter((n) => n.type === "frame").length,
   );
@@ -168,21 +177,26 @@ export default function BottomBar({
       setCanUndo(engine.canUndo());
       setCanRedo(engine.canRedo());
     };
-    const syncFrameCount = () => {
+    const syncBoard = () => {
       setFrameCount(engine.getAllNodes().filter((n) => n.type === "frame").length);
       setHasOriginView(engine.originView != null);
+      const arrangeable = engine
+        .getAllNodes()
+        .filter((n) => n.type !== "edge" && !n.locked).length;
+      setCanArrangeBoard(arrangeable >= 2 && !engine.readOnly);
     };
+    syncBoard();
     engine.on("viewport", handleViewport);
     engine.on("history", handleHistory);
-    engine.on("change", syncFrameCount);
-    engine.on("node:create", syncFrameCount);
-    engine.on("node:delete", syncFrameCount);
+    engine.on("change", syncBoard);
+    engine.on("node:create", syncBoard);
+    engine.on("node:delete", syncBoard);
     return () => {
       engine.off("viewport", handleViewport);
       engine.off("history", handleHistory);
-      engine.off("change", syncFrameCount);
-      engine.off("node:create", syncFrameCount);
-      engine.off("node:delete", syncFrameCount);
+      engine.off("change", syncBoard);
+      engine.off("node:create", syncBoard);
+      engine.off("node:delete", syncBoard);
     };
   }, [engine]);
 
@@ -372,6 +386,25 @@ export default function BottomBar({
             </button>
           </>
         )}
+        <>
+          {(showSlides || onToggleMinimap) && <div style={sep} />}
+          <button
+            title={labels.actionArrangeBoard}
+            disabled={!canArrangeBoard}
+            onClick={() =>
+              engine.arrangeAllNodes(engine.measuredHeights, engine.viewport.zoom)
+            }
+            style={{
+              ...btn,
+              width: 32,
+              height: 32,
+              color: canArrangeBoard ? theme.textMuted : theme.textFaint,
+              cursor: canArrangeBoard ? "pointer" : "default",
+            }}
+          >
+            <Icon name="arrange" />
+          </button>
+        </>
         {onTogglePerfOverlay && (
           <>
             <div style={sep} />

@@ -360,6 +360,10 @@ const LASSO_CURSOR = (() => {
 function RegistryNodeWrapper({
   node,
   isInteractive,
+  isSelected,
+  selectionInNode,
+  selectionRadius,
+  zoom,
   measuredH,
   onMeasuredHeight,
   observeElement,
@@ -369,6 +373,10 @@ function RegistryNodeWrapper({
 }: {
   node: SpatialNode;
   isInteractive: boolean;
+  isSelected?: boolean;
+  selectionInNode?: boolean;
+  selectionRadius?: number;
+  zoom: number;
   measuredH: number | undefined;
   onMeasuredHeight: (nodeId: string, height: number) => void;
   observeElement: (el: Element, callback: (entry: ResizeObserverEntry) => void) => void;
@@ -407,6 +415,10 @@ function RegistryNodeWrapper({
     transformOrigin: "center center",
   }), [node.x, node.y, node.w, h, node.z, node.rotation, isContainer, isInteractive]);
 
+  const ringRadius = Math.max(0, selectionRadius ?? 0);
+  // Keep stroke roughly screen-constant inside the zoomed viewport layer.
+  const ringWidth = 1.5 / zoom;
+
   return (
     <div
       ref={wrapRef}
@@ -415,6 +427,21 @@ function RegistryNodeWrapper({
       style={wrapperStyle}
     >
       {children}
+      {selectionInNode && isSelected && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: ringRadius,
+            border: `${ringWidth}px dashed #3b82f6`,
+            boxSizing: "border-box",
+            pointerEvents: "none",
+            // Above this node's content; sibling nodes still stack by their zIndex.
+            zIndex: 1,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -616,6 +643,9 @@ export default function SpatialCanvas({
   registry,
   dataFlow,
   dataFlowEdgeOverlay = "off",
+  showPortLabels = true,
+  onPortConnectEmpty,
+  portConnectHold = false,
   minimapVisible = true,
   singleFrameId,
 }: {
@@ -625,6 +655,20 @@ export default function SpatialCanvas({
   dataFlow?: DataFlowEngine | null;
   /** Port edge captions; only applies when `dataFlow` is active. Default `off`. */
   dataFlowEdgeOverlay?: DataFlowEdgeOverlay;
+  /** When false, hide In/Out pills beside port dots. Default true. */
+  showPortLabels?: boolean;
+  /** Port-drag released with no compatible target port under the cursor. */
+  onPortConnectEmpty?: (event: {
+    nodeId: string;
+    portId: string;
+    direction: "input" | "output";
+    canvasX: number;
+    canvasY: number;
+    clientX: number;
+    clientY: number;
+  }) => void;
+  /** Keep edge preview + skeleton ghost while host add-node menu is open. */
+  portConnectHold?: boolean;
   /** When false, the canvas minimap overlay is hidden. Default true. */
   minimapVisible?: boolean;
   /** When set, only render this frame and its children. */
@@ -766,6 +810,10 @@ export default function SpatialCanvas({
     edgeStyle?: "solid" | "dashed" | "dotted";
     edgeType?: EdgeType;
     attachmentGap?: number;
+    /** Held after empty-canvas drop while host add-node menu is open. */
+    held?: boolean;
+    /** Skeleton ghost node at the drop (competitor-style). */
+    ghost?: { w: number; h: number; attach: "in" | "out" };
   } | null>(null);
 
   const prevEdgePreviewRef = useRef(edgePreview);
@@ -778,6 +826,16 @@ export default function SpatialCanvas({
       engine.notifyEdgeEnd();
     }
   }, [edgePreview, engine]);
+
+  // Clear held rubber-band + skeleton when the host closes its add-node menu.
+  const prevPortConnectHoldRef = useRef(portConnectHold);
+  useEffect(() => {
+    const was = prevPortConnectHoldRef.current;
+    prevPortConnectHoldRef.current = portConnectHold;
+    if (was && !portConnectHold) {
+      setEdgePreview((prev) => (prev?.held ? null : prev));
+    }
+  }, [portConnectHold]);
 
   const prevFrameRectDragRef = useRef(shapePreview);
   useEffect(() => {
@@ -3472,6 +3530,7 @@ export default function SpatialCanvas({
       if (engine.presentationMode) return;
       const node = engine.getNode(nodeId);
       if (!node || node.locked) return;
+      if (registry?.get(node.type)?.resizable === false) return;
 
       const startScreenX = e.clientX;
       const startScreenY = e.clientY;
@@ -3688,7 +3747,7 @@ export default function SpatialCanvas({
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
     },
-    [engine, measuredHeights]
+    [engine, measuredHeights, registry]
   );
 
   // Rotation handler for SVG nodes (draw/shape)
@@ -3699,6 +3758,7 @@ export default function SpatialCanvas({
 
       const node = engine.getNode(nodeId);
       if (!node || node.locked) return;
+      if (registry?.get(node.type)?.rotatable === false) return;
 
       const h = node.h === "auto" ? (measuredHeights[nodeId] ?? 100) : (node.h as number);
       const centerX = node.x + node.w / 2;
@@ -3736,7 +3796,7 @@ export default function SpatialCanvas({
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
     },
-    [engine, measuredHeights]
+    [engine, measuredHeights, registry]
   );
 
   // Connection handle handler — drag from a handle to create an edge from any mode
@@ -3899,6 +3959,8 @@ export default function SpatialCanvas({
       const sourceHandle: HandleSide = direction === "input" ? "left" : "right";
 
       const { x: startCX, y: startCY } = engine.screenToCanvas(e.clientX, e.clientY);
+      // Match the edges `createEdge` writes on drop — not the pen/draw activeTool
+      // (defaults are #1e1e2e / width 3, which make the rubber-band look alien).
       setEdgePreview({
         fromNode: sourceNode,
         cursorX: startCX,
@@ -3906,11 +3968,10 @@ export default function SpatialCanvas({
         sourceHandle,
         sourcePort: portId,
         sourceDirection: direction,
-        edgeColor: engine.activeTool.color,
-        edgeStrokeWidth: engine.activeTool.width || 2,
-        edgeStyle: (engine.activeTool.strokeStyle as "solid" | "dashed" | "dotted") || "solid",
-        edgeType: engine.activeTool.edgeType,
-        attachmentGap: engine.activeTool.attachmentGap,
+        edgeColor: "#6b7280",
+        edgeStrokeWidth: 1.5,
+        edgeStyle: "solid",
+        edgeType: "bezier",
       });
 
       const onMove = (me: PointerEvent) => {
@@ -3923,7 +3984,6 @@ export default function SpatialCanvas({
       const onUp = (me: PointerEvent) => {
         ownerDoc().removeEventListener("pointermove", onMove);
         ownerDoc().removeEventListener("pointerup", onUp);
-        setEdgePreview(null);
 
         const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
         const expectedDir = direction === "output" ? "input" : "output";
@@ -3968,7 +4028,48 @@ export default function SpatialCanvas({
           }
         }
 
-        if (!bestTargetNode || !bestTargetPort) return;
+        if (!bestTargetNode || !bestTargetPort) {
+          // Competitor-style: drag from a port onto empty canvas → host can open
+          // an add-node menu. Keep the rubber-band + skeleton ghost until the
+          // host clears `portConnectHold`. Ignore tiny moves (click without drag).
+          const dragged =
+            Math.hypot(me.clientX - e.clientX, me.clientY - e.clientY) > 10;
+          if (dragged && onPortConnectEmpty) {
+            setEdgePreview((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    cursorX: x,
+                    cursorY: y,
+                    held: true,
+                    ghost: {
+                      w: 200,
+                      h: 100,
+                      attach: direction === "output" ? "in" : "out",
+                    },
+                    edgeColor: "#6b7280",
+                    edgeStrokeWidth: 1.5,
+                    edgeStyle: "solid",
+                    edgeType: "bezier",
+                  }
+                : null,
+            );
+            onPortConnectEmpty({
+              nodeId,
+              portId,
+              direction,
+              canvasX: x,
+              canvasY: y,
+              clientX: me.clientX,
+              clientY: me.clientY,
+            });
+            return;
+          }
+          setEdgePreview(null);
+          return;
+        }
+
+        setEdgePreview(null);
 
         // Prevent duplicate port connections (one edge per input port)
         const targetPortId = bestTargetPort.id;
@@ -3998,7 +4099,7 @@ export default function SpatialCanvas({
             toId,
             style: "solid",
             color: "#6b7280",
-            strokeWidth: 2,
+            strokeWidth: 1.5,
             arrowHead: "filled",
             arrowTail: "none",
             edgeType: "bezier",
@@ -4015,7 +4116,7 @@ export default function SpatialCanvas({
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
     },
-    [engine, registry, measuredHeights]
+    [engine, registry, measuredHeights, onPortConnectEmpty]
   );
 
   // Subscribe to DataFlowEngine changes for port value re-renders
@@ -4273,6 +4374,7 @@ export default function SpatialCanvas({
         .map((id) => engine.getNode(id))
         .filter(Boolean) as SpatialNode[];
       if (selectedNodes.length < 2) return;
+      if (selectedNodes.some((n) => registry?.get(n.type)?.rotatable === false)) return;
 
       const isSingleGroup = engine.selectionIsSingleGroup();
       const gid = isSingleGroup ? (engine.selectionGroupId() ?? null) : null;
@@ -4394,7 +4496,7 @@ export default function SpatialCanvas({
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
     },
-    [engine, measuredHeights, getNodeAABB]
+    [engine, measuredHeights, getNodeAABB, registry]
   );
 
   // Unified resize handler for multi-selection
@@ -4408,6 +4510,7 @@ export default function SpatialCanvas({
         .map((id) => engine.getNode(id))
         .filter(Boolean) as SpatialNode[];
       if (selectedNodes.length < 2) return;
+      if (selectedNodes.some((n) => registry?.get(n.type)?.resizable === false)) return;
 
       const getH = (n: SpatialNode) =>
         n.h === "auto" ? (measuredHeights[n.id] ?? 100) : (n.h as number);
@@ -4613,7 +4716,7 @@ export default function SpatialCanvas({
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
     },
-    [engine, measuredHeights, getNodeAABB]
+    [engine, measuredHeights, getNodeAABB, registry]
   );
 
   // Double-click is intentionally NOT used to create content blocks in select
@@ -5106,6 +5209,10 @@ export default function SpatialCanvas({
                       key={node.id}
                       node={node}
                       isInteractive={isInteractive}
+                      isSelected={isSelected && selection.size === 1}
+                      selectionInNode={!!def.selectionInNode}
+                      selectionRadius={def.selectionRadius}
+                      zoom={viewport.zoom}
                       measuredH={measuredHeights[node.id]}
                       onMeasuredHeight={handleMeasuredHeight}
                       observeElement={observeElement}
@@ -5393,6 +5500,7 @@ export default function SpatialCanvas({
         onPortHandleDown={handlePortHandleDown}
         cycleNodeIds={dataFlow && dataFlowVersion >= 0 ? dataFlow.cycleNodeIds : undefined}
         dataFlowEdgeOverlay={dataFlow ? dataFlowEdgeOverlay : "off"}
+        showPortLabels={showPortLabels}
         getLastComputeMs={dataFlow ? getLastComputeMs : undefined}
         getDataFlowPortValue={dataFlow ? getDataFlowPortValue : undefined}
         containerTypes={engine.containerTypes}
@@ -5461,6 +5569,16 @@ export default function SpatialCanvas({
 
         const handleSize = 8 / viewport.zoom;
         const half = handleSize / 2;
+        const selectionAllowsResize = Array.from(engine.selection).every((id) => {
+          const n = engine.getNode(id);
+          if (!n || n.type === "edge") return true;
+          return registry?.get(n.type)?.resizable !== false;
+        });
+        const selectionAllowsRotate = Array.from(engine.selection).every((id) => {
+          const n = engine.getNode(id);
+          if (!n || n.type === "edge") return true;
+          return registry?.get(n.type)?.rotatable !== false;
+        });
         const handles: { pos: HandlePosition; cx: number; cy: number }[] = [
           { pos: "nw", cx: b.x, cy: b.y },
           { pos: "n", cx: b.x + b.w / 2, cy: b.y },
@@ -5490,7 +5608,7 @@ export default function SpatialCanvas({
                   stroke="#3b82f6"
                   strokeWidth={1.5 / viewport.zoom}
                 />
-                {rotAngle === 0 && handles.map(({ pos, cx, cy }) => (
+                {rotAngle === 0 && selectionAllowsResize && handles.map(({ pos, cx, cy }) => (
                   <rect
                     key={pos}
                     x={cx - half}
@@ -5508,7 +5626,7 @@ export default function SpatialCanvas({
                   />
                 ))}
                 {/* Rotation handle */}
-                {(() => {
+                {selectionAllowsRotate && (() => {
                   const rotateGap = 25 / viewport.zoom;
                   const topCx = b.x + b.w / 2;
                   const topCy = b.y;
@@ -5545,8 +5663,17 @@ export default function SpatialCanvas({
                     </>
                   );
                 })()}
-                {/* Connection handles on bounding box */}
+                {/* Connection handles on bounding box — freeform edge starts.
+                    Skip when the selection includes port-wired nodes (workflow
+                    etc.): those boards connect via ports, not bbox anchors. */}
                 {(() => {
+                  const hasPortNode = Array.from(engine.selection).some((id) => {
+                    const n = engine.getNode(id);
+                    if (!n || n.type === "edge") return false;
+                    return nodeTypeHasPorts(registry?.get(n.type));
+                  });
+                  if (hasPortNode) return null;
+
                   const connOffset = 26 / viewport.zoom;
                   const connTopOffset = 42 / viewport.zoom; // extra clearance past rotation handle
                   const connR = 4 / viewport.zoom;

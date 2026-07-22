@@ -37,6 +37,7 @@ import type {
   SpatialNodeTypeCatalogEntry,
 } from "../nodes/registry";
 import { spatialPerf } from "../perf/spatial-perf";
+import { loadCanvasPrefs, saveCanvasPrefs } from "../store/canvas-prefs";
 import { computeSelectionArrangement } from "./arrange-selection";
 import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
 import type { RectDragAwareness } from "../collab/rect-drag-awareness";
@@ -319,6 +320,21 @@ export class SpatialEngine {
     matches: [],
     activeIndex: -1,
   };
+
+  constructor() {
+    const prefs = loadCanvasPrefs();
+    this.snapToGrid = prefs.snapToGrid;
+    this.smartGuides = prefs.smartGuides;
+    this.gridSize = prefs.gridSize;
+  }
+
+  private persistCanvasPrefs(): void {
+    saveCanvasPrefs({
+      snapToGrid: this.snapToGrid,
+      smartGuides: this.smartGuides,
+      gridSize: this.gridSize,
+    });
+  }
 
   /** Set the node type registry for lifecycle hooks. */
   setRegistry(registry: NodeTypeRegistry): void {
@@ -634,6 +650,7 @@ export class SpatialEngine {
 
   toggleSnapToGrid(): void {
     this.snapToGrid = !this.snapToGrid;
+    this.persistCanvasPrefs();
     this.emit("guides");
   }
 
@@ -644,6 +661,7 @@ export class SpatialEngine {
 
   toggleSmartGuides(): void {
     this.smartGuides = !this.smartGuides;
+    this.persistCanvasPrefs();
     this.emit("guides");
   }
 
@@ -651,6 +669,7 @@ export class SpatialEngine {
     const next = Math.max(1, Math.round(size));
     if (this.gridSize === next) return;
     this.gridSize = next;
+    this.persistCanvasPrefs();
     this.emit("guides");
   }
 
@@ -2349,10 +2368,39 @@ export class SpatialEngine {
     measuredHeights?: Record<string, number>,
     labelLayoutZoom = 1,
   ): void {
+    if (this.readOnly) return;
     const updates = computeSelectionArrangement(
       this.getAllNodes(),
       this.selection,
-      measuredHeights,
+      measuredHeights ?? this._measuredHeights,
+      this.gridSize,
+      this.registry,
+      labelLayoutZoom,
+    );
+    if (updates.length === 0) return;
+    this.batchUpdateWithHistory(
+      updates.map((u) => ({ id: u.id, patch: { x: u.x, y: u.y } })),
+    );
+  }
+
+  /**
+   * Same algorithm as `arrangeSelectedNodes`, but over every unlocked non-edge
+   * node on the board (no selection required). Bottom-bar “arrange board” entry.
+   */
+  arrangeAllNodes(
+    measuredHeights?: Record<string, number>,
+    labelLayoutZoom = 1,
+  ): void {
+    if (this.readOnly) return;
+    const ids = new Set(
+      this.getAllNodes()
+        .filter((n) => n.type !== "edge" && !n.locked)
+        .map((n) => n.id),
+    );
+    const updates = computeSelectionArrangement(
+      this.getAllNodes(),
+      ids,
+      measuredHeights ?? this._measuredHeights,
       this.gridSize,
       this.registry,
       labelLayoutZoom,

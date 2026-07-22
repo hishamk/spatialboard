@@ -53,6 +53,27 @@ export interface NodeTypeDefinition<TData = unknown> {
      *  Contained nodes move with the container, hit-testing prefers children
      *  over the container, and spatial membership is tracked. */
     isContainer?: boolean;
+    /**
+     * When false, hide resize handles and ignore resize gestures for this type.
+     * Default true. Use for fixed-size cards (e.g. workflow step nodes).
+     */
+    resizable?: boolean;
+    /**
+     * When false, hide the rotate handle and ignore rotate gestures for this type.
+     * Default true.
+     */
+    rotatable?: boolean;
+    /**
+     * Corner radius (canvas units) for the single-selection dashed outline.
+     * Default 0 (sharp). Match the node's visual card radius so the chrome fits.
+     */
+    selectionRadius?: number;
+    /**
+     * When true, the node (DOM) owns the selection outline instead of the SVG
+     * overlay — so the ring respects node z-order and won't paint over neighbors.
+     * Typical for fixed cards with `resizable: false` / `rotatable: false`.
+     */
+    selectionInNode?: boolean;
     /** Custom hit testing. Default: bounding box with 4px tolerance. */
     hitTest?: (node: SpatialNode, canvasX: number, canvasY: number, zoom: number) => boolean;
     /** Extra hit padding in canvas units (e.g., stroke width for draw nodes). */

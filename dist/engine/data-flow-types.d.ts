@@ -24,6 +24,13 @@ export interface PortDefinition {
     dataType: PortDataType;
     /** Default value used when no edge is connected. */
     defaultValue?: PortValue;
+    /**
+     * Optional vertical placement along the port side as a fraction of node
+     * height (0 = top, 1 = bottom). When omitted, ports of the same direction
+     * are evenly spaced. Used by branching cards (intent / condition) so each
+     * output hugs its labeled row.
+     */
+    sideT?: number;
 }
 /** A value that flows through a port. */
 export type PortValue = number | string | boolean | Record<string, unknown> | null;

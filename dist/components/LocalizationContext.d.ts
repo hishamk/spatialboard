@@ -201,6 +201,8 @@ export interface SpatialBoardLocalization {
     actionDuplicate: string;
     /** Multi-select: auto-layout (DAG layers + barycenter, or tidy grid). */
     actionArrangeSelection: string;
+    /** Bottom bar: auto-layout the whole board (no selection required). */
+    actionArrangeBoard: string;
     /** Context menu: alignment subsection titles */
     alignMenuHorizontal: string;
     alignMenuVertical: string;

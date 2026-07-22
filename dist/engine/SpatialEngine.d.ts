@@ -184,6 +184,8 @@ export declare class SpatialEngine {
     /** Measured heights for auto-height nodes (canvas-coordinate units). */
     private _measuredHeights;
     private _search;
+    constructor();
+    private persistCanvasPrefs;
     /** Set the node type registry for lifecycle hooks. */
     setRegistry(registry: NodeTypeRegistry): void;
     /** Registry used by the canvas (remote edge preview, hooks). */
@@ -427,6 +429,11 @@ export declare class SpatialEngine {
      * wire labels. Skips edges and locked nodes.
      */
     arrangeSelectedNodes(measuredHeights?: Record<string, number>, labelLayoutZoom?: number): void;
+    /**
+     * Same algorithm as `arrangeSelectedNodes`, but over every unlocked non-edge
+     * node on the board (no selection required). Bottom-bar “arrange board” entry.
+     */
+    arrangeAllNodes(measuredHeights?: Record<string, number>, labelLayoutZoom?: number): void;
     /** Axis alignment for multi-select (union bbox reference). Skips edges and locked nodes. */
     alignSelectedNodes(mode: SelectionAlignMode, measuredHeights?: Record<string, number>): void;
     /**

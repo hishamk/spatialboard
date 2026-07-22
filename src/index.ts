@@ -55,7 +55,7 @@ export { builtinNodeTypes } from "./nodes";
 
 // ── React components ─────────────────────────────────────────
 export { default as SpatialBoard } from "./components/SpatialBoard";
-export type { SpatialBoardProps } from "./components/SpatialBoard";
+export type { SpatialBoardProps, PortConnectEmptyEvent } from "./components/SpatialBoard";
 export { default as SpatialCanvas } from "./components/SpatialCanvas";
 export type { DataFlowEdgeOverlay } from "./components/SVGLayer";
 export { default as Sidebar } from "./components/sidebar/Sidebar";
