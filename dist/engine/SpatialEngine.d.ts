@@ -367,7 +367,9 @@ export declare class SpatialEngine {
         x: number;
         y: number;
     };
-    addNode(node: SpatialNode): void;
+    addNode(node: SpatialNode, opts?: {
+        skipHistory?: boolean;
+    }): void;
     addNodes(nodes: SpatialNode[]): void;
     updateNode(id: string, patch: Partial<SpatialNode>): void;
     /**
@@ -397,7 +399,9 @@ export declare class SpatialEngine {
         id: string;
         patch: Partial<SpatialNode>;
     }>, sessionKey: string): void;
-    deleteNode(id: string): void;
+    deleteNode(id: string, opts?: {
+        skipHistory?: boolean;
+    }): void;
     getNode(id: string): SpatialNode | undefined;
     getAllNodes(): SpatialNode[];
     /** Returns a read-only iterable of all nodes (no copy). */

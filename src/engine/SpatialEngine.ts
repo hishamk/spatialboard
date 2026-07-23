@@ -1393,9 +1393,14 @@ export class SpatialEngine {
 
   // --- Node CRUD ---
 
-  addNode(node: SpatialNode): void {
+  addNode(node: SpatialNode, opts?: { skipHistory?: boolean }): void {
     if (this.readOnly) return;
-    if (this._agentActionDepth === 0) {
+    // `skipHistory` (host-managed ephemeral nodes — e.g. the workflow loop
+    // Start/End frame): the node renders + hit-tests + connects like any node
+    // but never enters the undo stack (the host reconciles it from UI scope,
+    // and serialize excludes it by type). Undo of a REAL edit still restores a
+    // snapshot that includes it, and the host re-reconciles if a snapshot lacks it.
+    if (this._agentActionDepth === 0 && !opts?.skipHistory) {
       this._historyCoalesceKey = null;
       this.history.pushSnapshot(this.nodes, this.groupParent);
     }
@@ -1678,12 +1683,14 @@ export class SpatialEngine {
     }
   }
 
-  deleteNode(id: string): void {
+  deleteNode(id: string, opts?: { skipHistory?: boolean }): void {
     if (this.readOnly) return;
     if (!this.nodes.has(id)) return;
     if (this.nodes.get(id)?.locked) return;
     this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
+    // `skipHistory`: mirror of addNode — removing an ephemeral host-managed node
+    // (loop Start/End frame on scope exit) must not push an undo step.
+    if (!opts?.skipHistory) this.history.pushSnapshot(this.nodes, this.groupParent);
 
     // Remove from QuadTree before deleting from map
     const nodeToRemove = this.nodes.get(id);

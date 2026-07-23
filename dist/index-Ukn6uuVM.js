@@ -3212,14 +3212,14 @@ ${a}` : i;
     return Ld(this.viewport, e, o);
   }
   // --- Node CRUD ---
-  addNode(e) {
-    var o, r, n;
+  addNode(e, o) {
+    var r, n, s;
     if (!this.readOnly) {
-      if (this._agentActionDepth === 0 && (this._historyCoalesceKey = null, this.history.pushSnapshot(this.nodes, this.groupParent)), this.nodes.set(e.id, e), this.quadTree.insert(e), e.z < this._minZ && (this._minZ = e.z), e.type === "edge") {
-        const s = e, { fromId: i, toId: a } = s.data;
-        this.adjacency.has(i) || this.adjacency.set(i, /* @__PURE__ */ new Set()), this.adjacency.has(a) || this.adjacency.set(a, /* @__PURE__ */ new Set()), this.adjacency.get(i).add(e.id), this.adjacency.get(a).add(e.id);
+      if (this._agentActionDepth === 0 && !(o != null && o.skipHistory) && (this._historyCoalesceKey = null, this.history.pushSnapshot(this.nodes, this.groupParent)), this.nodes.set(e.id, e), this.quadTree.insert(e), e.z < this._minZ && (this._minZ = e.z), e.type === "edge") {
+        const i = e, { fromId: a, toId: d } = i.data;
+        this.adjacency.has(a) || this.adjacency.set(a, /* @__PURE__ */ new Set()), this.adjacency.has(d) || this.adjacency.set(d, /* @__PURE__ */ new Set()), this.adjacency.get(a).add(e.id), this.adjacency.get(d).add(e.id);
       }
-      e.type !== "edge" && this.updateFrameMembership([e.id]), (n = (r = (o = this.registry) == null ? void 0 : o.get(e.type)) == null ? void 0 : r.onCreate) == null || n.call(r, e, this), this.emit("node:create", e), this.refreshSearchIfNeeded(), this.emit("change"), this.emit("history");
+      e.type !== "edge" && this.updateFrameMembership([e.id]), (s = (n = (r = this.registry) == null ? void 0 : r.get(e.type)) == null ? void 0 : n.onCreate) == null || s.call(n, e, this), this.emit("node:create", e), this.refreshSearchIfNeeded(), this.emit("change"), this.emit("history");
     }
   }
   addNodes(e) {
@@ -3337,21 +3337,21 @@ ${a}` : i;
         this.updateNode(r, n);
     }
   }
-  deleteNode(e) {
-    var r, n, s, i, a;
-    if (this.readOnly || !this.nodes.has(e) || (r = this.nodes.get(e)) != null && r.locked) return;
-    this._historyCoalesceKey = null, this.history.pushSnapshot(this.nodes, this.groupParent);
-    const o = this.nodes.get(e);
-    o && ((i = (s = (n = this.registry) == null ? void 0 : n.get(o.type)) == null ? void 0 : s.onDelete) == null || i.call(s, o, this), this.emit("node:delete", o), this.quadTree.remove(o)), this.nodes.delete(e), this.selection.delete(e), this.adjacency.delete(e), this.frameChildren.delete(e);
-    for (const d of this.frameChildren.values()) d.delete(e);
-    for (const [d, c] of this.nodes)
-      if (c.type === "edge") {
-        const l = c.data;
-        if (l.fromId === e || l.toId === e) {
-          const f = this.nodes.get(d);
-          f && this.quadTree.remove(f), this.nodes.delete(d), this.selection.delete(d);
-          const p = l.fromId === e ? l.toId : l.fromId;
-          (a = this.adjacency.get(p)) == null || a.delete(d);
+  deleteNode(e, o) {
+    var n, s, i, a, d;
+    if (this.readOnly || !this.nodes.has(e) || (n = this.nodes.get(e)) != null && n.locked) return;
+    this._historyCoalesceKey = null, o != null && o.skipHistory || this.history.pushSnapshot(this.nodes, this.groupParent);
+    const r = this.nodes.get(e);
+    r && ((a = (i = (s = this.registry) == null ? void 0 : s.get(r.type)) == null ? void 0 : i.onDelete) == null || a.call(i, r, this), this.emit("node:delete", r), this.quadTree.remove(r)), this.nodes.delete(e), this.selection.delete(e), this.adjacency.delete(e), this.frameChildren.delete(e);
+    for (const c of this.frameChildren.values()) c.delete(e);
+    for (const [c, l] of this.nodes)
+      if (l.type === "edge") {
+        const f = l.data;
+        if (f.fromId === e || f.toId === e) {
+          const p = this.nodes.get(c);
+          p && this.quadTree.remove(p), this.nodes.delete(c), this.selection.delete(c);
+          const m = f.fromId === e ? f.toId : f.fromId;
+          (d = this.adjacency.get(m)) == null || d.delete(c);
         }
       }
     this.refreshSearchIfNeeded(), this.emit("change"), this.emit("selection"), this.emit("history");
@@ -24056,7 +24056,7 @@ function Dy() {
     }
   );
 }
-const Wy = ad(() => import("./DebugPanel-BJhJb0Go.js"));
+const Wy = ad(() => import("./DebugPanel-Cco5bV29.js"));
 function a1({
   nodeTypes: t = vn,
   engine: e,
