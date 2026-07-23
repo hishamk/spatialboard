@@ -168,6 +168,9 @@ export interface SpatialBoardProps {
    * The host owns their lifecycle; they carry no persistence.
    */
   overlayNodes?: readonly import("../engine/types").SpatialNode[] | null;
+  /** Host control seated as the FIRST segment of the BottomBar (e.g. the workflow
+   *  "Add node" button), so it reads as part of the toolbar. */
+  bottomBarLeading?: React.ReactNode;
 }
 
 export default function SpatialBoard({
@@ -197,6 +200,7 @@ export default function SpatialBoard({
   singleFrameId,
   visibleNodeIds,
   overlayNodes,
+  bottomBarLeading,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -391,6 +395,7 @@ export default function SpatialBoard({
           <BottomBar
             engine={engine}
             tools={tools}
+            leadingSlot={bottomBarLeading}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
             showMinimap={minimapVisible}

@@ -146,6 +146,10 @@ interface BottomBarProps {
   onToggleMinimap?: () => void;
   showPerfOverlay?: boolean;
   onTogglePerfOverlay?: () => void;
+  /** Host-supplied control rendered as the FIRST segment of the bar (e.g. the
+   *  workflow "Add node" button) so it reads as part of the toolbar rather than a
+   *  floating overlay. Styles/behaviour are the host's; the bar just seats it. */
+  leadingSlot?: React.ReactNode;
 }
 
 export default function BottomBar({
@@ -157,6 +161,7 @@ export default function BottomBar({
   onToggleMinimap,
   showPerfOverlay,
   onTogglePerfOverlay,
+  leadingSlot,
 }: BottomBarProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
@@ -228,6 +233,10 @@ export default function BottomBar({
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {/* Host leading control (e.g. workflow "Add node") — seated as the first
+          segment so it reads as part of the bar. */}
+      {leadingSlot}
+
       {/* Zoom controls */}
       <div data-sb-bar-zoom style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
         <button

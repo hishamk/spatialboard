@@ -12,6 +12,10 @@ interface BottomBarProps {
     onToggleMinimap?: () => void;
     showPerfOverlay?: boolean;
     onTogglePerfOverlay?: () => void;
+    /** Host-supplied control rendered as the FIRST segment of the bar (e.g. the
+     *  workflow "Add node" button) so it reads as part of the toolbar rather than a
+     *  floating overlay. Styles/behaviour are the host's; the bar just seats it. */
+    leadingSlot?: React.ReactNode;
 }
-export default function BottomBar({ engine, tools, framesPanelOpen, onToggleFramesPanel, showMinimap, onToggleMinimap, showPerfOverlay, onTogglePerfOverlay, }: BottomBarProps): import("react/jsx-runtime").JSX.Element;
+export default function BottomBar({ engine, tools, framesPanelOpen, onToggleFramesPanel, showMinimap, onToggleMinimap, showPerfOverlay, onTogglePerfOverlay, leadingSlot, }: BottomBarProps): import("react/jsx-runtime").JSX.Element;
 export {};

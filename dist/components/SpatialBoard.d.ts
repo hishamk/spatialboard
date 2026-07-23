@@ -141,5 +141,8 @@ export interface SpatialBoardProps {
      * The host owns their lifecycle; they carry no persistence.
      */
     overlayNodes?: readonly import("../engine/types").SpatialNode[] | null;
+    /** Host control seated as the FIRST segment of the BottomBar (e.g. the workflow
+     *  "Add node" button), so it reads as part of the toolbar. */
+    bottomBarLeading?: React.ReactNode;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, visibleNodeIds, overlayNodes, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, visibleNodeIds, overlayNodes, bottomBarLeading, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
