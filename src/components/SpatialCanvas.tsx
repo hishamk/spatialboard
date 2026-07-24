@@ -2181,8 +2181,13 @@ export default function SpatialCanvas({
         sections.push({ items });
       }
 
-      // Delete section
-      if (hasSel) {
+      // Delete section — hidden when nothing in the selection is user-deletable
+      // (deletable === false marks protected nodes, e.g. workflow Start/End).
+      const anyDeletable = selIds.some((id) => {
+        const n = engine.getNode(id);
+        return !!n && !n.locked && n.deletable !== false;
+      });
+      if (hasSel && anyDeletable) {
         sections.push({
           items: [
             {

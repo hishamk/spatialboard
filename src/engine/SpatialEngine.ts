@@ -2214,9 +2214,13 @@ export class SpatialEngine {
   deleteSelected(): void {
     if (this.readOnly) return;
     if (this.selection.size === 0) return;
-    // Filter out locked nodes
+    // Filter out locked + non-deletable nodes (deletable === false = protected
+    // from user-gesture deletion; see SpatialNode.deletable).
     const toDelete = new Set(
-      Array.from(this.selection).filter((id) => !this.nodes.get(id)?.locked)
+      Array.from(this.selection).filter((id) => {
+        const n = this.nodes.get(id);
+        return n && !n.locked && n.deletable !== false;
+      })
     );
     if (toDelete.size === 0) return;
     // If deleting all members of the active group, exit it
@@ -2319,6 +2323,8 @@ export class SpatialEngine {
 
   deleteNodes(ids: string[]): void {
     if (this.readOnly) return;
+    // Skip protected nodes (user-gesture batch paths, e.g. the eraser tool).
+    ids = ids.filter((id) => this.nodes.get(id)?.deletable !== false);
     if (ids.length === 0) return;
     this._historyCoalesceKey = null;
     this.history.pushSnapshot(this.nodes, this.groupParent);
@@ -2944,7 +2950,14 @@ export class SpatialEngine {
 
   copySelected(): void {
     if (this.selection.size === 0) return;
-    this.clipboard = Array.from(this.selection).map((id) => {
+    // Protected nodes (deletable === false) are singletons by intent — excluding
+    // them from the clipboard prevents paste from minting an undeletable copy.
+    // An all-protected selection copies nothing (and keeps the prior clipboard).
+    const copyable = Array.from(this.selection).filter(
+      (id) => this.nodes.get(id)?.deletable !== false,
+    );
+    if (copyable.length === 0) return;
+    this.clipboard = copyable.map((id) => {
       const node = this.nodes.get(id)!;
       return JSON.parse(JSON.stringify(node));
     });

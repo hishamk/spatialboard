@@ -27,6 +27,11 @@ export interface SpatialNode {
   z: number;
   rotation?: number;
   locked?: boolean;
+  /** false = user-gesture deletion is blocked (Delete key / context menu / cut /
+   *  eraser), while the node stays movable and editable — unlike `locked`, which
+   *  freezes it entirely. Programmatic `deleteNode(id)` still works, so hosts
+   *  can manage protected nodes themselves (e.g. workflow Start/End). */
+  deletable?: boolean;
   groupId?: string;
   data?: unknown;
 }
