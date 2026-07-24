@@ -16,6 +16,9 @@ interface BottomBarProps {
      *  workflow "Add node" button) so it reads as part of the toolbar rather than a
      *  floating overlay. Styles/behaviour are the host's; the bar just seats it. */
     leadingSlot?: React.ReactNode;
+    /** Mode-tool buttons seated as a pill segment right after `leadingSlot`
+     *  (SpatialBoard `toolsInBottomBar` — replaces the vertical side rail). */
+    toolsSlot?: React.ReactNode;
 }
-export default function BottomBar({ engine, tools, framesPanelOpen, onToggleFramesPanel, showMinimap, onToggleMinimap, showPerfOverlay, onTogglePerfOverlay, leadingSlot, }: BottomBarProps): import("react/jsx-runtime").JSX.Element;
+export default function BottomBar({ engine, tools, framesPanelOpen, onToggleFramesPanel, showMinimap, onToggleMinimap, showPerfOverlay, onTogglePerfOverlay, leadingSlot, toolsSlot, }: BottomBarProps): import("react/jsx-runtime").JSX.Element;
 export {};

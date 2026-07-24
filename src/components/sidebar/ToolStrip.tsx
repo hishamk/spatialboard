@@ -801,3 +801,75 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
     </div>
   );
 }
+
+/** Compact HORIZONTAL mode cluster for hosts that seat the tools in the
+ *  BottomBar instead of the side rail (SpatialBoard `toolsInBottomBar`).
+ *  Same MODE_KEYS / icons / active semantics as the rail, rendered as one
+ *  row of BottomBar-sized (32px) buttons. The bar provides the pill chrome. */
+export function ModeCluster({ engine, tools }: { engine: SpatialEngine; tools?: ToolKey[] }) {
+  const theme = useSBTheme();
+  const { labels } = useSBI18n();
+  const show = (key: ToolKey) => !tools || tools.includes(key);
+  const [mode, setMode] = useState<Mode>(engine.mode);
+  const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
+
+  useEffect(() => {
+    const handleMode = () => setMode(engine.mode);
+    const handleLasso = () => setLassoActive(engine.lassoSelect);
+    engine.on("mode", handleMode);
+    engine.on("lassoToggle", handleLasso);
+    return () => {
+      engine.off("mode", handleMode);
+      engine.off("lassoToggle", handleLasso);
+    };
+  }, [engine]);
+
+  const modes = MODE_KEYS.filter((m) => show(m.key)).map((m) => ({
+    ...m,
+    label:
+      m.key === "select" ? labels.toolSelect :
+      m.key === "hand" ? labels.toolHand :
+      m.key === "draw" ? labels.toolDraw :
+      m.key === "shape" ? labels.toolShape :
+      m.key === "text" ? labels.toolText :
+      m.key === "note" ? labels.toolNote :
+      m.key === "sticky" ? labels.toolSticky :
+      m.key === "frame" ? labels.toolFrame :
+      m.key === "erase" ? labels.toolEraser :
+      labels.toolLaser,
+  }));
+
+  return (
+    <>
+      {modes.map((m) => {
+        const isActive = mode === m.key && !(m.key === "select" && lassoActive);
+        return (
+          <button
+            key={m.key}
+            title={`${m.label} (${m.shortcut}${m.num ? ` / ${m.num}` : ""})`}
+            onClick={() => {
+              if (lassoActive) {
+                engine.toggleLassoSelect();
+                setLassoActive(false);
+              }
+              engine.setMode(m.key);
+            }}
+            style={{
+              ...btnBase,
+              width: 32,
+              height: 32,
+              borderRadius: theme.controlBorderRadius,
+              background: isActive ? theme.controlBgActive : "transparent",
+              color: theme.text,
+              position: "relative",
+            }}
+          >
+            {/* No shortcut letter badge here — at bar size it reads cramped;
+                the tooltip carries the shortcut, like the bar's other buttons. */}
+            <ToolIcon name={m.key} size={16} textGlyph={labels.toolTextGlyph} />
+          </button>
+        );
+      })}
+    </>
+  );
+}

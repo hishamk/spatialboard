@@ -12,5 +12,9 @@ interface SidebarProps {
     tools?: ToolKey[];
     /** Render the built-in floating inspector. Default true. */
     nodeInspector?: boolean;
+    /** Render the vertical tool rail. Default true; false when the host seats the
+     *  tools in the BottomBar instead (SpatialBoard `toolsInBottomBar`) — the
+     *  floating inspector still renders per `nodeInspector`. */
+    toolStrip?: boolean;
 }
-export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, tools, nodeInspector }: SidebarProps): import("react/jsx-runtime").JSX.Element;
+export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, tools, nodeInspector, toolStrip }: SidebarProps): import("react/jsx-runtime").JSX.Element;

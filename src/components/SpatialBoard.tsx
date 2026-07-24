@@ -4,6 +4,7 @@ import { DataFlowEngine } from "../engine/DataFlowEngine";
 import SpatialCanvas from "./SpatialCanvas";
 import type { DataFlowEdgeOverlay } from "./SVGLayer";
 import Sidebar from "./sidebar/Sidebar";
+import { ModeCluster } from "./sidebar/ToolStrip";
 import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./DebugPanel";
 const DebugPanel = lazy(() => import("./DebugPanel"));
@@ -171,6 +172,11 @@ export interface SpatialBoardProps {
   /** Host control seated as the FIRST segment of the BottomBar (e.g. the workflow
    *  "Add node" button), so it reads as part of the toolbar. */
   bottomBarLeading?: React.ReactNode;
+  /** Seat the mode tools (per `tools` allowlist) in the BottomBar as a pill
+   *  segment INSTEAD of the vertical side rail — the rail is not rendered.
+   *  Keyboard shortcuts and the floating inspector are unaffected. Default
+   *  false (canvas byte-identical). */
+  toolsInBottomBar?: boolean;
 }
 
 export default function SpatialBoard({
@@ -201,6 +207,7 @@ export default function SpatialBoard({
   visibleNodeIds,
   overlayNodes,
   bottomBarLeading,
+  toolsInBottomBar = false,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -360,14 +367,14 @@ export default function SpatialBoard({
     >
       {/* sidebar (creation tool strip) hidden in readOnly: viewers
           can't add nodes anyway, no point in surfacing the affordance. */}
-      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} />}
+      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
           position: "absolute",
-          left: showSidebar && !presenting && !readOnly && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          left: showSidebar && !presenting && !readOnly && !toolsInBottomBar && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           top: 0,
-          right: showSidebar && !presenting && !readOnly && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          right: showSidebar && !presenting && !readOnly && !toolsInBottomBar && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           bottom: 0,
           overflow: "hidden",
         }}
@@ -396,6 +403,7 @@ export default function SpatialBoard({
             engine={engine}
             tools={tools}
             leadingSlot={bottomBarLeading}
+            toolsSlot={toolsInBottomBar && !readOnly ? <ModeCluster engine={engine} tools={tools} /> : undefined}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
             showMinimap={minimapVisible}

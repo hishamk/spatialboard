@@ -144,5 +144,10 @@ export interface SpatialBoardProps {
     /** Host control seated as the FIRST segment of the BottomBar (e.g. the workflow
      *  "Add node" button), so it reads as part of the toolbar. */
     bottomBarLeading?: React.ReactNode;
+    /** Seat the mode tools (per `tools` allowlist) in the BottomBar as a pill
+     *  segment INSTEAD of the vertical side rail — the rail is not rendered.
+     *  Keyboard shortcuts and the floating inspector are unaffected. Default
+     *  false (canvas byte-identical). */
+    toolsInBottomBar?: boolean;
 }
-export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, visibleNodeIds, overlayNodes, bottomBarLeading, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;
+export default function SpatialBoard({ nodeTypes, engine: externalEngine, keyboardShortcuts, style, initialData, toolbar: showSidebar, tools, nodeInspector, debugPanel: showDebugPanel, debugBoards, theme, onPresentationChange, gifApiBaseUrl, hostActive, direction, localization, dataFlowEdgeOverlay, showPortLabels, onPortConnectEmpty, portConnectHold, initialFramesPanelOpen, preview: isPreview, readOnly, singleFrameId, visibleNodeIds, overlayNodes, bottomBarLeading, toolsInBottomBar, }: SpatialBoardProps): import("react/jsx-runtime").JSX.Element;

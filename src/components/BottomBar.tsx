@@ -150,6 +150,9 @@ interface BottomBarProps {
    *  workflow "Add node" button) so it reads as part of the toolbar rather than a
    *  floating overlay. Styles/behaviour are the host's; the bar just seats it. */
   leadingSlot?: React.ReactNode;
+  /** Mode-tool buttons seated as a pill segment right after `leadingSlot`
+   *  (SpatialBoard `toolsInBottomBar` — replaces the vertical side rail). */
+  toolsSlot?: React.ReactNode;
 }
 
 export default function BottomBar({
@@ -162,6 +165,7 @@ export default function BottomBar({
   showPerfOverlay,
   onTogglePerfOverlay,
   leadingSlot,
+  toolsSlot,
 }: BottomBarProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
@@ -236,6 +240,13 @@ export default function BottomBar({
       {/* Host leading control (e.g. workflow "Add node") — seated as the first
           segment so it reads as part of the bar. */}
       {leadingSlot}
+
+      {/* Mode tools (toolsInBottomBar) — the side rail's buttons as a pill. */}
+      {toolsSlot && (
+        <div data-sb-bar-tools style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+          {toolsSlot}
+        </div>
+      )}
 
       {/* Zoom controls */}
       <div data-sb-bar-zoom style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
