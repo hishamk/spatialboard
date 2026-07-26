@@ -1330,6 +1330,38 @@ export class SpatialEngine {
   }
 
   /**
+   * Animated CENTER-on-rect at a chosen zoom — unlike fitToRectAnimated the
+   * zoom is NOT derived from the rect's size (a camera that follows running
+   * nodes wants one consistent focus level, not a per-card fit seesaw).
+   * `zoom` defaults to the current zoom; it is capped so the rect (+`padding`)
+   * always fully fits. `offsetX`/`offsetY` shift the effective screen center
+   * in px — for host overlays that cover an edge of the container (e.g. a
+   * docked inspector), so "centered" means the VISIBLE area. Additive; reuses
+   * the ease-out camera tween (reduced-motion snaps).
+   */
+  centerOnRectAnimated(
+    minX: number, minY: number, maxX: number, maxY: number,
+    opts?: { zoom?: number; durationMs?: number; padding?: number; offsetX?: number; offsetY?: number },
+  ): void {
+    if (!Number.isFinite(minX) || maxX <= minX || maxY <= minY) return;
+    const screenW = this._containerWidth;
+    const screenH = this._containerHeight;
+    const pad = opts?.padding ?? 60;
+    const fitZoom = Math.min(screenW / (maxX - minX + pad * 2), screenH / (maxY - minY + pad * 2));
+    const zoom = clamp(Math.min(opts?.zoom ?? this.viewport.zoom, fitZoom), 0.1, 5);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    this._animateOrSnap(
+      {
+        x: screenW / 2 + (opts?.offsetX ?? 0) - cx * zoom,
+        y: screenH / 2 + (opts?.offsetY ?? 0) - cy * zoom,
+        zoom,
+      },
+      opts?.durationMs,
+    );
+  }
+
+  /**
    * Fit viewport to a single frame node, ignoring everything else.
    * Used by single-frame rendering (e.g. flashcard study mode).
    */

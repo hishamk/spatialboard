@@ -472,7 +472,7 @@ function fn(t, e) {
     h: a * 2
   };
 }
-const no = class no {
+const so = class so {
   constructor(e, o = 0, r) {
     // Increased depth for potentially large boards
     St(this, "level");
@@ -501,7 +501,7 @@ const no = class no {
   // Split the node into 4 subnodes
   split() {
     const e = this.bounds.w / 2, o = this.bounds.h / 2, r = this.bounds.x, n = this.bounds.y;
-    this.nodes[0] = new no({ x: r + e, y: n, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[1] = new no({ x: r, y: n, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[2] = new no({ x: r, y: n + o, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[3] = new no({ x: r + e, y: n + o, w: e, h: o }, this.level + 1, this.heightMap);
+    this.nodes[0] = new so({ x: r + e, y: n, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[1] = new so({ x: r, y: n, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[2] = new so({ x: r, y: n + o, w: e, h: o }, this.level + 1, this.heightMap), this.nodes[3] = new so({ x: r + e, y: n + o, w: e, h: o }, this.level + 1, this.heightMap);
   }
   // Determine which quadrant the object belongs to
   getIndex(e) {
@@ -521,7 +521,7 @@ const no = class no {
         return;
       }
     }
-    if (this.objects.push(e), this.objects.length > no.MAX_OBJECTS && this.level < no.MAX_LEVELS) {
+    if (this.objects.push(e), this.objects.length > so.MAX_OBJECTS && this.level < so.MAX_LEVELS) {
       this.nodes.length || this.split();
       let s = 0;
       for (; s < this.objects.length; ) {
@@ -561,10 +561,10 @@ const no = class no {
   }
 };
 // Max number of objects per node before splitting
-St(no, "MAX_OBJECTS", 10), // Max depth of the tree
-St(no, "MAX_LEVELS", 8);
-let Rs = no;
-function uo(t, e, o) {
+St(so, "MAX_OBJECTS", 10), // Max depth of the tree
+St(so, "MAX_LEVELS", 8);
+let Rs = so;
+function no(t, e, o) {
   return Math.min(Math.max(t, e), o);
 }
 function wr(t, e, o) {
@@ -580,7 +580,7 @@ function Dd(t, e, o) {
   };
 }
 function Wd(t, e, o, r) {
-  const n = e > 0 ? 0.95 : 1.05, s = uo(t.zoom * n, 0.1, 5), i = wr(t, o, r);
+  const n = e > 0 ? 0.95 : 1.05, s = no(t.zoom * n, 0.1, 5), i = wr(t, o, r);
   return {
     x: o - i.x * s,
     y: r - i.y * s,
@@ -588,7 +588,7 @@ function Wd(t, e, o, r) {
   };
 }
 function Fd(t, e, o, r) {
-  const n = uo(t.zoom * e, 0.1, 5), s = wr(t, o, r);
+  const n = no(t.zoom * e, 0.1, 5), s = wr(t, o, r);
   return {
     x: o - s.x * n,
     y: r - s.y * n,
@@ -1248,12 +1248,12 @@ class qd {
   }
 }
 const Re = new qd();
-function so(t, e) {
+function io(t, e) {
   return t.h !== "auto" ? t.h : (e == null ? void 0 : e[t.id]) ?? 100;
 }
 const dl = 7, li = 52, Ud = 8, Or = 6;
 function Qd(t, e, o, r) {
-  const n = so(t, r);
+  const n = io(t, r);
   if (!t.rotation) return { x: e, y: o };
   const s = t.x + t.w / 2, i = t.y + n / 2, l = t.rotation * Math.PI / 180, d = Math.cos(l), c = Math.sin(l), a = e - s, f = o - i;
   return { x: s + a * d - f * c, y: i + a * c + f * d };
@@ -1261,7 +1261,7 @@ function Qd(t, e, o, r) {
 function hl(t, e, o, r, n, s = "bbox") {
   const i = e.find((m) => m.id === o);
   if (!i) return null;
-  const l = so(t, n), d = dl / r, c = e.filter((m) => m.direction === i.direction), a = c.indexOf(i);
+  const l = io(t, n), d = dl / r, c = e.filter((m) => m.direction === i.direction), a = c.indexOf(i);
   if (a < 0) return null;
   const f = typeof i.sideT == "number" && Number.isFinite(i.sideT) ? t.y + l * Math.min(1, Math.max(0, i.sideT)) : t.y + l / (c.length + 1) * (a + 1);
   let p;
@@ -1273,7 +1273,7 @@ function hl(t, e, o, r, n, s = "bbox") {
   return { px: p, py: f, direction: i.direction };
 }
 function Jd(t, e, o, r, n = "bbox") {
-  const s = so(t, r);
+  const s = io(t, r);
   if (n === "bbox")
     return e === "input" ? { x: t.x, y: o.y } : { x: t.x + t.w, y: o.y };
   const i = Math.min(t.w, s) / 2, l = t.x + t.w / 2, d = t.y + s / 2;
@@ -1456,7 +1456,7 @@ function Ki(t) {
   return e === "ellipse" || e === "diamond";
 }
 function We(t, e, o = "bezier", r, n, s, i, l, d, c, a, f, p) {
-  const m = so(t, r), u = so(e, r), y = t.x + t.w / 2, b = t.y + m / 2, w = e.x + e.w / 2, g = e.y + u / 2;
+  const m = io(t, r), u = io(e, r), y = t.x + t.w / 2, b = t.y + m / 2, w = e.x + e.w / 2, g = e.y + u / 2;
   let x, S, k, M;
   if (d) {
     x = d.x, S = d.y;
@@ -1681,11 +1681,11 @@ function ul(t, e, o, r, n, s, i, l) {
   return lh(t, e, y);
 }
 function qi(t, e, o) {
-  const r = so(t, o), n = so(e, o), s = t.x + t.w / 2, i = t.y + r / 2, l = e.x + e.w / 2, d = e.y + n / 2, c = Fs(t, r, l, d), a = Fs(e, n, s, i);
+  const r = io(t, o), n = io(e, o), s = t.x + t.w / 2, i = t.y + r / 2, l = e.x + e.w / 2, d = e.y + n / 2, c = Fs(t, r, l, d), a = Fs(e, n, s, i);
   return { x1: c.x, y1: c.y, x2: a.x, y2: a.y };
 }
 function ch(t, e, o, r) {
-  const n = so(t, r);
+  const n = io(t, r);
   return Fs(t, n, e, o);
 }
 function di(t, e, o, r, n, s) {
@@ -1703,7 +1703,7 @@ function jr(t, e, o, r) {
   return `M${c},${a} L${f + i * m},${p + l * m} L${f - i * m},${p - l * m} Z`;
 }
 function Ns(t, e) {
-  const o = so(t, e);
+  const o = io(t, e);
   return ["top", "right", "bottom", "left"].map((n) => {
     const s = Pn(t, o, n);
     return { side: n, x: s.x, y: s.y };
@@ -1874,7 +1874,7 @@ function hh(t, e, o, r) {
   return (y % 1 + 1) % 1;
 }
 function Qe(t, e, o, r) {
-  const n = so(t, r), s = hh(t, n, e, o), i = Bs(t, n, s);
+  const n = io(t, r), s = hh(t, n, e, o), i = Bs(t, n, s);
   return { t: s, x: i.x, y: i.y };
 }
 const pl = "sb-canvas-prefs", uh = /* @__PURE__ */ new Set([10, 20, 40, 80]), vr = {
@@ -2895,7 +2895,7 @@ ${l}` : i;
     }
   }
   _computeSlideViewport(e) {
-    const o = this.resolveHeight(e), r = 40, n = e.x - r, s = e.y - r, i = e.w + r * 2, l = o + r * 2, d = this._containerWidth, c = this._containerHeight, a = uo(Math.min(d / i, c / l), 0.1, 5);
+    const o = this.resolveHeight(e), r = 40, n = e.x - r, s = e.y - r, i = e.w + r * 2, l = o + r * 2, d = this._containerWidth, c = this._containerHeight, a = no(Math.min(d / i, c / l), 0.1, 5);
     return {
       x: (d - i * a) / 2 - n * a,
       y: (c - l * a) / 2 - s * a,
@@ -3064,7 +3064,7 @@ ${l}` : i;
     ), this.emit("viewport");
   }
   zoomTo(e, o) {
-    const r = uo(e, 0.1, 5);
+    const r = no(e, 0.1, 5);
     if (o) {
       const n = o.x - this.containerOffset.x, s = o.y - this.containerOffset.y, i = wr(this.viewport, n, s);
       this.viewport = {
@@ -3086,7 +3086,7 @@ ${l}` : i;
   zoomToNode(e, o = 1) {
     const r = this.nodes.get(e);
     if (!r) return;
-    const n = r.h === "auto" ? 100 : r.h, s = r.x + r.w / 2, i = r.y + n / 2, l = this.getWindow(), d = l.innerWidth, c = l.innerHeight, a = uo(o, 0.2, 5);
+    const n = r.h === "auto" ? 100 : r.h, s = r.x + r.w / 2, i = r.y + n / 2, l = this.getWindow(), d = l.innerWidth, c = l.innerHeight, a = no(o, 0.2, 5);
     this.viewport = {
       x: d / 2 - s * a,
       y: c / 2 - i * a,
@@ -3098,7 +3098,7 @@ ${l}` : i;
   _boundsViewport(e, o, r, n, s) {
     if (!Number.isFinite(e)) return null;
     e -= s, o -= s, r += s, n += s;
-    const i = r - e, l = n - o, d = this._containerWidth, c = this._containerHeight, a = uo(Math.min(d / i, c / l), 0.1, 5);
+    const i = r - e, l = n - o, d = this._containerWidth, c = this._containerHeight, a = no(Math.min(d / i, c / l), 0.1, 5);
     return {
       x: (d - i * a) / 2 - e * a,
       y: (c - l * a) / 2 - o * a,
@@ -3172,13 +3172,35 @@ ${l}` : i;
     i && this._animateOrSnap(i, s == null ? void 0 : s.durationMs);
   }
   /**
+   * Animated CENTER-on-rect at a chosen zoom — unlike fitToRectAnimated the
+   * zoom is NOT derived from the rect's size (a camera that follows running
+   * nodes wants one consistent focus level, not a per-card fit seesaw).
+   * `zoom` defaults to the current zoom; it is capped so the rect (+`padding`)
+   * always fully fits. `offsetX`/`offsetY` shift the effective screen center
+   * in px — for host overlays that cover an edge of the container (e.g. a
+   * docked inspector), so "centered" means the VISIBLE area. Additive; reuses
+   * the ease-out camera tween (reduced-motion snaps).
+   */
+  centerOnRectAnimated(e, o, r, n, s) {
+    if (!Number.isFinite(e) || r <= e || n <= o) return;
+    const i = this._containerWidth, l = this._containerHeight, d = (s == null ? void 0 : s.padding) ?? 60, c = Math.min(i / (r - e + d * 2), l / (n - o + d * 2)), a = no(Math.min((s == null ? void 0 : s.zoom) ?? this.viewport.zoom, c), 0.1, 5), f = (e + r) / 2, p = (o + n) / 2;
+    this._animateOrSnap(
+      {
+        x: i / 2 + ((s == null ? void 0 : s.offsetX) ?? 0) - f * a,
+        y: l / 2 + ((s == null ? void 0 : s.offsetY) ?? 0) - p * a,
+        zoom: a
+      },
+      s == null ? void 0 : s.durationMs
+    );
+  }
+  /**
    * Fit viewport to a single frame node, ignoring everything else.
    * Used by single-frame rendering (e.g. flashcard study mode).
    */
   fitToFrame(e) {
     const o = this.nodes.get(e);
     if (!o) return this.fitToContent();
-    const r = o.h === "auto" ? 100 : o.h, n = 20, s = o.w + n * 2, i = r + n * 2, l = this._containerWidth, d = this._containerHeight, c = uo(
+    const r = o.h === "auto" ? 100 : o.h, n = 20, s = o.w + n * 2, i = r + n * 2, l = this._containerWidth, d = this._containerHeight, c = no(
       Math.min(l / s, d / i),
       0.1,
       5
@@ -4728,7 +4750,7 @@ ${l}` : i;
   }
   /** Smoothly zoom to a level. Returns a Promise that resolves when done. */
   animateZoomTo(e, o) {
-    const r = uo(e, 0.1, 5);
+    const r = no(e, 0.1, 5);
     return this.animateViewport({ zoom: r }, { duration: o });
   }
   /** Smoothly zoom and center on a specific node, sized to fit with padding.
@@ -4736,7 +4758,7 @@ ${l}` : i;
   animateZoomToNode(e, o) {
     const r = this.nodes.get(e);
     if (!r) return Promise.reject(new Error(`Node "${e}" not found`));
-    const n = this.resolveHeight(r), s = r.x + r.w / 2, i = r.y + n / 2, l = this._containerWidth, d = this._containerHeight, c = 80, a = uo(
+    const n = this.resolveHeight(r), s = r.x + r.w / 2, i = r.y + n / 2, l = this._containerWidth, d = this._containerHeight, c = 80, a = no(
       Math.min(
         (l - c * 2) / Math.max(r.w, 1),
         (d - c * 2) / Math.max(n, 1)
@@ -5291,7 +5313,7 @@ function bl(t, e, o) {
 function Oh(t) {
   return [-t[0], -t[1]];
 }
-function io(t, e) {
+function ao(t, e) {
   return [t[0] + e[0], t[1] + e[1]];
 }
 function sa(t, e, o) {
@@ -5347,18 +5369,18 @@ function la(t, e, o, r) {
   return t[0] = d + o[0], t[1] = c + o[1], t;
 }
 function ca(t, e, o) {
-  return io(t, To(zo(e, t), o));
+  return ao(t, To(zo(e, t), o));
 }
 function jh(t, e, o, r) {
   let n = o[0] - e[0], s = o[1] - e[1];
   return t[0] = e[0] + n * r, t[1] = e[1] + s * r, t;
 }
 function vl(t, e, o) {
-  return io(t, To(e, o));
+  return ao(t, To(e, o));
 }
 const He = [0, 0], vo = [0, 0], ko = [0, 0];
 function Zh(t, e) {
-  let o = vl(t, wl(xl(zo(t, io(t, [1, 1])))), -e), r = [], n = 1 / 13;
+  let o = vl(t, wl(xl(zo(t, ao(t, [1, 1])))), -e), r = [], n = 1 / 13;
   for (let s = n; s <= 1; s += n) r.push(hi(o, t, Zr * 2 * s));
   return r;
 }
@@ -5369,7 +5391,7 @@ function Kh(t, e, o) {
 }
 function qh(t, e, o) {
   let r = zo(e, o), n = To(r, 0.5), s = To(r, 0.51);
-  return [zo(t, n), zo(t, s), io(t, s), io(t, n)];
+  return [zo(t, n), zo(t, s), ao(t, s), ao(t, n)];
 }
 function Uh(t, e, o, r) {
   let n = [], s = vl(t, e, o), i = 1 / r;
@@ -5377,7 +5399,7 @@ function Uh(t, e, o, r) {
   return n;
 }
 function Qh(t, e, o) {
-  return [io(t, To(e, o)), io(t, To(e, o * 0.99)), zo(t, To(e, o * 0.99)), zo(t, To(e, o))];
+  return [ao(t, To(e, o)), ao(t, To(e, o * 0.99)), zo(t, To(e, o * 0.99)), zo(t, To(e, o))];
 }
 function da(t, e, o) {
   return t === !1 || t === void 0 ? 0 : t === !0 ? Math.max(e, o) : t;
@@ -5406,12 +5428,12 @@ function $h(t, e = {}) {
       continue;
     }
     if (Q = !1, j) {
-      ps(He, at), fs(He, He, k), g.push(zo(nt, He)), x.push(io(nt, He));
+      ps(He, at), fs(He, He, k), g.push(zo(nt, He)), x.push(ao(nt, He));
       continue;
     }
     jh(He, J, at, G), ps(He, He), fs(He, He, k), Ys(vo, nt, He), D = [vo[0], vo[1]], (W <= 1 || aa(P, D) > w) && (g.push(D), P = D), sa(ko, nt, He), B = [ko[0], ko[1]], (W <= 1 || aa(L, B) > w) && (x.push(B), L = B), S = ct, T = at;
   }
-  let st = [t[0].point[0], t[0].point[1]], it = t.length > 1 ? [t[t.length - 1].point[0], t[t.length - 1].point[1]] : io(t[0].point, [1, 1]), yt = [], zt = [];
+  let st = [t[0].point[0], t[0].point[1]], it = t.length > 1 ? [t[t.length - 1].point[0], t[t.length - 1].point[1]] : ao(t[0].point, [1, 1]), yt = [], zt = [];
   if (t.length === 1) {
     if (!(y || b) || c) return Zh(st, M || k);
   } else {
@@ -5435,7 +5457,7 @@ function _h(t, e = {}) {
     i = i.slice(0, -1);
     for (let u = 1; u < 5; u++) i.push(ca(i[0], m, u / 4));
   }
-  i.length === 1 && (i = [...i, [...io(i[0], ra), ...i[0].slice(2)]]);
+  i.length === 1 && (i = [...i, [...ao(i[0], ra), ...i[0].slice(2)]]);
   let l = [{ point: [i[0][0], i[0][1]], pressure: ua(i[0][2]) ? i[0][2] : 0.25, vector: [...ra], distance: 0, runningLength: 0 }], d = !1, c = 0, a = l[0], f = i.length - 1;
   for (let m = 1; m < i.length; m++) {
     let u = n && m === f ? [i[m][0], i[m][1]] : ca(a.point, i[m], s);
@@ -14655,7 +14677,7 @@ function Jp({
     x: 0,
     y: 0,
     index: -1
-  }), [Ee, lo] = rt(null), $n = pt(Ee);
+  }), [Ee, co] = rt(null), $n = pt(Ee);
   Ct(() => {
     const v = $n.current, E = t.mode === "text" ? "text" : t.mode === "note" ? "note" : t.mode === "sticky" ? "sticky" : null;
     if (!E) {
@@ -14678,14 +14700,14 @@ function Jp({
       z.data.animated && z.data.animatedDirection === "bop" && (v.add(z.data.fromId), v.add(z.data.toId));
     }
     return v;
-  }, [S]), [ir, Vo] = rt(null), ts = pt(null), [Pi, ar] = rt(null), [Ei, Xo] = rt(null), [Pr, lr] = rt(null), [co, cr] = rt(null), [Hc, Hi] = rt(null);
+  }, [S]), [ir, Vo] = rt(null), ts = pt(null), [Pi, ar] = rt(null), [Ei, Xo] = rt(null), [Pr, lr] = rt(null), [ho, cr] = rt(null), [Hc, Hi] = rt(null);
   Ct(() => {
     const v = (E) => {
       hd(() => cr(E));
     };
     return t.on("image:cropRequest", v), () => t.off("image:cropRequest", v);
   }, [t]);
-  const Ri = ir || Ei || Pi || Pr || co || Hc, Rc = $t(() => {
+  const Ri = ir || Ei || Pi || Pr || ho || Hc, Rc = $t(() => {
     let v = (Kt == null ? void 0 : Kt.domNodes) ?? S.filter((z) => {
       if (Ke && (z.id === c || !Ke.has(z.id)))
         return !1;
@@ -14699,10 +14721,10 @@ function Jp({
       const z = f.filter((F) => F.type !== "edge");
       z.length && (v = [...v, ...z]);
     }
-    if (!co || v.some((z) => z.id === co)) return v;
-    const E = S.find((z) => z.id === co);
+    if (!ho || v.some((z) => z.id === ho)) return v;
+    const E = S.find((z) => z.id === ho);
     return E ? [...v, E] : v;
-  }, [Kt, S, o, co, Ke, a, f]), es = pt(null), sn = pt(null), Li = pt(null), [os, rs] = rt(/* @__PURE__ */ new Set()), go = pt(/* @__PURE__ */ new Set()), [Di, Er] = rt([]), [an, ns] = rt(null), to = pt([]), bo = pt(null), Wi = pt(0), Hr = ut(
+  }, [Kt, S, o, ho, Ke, a, f]), es = pt(null), sn = pt(null), Li = pt(null), [os, rs] = rt(/* @__PURE__ */ new Set()), go = pt(/* @__PURE__ */ new Set()), [Di, Er] = rt([]), [an, ns] = rt(null), to = pt([]), bo = pt(null), Wi = pt(0), Hr = ut(
     (v = !1) => {
       if (t.mode !== "erase") return;
       const E = performance.now();
@@ -15365,14 +15387,14 @@ function Jp({
           endY: F
         };
         let O = !1;
-        lo(A);
+        co(A);
         const Y = (_) => {
           const { x: X, y: V } = t.screenToCanvas(_.clientX, _.clientY);
           A.endX = X, A.endY = V;
           const Z = Math.abs(A.endX - A.startX), U = Math.abs(A.endY - A.startY);
-          (Z > 10 || U > 10) && (O = !0), lo({ ...A });
+          (Z > 10 || U > 10) && (O = !0), co({ ...A });
         }, K = () => {
-          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), lo(null);
+          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), co(null);
           const _ = O ? Math.max(Math.abs(A.endX - A.startX), 60) : 300, X = O ? Math.min(A.startX, A.endX) : H, V = O ? Math.min(A.startY, A.endY) : N;
           dn(X, V, _);
         };
@@ -15386,14 +15408,14 @@ function Jp({
           endY: F
         };
         let O = !1;
-        lo(A);
+        co(A);
         const Y = (_) => {
           const { x: X, y: V } = t.screenToCanvas(_.clientX, _.clientY);
           A.endX = X, A.endY = V;
           const Z = Math.abs(A.endX - A.startX), U = Math.abs(A.endY - A.startY);
-          (Z > 10 || U > 10) && (O = !0), lo({ ...A });
+          (Z > 10 || U > 10) && (O = !0), co({ ...A });
         }, K = () => {
-          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), lo(null);
+          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), co(null);
           const _ = O ? Math.max(Math.abs(A.endX - A.startX), 100) : 300, X = O ? Math.max(Math.abs(A.endY - A.startY), 40) : "auto", V = O ? Math.min(A.startX, A.endX) : H, Z = O ? Math.min(A.startY, A.endY) : N;
           Ni(V, Z, _, X), t.setMode("select");
         };
@@ -15407,12 +15429,12 @@ function Jp({
           endY: F
         };
         let O = !1;
-        lo(A);
+        co(A);
         const Y = (_) => {
           const { x: X, y: V } = t.screenToCanvas(_.clientX, _.clientY);
-          A.endX = X, A.endY = V, Math.abs(A.endX - A.startX) > 10 && (O = !0), lo({ ...A });
+          A.endX = X, A.endY = V, Math.abs(A.endX - A.startX) > 10 && (O = !0), co({ ...A });
         }, K = () => {
-          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), lo(null);
+          y().removeEventListener("pointermove", Y), y().removeEventListener("pointerup", K), co(null);
           const _ = O ? Math.max(Math.abs(A.endX - A.startX), 100) : 200, X = O ? Math.min(A.startX, A.endX) : H, V = O ? Math.min(A.startY, A.endY) : N, Z = Lt(10), U = O ? Math.max(Math.abs(A.endY - A.startY), 100) : 150;
           t.addNode({
             id: Z,
@@ -16008,8 +16030,8 @@ function Jp({
                 Ae.portAnchor ?? "bbox"
               );
               if (!Be) continue;
-              const ho = Math.hypot(Be.x - U, Be.y - xt);
-              ho < Et && ho < qt && (qt = ho, At = ye, Dt = Fe);
+              const uo = Math.hypot(Be.x - U, Be.y - xt);
+              uo < Et && uo < qt && (qt = uo, At = ye, Dt = Fe);
             }
         }
         if (!At || !Dt) {
@@ -16280,11 +16302,11 @@ function Jp({
         let Vt = (Math.atan2(Nt - A, Gt - N) - qt) * (180 / Math.PI);
         (It.shiftKey || t.snapToGrid) && !(It.metaKey || It.ctrlKey) && (Vt = Math.round(Vt / 15) * 15), Tt = O + Vt, rn({ angle: Tt, cx: N, cy: A, bounds: Et });
         const ge = Vt * Math.PI / 180, Ot = Math.cos(ge), ye = Math.sin(ge), Ae = K.map((ke) => {
-          const Fe = ke.cx - N, Be = ke.cy - A, ho = N + Fe * Ot - Be * ye, Rr = A + Fe * ye + Be * Ot;
+          const Fe = ke.cx - N, Be = ke.cy - A, uo = N + Fe * Ot - Be * ye, Rr = A + Fe * ye + Be * Ot;
           return {
             id: ke.id,
             patch: {
-              x: ho - ke.w / 2,
+              x: uo - ke.w / 2,
               y: Rr - ke.h / 2,
               rotation: Tt
             }
@@ -16361,16 +16383,16 @@ function Jp({
             h: Ot.isAutoH ? "auto" : Fe
           };
           if (Ot.origPoints && Ot.drawData) {
-            const ho = Ot.origW > 0 ? ke / Ot.origW : 1, Rr = Ot.origH > 0 ? Fe / Ot.origH : 1;
+            const uo = Ot.origW > 0 ? ke / Ot.origW : 1, Rr = Ot.origH > 0 ? Fe / Ot.origH : 1;
             Be.data = {
               ...Ot.drawData,
               points: Ot.origPoints.map(
-                ([Jc, $c, _c]) => [Jc * ho, $c * Rr, _c]
+                ([Jc, $c, _c]) => [Jc * uo, $c * Rr, _c]
               )
             };
           }
           if (Ot.type === "text" && Ot.origFontSize > 0 && Ot.textData && v !== "e" && v !== "w") {
-            const ho = v === "n" || v === "s" ? Ot.origH > 0 ? Fe / Ot.origH : 1 : Ot.origW > 0 ? ke / Ot.origW : 1, Rr = Math.max(8, Math.round(Ot.origFontSize * ho));
+            const uo = v === "n" || v === "s" ? Ot.origH > 0 ? Fe / Ot.origH : 1 : Ot.origW > 0 ? ke / Ot.origW : 1, Rr = Math.max(8, Math.round(Ot.origFontSize * uo));
             Be.data = { ...Ot.textData, fontSize: Rr };
           }
           return { id: Ot.id, patch: Be };
@@ -16626,7 +16648,7 @@ function Jp({
                         interactive: K,
                         zoom: g.zoom,
                         editing: Ri === v.id,
-                        cropping: co === v.id,
+                        cropping: ho === v.id,
                         editClickPos: Ri === v.id ? ts.current : null,
                         callbacks: {
                           onMeasuredHeight: Te,
@@ -16731,7 +16753,7 @@ function Jp({
                       interactive: D === "select",
                       zoom: g.zoom,
                       onResizeHandleDown: ss,
-                      cropping: co === v.id,
+                      cropping: ho === v.id,
                       onCropStart: () => cr(v.id),
                       onCropEnd: () => cr(null)
                     },
@@ -16934,10 +16956,10 @@ function Jp({
             getDataFlowPortValue: r ? Xc : void 0,
             containerTypes: t.containerTypes,
             alignGuides: et,
-            suppressNodeOverlayId: co
+            suppressNodeOverlayId: ho
           }
         ),
-        pe && !co && D !== "edge" && !de && !Pe && !t.readOnly && (() => {
+        pe && !ho && D !== "edge" && !de && !Pe && !t.readOnly && (() => {
           const v = t.selectionGroupId(), E = v ? t.groupRotations.get(v) : void 0;
           let z, F, H, N;
           if (zr)
@@ -19211,7 +19233,7 @@ function E0(t) {
   };
 }
 const $r = Cr(null);
-function ao(t, e) {
+function lo(t, e) {
   const o = oo($r), r = oo(Ir);
   return ut(
     (n) => {
@@ -20029,7 +20051,7 @@ function Yo(t, e) {
   return !t.every((r) => e(r) === o);
 }
 function F0({ engine: t, node: e, fontsInScene: o }) {
-  const r = ne(), { labels: n } = oe(), s = ao(t, e), i = oo($r) ?? [e], { data: l } = e, d = l.fill ?? null, c = l.fillStyle ?? "hachure", a = l.strokeStyle ?? "solid", f = Yo(i, (g) => g.data.stroke), p = Yo(i, (g) => g.data.fill ?? null), m = Yo(i, (g) => g.data.fillStyle ?? "hachure"), u = Yo(i, (g) => g.data.strokeStyle ?? "solid"), y = Yo(i, (g) => g.data.strokeWidth), b = Yo(i, (g) => g.data.roughness), w = Yo(i, (g) => g.data.opacity ?? 1);
+  const r = ne(), { labels: n } = oe(), s = lo(t, e), i = oo($r) ?? [e], { data: l } = e, d = l.fill ?? null, c = l.fillStyle ?? "hachure", a = l.strokeStyle ?? "solid", f = Yo(i, (g) => g.data.stroke), p = Yo(i, (g) => g.data.fill ?? null), m = Yo(i, (g) => g.data.fillStyle ?? "hachure"), u = Yo(i, (g) => g.data.strokeStyle ?? "solid"), y = Yo(i, (g) => g.data.strokeWidth), b = Yo(i, (g) => g.data.roughness), w = Yo(i, (g) => g.data.opacity ?? 1);
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ C(Ye, { title: n.inspectorStructure, persistKey: "shape.structure", children: [
       /* @__PURE__ */ C("div", { style: jt, children: [
@@ -20256,7 +20278,7 @@ function yr(t, e) {
   return !t.every((r) => e(r) === o);
 }
 function N0({ engine: t, node: e }) {
-  const o = ne(), { labels: r } = oe(), n = ao(t, e), s = oo($r) ?? [e], { data: i } = e, l = i.fill ?? null, d = i.fillStyle ?? "hachure", c = i.strokeStyle ?? "solid", a = yr(s, (b) => b.data.color), f = yr(s, (b) => b.data.fill ?? null), p = yr(s, (b) => b.data.fillStyle ?? "hachure"), m = yr(s, (b) => b.data.strokeStyle ?? "solid"), u = yr(s, (b) => b.data.strokeWidth), y = yr(s, (b) => b.data.opacity ?? 1);
+  const o = ne(), { labels: r } = oe(), n = lo(t, e), s = oo($r) ?? [e], { data: i } = e, l = i.fill ?? null, d = i.fillStyle ?? "hachure", c = i.strokeStyle ?? "solid", a = yr(s, (b) => b.data.color), f = yr(s, (b) => b.data.fill ?? null), p = yr(s, (b) => b.data.fillStyle ?? "hachure"), m = yr(s, (b) => b.data.strokeStyle ?? "solid"), u = yr(s, (b) => b.data.strokeWidth), y = yr(s, (b) => b.data.opacity ?? 1);
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ h(
       Ge,
@@ -20330,7 +20352,7 @@ function N0({ engine: t, node: e }) {
   ] });
 }
 function B0({ engine: t, node: e, fontsInScene: o }) {
-  const r = ne(), { labels: n } = oe(), s = ao(t, e), { data: i } = e;
+  const r = ne(), { labels: n } = oe(), s = lo(t, e), { data: i } = e;
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ C(Ye, { title: n.inspectorTypography, persistKey: "text.typography", children: [
       /* @__PURE__ */ C("div", { style: jt, children: [
@@ -20426,7 +20448,7 @@ function Va(t) {
 }
 const V0 = ["forward"], X0 = ["forward", "reverse", "both", "bop"];
 function G0({ engine: t, node: e }) {
-  const o = ne(), { labels: r } = oe(), n = ao(t, e), s = oo($r), { data: i } = e, l = !!(i.sourcePort && i.targetPort), d = l ? V0 : X0, c = $t(() => !(s != null && s.length) || !s.every((a) => a.type === "edge") ? null : [...s].map((a) => a.id).sort().join("|"), [s]);
+  const o = ne(), { labels: r } = oe(), n = lo(t, e), s = oo($r), { data: i } = e, l = !!(i.sourcePort && i.targetPort), d = l ? V0 : X0, c = $t(() => !(s != null && s.length) || !s.every((a) => a.type === "edge") ? null : [...s].map((a) => a.id).sort().join("|"), [s]);
   return Ct(() => {
     const a = c !== null ? c.split("|") : [e.id];
     for (const f of a) {
@@ -20704,7 +20726,7 @@ function G0({ engine: t, node: e }) {
   ] });
 }
 function Y0({ engine: t, node: e }) {
-  const o = ne(), { labels: r } = oe(), n = ao(t, e), { data: s } = e, i = !!s.crop;
+  const o = ne(), { labels: r } = oe(), n = lo(t, e), { data: s } = e, i = !!s.crop;
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ h(
       _r,
@@ -20760,7 +20782,7 @@ function Y0({ engine: t, node: e }) {
   ] });
 }
 function j0({ engine: t, node: e }) {
-  const o = ne(), r = ao(t, e), { data: n } = e;
+  const o = ne(), r = lo(t, e), { data: n } = e;
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ h(
       _r,
@@ -20856,7 +20878,7 @@ function K0({
   ] });
 }
 function q0({ engine: t, node: e }) {
-  const o = ne(), { labels: r } = oe(), n = ao(t, e), s = oo(Ir), { data: i } = e, l = ut(
+  const o = ne(), { labels: r } = oe(), n = lo(t, e), s = oo(Ir), { data: i } = e, l = ut(
     (f) => {
       var g;
       if (!f) {
@@ -21082,7 +21104,7 @@ function q0({ engine: t, node: e }) {
   ] });
 }
 function U0({ engine: t, node: e }) {
-  const o = ne(), { labels: r } = oe(), n = ao(t, e), { data: s } = e;
+  const o = ne(), { labels: r } = oe(), n = lo(t, e), { data: s } = e;
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ h(
       Ge,
@@ -21148,7 +21170,7 @@ function U0({ engine: t, node: e }) {
   ] });
 }
 function Q0({ engine: t, node: e }) {
-  const o = ne(), r = ao(t, e), { data: n } = e;
+  const o = ne(), r = lo(t, e), { data: n } = e;
   return /* @__PURE__ */ C(Mt, { children: [
     /* @__PURE__ */ C("div", { style: jt, children: [
       /* @__PURE__ */ h("span", { style: { ...Yt, color: o.textMuted }, children: "URL" }),
@@ -21573,7 +21595,7 @@ function Xa({
   PanelComponent: o,
   docs: r
 }) {
-  const n = ao(t, e), s = ne(), { labels: i } = oe(), [l, d] = rt(!1), c = r ? r.id ?? e.type : null, a = c ? i.customNodeDocs[c] : void 0, f = !!(a != null && a.body), p = $t(
+  const n = lo(t, e), s = ne(), { labels: i } = oe(), [l, d] = rt(!1), c = r ? r.id ?? e.type : null, a = c ? i.customNodeDocs[c] : void 0, f = !!(a != null && a.body), p = $t(
     () => (a == null ? void 0 : a.title) ?? ty(e.type),
     [a == null ? void 0 : a.title, e.type]
   ), m = r != null && f ? /* @__PURE__ */ C("div", { style: { marginBottom: o ? 10 : 0 }, children: [
@@ -24110,7 +24132,7 @@ function Wy() {
     }
   );
 }
-const Fy = ld(() => import("./DebugPanel-DKJre5ZE.js"));
+const Fy = ld(() => import("./DebugPanel-euZxtEfs.js"));
 function l1({
   nodeTypes: t = vn,
   engine: e,

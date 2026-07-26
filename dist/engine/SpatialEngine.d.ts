@@ -349,6 +349,23 @@ export declare class SpatialEngine {
         padding?: number;
     }): void;
     /**
+     * Animated CENTER-on-rect at a chosen zoom — unlike fitToRectAnimated the
+     * zoom is NOT derived from the rect's size (a camera that follows running
+     * nodes wants one consistent focus level, not a per-card fit seesaw).
+     * `zoom` defaults to the current zoom; it is capped so the rect (+`padding`)
+     * always fully fits. `offsetX`/`offsetY` shift the effective screen center
+     * in px — for host overlays that cover an edge of the container (e.g. a
+     * docked inspector), so "centered" means the VISIBLE area. Additive; reuses
+     * the ease-out camera tween (reduced-motion snaps).
+     */
+    centerOnRectAnimated(minX: number, minY: number, maxX: number, maxY: number, opts?: {
+        zoom?: number;
+        durationMs?: number;
+        padding?: number;
+        offsetX?: number;
+        offsetY?: number;
+    }): void;
+    /**
      * Fit viewport to a single frame node, ignoring everything else.
      * Used by single-frame rendering (e.g. flashcard study mode).
      */
