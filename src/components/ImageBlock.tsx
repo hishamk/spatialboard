@@ -381,6 +381,7 @@ function ImageBlock({
           if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
             didMove = true;
             engine.pushHistorySnapshot();
+            engine.beginNodeGesture(draggedIds);
           } else {
             return;
           }
@@ -400,6 +401,7 @@ function ImageBlock({
         engine.clearAlignGuides();
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc.addEventListener("pointermove", onMove);
       ownerDoc.addEventListener("pointerup", onUp);
@@ -447,6 +449,7 @@ function ImageBlock({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([node.id]);
         }
         const { x: cx, y: cy } = engine.screenToCanvas(
           me.clientX,
@@ -466,6 +469,7 @@ function ImageBlock({
       const onUp = () => {
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc.addEventListener("pointermove", onMove);
       ownerDoc.addEventListener("pointerup", onUp);

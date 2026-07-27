@@ -480,6 +480,7 @@ function ContentBlock({
             didMove = true;
             isDraggingRef.current = true;
             engine.pushHistorySnapshot();
+            engine.beginNodeGesture(draggedIds);
           } else {
             return;
           }
@@ -500,6 +501,7 @@ function ContentBlock({
         engine.clearAlignGuides();
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc.addEventListener("pointermove", onMove);
       ownerDoc.addEventListener("pointerup", onUp);
@@ -534,6 +536,7 @@ function ContentBlock({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([node.id]);
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
@@ -549,6 +552,7 @@ function ContentBlock({
       const onUp = () => {
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc.addEventListener("pointermove", onMove);
       ownerDoc.addEventListener("pointerup", onUp);
@@ -582,6 +586,7 @@ function ContentBlock({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([node.id]);
         }
 
         let newX = origX;
@@ -660,6 +665,7 @@ function ContentBlock({
       const onUp = () => {
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
         requestAnimationFrame(() => adjustRef.current());
       };
       ownerDoc.addEventListener("pointermove", onMove);

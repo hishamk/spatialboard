@@ -101,6 +101,12 @@ type EventMap = {
   background: () => void;
   guides: () => void;
   lassoToggle: () => void;
+  /** A pointer-driven node gesture (drag/resize/rotate) started/ended.
+   *  While active, the canvas suppresses whole-board React syncs and lets
+   *  per-node subscriptions drive rendering; `gesture:end` triggers the
+   *  single commit render. */
+  "gesture:start": () => void;
+  "gesture:end": () => void;
   // Granular node lifecycle events
   'node:create': (node: SpatialNode) => void;
   'node:delete': (node: SpatialNode) => void;
@@ -304,6 +310,13 @@ export class SpatialEngine {
   private static readonly AGENT_ACTION_TIMEOUT_MS = 60_000;
   private clipboard: SpatialNode[] = [];
   private pasteCount = 0;
+  /** Node ids captured by the active pointer gesture; null when idle. */
+  private _gestureIds: ReadonlySet<string> | null = null;
+  /** Monotonic counters bumped whenever the matching event reaches listeners.
+   *  Used as `useSyncExternalStore` snapshots by canvas overlays. */
+  private _changeTick = 0;
+  private _selectionTick = 0;
+  private _guidesTick = 0;
   private nextZValue = 1;
   private _minZ = 0;
   private quadTree = new QuadTree({ x: -100000, y: -100000, w: 200000, h: 200000 });
@@ -448,7 +461,50 @@ export class SpatialEngine {
 
   private emit<K extends keyof EventMap>(event: K, ...args: Parameters<EventMap[K]>): void {
     if (this._suppressEvents) return;
+    if (event === "change") this._changeTick++;
+    else if (event === "selection") this._selectionTick++;
+    else if (event === "guides") this._guidesTick++;
     this.listeners[event]?.forEach((cb) => (cb as (...a: unknown[]) => void)(...args));
+  }
+
+  // --- Pointer gestures (drag / resize / rotate) ---
+
+  /** True while a pointer-driven node gesture is active. */
+  get gestureActive(): boolean {
+    return this._gestureIds !== null;
+  }
+
+  /** Node ids captured by the active gesture; null when idle. */
+  get gestureIds(): ReadonlySet<string> | null {
+    return this._gestureIds;
+  }
+
+  /** Monotonic tick bumped on every `change` reaching listeners. */
+  get changeTick(): number {
+    return this._changeTick;
+  }
+
+  /** Monotonic tick covering `change` + `selection` + `guides`. */
+  get overlayTick(): number {
+    return this._changeTick + this._selectionTick + this._guidesTick;
+  }
+
+  /**
+   * Mark the start of a pointer gesture over the given nodes. While a
+   * gesture is active the engine still mutates and emits per frame
+   * (collab sync depends on that); only the canvas's whole-board React
+   * mirror pauses. Idempotent: beginning while active replaces the id set.
+   */
+  beginNodeGesture(ids: Iterable<string>): void {
+    this._gestureIds = new Set(ids);
+    this.emit("gesture:start");
+  }
+
+  /** End the active pointer gesture (no-op when idle). */
+  endNodeGesture(): void {
+    if (this._gestureIds === null) return;
+    this._gestureIds = null;
+    this.emit("gesture:end");
   }
 
   /** Request entering image crop mode (handled by the canvas component). */
@@ -3339,6 +3395,7 @@ export class SpatialEngine {
 
   /** Trigger a re-render without pushing history. Used after remote updates. */
   notifyChange(): void {
+    this._changeTick++;
     this.listeners["change"]?.forEach((cb) => (cb as () => void)());
   }
 
@@ -3423,9 +3480,17 @@ export class SpatialEngine {
   // --- Serialization ---
 
   async toSBD(): Promise<string> {
+    // Reverse frameChildren → childId → frameId so children serialize with
+    // parent-relative coordinates (SBD v3). fromSBD resolves them back to
+    // absolute and rebuildFrameChildren re-derives membership geometrically.
+    const parentByChild = new Map<string, string>();
+    for (const [frameId, children] of this.frameChildren) {
+      for (const childId of children) parentByChild.set(childId, frameId);
+    }
     return serializeToSBD(this.getAllNodes(), {
       background: this.boardBackground,
       originView: this.originView ?? undefined,
+      parentOf: (nodeId) => parentByChild.get(nodeId),
     });
   }
 

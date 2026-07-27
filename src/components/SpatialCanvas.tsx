@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { memo, useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { nanoid } from "nanoid";
@@ -650,6 +650,690 @@ function UnifiedDomViewportLayer({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  NodeItem — one DOM-layer node, subscribed to its own engine state  */
+/* ------------------------------------------------------------------ */
+
+/** Shared, rarely-changing inputs for NodeItem. A new object identity
+ *  re-renders every NodeItem (equivalent to the old whole-map render), so
+ *  the parent memoizes it; it must not churn during pointer gestures. */
+interface NodeItemCtx {
+  engine: SpatialEngine;
+  registry?: NodeTypeRegistry;
+  schema: SBDSchema;
+  mode: Mode;
+  zoom: number;
+  selection: Set<string>;
+  editingNodeId: string | null;
+  editingTextId: string | null;
+  editingStickyId: string | null;
+  editingFrameLabelId: string | null;
+  editingShapeLabelId: string | null;
+  croppingImageId: string | null;
+  measuredHeights: Record<string, number>;
+  dataFlow?: DataFlowEngine | null;
+  dataFlowVersion: number;
+  labels: ReturnType<typeof useSBI18n>["labels"];
+  editClickRef: React.MutableRefObject<{ clientX: number; clientY: number } | null>;
+  textEditLockRef: React.MutableRefObject<{ id: string; until: number } | null>;
+  newlyCreatedTextRef: React.MutableRefObject<string | null>;
+  newlyCreatedContentIdRef: React.MutableRefObject<string | null>;
+  getCoalesceKey: () => string;
+  handleMeasuredHeight: (nodeId: string, height: number) => void;
+  handleResizeHandleDown: (
+    nodeId: string,
+    handle: HandlePosition,
+    e: React.PointerEvent<SVGRectElement | HTMLElement>,
+  ) => void;
+  observeElement: (el: Element, callback: (entry: ResizeObserverEntry) => void) => void;
+  unobserveElement: (el: Element) => void;
+  setEditingTextId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingStickyId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingFrameLabelId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingShapeLabelId: React.Dispatch<React.SetStateAction<string | null>>;
+  setCroppingImageId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingYouTubeId: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+const NodeItem = memo(function NodeItem({
+  id,
+  staticNode,
+  ephemeral,
+  isEraserMarked,
+  shouldBop,
+  ctx,
+}: {
+  id: string;
+  /** Render-list snapshot; used only when `ephemeral` (overlay nodes). */
+  staticNode: SpatialNode;
+  /** Overlay nodes (`overlayNodes` prop) live outside the engine. */
+  ephemeral: boolean;
+  isEraserMarked: boolean;
+  shouldBop: boolean;
+  ctx: NodeItemCtx;
+}) {
+  const { engine } = ctx;
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      engine.on("change", cb);
+      return () => engine.off("change", cb);
+    },
+    [engine],
+  );
+  // `updateNode`/`updateMany` replace node objects immutably, so this
+  // snapshot's identity changes exactly when THIS node changes — React
+  // bails out for every other NodeItem on the same `change` event.
+  const liveNode = useSyncExternalStore(subscribe, () => engine.getNode(id));
+  const node = ephemeral ? (liveNode ?? staticNode) : liveNode;
+  if (!node) return null;
+
+  const bopSeed = node.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const bopDelay = -((bopSeed % 240) / 100);
+  let el: React.ReactNode;
+
+  if (ctx.registry) {
+    const def = ctx.registry.get(node.type);
+    if (def) {
+      const Component = def.component;
+      const isSelected = ctx.selection.has(node.id) && ctx.mode !== "edge";
+      // AND `!engine.readOnly` so every Block already
+      // gating inline edit affordances on `interactive` (Text /
+      // Sticky / Image / YouTube / Content / etc.) hides them
+      // for viewers automatically — no per-block change needed.
+      const isInteractive = !engine.readOnly && (ctx.mode === "select" || ctx.mode === "text" || ctx.mode === "note" || ctx.mode === "sticky");
+      const componentEl = (
+        <Component
+          key={def.handlesOwnLayout ? node.id : undefined}
+          node={node}
+          data={node.data}
+          isSelected={isSelected}
+          multiSelected={
+            ctx.selection.size > 1 &&
+            isSelected &&
+            !engine.selectionIsSingleGroup()
+          }
+          engine={engine}
+          interactive={isInteractive}
+          zoom={ctx.zoom}
+          editing={ctx.editingNodeId === node.id}
+          cropping={ctx.croppingImageId === node.id}
+          editClickPos={ctx.editingNodeId === node.id ? ctx.editClickRef.current : null}
+          callbacks={{
+            onMeasuredHeight: ctx.handleMeasuredHeight,
+            // drop resize-handle starts in readOnly. The
+            // canvas selection-frame is hidden in that mode but a
+            // node-internal resize handle (if any) shouldn't fire
+            // either.
+            onResizeHandleDown: engine.readOnly
+              ? undefined
+              : (ctx.handleResizeHandleDown as NodeCallbacks["onResizeHandleDown"]),
+            onEditStart: (id: string) => {
+              // never enter inline edit mode in readOnly
+              // even if a misbehaving node fires onEditStart.
+              if (engine.readOnly) return;
+              const n = engine.getNode(id);
+              if (!n) return;
+              if (n.type === "text") ctx.setEditingTextId(id);
+              else if (n.type === "sticky") ctx.setEditingStickyId(id);
+              else if (n.type === "frame") ctx.setEditingFrameLabelId(id);
+              else if (n.type === "shape") ctx.setEditingShapeLabelId(id);
+              else if (n.type === "image") ctx.setCroppingImageId(id);
+              else if (n.type === "youtube") ctx.setEditingYouTubeId(id);
+            },
+            onEditEnd: () => {
+              if (node.type === "text") {
+                ctx.setEditingTextId((cur) => {
+                  if (cur !== node.id) return cur;
+                  const lock = ctx.textEditLockRef.current;
+                  if (lock && lock.id === cur && performance.now() < lock.until) return cur;
+                  return null;
+                });
+              } else if (node.type === "sticky") {
+                ctx.setEditingStickyId((cur) => (cur === node.id ? null : cur));
+              } else if (node.type === "frame") {
+                ctx.setEditingFrameLabelId((cur) => (cur === node.id ? null : cur));
+              } else if (node.type === "shape") {
+                ctx.setEditingShapeLabelId((cur) => (cur === node.id ? null : cur));
+              } else if (node.type === "image") {
+                ctx.setCroppingImageId((cur) => (cur === node.id ? null : cur));
+              } else if (node.type === "youtube") {
+                ctx.setEditingYouTubeId((cur) => (cur === node.id ? null : cur));
+              }
+            },
+          }}
+          portValues={ctx.dataFlow && nodeTypeHasPorts(def) && ctx.dataFlowVersion >= 0 ? ctx.dataFlow.getAllPortValues(node.id) : undefined}
+          updateData={(patch: Record<string, unknown>) => {
+            const k = ctx.getCoalesceKey();
+            engine.updateNodeWithHistoryCoalesced(
+              node.id,
+              {
+                data: { ...(node.data as Record<string, unknown>), ...patch },
+              },
+              `${k}:ctx.registry:${node.id}`,
+            );
+          }}
+        />
+      );
+      // Built-in types handle their own layout; custom nodes get a positioning wrapper
+      if (def.handlesOwnLayout) {
+        el = componentEl;
+      } else {
+        el = (
+          <RegistryNodeWrapper
+            key={node.id}
+            node={node}
+            isInteractive={isInteractive}
+            isSelected={isSelected && ctx.selection.size === 1}
+            selectionInNode={!!def.selectionInNode}
+            selectionRadius={def.selectionRadius}
+            zoom={ctx.zoom}
+            measuredH={ctx.measuredHeights[node.id]}
+            onMeasuredHeight={ctx.handleMeasuredHeight}
+            observeElement={ctx.observeElement}
+            unobserveElement={ctx.unobserveElement}
+            isContainer={def.isContainer}
+          >
+            {componentEl}
+          </RegistryNodeWrapper>
+        );
+      }
+    }
+  } else {
+    // Legacy fallback: hardcoded type switch
+    if (node.type === "content") {
+      const cNode = node as ContentNode;
+      el = (
+        <ContentBlock
+          key={node.id}
+          node={cNode}
+          isSelected={ctx.selection.has(node.id) && ctx.mode !== "edge"}
+          multiSelected={
+            ctx.selection.size > 1 &&
+            ctx.selection.has(node.id) &&
+            !engine.selectionIsSingleGroup()
+          }
+          engine={engine}
+          schema={ctx.schema}
+          interactive={ctx.mode === "select" || ctx.mode === "text" || ctx.mode === "note"}
+          zoom={ctx.zoom}
+          onMeasuredHeight={ctx.handleMeasuredHeight}
+          autoEdit={ctx.newlyCreatedContentIdRef.current === cNode.id}
+        />
+      );
+    } else if (node.type === "text") {
+      el = (
+        <TextNodeBlock
+          key={node.id}
+          node={node as TextNode}
+          engine={engine}
+          editing={ctx.editingTextId === node.id}
+          editClickPos={ctx.editingTextId === node.id ? ctx.editClickRef.current : null}
+          onStopEdit={() => {
+            if (ctx.newlyCreatedTextRef.current === node.id) {
+              ctx.newlyCreatedTextRef.current = null;
+              const textNode = engine.getNode(node.id) as TextNode | undefined;
+              if (!textNode || !textNode.data.text.trim()) {
+                engine.deleteNode(node.id);
+                ctx.setEditingTextId((cur) => (cur === node.id ? null : cur));
+                return;
+              }
+              // commitText already recorded history; extra push duplicated the undo stack.
+            }
+            ctx.setEditingTextId((cur) => (cur === node.id ? null : cur));
+          }}
+          onMeasuredHeight={ctx.handleMeasuredHeight}
+        />
+      );
+    } else if (node.type === "image") {
+      el = (
+        <ImageBlock
+          key={node.id}
+          node={node as ImageNode}
+          isSelected={ctx.selection.has(node.id) && ctx.mode !== "edge"}
+          engine={engine}
+          interactive={ctx.mode === "select"}
+          zoom={ctx.zoom}
+          onResizeHandleDown={ctx.handleResizeHandleDown}
+          cropping={ctx.croppingImageId === node.id}
+          onCropStart={() => ctx.setCroppingImageId(node.id)}
+          onCropEnd={() => ctx.setCroppingImageId(null)}
+        />
+      );
+    } else if (node.type === "sticky") {
+      el = (
+        <StickyNoteBlock
+          key={node.id}
+          node={node as StickyNoteNode}
+          isSelected={ctx.selection.has(node.id) && ctx.mode !== "edge"}
+          engine={engine}
+          interactive={ctx.mode === "select" || ctx.mode === "sticky"}
+          zoom={ctx.zoom}
+          editing={ctx.editingStickyId === node.id}
+          onEditStart={ctx.setEditingStickyId}
+          onEditEnd={() => ctx.setEditingStickyId(null)}
+        />
+      );
+    } else if (node.type === "frame") {
+      const frameNode = node as FrameNode;
+      const fh = frameNode.h === "auto" ? 100 : (frameNode.h as number);
+      el = (
+        <div
+          key={node.id}
+          style={{
+            position: "absolute",
+            left: frameNode.x,
+            top: frameNode.y,
+            width: frameNode.w,
+            height: fh,
+            zIndex: frameNode.z,
+            background: frameNode.data.backgroundColor || "rgba(0,0,0,0.02)",
+            border: `${frameNode.data.borderWidth || 1}px ${frameNode.data.borderStyle || "dashed"} ${frameNode.data.borderColor || "#ccc"}`,
+            boxSizing: "border-box",
+            borderRadius: 8,
+            opacity: frameNode.data.opacity ?? 1,
+            pointerEvents: "none",
+            overflow: "visible",
+            transform: frameNode.rotation ? `rotate(${frameNode.rotation}deg)` : undefined,
+            transformOrigin: "center center",
+          }}
+        >
+          {ctx.editingFrameLabelId === node.id ? (
+            <input
+              autoFocus
+              defaultValue={frameNode.data.label ?? ""}
+              placeholder={ctx.labels.frameLabelPlaceholder}
+              onBlur={(e) => {
+                const val = e.currentTarget.value.trim();
+                engine.updateNodeWithHistory(node.id, {
+                  data: { ...frameNode.data, label: val || undefined },
+                } as Partial<FrameNode>);
+                ctx.setEditingFrameLabelId(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape") {
+                  e.currentTarget.blur();
+                }
+                e.stopPropagation();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute",
+                top: -24,
+                left: 0,
+                fontSize: 12,
+                color: frameNode.data.borderColor || "#999",
+                fontWeight: 500,
+                background: "rgba(255,255,255,0.95)",
+                border: "1px solid #3b82f6",
+                borderRadius: 4,
+                padding: "1px 4px",
+                outline: "none",
+                pointerEvents: "auto",
+                minWidth: 80,
+              }}
+            />
+          ) : frameNode.data.label ? (
+            <div
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                engine.select(node.id);
+                ctx.setEditingFrameLabelId(node.id);
+              }}
+              style={{
+                position: "absolute",
+                top: -20,
+                left: 4,
+                fontSize: 12,
+                color: frameNode.data.borderColor || "#999",
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                userSelect: "none",
+                pointerEvents: "auto",
+                cursor: "default",
+              }}
+            >
+              {frameNode.data.label}
+            </div>
+          ) : null}
+        </div>
+      );
+    } else {
+      const svgNode = node as DrawNode | ShapeNode;
+      if (svgNode.type === "draw") {
+        el = <SVGNodeBlock key={node.id} node={svgNode} />;
+      } else {
+        el = <SVGNodeBlock key={node.id} node={svgNode} editingLabel={ctx.editingShapeLabelId === node.id} />;
+      }
+    }
+  }
+
+  if (isEraserMarked || shouldBop) {
+    return (
+      <div
+        key={node.id}
+        style={{
+          opacity: isEraserMarked ? 0.25 : undefined,
+          filter: isEraserMarked ? "saturate(0)" : undefined,
+          animation: shouldBop ? "sb-node-bop 3.4s ease-in-out infinite" : undefined,
+          animationDelay: shouldBop ? `${bopDelay}s` : undefined,
+          transformOrigin: "center center",
+          willChange: shouldBop ? "transform" : undefined,
+        }}
+      >
+        {el}
+      </div>
+    );
+  }
+  return el;
+});
+
+/* ------------------------------------------------------------------ */
+/*  LiveSVGLayerHost — renders SVGLayer from live engine state.        */
+/*  The parent supplies MEMBERSHIP (which nodes render, frozen during  */
+/*  gestures); the node objects are re-read from the engine per tick   */
+/*  because updateNode/updateMany replace them immutably per frame.    */
+/*  SVGLayer's memoized children (EdgeRenderer, shape blocks) then     */
+/*  bail for everything the gesture didn't touch.                      */
+/* ------------------------------------------------------------------ */
+
+const LiveSVGLayerHost = function LiveSVGLayerHost({
+  engine,
+  baseNodes,
+  ...rest
+}: Omit<React.ComponentProps<typeof SVGLayer>, "nodes" | "alignGuides"> & {
+  engine: SpatialEngine;
+  baseNodes: SpatialNode[];
+}) {
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      engine.on("change", cb);
+      engine.on("guides", cb);
+      return () => {
+        engine.off("change", cb);
+        engine.off("guides", cb);
+      };
+    },
+    [engine],
+  );
+  const tick = useSyncExternalStore(subscribe, () => engine.overlayTick);
+  const nodes = useMemo(
+    () => baseNodes.map((n) => engine.getNode(n.id) ?? n),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick drives live re-reads
+    [engine, baseNodes, tick],
+  );
+  return <SVGLayer nodes={nodes} alignGuides={engine.alignGuides} {...rest} />;
+};
+
+/** Padding around multi-selection bounds (canvas units). */
+const SEL_PAD = 8;
+
+/* ------------------------------------------------------------------ */
+/*  SelectionChromeOverlay — multi-select bounding box + handles.      */
+/*  Subscribes to the engine directly so it tracks node geometry per   */
+/*  frame during pointer gestures while the parent canvas is frozen.   */
+/* ------------------------------------------------------------------ */
+
+const SelectionChromeOverlay = function SelectionChromeOverlay({
+  engine,
+  registry,
+  viewport,
+  measuredHeights,
+  groupRotation,
+  hidden,
+  getNodeAABB,
+  onResizeDown,
+  onRotateDown,
+  onConnectionDown,
+  findNearestNodeForSide,
+}: {
+  engine: SpatialEngine;
+  registry?: NodeTypeRegistry;
+  viewport: Viewport;
+  measuredHeights: Record<string, number>;
+  groupRotation: { angle: number; cx: number; cy: number; bounds: { x: number; y: number; w: number; h: number } } | null;
+  hidden: boolean;
+  getNodeAABB: (n: SpatialNode, h: number) => { minX: number; minY: number; maxX: number; maxY: number };
+  onResizeDown: (handle: HandlePosition, e: React.PointerEvent<SVGRectElement>) => void;
+  onRotateDown: (e: React.PointerEvent<SVGElement>) => void;
+  onConnectionDown: (nodeId: string, side: HandleSide, e: React.PointerEvent<SVGCircleElement>) => void;
+  findNearestNodeForSide: (side: HandleSide) => string | null;
+}) {
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      engine.on("change", cb);
+      engine.on("selection", cb);
+      return () => {
+        engine.off("change", cb);
+        engine.off("selection", cb);
+      };
+    },
+    [engine],
+  );
+  // Live tick: node moves/resizes and selection changes re-render only
+  // this overlay, not the whole canvas.
+  useSyncExternalStore(subscribe, () => engine.overlayTick);
+
+  if (hidden || engine.readOnly) return null;
+  const selection = engine.selection;
+  if (selection.size < 2) return null;
+
+  // Live multi-selection bounds (the parent's memoized selBounds freezes
+  // during gestures; single-selection chrome renders inside SVGLayer).
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const id of selection) {
+    const n = engine.getNode(id);
+    if (!n || n.type === "edge") continue;
+    const h = n.h === "auto" ? (measuredHeights[n.id] ?? 100) : (n.h as number);
+    const aabb = getNodeAABB(n, h);
+    minX = Math.min(minX, aabb.minX);
+    minY = Math.min(minY, aabb.minY);
+    maxX = Math.max(maxX, aabb.maxX);
+    maxY = Math.max(maxY, aabb.maxY);
+  }
+  if (minX === Infinity) return null;
+  const selBounds = {
+    x: minX - SEL_PAD,
+    y: minY - SEL_PAD,
+    w: maxX - minX + SEL_PAD * 2,
+    h: maxY - minY + SEL_PAD * 2,
+  };
+
+  // Check for persisted group rotation
+  const singleGroupId = engine.selectionGroupId();
+  const storedRot = singleGroupId ? engine.groupRotations.get(singleGroupId) : undefined;
+
+  // During rotation drag use frozen bounds; for persisted group rotation
+  // compute unrotated bounds; otherwise use live selBounds
+  let b: { x: number; y: number; w: number; h: number };
+  let rotAngle: number;
+  let rotCx: number;
+  let rotCy: number;
+
+  if (groupRotation) {
+    b = groupRotation.bounds;
+    rotAngle = groupRotation.angle;
+    rotCx = groupRotation.cx;
+    rotCy = groupRotation.cy;
+  } else if (storedRot && storedRot.angle !== 0) {
+    // Reverse-rotate node centers to compute unrotated bounding box
+    const rad = (-storedRot.angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    let fMinX = Infinity, fMinY = Infinity, fMaxX = -Infinity, fMaxY = -Infinity;
+    for (const id of engine.selection) {
+      const n = engine.getNode(id);
+      if (!n || n.type === "edge") continue;
+      const h = n.h === "auto" ? (measuredHeights[n.id] ?? 100) : (n.h as number);
+      const ncx = n.x + n.w / 2;
+      const ncy = n.y + h / 2;
+      const dx = ncx - storedRot.cx;
+      const dy = ncy - storedRot.cy;
+      const ux = storedRot.cx + dx * cos - dy * sin;
+      const uy = storedRot.cy + dx * sin + dy * cos;
+      fMinX = Math.min(fMinX, ux - n.w / 2);
+      fMinY = Math.min(fMinY, uy - h / 2);
+      fMaxX = Math.max(fMaxX, ux + n.w / 2);
+      fMaxY = Math.max(fMaxY, uy + h / 2);
+    }
+    b = {
+      x: fMinX - SEL_PAD,
+      y: fMinY - SEL_PAD,
+      w: fMaxX - fMinX + SEL_PAD * 2,
+      h: fMaxY - fMinY + SEL_PAD * 2,
+    };
+    rotAngle = storedRot.angle;
+    rotCx = storedRot.cx;
+    rotCy = storedRot.cy;
+  } else {
+    b = selBounds;
+    rotAngle = 0;
+    rotCx = 0;
+    rotCy = 0;
+  }
+
+  const handleSize = 8 / viewport.zoom;
+  const half = handleSize / 2;
+  const selectionAllowsResize = Array.from(engine.selection).every((id) => {
+    const n = engine.getNode(id);
+    if (!n || n.type === "edge") return true;
+    return registry?.get(n.type)?.resizable !== false;
+  });
+  const selectionAllowsRotate = Array.from(engine.selection).every((id) => {
+    const n = engine.getNode(id);
+    if (!n || n.type === "edge") return true;
+    return registry?.get(n.type)?.rotatable !== false;
+  });
+  const handles: { pos: HandlePosition; cx: number; cy: number }[] = [
+    { pos: "nw", cx: b.x, cy: b.y },
+    { pos: "n", cx: b.x + b.w / 2, cy: b.y },
+    { pos: "ne", cx: b.x + b.w, cy: b.y },
+    { pos: "e", cx: b.x + b.w, cy: b.y + b.h / 2 },
+    { pos: "se", cx: b.x + b.w, cy: b.y + b.h },
+    { pos: "s", cx: b.x + b.w / 2, cy: b.y + b.h },
+    { pos: "sw", cx: b.x, cy: b.y + b.h },
+    { pos: "w", cx: b.x, cy: b.y + b.h / 2 },
+  ];
+  const rotateTransform = rotAngle !== 0
+    ? ` rotate(${rotAngle}, ${rotCx}, ${rotCy})`
+    : "";
+  return (
+    <svg
+      data-sb-overlay
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+    >
+      <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+        <g transform={rotateTransform}>
+          <rect
+            x={b.x}
+            y={b.y}
+            width={b.w}
+            height={b.h}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={1.5 / viewport.zoom}
+          />
+          {rotAngle === 0 && selectionAllowsResize && handles.map(({ pos, cx, cy }) => (
+            <rect
+              key={pos}
+              x={cx - half}
+              y={cy - half}
+              width={handleSize}
+              height={handleSize}
+              fill="white"
+              stroke="#3b82f6"
+              strokeWidth={1.5 / viewport.zoom}
+              style={{ cursor: getRotatedCursor(pos, rotAngle), pointerEvents: "auto" }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onResizeDown(pos, e);
+              }}
+            />
+          ))}
+          {/* Rotation handle */}
+          {selectionAllowsRotate && (() => {
+            const rotateGap = 25 / viewport.zoom;
+            const topCx = b.x + b.w / 2;
+            const topCy = b.y;
+            return (
+              <>
+                <line
+                  x1={topCx}
+                  y1={topCy}
+                  x2={topCx}
+                  y2={topCy - rotateGap}
+                  stroke="#3b82f6"
+                  strokeWidth={1.5 / viewport.zoom}
+                  style={{ pointerEvents: "none" }}
+                />
+                {(() => {
+                  const rotateSize = 8 / viewport.zoom;
+                  const rotateHalf = rotateSize / 2;
+                  return (
+                    <rect
+                      x={topCx - rotateHalf}
+                      y={topCy - rotateGap - rotateHalf}
+                      width={rotateSize}
+                      height={rotateSize}
+                      rx={1.5 / viewport.zoom}
+                      transform={`rotate(45, ${topCx}, ${topCy - rotateGap})`}
+                      fill="white"
+                      stroke="#3b82f6"
+                      strokeWidth={1.5 / viewport.zoom}
+                      style={{ cursor: "grab", pointerEvents: "auto" }}
+                      onPointerDown={(e) => onRotateDown(e)}
+                    />
+                  );
+                })()}
+              </>
+            );
+          })()}
+          {/* Connection handles on bounding box — freeform edge starts.
+              Skip when the selection includes port-wired nodes (workflow
+              etc.): those boards connect via ports, not bbox anchors. */}
+          {(() => {
+            const hasPortNode = Array.from(engine.selection).some((id) => {
+              const n = engine.getNode(id);
+              if (!n || n.type === "edge") return false;
+              return nodeTypeHasPorts(registry?.get(n.type));
+            });
+            if (hasPortNode) return null;
+
+            const connOffset = 26 / viewport.zoom;
+            const connTopOffset = 42 / viewport.zoom; // extra clearance past rotation handle
+            const connR = 4 / viewport.zoom;
+            const sides: { side: HandleSide; cx: number; cy: number }[] = [
+              { side: "top", cx: b.x + b.w / 2, cy: b.y - connTopOffset },
+              { side: "right", cx: b.x + b.w + connOffset, cy: b.y + b.h / 2 },
+              { side: "bottom", cx: b.x + b.w / 2, cy: b.y + b.h + connOffset },
+              { side: "left", cx: b.x - connOffset, cy: b.y + b.h / 2 },
+            ];
+            return sides.map(({ side, cx, cy }) => (
+              <circle
+                key={`conn-${side}`}
+                cx={cx}
+                cy={cy}
+                r={connR}
+                fill="white"
+                stroke="#94a3b8"
+                strokeWidth={1.5 / viewport.zoom}
+                opacity={0.8}
+                style={{ cursor: "crosshair", pointerEvents: "auto" }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const nodeId = findNearestNodeForSide(side);
+                  if (nodeId) {
+                    onConnectionDown(nodeId, side, e as unknown as React.PointerEvent<SVGCircleElement>);
+                  }
+                }}
+              />
+            ));
+          })()}
+        </g>
+      </g>
+    </svg>
+  );
+};
+
 export default function SpatialCanvas({
   engine,
   schema,
@@ -718,7 +1402,9 @@ export default function SpatialCanvas({
   const [gridActive, setGridActive] = useState(engine.snapToGrid);
   const [gridSize, setGridSize] = useState(engine.gridSize);
   const [smartGuidesActive, setSmartGuidesActive] = useState(engine.smartGuides);
-  const [alignGuides, setAlignGuides] = useState<AlignGuide[]>([]);
+  // Alignment guides render via LiveSVGLayerHost's own engine subscription —
+  // holding them in parent state would re-render the whole canvas per frame
+  // during snap-enabled drags.
   const [boardBackground, setBoardBackground] = useState<BoardBackground>(engine.boardBackground);
 
   const canvasHistoryStableId = useMemo(() => {
@@ -1052,7 +1738,7 @@ export default function SpatialCanvas({
   );
 
   // Padding to fully encompass rotated items, borders, shadows, and strokes
-  const SEL_PAD = 8;
+  // (SEL_PAD hoisted to module scope for SelectionChromeOverlay)
 
   // Marquee hit uses proper AABBs (rotation) + tolerance so "a bit on" selects
   const getNodesInMarqueeRect = useCallback(
@@ -1433,11 +2119,39 @@ export default function SpatialCanvas({
   useEffect(() => {
     let changeRafId: number | null = null;
     const handleChange = () => {
+      // While a pointer gesture is active the whole-board mirror pauses:
+      // NodeItem / LiveSVGLayerHost / SelectionChromeOverlay subscribe to
+      // the engine directly and keep the moving pieces rendering. The
+      // engine itself still mutates + emits per frame (collab sync relies
+      // on that); gesture:end below commits the mirror once.
+      if (engine.gestureActive) return;
       if (changeRafId !== null) return;
       changeRafId = requestAnimationFrame(() => {
         changeRafId = null;
+        if (engine.gestureActive) return; // gesture began after scheduling
         setNodes([...engine.getAllNodes()]);
       });
+    };
+    // Safety net: if a gesture loop dies without calling endNodeGesture
+    // (pointercancel, error), force-end after the loop's own pointerup
+    // handlers had their chance — otherwise the board would stay frozen.
+    const forceEndGesture = () => {
+      setTimeout(() => engine.endNodeGesture(), 0);
+    };
+    const gestureWindow = () =>
+      containerRef.current?.ownerDocument.defaultView ?? window;
+    const handleGestureStart = () => {
+      setIsNodeDragging(true);
+      const win = gestureWindow();
+      win.addEventListener("pointerup", forceEndGesture, { capture: true });
+      win.addEventListener("pointercancel", forceEndGesture, { capture: true });
+    };
+    const handleGestureEnd = () => {
+      const win = gestureWindow();
+      win.removeEventListener("pointerup", forceEndGesture, { capture: true });
+      win.removeEventListener("pointercancel", forceEndGesture, { capture: true });
+      setIsNodeDragging(false);
+      setNodes([...engine.getAllNodes()]);
     };
     let viewportRafId: number | null = null;
     const handleViewport = () => {
@@ -1479,7 +2193,10 @@ export default function SpatialCanvas({
     };
     const handleBackground = () => setBoardBackground(engine.boardBackground);
     const handleGuides = () => {
-      setAlignGuides([...engine.alignGuides]);
+      // Align guides are drawn by LiveSVGLayerHost (live engine read); only
+      // the grid/smart-guide settings mirror into React state here. These
+      // setters bail out when unchanged, so per-frame guide emits during
+      // snap drags don't re-render the canvas.
       setGridActive(engine.snapToGrid);
       setGridSize(engine.gridSize);
       setSmartGuidesActive(engine.smartGuides);
@@ -1493,6 +2210,8 @@ export default function SpatialCanvas({
     engine.on("background", handleBackground);
     engine.on("guides", handleGuides);
     engine.on("search", handleSearch);
+    engine.on("gesture:start", handleGestureStart);
+    engine.on("gesture:end", handleGestureEnd);
 
     const onGroupEnter = (groupId: string) => setActiveGroupId(groupId);
     const onGroupExit = () => setActiveGroupId(null);
@@ -1516,6 +2235,11 @@ export default function SpatialCanvas({
       engine.off("background", handleBackground);
       engine.off("guides", handleGuides);
       engine.off("search", handleSearch);
+      engine.off("gesture:start", handleGestureStart);
+      engine.off("gesture:end", handleGestureEnd);
+      const win = gestureWindow();
+      win.removeEventListener("pointerup", forceEndGesture, { capture: true });
+      win.removeEventListener("pointercancel", forceEndGesture, { capture: true });
       engine.off("group:enter", onGroupEnter);
       engine.off("group:exit", onGroupExit);
       engine.off("lassoToggle", onLassoToggle);
@@ -2754,7 +3478,9 @@ export default function SpatialCanvas({
               if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                 didMove = true;
                 engine.pushHistorySnapshot();
-                setIsNodeDragging(true);
+                // gesture:start flips isNodeDragging + pauses the whole-board
+                // React mirror; per-node subscriptions render the drag.
+                engine.beginNodeGesture(allDragIdSet);
               } else {
                 return;
               }
@@ -2771,7 +3497,6 @@ export default function SpatialCanvas({
               cancelAnimationFrame(rafId);
               applyMove();
             }
-            setIsNodeDragging(false);
             engine.clearAlignGuides();
             ownerDoc().removeEventListener("pointermove", onMove);
             ownerDoc().removeEventListener("pointerup", onUp);
@@ -2789,6 +3514,8 @@ export default function SpatialCanvas({
                 engine.updateFrameMembership(movedIndependentIds);
               }
             }
+            // After final mutations so the gesture:end commit captures them.
+            engine.endNodeGesture();
           };
           ownerDoc().addEventListener("pointermove", onMove);
           ownerDoc().addEventListener("pointerup", onUp);
@@ -3628,6 +4355,7 @@ export default function SpatialCanvas({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([nodeId]);
         }
 
         let newX = origX;
@@ -3804,6 +4532,7 @@ export default function SpatialCanvas({
         if (engine.isContainerType(node.type)) {
           engine.syncFrameChildrenAfterResize(nodeId);
         }
+        engine.endNodeGesture();
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
@@ -3838,6 +4567,7 @@ export default function SpatialCanvas({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([nodeId]);
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
@@ -3853,6 +4583,7 @@ export default function SpatialCanvas({
       const onUp = () => {
         ownerDoc().removeEventListener("pointermove", onMove);
         ownerDoc().removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
@@ -4213,6 +4944,7 @@ export default function SpatialCanvas({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture([edgeId]);
         }
         const canvasPos = engine.screenToCanvas(me.clientX, me.clientY);
         const fresh = engine.getNode(edgeId) as EdgeNode | undefined;
@@ -4268,6 +5000,7 @@ export default function SpatialCanvas({
       const onUp = () => {
         ownerDoc().removeEventListener("pointermove", onMove);
         ownerDoc().removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
 
       ownerDoc().addEventListener("pointermove", onMove);
@@ -4510,6 +5243,7 @@ export default function SpatialCanvas({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture(engine.selection);
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - groupCy, cx - groupCx);
@@ -4553,6 +5287,7 @@ export default function SpatialCanvas({
         setGroupRotation({ angle: lastTotalAngle, cx: groupCx, cy: groupCy, bounds: frozenBounds });
         ownerDoc().removeEventListener("pointermove", onMove);
         ownerDoc().removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
@@ -4632,6 +5367,7 @@ export default function SpatialCanvas({
         if (!historyPushed && (dx !== 0 || dy !== 0)) {
           historyPushed = true;
           engine.pushHistorySnapshot();
+          engine.beginNodeGesture(engine.selection);
         }
 
         let newX = origBox.x, newY = origBox.y, newW = origBox.w, newH = origBox.h;
@@ -4773,6 +5509,7 @@ export default function SpatialCanvas({
         for (const s of selectedNodes) {
           if (engine.isContainerType(s.type)) engine.syncFrameChildrenAfterResize(s.id);
         }
+        engine.endNodeGesture();
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);
@@ -5140,6 +5877,69 @@ export default function SpatialCanvas({
     });
   }, [searchState, nodes, viewport, activeSearchNodeId, isNodeDragging]);
 
+  // Shared NodeItem inputs. New identity re-renders every NodeItem, so the
+  // members are rare-change values only — nothing here may churn per frame
+  // during a pointer gesture (node geometry flows through each NodeItem's
+  // own engine subscription instead).
+  const nodeItemCtx = useMemo<NodeItemCtx>(
+    () => ({
+      engine,
+      registry,
+      schema,
+      mode,
+      zoom: viewport.zoom,
+      selection,
+      editingNodeId,
+      editingTextId,
+      editingStickyId,
+      editingFrameLabelId,
+      editingShapeLabelId,
+      croppingImageId,
+      measuredHeights,
+      dataFlow,
+      dataFlowVersion,
+      labels,
+      editClickRef,
+      textEditLockRef,
+      newlyCreatedTextRef,
+      newlyCreatedContentIdRef,
+      getCoalesceKey,
+      handleMeasuredHeight,
+      handleResizeHandleDown,
+      observeElement,
+      unobserveElement,
+      setEditingTextId,
+      setEditingStickyId,
+      setEditingFrameLabelId,
+      setEditingShapeLabelId,
+      setCroppingImageId,
+      setEditingYouTubeId,
+    }),
+    [
+      engine,
+      registry,
+      schema,
+      mode,
+      viewport.zoom,
+      selection,
+      editingNodeId,
+      editingTextId,
+      editingStickyId,
+      editingFrameLabelId,
+      editingShapeLabelId,
+      croppingImageId,
+      measuredHeights,
+      dataFlow,
+      dataFlowVersion,
+      labels,
+      getCoalesceKey,
+      handleMeasuredHeight,
+      handleResizeHandleDown,
+      observeElement,
+      unobserveElement,
+    ],
+  );
+
   return (
     <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
     <div
@@ -5171,308 +5971,17 @@ export default function SpatialCanvas({
       >
         {domLayerNodes
           .sort((a, b) => a.z - b.z)
-          .map((node) => {
-            const isEraserMarked = eraserMarkedIds.has(node.id);
-            const shouldBop = boppingNodeIds.has(node.id);
-            const bopSeed = node.id.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-            const bopDelay = -((bopSeed % 240) / 100);
-            let el: React.ReactNode;
-
-            if (registry) {
-              const def = registry.get(node.type);
-              if (def) {
-                const Component = def.component;
-                const isSelected = selection.has(node.id) && mode !== "edge";
-                // AND `!engine.readOnly` so every Block already
-                // gating inline edit affordances on `interactive` (Text /
-                // Sticky / Image / YouTube / Content / etc.) hides them
-                // for viewers automatically — no per-block change needed.
-                const isInteractive = !engine.readOnly && (mode === "select" || mode === "text" || mode === "note" || mode === "sticky");
-                const componentEl = (
-                  <Component
-                    key={def.handlesOwnLayout ? node.id : undefined}
-                    node={node}
-                    data={node.data}
-                    isSelected={isSelected}
-                    multiSelected={
-                      selection.size > 1 &&
-                      isSelected &&
-                      !engine.selectionIsSingleGroup()
-                    }
-                    engine={engine}
-                    interactive={isInteractive}
-                    zoom={viewport.zoom}
-                    editing={editingNodeId === node.id}
-                    cropping={croppingImageId === node.id}
-                    editClickPos={editingNodeId === node.id ? editClickRef.current : null}
-                    callbacks={{
-                      onMeasuredHeight: handleMeasuredHeight,
-                      // drop resize-handle starts in readOnly. The
-                      // canvas selection-frame is hidden in that mode but a
-                      // node-internal resize handle (if any) shouldn't fire
-                      // either.
-                      onResizeHandleDown: engine.readOnly
-                        ? undefined
-                        : (handleResizeHandleDown as NodeCallbacks["onResizeHandleDown"]),
-                      onEditStart: (id: string) => {
-                        // never enter inline edit mode in readOnly
-                        // even if a misbehaving node fires onEditStart.
-                        if (engine.readOnly) return;
-                        const n = engine.getNode(id);
-                        if (!n) return;
-                        if (n.type === "text") setEditingTextId(id);
-                        else if (n.type === "sticky") setEditingStickyId(id);
-                        else if (n.type === "frame") setEditingFrameLabelId(id);
-                        else if (n.type === "shape") setEditingShapeLabelId(id);
-                        else if (n.type === "image") setCroppingImageId(id);
-                        else if (n.type === "youtube") setEditingYouTubeId(id);
-                      },
-                      onEditEnd: () => {
-                        if (node.type === "text") {
-                          setEditingTextId((cur) => {
-                            if (cur !== node.id) return cur;
-                            const lock = textEditLockRef.current;
-                            if (lock && lock.id === cur && performance.now() < lock.until) return cur;
-                            return null;
-                          });
-                        } else if (node.type === "sticky") {
-                          setEditingStickyId((cur) => (cur === node.id ? null : cur));
-                        } else if (node.type === "frame") {
-                          setEditingFrameLabelId((cur) => (cur === node.id ? null : cur));
-                        } else if (node.type === "shape") {
-                          setEditingShapeLabelId((cur) => (cur === node.id ? null : cur));
-                        } else if (node.type === "image") {
-                          setCroppingImageId((cur) => (cur === node.id ? null : cur));
-                        } else if (node.type === "youtube") {
-                          setEditingYouTubeId((cur) => (cur === node.id ? null : cur));
-                        }
-                      },
-                    }}
-                    portValues={dataFlow && nodeTypeHasPorts(def) && dataFlowVersion >= 0 ? dataFlow.getAllPortValues(node.id) : undefined}
-                    updateData={(patch: Record<string, unknown>) => {
-                      const k = getCoalesceKey();
-                      engine.updateNodeWithHistoryCoalesced(
-                        node.id,
-                        {
-                          data: { ...(node.data as Record<string, unknown>), ...patch },
-                        },
-                        `${k}:registry:${node.id}`,
-                      );
-                    }}
-                  />
-                );
-                // Built-in types handle their own layout; custom nodes get a positioning wrapper
-                if (def.handlesOwnLayout) {
-                  el = componentEl;
-                } else {
-                  el = (
-                    <RegistryNodeWrapper
-                      key={node.id}
-                      node={node}
-                      isInteractive={isInteractive}
-                      isSelected={isSelected && selection.size === 1}
-                      selectionInNode={!!def.selectionInNode}
-                      selectionRadius={def.selectionRadius}
-                      zoom={viewport.zoom}
-                      measuredH={measuredHeights[node.id]}
-                      onMeasuredHeight={handleMeasuredHeight}
-                      observeElement={observeElement}
-                      unobserveElement={unobserveElement}
-                      isContainer={def.isContainer}
-                    >
-                      {componentEl}
-                    </RegistryNodeWrapper>
-                  );
-                }
-              }
-            } else {
-              // Legacy fallback: hardcoded type switch
-              if (node.type === "content") {
-                const cNode = node as ContentNode;
-                el = (
-                  <ContentBlock
-                    key={node.id}
-                    node={cNode}
-                    isSelected={selection.has(node.id) && mode !== "edge"}
-                    multiSelected={
-                      selection.size > 1 &&
-                      selection.has(node.id) &&
-                      !engine.selectionIsSingleGroup()
-                    }
-                    engine={engine}
-                    schema={schema}
-                    interactive={mode === "select" || mode === "text" || mode === "note"}
-                    zoom={viewport.zoom}
-                    onMeasuredHeight={handleMeasuredHeight}
-                    autoEdit={newlyCreatedContentIdRef.current === cNode.id}
-                  />
-                );
-              } else if (node.type === "text") {
-                el = (
-                  <TextNodeBlock
-                    key={node.id}
-                    node={node as TextNode}
-                    engine={engine}
-                    editing={editingTextId === node.id}
-                    editClickPos={editingTextId === node.id ? editClickRef.current : null}
-                    onStopEdit={() => {
-                      if (newlyCreatedTextRef.current === node.id) {
-                        newlyCreatedTextRef.current = null;
-                        const textNode = engine.getNode(node.id) as TextNode | undefined;
-                        if (!textNode || !textNode.data.text.trim()) {
-                          engine.deleteNode(node.id);
-                          setEditingTextId((cur) => (cur === node.id ? null : cur));
-                          return;
-                        }
-                        // commitText already recorded history; extra push duplicated the undo stack.
-                      }
-                      setEditingTextId((cur) => (cur === node.id ? null : cur));
-                    }}
-                    onMeasuredHeight={handleMeasuredHeight}
-                  />
-                );
-              } else if (node.type === "image") {
-                el = (
-                  <ImageBlock
-                    key={node.id}
-                    node={node as ImageNode}
-                    isSelected={selection.has(node.id) && mode !== "edge"}
-                    engine={engine}
-                    interactive={mode === "select"}
-                    zoom={viewport.zoom}
-                    onResizeHandleDown={handleResizeHandleDown}
-                    cropping={croppingImageId === node.id}
-                    onCropStart={() => setCroppingImageId(node.id)}
-                    onCropEnd={() => setCroppingImageId(null)}
-                  />
-                );
-              } else if (node.type === "sticky") {
-                el = (
-                  <StickyNoteBlock
-                    key={node.id}
-                    node={node as StickyNoteNode}
-                    isSelected={selection.has(node.id) && mode !== "edge"}
-                    engine={engine}
-                    interactive={mode === "select" || mode === "sticky"}
-                    zoom={viewport.zoom}
-                    editing={editingStickyId === node.id}
-                    onEditStart={setEditingStickyId}
-                    onEditEnd={() => setEditingStickyId(null)}
-                  />
-                );
-              } else if (node.type === "frame") {
-                const frameNode = node as FrameNode;
-                const fh = frameNode.h === "auto" ? 100 : (frameNode.h as number);
-                el = (
-                  <div
-                    key={node.id}
-                    style={{
-                      position: "absolute",
-                      left: frameNode.x,
-                      top: frameNode.y,
-                      width: frameNode.w,
-                      height: fh,
-                      zIndex: frameNode.z,
-                      background: frameNode.data.backgroundColor || "rgba(0,0,0,0.02)",
-                      border: `${frameNode.data.borderWidth || 1}px ${frameNode.data.borderStyle || "dashed"} ${frameNode.data.borderColor || "#ccc"}`,
-                      boxSizing: "border-box",
-                      borderRadius: 8,
-                      opacity: frameNode.data.opacity ?? 1,
-                      pointerEvents: "none",
-                      overflow: "visible",
-                      transform: frameNode.rotation ? `rotate(${frameNode.rotation}deg)` : undefined,
-                      transformOrigin: "center center",
-                    }}
-                  >
-                    {editingFrameLabelId === node.id ? (
-                      <input
-                        autoFocus
-                        defaultValue={frameNode.data.label ?? ""}
-                        placeholder={labels.frameLabelPlaceholder}
-                        onBlur={(e) => {
-                          const val = e.currentTarget.value.trim();
-                          engine.updateNodeWithHistory(node.id, {
-                            data: { ...frameNode.data, label: val || undefined },
-                          } as Partial<FrameNode>);
-                          setEditingFrameLabelId(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Escape") {
-                            e.currentTarget.blur();
-                          }
-                          e.stopPropagation();
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        style={{
-                          position: "absolute",
-                          top: -24,
-                          left: 0,
-                          fontSize: 12,
-                          color: frameNode.data.borderColor || "#999",
-                          fontWeight: 500,
-                          background: "rgba(255,255,255,0.95)",
-                          border: "1px solid #3b82f6",
-                          borderRadius: 4,
-                          padding: "1px 4px",
-                          outline: "none",
-                          pointerEvents: "auto",
-                          minWidth: 80,
-                        }}
-                      />
-                    ) : frameNode.data.label ? (
-                      <div
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          engine.select(node.id);
-                          setEditingFrameLabelId(node.id);
-                        }}
-                        style={{
-                          position: "absolute",
-                          top: -20,
-                          left: 4,
-                          fontSize: 12,
-                          color: frameNode.data.borderColor || "#999",
-                          fontWeight: 500,
-                          whiteSpace: "nowrap",
-                          userSelect: "none",
-                          pointerEvents: "auto",
-                          cursor: "default",
-                        }}
-                      >
-                        {frameNode.data.label}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              } else {
-                const svgNode = node as DrawNode | ShapeNode;
-                if (svgNode.type === "draw") {
-                  el = <SVGNodeBlock key={node.id} node={svgNode} />;
-                } else {
-                  el = <SVGNodeBlock key={node.id} node={svgNode} editingLabel={editingShapeLabelId === node.id} />;
-                }
-              }
-            }
-
-            if (isEraserMarked || shouldBop) {
-              return (
-                <div
-                  key={node.id}
-                  style={{
-                    opacity: isEraserMarked ? 0.25 : undefined,
-                    filter: isEraserMarked ? "saturate(0)" : undefined,
-                    animation: shouldBop ? "sb-node-bop 3.4s ease-in-out infinite" : undefined,
-                    animationDelay: shouldBop ? `${bopDelay}s` : undefined,
-                    transformOrigin: "center center",
-                    willChange: shouldBop ? "transform" : undefined,
-                  }}
-                >
-                  {el}
-                </div>
-              );
-            }
-            return el;
-          })}
+          .map((node) => (
+            <NodeItem
+              key={node.id}
+              id={node.id}
+              staticNode={node}
+              ephemeral={!engine.getNode(node.id)}
+              isEraserMarked={eraserMarkedIds.has(node.id)}
+              shouldBop={boppingNodeIds.has(node.id)}
+              ctx={nodeItemCtx}
+            />
+          ))}
         {searchHighlightNodeIds.size > 0 &&
           Array.from(searchHighlightNodeIds).map((id) => {
             const node = engine.getNode(id);
@@ -5521,8 +6030,9 @@ export default function SpatialCanvas({
 
       </UnifiedDomViewportLayer>
 
-      <SVGLayer
-        nodes={svgLayerNodes}
+      <LiveSVGLayerHost
+        engine={engine}
+        baseNodes={svgLayerNodes}
         viewport={viewport}
         selection={selection}
         measuredHeights={measuredHeights}
@@ -5565,7 +6075,6 @@ export default function SpatialCanvas({
         getLastComputeMs={dataFlow ? getLastComputeMs : undefined}
         getDataFlowPortValue={dataFlow ? getDataFlowPortValue : undefined}
         containerTypes={engine.containerTypes}
-        alignGuides={alignGuides}
         suppressNodeOverlayId={croppingImageId}
       />
 
@@ -5574,202 +6083,19 @@ export default function SpatialCanvas({
           affordances — selection itself still works (engine.selection is
           view-state, not doc-state), but the frame chrome with handles is
           for editing only. */}
-      {selBounds && !croppingImageId && mode !== "edge" && !edgePreview && !edgeReconnect && !engine.readOnly && (() => {
-        // Check for persisted group rotation
-        const singleGroupId = engine.selectionGroupId();
-        const storedRot = singleGroupId ? engine.groupRotations.get(singleGroupId) : undefined;
-
-        // During rotation drag use frozen bounds; for persisted group rotation
-        // compute unrotated bounds; otherwise use live selBounds
-        let b: { x: number; y: number; w: number; h: number };
-        let rotAngle: number;
-        let rotCx: number;
-        let rotCy: number;
-
-        if (groupRotation) {
-          b = groupRotation.bounds;
-          rotAngle = groupRotation.angle;
-          rotCx = groupRotation.cx;
-          rotCy = groupRotation.cy;
-        } else if (storedRot && storedRot.angle !== 0) {
-          // Reverse-rotate node centers to compute unrotated bounding box
-          const rad = (-storedRot.angle * Math.PI) / 180;
-          const cos = Math.cos(rad);
-          const sin = Math.sin(rad);
-          let fMinX = Infinity, fMinY = Infinity, fMaxX = -Infinity, fMaxY = -Infinity;
-          for (const id of engine.selection) {
-            const n = engine.getNode(id);
-            if (!n || n.type === "edge") continue;
-            const h = n.h === "auto" ? (measuredHeights[n.id] ?? 100) : (n.h as number);
-            const ncx = n.x + n.w / 2;
-            const ncy = n.y + h / 2;
-            const dx = ncx - storedRot.cx;
-            const dy = ncy - storedRot.cy;
-            const ux = storedRot.cx + dx * cos - dy * sin;
-            const uy = storedRot.cy + dx * sin + dy * cos;
-            fMinX = Math.min(fMinX, ux - n.w / 2);
-            fMinY = Math.min(fMinY, uy - h / 2);
-            fMaxX = Math.max(fMaxX, ux + n.w / 2);
-            fMaxY = Math.max(fMaxY, uy + h / 2);
-          }
-          b = {
-            x: fMinX - SEL_PAD,
-            y: fMinY - SEL_PAD,
-            w: fMaxX - fMinX + SEL_PAD * 2,
-            h: fMaxY - fMinY + SEL_PAD * 2,
-          };
-          rotAngle = storedRot.angle;
-          rotCx = storedRot.cx;
-          rotCy = storedRot.cy;
-        } else {
-          b = selBounds;
-          rotAngle = 0;
-          rotCx = 0;
-          rotCy = 0;
-        }
-
-        const handleSize = 8 / viewport.zoom;
-        const half = handleSize / 2;
-        const selectionAllowsResize = Array.from(engine.selection).every((id) => {
-          const n = engine.getNode(id);
-          if (!n || n.type === "edge") return true;
-          return registry?.get(n.type)?.resizable !== false;
-        });
-        const selectionAllowsRotate = Array.from(engine.selection).every((id) => {
-          const n = engine.getNode(id);
-          if (!n || n.type === "edge") return true;
-          return registry?.get(n.type)?.rotatable !== false;
-        });
-        const handles: { pos: HandlePosition; cx: number; cy: number }[] = [
-          { pos: "nw", cx: b.x, cy: b.y },
-          { pos: "n", cx: b.x + b.w / 2, cy: b.y },
-          { pos: "ne", cx: b.x + b.w, cy: b.y },
-          { pos: "e", cx: b.x + b.w, cy: b.y + b.h / 2 },
-          { pos: "se", cx: b.x + b.w, cy: b.y + b.h },
-          { pos: "s", cx: b.x + b.w / 2, cy: b.y + b.h },
-          { pos: "sw", cx: b.x, cy: b.y + b.h },
-          { pos: "w", cx: b.x, cy: b.y + b.h / 2 },
-        ];
-        const rotateTransform = rotAngle !== 0
-          ? ` rotate(${rotAngle}, ${rotCx}, ${rotCy})`
-          : "";
-        return (
-          <svg
-            data-sb-overlay
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-          >
-            <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
-              <g transform={rotateTransform}>
-                <rect
-                  x={b.x}
-                  y={b.y}
-                  width={b.w}
-                  height={b.h}
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth={1.5 / viewport.zoom}
-                />
-                {rotAngle === 0 && selectionAllowsResize && handles.map(({ pos, cx, cy }) => (
-                  <rect
-                    key={pos}
-                    x={cx - half}
-                    y={cy - half}
-                    width={handleSize}
-                    height={handleSize}
-                    fill="white"
-                    stroke="#3b82f6"
-                    strokeWidth={1.5 / viewport.zoom}
-                    style={{ cursor: getRotatedCursor(pos, rotAngle), pointerEvents: "auto" }}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      handleUnifiedResizeDown(pos, e);
-                    }}
-                  />
-                ))}
-                {/* Rotation handle */}
-                {selectionAllowsRotate && (() => {
-                  const rotateGap = 25 / viewport.zoom;
-                  const topCx = b.x + b.w / 2;
-                  const topCy = b.y;
-                  return (
-                    <>
-                      <line
-                        x1={topCx}
-                        y1={topCy}
-                        x2={topCx}
-                        y2={topCy - rotateGap}
-                        stroke="#3b82f6"
-                        strokeWidth={1.5 / viewport.zoom}
-                        style={{ pointerEvents: "none" }}
-                      />
-                      {(() => {
-                        const rotateSize = 8 / viewport.zoom;
-                        const rotateHalf = rotateSize / 2;
-                        return (
-                          <rect
-                            x={topCx - rotateHalf}
-                            y={topCy - rotateGap - rotateHalf}
-                            width={rotateSize}
-                            height={rotateSize}
-                            rx={1.5 / viewport.zoom}
-                            transform={`rotate(45, ${topCx}, ${topCy - rotateGap})`}
-                            fill="white"
-                            stroke="#3b82f6"
-                            strokeWidth={1.5 / viewport.zoom}
-                            style={{ cursor: "grab", pointerEvents: "auto" }}
-                            onPointerDown={(e) => handleUnifiedRotateDown(e)}
-                          />
-                        );
-                      })()}
-                    </>
-                  );
-                })()}
-                {/* Connection handles on bounding box — freeform edge starts.
-                    Skip when the selection includes port-wired nodes (workflow
-                    etc.): those boards connect via ports, not bbox anchors. */}
-                {(() => {
-                  const hasPortNode = Array.from(engine.selection).some((id) => {
-                    const n = engine.getNode(id);
-                    if (!n || n.type === "edge") return false;
-                    return nodeTypeHasPorts(registry?.get(n.type));
-                  });
-                  if (hasPortNode) return null;
-
-                  const connOffset = 26 / viewport.zoom;
-                  const connTopOffset = 42 / viewport.zoom; // extra clearance past rotation handle
-                  const connR = 4 / viewport.zoom;
-                  const sides: { side: HandleSide; cx: number; cy: number }[] = [
-                    { side: "top", cx: b.x + b.w / 2, cy: b.y - connTopOffset },
-                    { side: "right", cx: b.x + b.w + connOffset, cy: b.y + b.h / 2 },
-                    { side: "bottom", cx: b.x + b.w / 2, cy: b.y + b.h + connOffset },
-                    { side: "left", cx: b.x - connOffset, cy: b.y + b.h / 2 },
-                  ];
-                  return sides.map(({ side, cx, cy }) => (
-                    <circle
-                      key={`conn-${side}`}
-                      cx={cx}
-                      cy={cy}
-                      r={connR}
-                      fill="white"
-                      stroke="#94a3b8"
-                      strokeWidth={1.5 / viewport.zoom}
-                      opacity={0.8}
-                      style={{ cursor: "crosshair", pointerEvents: "auto" }}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        const nodeId = findNearestNodeForSide(side);
-                        if (nodeId) {
-                          handleConnectionHandleDown(nodeId, side, e as unknown as React.PointerEvent<SVGCircleElement>);
-                        }
-                      }}
-                    />
-                  ));
-                })()}
-              </g>
-            </g>
-          </svg>
-        );
-      })()}
+      <SelectionChromeOverlay
+        engine={engine}
+        registry={registry}
+        viewport={viewport}
+        measuredHeights={measuredHeights}
+        groupRotation={groupRotation}
+        hidden={!!croppingImageId || mode === "edge" || !!edgePreview || !!edgeReconnect}
+        getNodeAABB={getNodeAABB}
+        onResizeDown={handleUnifiedResizeDown}
+        onRotateDown={handleUnifiedRotateDown}
+        onConnectionDown={handleConnectionHandleDown}
+        findNearestNodeForSide={findNearestNodeForSide}
+      />
 
       {/* Active group indicator — dashed indigo border around the entered group */}
       {activeGroupBounds && (

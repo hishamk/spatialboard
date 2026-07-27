@@ -126,6 +126,7 @@ function ContentBlockPlaceholder({
           if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
             didMove = true;
             engine.pushHistorySnapshot();
+            engine.beginNodeGesture(draggedIds);
           } else {
             return;
           }
@@ -144,6 +145,7 @@ function ContentBlockPlaceholder({
         }
         ownerDoc.removeEventListener("pointermove", onMove);
         ownerDoc.removeEventListener("pointerup", onUp);
+        engine.endNodeGesture();
       };
       ownerDoc.addEventListener("pointermove", onMove);
       ownerDoc.addEventListener("pointerup", onUp);
