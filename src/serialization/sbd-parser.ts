@@ -12,16 +12,47 @@ import type {
   FrameNode,
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
-import { markdownToBlocks } from "./blocknote-markdown";
 
-function parseAttributes(line: string): Record<string, string> {
+/* ---------------------------------------------------------------------------
+ * SBD v3 parser.
+ *
+ * Grammar changes vs v2 (all backward compatible — v2 documents parse as-is):
+ *  - Directives may span multiple lines; a directive runs from a line whose
+ *    trimmed form starts with `<!--@` through the first `-->`.
+ *  - `parent="<id>"` on a directive makes its x/y RELATIVE to that node
+ *    (frame-child serialization). Resolved to absolute after all nodes parse,
+ *    so document order never matters. A missing parent degrades to absolute
+ *    coordinates plus a warning.
+ *  - `<!--@node type="..." ... -->` is the readable custom-node form: base
+ *    fields as attributes, `data` as a pretty-printed JSON body. The v2
+ *    single-line `<!--@custom {json} -->` blob still parses.
+ *  - `<!--@defaults type="sticky" color="..." -->` supplies per-type attribute
+ *    defaults applied to later directives that omit those attributes.
+ *  - Body lines that would read as a directive are escaped with a leading
+ *    backslash (`\<!--@`); the parser strips exactly one backslash. Attribute
+ *    values escape `-->` as `--&gt;` and `"` as `&quot;`.
+ *  - `<!--@meta sbd="3" ... -->` version-stamps the document (absent = 2).
+ *  - Problems are collected into `warnings` instead of being silently dropped.
+ * ------------------------------------------------------------------------- */
+
+function decodeAttrValue(v: string): string {
+  return v.replace(/--&gt;/g, "-->").replace(/&quot;/g, '"');
+}
+
+function parseAttributes(text: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const regex = /(\w+)="([^"]*)"/g;
   let match;
-  while ((match = regex.exec(line)) !== null) {
-    attrs[match[1]] = match[2];
+  while ((match = regex.exec(text)) !== null) {
+    attrs[match[1]] = decodeAttrValue(match[2]);
   }
   return attrs;
+}
+
+/** Strip exactly one escaping backslash from body lines that would otherwise
+ *  read as a directive start (mirror of the serializer's escapeBody). */
+function unescapeBodyLine(line: string): string {
+  return line.replace(/^(\s*)(\\+)(<!--@)/, (_m, ws: string, bs: string, tag: string) => ws + bs.slice(1) + tag);
 }
 
 function optNumber(raw: string | undefined): number | undefined {
@@ -43,391 +74,445 @@ const BG_ALIASES: Record<string, BoardBackground> = {
 export interface SBDParseResult {
   nodes: SpatialNode[];
   meta: {
+    /** Format version from `sbd="N"` in @meta; 2 when absent. */
+    version?: number;
     background?: BoardBackground;
     originView?: { x: number; y: number; zoom: number };
+  };
+  /** Non-fatal problems encountered while parsing (bad JSON in a custom node,
+   *  a `parent` reference to a missing node, …). Never silently dropped. */
+  warnings: string[];
+}
+
+interface RawDirective {
+  tag: string;
+  attrs: Record<string, string>;
+  /** Content lines between this directive and the next (trailing blanks trimmed). */
+  body: string[];
+  /** Full raw directive text (used by @custom to extract its JSON payload). */
+  raw: string;
+  line: number;
+}
+
+/** Split the document into directives + their body lines. */
+function tokenize(sbd: string): RawDirective[] {
+  const lines = sbd.split("\n");
+  const directives: RawDirective[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith("<!--@")) {
+      i++; // stray text outside any directive body — ignored (v2 behavior)
+      continue;
+    }
+
+    const startLine = i;
+    // Collect directive text through the first `-->` (may span lines).
+    const dirLines: string[] = [];
+    while (i < lines.length) {
+      dirLines.push(lines[i]);
+      if (lines[i].includes("-->")) break;
+      i++;
+    }
+    i++; // move past the terminator line
+
+    const dirText = dirLines.join("\n");
+    const tagMatch = /^<!--@(\w+)/.exec(dirText.trim());
+    if (!tagMatch) continue;
+    const tag = tagMatch[1];
+    const inner = dirText.slice(dirText.indexOf(tagMatch[0]) + tagMatch[0].length, dirText.lastIndexOf("-->"));
+
+    // Collect the body: lines until the next directive start or EOF.
+    const body: string[] = [];
+    while (i < lines.length && !lines[i].trim().startsWith("<!--@")) {
+      body.push(unescapeBodyLine(lines[i]));
+      i++;
+    }
+    while (body.length > 0 && body[body.length - 1].trim() === "") body.pop();
+    // Leading blank lines between directive and content are padding, not body.
+    while (body.length > 0 && body[0].trim() === "") body.shift();
+
+    directives.push({ tag, attrs: parseAttributes(inner), body, raw: dirText, line: startLine + 1 });
+  }
+
+  return directives;
+}
+
+/** Base spatial fields shared by every directive-built node. */
+function baseFields(attrs: Record<string, string>, fallbackW: number, fallbackZ: number) {
+  return {
+    id: attrs.id || nanoid(10),
+    x: parseFloat(attrs.x || "0"),
+    y: parseFloat(attrs.y || "0"),
+    w: parseFloat(attrs.w || String(fallbackW)),
+    z: parseInt(attrs.z || String(fallbackZ)),
+    rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
+    locked: attrs.locked === "true" || undefined,
+    groupId: attrs.group || undefined,
   };
 }
 
 export async function parseSBD(sbd: string): Promise<SBDParseResult> {
   const nodes: SpatialNode[] = [];
   const meta: SBDParseResult["meta"] = {};
-  const lines = sbd.split("\n");
-  let i = 0;
+  const warnings: string[] = [];
+  /** childId → parentId for relative-coordinate resolution (pass 2). */
+  const pendingParent = new Map<string, string>();
+  /** Per-type attribute defaults from @defaults directives. */
+  const typeDefaults = new Map<string, Record<string, string>>();
 
-  while (i < lines.length) {
-    const line = lines[i].trim();
+  const directives = tokenize(sbd);
 
-    if (line.startsWith("<!--@meta")) {
-      const attrs = parseAttributes(line);
-      if (attrs.background) {
-        const bg = BG_ALIASES[attrs.background] ?? attrs.background;
-        meta.background = bg as BoardBackground;
-      }
-      if (attrs.originView) {
-        const parts = attrs.originView.split(",").map(Number);
-        if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
-          meta.originView = { x: parts[0], y: parts[1], zoom: parts[2] };
+  const applyDefaults = (tag: string, attrs: Record<string, string>): Record<string, string> => {
+    const key = tag === "node" ? attrs.type : tag;
+    const defaults = key ? typeDefaults.get(key) : undefined;
+    return defaults ? { ...defaults, ...attrs } : attrs;
+  };
+
+  const recordParent = (attrs: Record<string, string>, id: string) => {
+    if (attrs.parent) pendingParent.set(id, attrs.parent);
+  };
+
+  for (const d of directives) {
+    const attrs = applyDefaults(d.tag, d.attrs);
+
+    switch (d.tag) {
+      case "meta": {
+        if (attrs.sbd) {
+          const v = parseInt(attrs.sbd, 10);
+          if (Number.isFinite(v)) meta.version = v;
         }
-      }
-      i++;
-      continue;
-    }
-
-    if (line.startsWith("<!--@frame")) {
-      const attrs = parseAttributes(line);
-      i++;
-      // Skip blank lines
-      while (i < lines.length && lines[i].trim() === "") i++;
-
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "frame",
-        x: parseFloat(attrs.x || "0"),
-        y: parseFloat(attrs.y || "0"),
-        w: parseFloat(attrs.w || "400"),
-        h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
-        z: parseInt(attrs.z || "0"),
-        rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          label: attrs.label?.replace(/&quot;/g, '"') || undefined,
-          backgroundColor: attrs.backgroundColor || undefined,
-          borderColor: attrs.borderColor || undefined,
-          borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-          borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
-          opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-          slideOrder: attrs.slideOrder ? parseInt(attrs.slideOrder, 10) : undefined,
-          transition: attrs.transition || undefined,
-          transitionDuration: attrs.transitionDuration ? parseInt(attrs.transitionDuration, 10) : undefined,
-        },
-      } as FrameNode);
-      continue;
-    }
-
-    if (line.startsWith("<!--@block")) {
-      const attrs = parseAttributes(line);
-      i++;
-      // Collect markdown content until next directive or EOF
-      const contentLines: string[] = [];
-      while (i < lines.length && !lines[i].trim().startsWith("<!--@")) {
-        contentLines.push(lines[i]);
-        i++;
-      }
-      // Trim trailing blank lines
-      while (
-        contentLines.length > 0 &&
-        contentLines[contentLines.length - 1].trim() === ""
-      ) {
-        contentLines.pop();
+        if (attrs.background) {
+          const bg = BG_ALIASES[attrs.background] ?? attrs.background;
+          meta.background = bg as BoardBackground;
+        }
+        if (attrs.originView) {
+          const parts = attrs.originView.split(",").map(Number);
+          if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
+            meta.originView = { x: parts[0], y: parts[1], zoom: parts[2] };
+          }
+        }
+        break;
       }
 
-      const markdown = contentLines.join("\n");
-      const blocks =
-        markdown.trim().length > 0 ? await markdownToBlocks(markdown) : [];
+      case "defaults": {
+        const { type, ...rest } = attrs;
+        if (type) {
+          typeDefaults.set(type, { ...(typeDefaults.get(type) ?? {}), ...rest });
+        } else {
+          warnings.push(`line ${d.line}: @defaults without type= — ignored`);
+        }
+        break;
+      }
 
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "content",
-        x: parseFloat(attrs.x || "0"),
-        y: parseFloat(attrs.y || "0"),
-        w: parseFloat(attrs.w || "300"),
-        h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
-        z: parseInt(attrs.z || "1"),
-        rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          blocks,
-          markdown,
-          borderColor: attrs.borderColor || undefined,
-          borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-          borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
-          opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-        },
-      } as ContentNode);
-      continue;
-    }
-
-    if (line.startsWith("<!--@draw")) {
-      const attrs = parseAttributes(line);
-      i++;
-
-      if (attrs.tool === "shape") {
-        // ShapeNode
+      case "frame": {
+        const base = baseFields(attrs, 400, 0);
         nodes.push({
-          id: attrs.id || nanoid(10),
-          type: "shape",
-          x: parseFloat(attrs.x || "0"),
-          y: parseFloat(attrs.y || "0"),
-          w: parseFloat(attrs.w || "100"),
-          h:
-            attrs.h === "auto" || !attrs.h
-              ? "auto"
-              : parseFloat(attrs.h),
-          z: parseInt(attrs.z || "0"),
-          rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-          locked: attrs.locked === "true" || undefined,
-          groupId: attrs.group || undefined,
+          ...base,
+          type: "frame",
+          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
           data: {
-            shape: (attrs.shape || "rect") as ShapeNode["data"]["shape"],
-            stroke: attrs.color || "#1e1e2e",
-            fill: attrs.fill || undefined,
-            fillStyle: (attrs.fillStyle || undefined) as ShapeNode["data"]["fillStyle"],
-            strokeWidth: parseFloat(attrs.stroke || "2"),
-            strokeStyle: (attrs.strokeStyle || undefined) as ShapeNode["data"]["strokeStyle"],
-            edgeStyle: (attrs.edgeStyle as "sharp" | "round") || undefined,
-            roughness: parseFloat(attrs.roughness || "1"),
+            label: attrs.label || undefined,
+            backgroundColor: attrs.backgroundColor || undefined,
+            borderColor: attrs.borderColor || undefined,
+            borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
+            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-            startPoint: attrs.startPt ? attrs.startPt.split(",").map(Number) as [number, number] : undefined,
-            endPoint: attrs.endPt ? attrs.endPt.split(",").map(Number) as [number, number] : undefined,
-            label: attrs.label?.replace(/&quot;/g, '"') || undefined,
-            labelFontSize: attrs.labelFontSize ? parseFloat(attrs.labelFontSize) : undefined,
-            labelFontFamily: attrs.labelFontFamily || undefined,
-            labelAlign: (attrs.labelAlign as "left" | "center" | "right") || undefined,
+            slideOrder: attrs.slideOrder ? parseInt(attrs.slideOrder, 10) : undefined,
+            transition: attrs.transition || undefined,
+            transitionDuration: attrs.transitionDuration ? parseInt(attrs.transitionDuration, 10) : undefined,
           },
-        } as ShapeNode);
-        // Skip blank lines
-        while (i < lines.length && lines[i].trim() === "") i++;
-      } else {
-        // DrawNode — next line has point data
-        let pointLine = "";
-        if (i < lines.length && !lines[i].trim().startsWith("<!--@")) {
-          pointLine = lines[i].trim();
-          i++;
+        } as FrameNode);
+        recordParent(attrs, base.id);
+        break;
+      }
+
+      case "block": {
+        const base = baseFields(attrs, 300, 1);
+        const markdown = d.body.join("\n");
+        let blocks: unknown[] = [];
+        if (markdown.trim().length > 0) {
+          const { markdownToBlocks } = await import("./blocknote-markdown");
+          blocks = await markdownToBlocks(markdown);
         }
+        nodes.push({
+          ...base,
+          type: "content",
+          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+          data: {
+            blocks,
+            markdown,
+            borderColor: attrs.borderColor || undefined,
+            borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
+            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
+            opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
+          },
+        } as ContentNode);
+        recordParent(attrs, base.id);
+        break;
+      }
 
-        const points: Array<[number, number, number]> = pointLine
-          ? pointLine
-              .split(" ")
-              .filter(Boolean)
-              .map((p) => {
-                const parts = p.split(",").map(Number);
-                return [
-                  parts[0] || 0,
-                  parts[1] || 0,
-                  parts[2] || 0.5,
-                ] as [number, number, number];
-              })
-          : [];
+      case "draw": {
+        if (attrs.tool === "shape") {
+          const base = baseFields(attrs, 100, 0);
+          nodes.push({
+            ...base,
+            type: "shape",
+            h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+            data: {
+              shape: (attrs.shape || "rect") as ShapeNode["data"]["shape"],
+              stroke: attrs.color || "#1e1e2e",
+              fill: attrs.fill || undefined,
+              fillStyle: (attrs.fillStyle || undefined) as ShapeNode["data"]["fillStyle"],
+              strokeWidth: parseFloat(attrs.stroke || "2"),
+              strokeStyle: (attrs.strokeStyle || undefined) as ShapeNode["data"]["strokeStyle"],
+              edgeStyle: (attrs.edgeStyle as "sharp" | "round") || undefined,
+              roughness: parseFloat(attrs.roughness || "1"),
+              opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
+              startPoint: attrs.startPt ? (attrs.startPt.split(",").map(Number) as [number, number]) : undefined,
+              endPoint: attrs.endPt ? (attrs.endPt.split(",").map(Number) as [number, number]) : undefined,
+              label: attrs.label || undefined,
+              labelFontSize: attrs.labelFontSize ? parseFloat(attrs.labelFontSize) : undefined,
+              labelFontFamily: attrs.labelFontFamily || undefined,
+              labelAlign: (attrs.labelAlign as "left" | "center" | "right") || undefined,
+            },
+          } as ShapeNode);
+          recordParent(attrs, base.id);
+        } else {
+          // Freehand stroke — first body line carries the point data. Points
+          // are absolute; x/y/w/h derive from their bounding box (draws never
+          // carry parent= — see the serializer).
+          const pointLine = d.body.find((l) => l.trim() !== "")?.trim() ?? "";
+          const points: Array<[number, number, number]> = pointLine
+            ? pointLine
+                .split(" ")
+                .filter(Boolean)
+                .map((p) => {
+                  const parts = p.split(",").map(Number);
+                  return [parts[0] || 0, parts[1] || 0, parts[2] || 0.5] as [number, number, number];
+                })
+            : [];
 
-        // Calculate bounding box
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-        for (const [px, py] of points) {
-          if (px < minX) minX = px;
-          if (py < minY) minY = py;
-          if (px > maxX) maxX = px;
-          if (py > maxY) maxY = py;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const [px, py] of points) {
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+          }
+          if (!isFinite(minX)) {
+            minX = parseFloat(attrs.x || "0");
+            minY = parseFloat(attrs.y || "0");
+            maxX = minX;
+            maxY = minY;
+          }
+          const relativePoints: Array<[number, number, number]> = points.map(([px, py, p]) => [px - minX, py - minY, p]);
+
+          nodes.push({
+            id: attrs.id || nanoid(10),
+            type: "draw",
+            x: minX,
+            y: minY,
+            w: maxX - minX,
+            h: maxY - minY,
+            z: parseInt(attrs.z || "0"),
+            rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
+            locked: attrs.locked === "true" || undefined,
+            groupId: attrs.group || undefined,
+            data: {
+              tool: (attrs.tool || "pen") as DrawNode["data"]["tool"],
+              points: relativePoints,
+              color: attrs.color || "#1e1e2e",
+              strokeWidth: parseFloat(attrs.width || "2"),
+              opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
+              fill: attrs.fill || undefined,
+              fillStyle: (attrs.fillStyle || undefined) as DrawNode["data"]["fillStyle"],
+            },
+          } as DrawNode);
         }
-        if (!isFinite(minX)) {
-          minX = parseFloat(attrs.x || "0");
-          minY = parseFloat(attrs.y || "0");
-          maxX = minX;
-          maxY = minY;
-        }
+        break;
+      }
 
-        // Convert absolute points to relative (subtract bounding box origin)
-        const relativePoints: Array<[number, number, number]> = points.map(
-          ([px, py, p]) => [px - minX, py - minY, p]
-        );
+      case "image": {
+        const base = baseFields(attrs, 200, 0);
+        nodes.push({
+          ...base,
+          type: "image",
+          h: parseFloat(attrs.h || "150"),
+          data: {
+            src: attrs.src || "",
+            alt: attrs.alt,
+            opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
+            borderColor: attrs.borderColor || undefined,
+            borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
+            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
+          },
+        } as ImageNode);
+        recordParent(attrs, base.id);
+        break;
+      }
 
+      case "edge": {
         nodes.push({
           id: attrs.id || nanoid(10),
-          type: "draw",
-          x: minX,
-          y: minY,
-          w: maxX - minX,
-          h: maxY - minY,
-          z: parseInt(attrs.z || "0"),
-          rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
+          type: "edge",
+          x: 0,
+          y: 0,
+          w: 0,
+          h: 0,
+          z: 0,
           locked: attrs.locked === "true" || undefined,
           groupId: attrs.group || undefined,
           data: {
-            tool: (attrs.tool || "pen") as DrawNode["data"]["tool"],
-            points: relativePoints,
+            fromId: attrs.from || "",
+            toId: attrs.to || "",
+            label: attrs.label,
+            style: (attrs.style || "solid") as EdgeNode["data"]["style"],
+            color: attrs.color || "#666",
+            strokeWidth: attrs.strokeWidth ? parseFloat(attrs.strokeWidth) : 1,
+            arrowHead: (attrs.arrowHead as EdgeNode["data"]["arrowHead"]) || undefined,
+            arrowTail: (attrs.arrowTail as EdgeNode["data"]["arrowTail"]) || undefined,
+            arrowHeadSize: attrs.arrowHeadSize ? parseFloat(attrs.arrowHeadSize) : undefined,
+            arrowTailSize: attrs.arrowTailSize ? parseFloat(attrs.arrowTailSize) : undefined,
+            edgeType: (attrs.edgeType as EdgeNode["data"]["edgeType"]) || undefined,
+            animated: attrs.animated === "true" || undefined,
+            animatedDirection: (attrs.animatedDirection as EdgeNode["data"]["animatedDirection"]) || undefined,
+            sourceHandle: (attrs.sourceHandle as EdgeNode["data"]["sourceHandle"]) || undefined,
+            targetHandle: (attrs.targetHandle as EdgeNode["data"]["targetHandle"]) || undefined,
+            sourcePort: attrs.sourcePort || undefined,
+            targetPort: attrs.targetPort || undefined,
+            sourceT: optNumber(attrs.sourceT),
+            targetT: optNumber(attrs.targetT),
+            attachmentGap: optNumber(attrs.attachmentGap),
+            roughness: optNumber(attrs.roughness),
+            midpointOffset: optNumber(attrs.midpointOffset),
+            curveOffset: attrs.curveOffset ? (attrs.curveOffset.split(",").map(Number) as [number, number]) : undefined,
+          },
+        } as EdgeNode);
+        break;
+      }
+
+      case "text": {
+        const base = baseFields(attrs, 200, 0);
+        nodes.push({
+          ...base,
+          type: "text",
+          h: "auto",
+          data: {
+            text: d.body.join("\n"),
+            fontSize: parseFloat(attrs.fontSize || "20"),
+            fontFamily: attrs.fontFamily || DEFAULT_FONT,
             color: attrs.color || "#1e1e2e",
-            strokeWidth: parseFloat(attrs.width || "2"),
+            align: (attrs.align || "left") as "left" | "center" | "right",
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-            fill: attrs.fill || undefined,
-            fillStyle: (attrs.fillStyle || undefined) as DrawNode["data"]["fillStyle"],
           },
-        } as DrawNode);
-
-        // Skip blank lines
-        while (i < lines.length && lines[i].trim() === "") i++;
-      }
-      continue;
-    }
-
-    if (line.startsWith("<!--@image")) {
-      const attrs = parseAttributes(line);
-      i++;
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "image",
-        x: parseFloat(attrs.x || "0"),
-        y: parseFloat(attrs.y || "0"),
-        w: parseFloat(attrs.w || "200"),
-        h: parseFloat(attrs.h || "150"),
-        z: parseInt(attrs.z || "0"),
-        rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          src: attrs.src || "",
-          alt: attrs.alt,
-          opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-          borderColor: attrs.borderColor || undefined,
-          borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-          borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
-        },
-      } as ImageNode);
-      continue;
-    }
-
-    if (line.startsWith("<!--@edge")) {
-      const attrs = parseAttributes(line);
-      i++;
-
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "edge",
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-        z: 0,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          fromId: attrs.from || "",
-          toId: attrs.to || "",
-          label: attrs.label,
-          style: (attrs.style || "solid") as EdgeNode["data"]["style"],
-          color: attrs.color || "#666",
-          strokeWidth: attrs.strokeWidth ? parseFloat(attrs.strokeWidth) : 1,
-          arrowHead: (attrs.arrowHead as EdgeNode["data"]["arrowHead"]) || undefined,
-          arrowTail: (attrs.arrowTail as EdgeNode["data"]["arrowTail"]) || undefined,
-          arrowHeadSize: attrs.arrowHeadSize ? parseFloat(attrs.arrowHeadSize) : undefined,
-          arrowTailSize: attrs.arrowTailSize ? parseFloat(attrs.arrowTailSize) : undefined,
-          edgeType: (attrs.edgeType as EdgeNode["data"]["edgeType"]) || undefined,
-          animated: attrs.animated === "true" || undefined,
-          animatedDirection: (attrs.animatedDirection as EdgeNode["data"]["animatedDirection"]) || undefined,
-          sourceHandle: (attrs.sourceHandle as EdgeNode["data"]["sourceHandle"]) || undefined,
-          targetHandle: (attrs.targetHandle as EdgeNode["data"]["targetHandle"]) || undefined,
-          sourcePort: attrs.sourcePort?.replace(/&quot;/g, '"') || undefined,
-          targetPort: attrs.targetPort?.replace(/&quot;/g, '"') || undefined,
-          sourceT: optNumber(attrs.sourceT),
-          targetT: optNumber(attrs.targetT),
-          attachmentGap: optNumber(attrs.attachmentGap),
-          roughness: optNumber(attrs.roughness),
-          midpointOffset: optNumber(attrs.midpointOffset),
-          curveOffset: attrs.curveOffset ? attrs.curveOffset.split(",").map(Number) as [number, number] : undefined,
-        },
-      } as EdgeNode);
-
-      // Skip blank lines
-      while (i < lines.length && lines[i].trim() === "") i++;
-      continue;
-    }
-
-    if (line.startsWith("<!--@text")) {
-      const attrs = parseAttributes(line);
-      i++;
-      // Collect text content until next directive or EOF
-      const contentLines: string[] = [];
-      while (i < lines.length && !lines[i].trim().startsWith("<!--@")) {
-        contentLines.push(lines[i]);
-        i++;
-      }
-      // Trim trailing blank lines
-      while (
-        contentLines.length > 0 &&
-        contentLines[contentLines.length - 1].trim() === ""
-      ) {
-        contentLines.pop();
+        } as TextNode);
+        recordParent(attrs, base.id);
+        break;
       }
 
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "text",
-        x: parseFloat(attrs.x || "0"),
-        y: parseFloat(attrs.y || "0"),
-        w: parseFloat(attrs.w || "200"),
-        h: "auto",
-        z: parseInt(attrs.z || "0"),
-        rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          text: contentLines.join("\n"),
-          fontSize: parseFloat(attrs.fontSize || "20"),
-          fontFamily: attrs.fontFamily || DEFAULT_FONT,
-          color: attrs.color || "#1e1e2e",
-          align: (attrs.align || "left") as "left" | "center" | "right",
-          opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-        },
-      } as TextNode);
-      continue;
-    }
-
-    if (line.startsWith("<!--@sticky")) {
-      const attrs = parseAttributes(line);
-      i++;
-      const contentLines: string[] = [];
-      while (i < lines.length && !lines[i].trim().startsWith("<!--@")) {
-        contentLines.push(lines[i]);
-        i++;
-      }
-      while (
-        contentLines.length > 0 &&
-        contentLines[contentLines.length - 1].trim() === ""
-      ) {
-        contentLines.pop();
+      case "sticky": {
+        const base = baseFields(attrs, 200, 1);
+        nodes.push({
+          ...base,
+          type: "sticky",
+          h: parseFloat(attrs.h || "150"),
+          data: {
+            text: d.body.join("\n"),
+            color: attrs.color || "#FEF3C7",
+            fontSize: attrs.fontSize ? parseFloat(attrs.fontSize) : undefined,
+            opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
+          },
+        } as StickyNoteNode);
+        recordParent(attrs, base.id);
+        break;
       }
 
-      nodes.push({
-        id: attrs.id || nanoid(10),
-        type: "sticky",
-        x: parseFloat(attrs.x || "0"),
-        y: parseFloat(attrs.y || "0"),
-        w: parseFloat(attrs.w || "200"),
-        h: parseFloat(attrs.h || "150"),
-        z: parseInt(attrs.z || "1"),
-        rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
-        locked: attrs.locked === "true" || undefined,
-        groupId: attrs.group || undefined,
-        data: {
-          text: contentLines.join("\n"),
-          color: attrs.color || "#FEF3C7",
-          fontSize: attrs.fontSize ? parseFloat(attrs.fontSize) : undefined,
-          opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
-        },
-      } as StickyNoteNode);
-      continue;
-    }
-
-    // Custom/unknown node types — stored as JSON
-    if (line.startsWith("<!--@custom")) {
-      const jsonStart = line.indexOf("{");
-      const jsonEnd = line.lastIndexOf("}");
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        try {
-          const node = JSON.parse(line.slice(jsonStart, jsonEnd + 1)) as SpatialNode;
-          if (node.id && node.type) nodes.push(node);
-        } catch {
-          // skip unparseable custom nodes
+      // v3 generic/custom node: base fields as attributes, data as JSON body.
+      case "node": {
+        if (!attrs.type) {
+          warnings.push(`line ${d.line}: @node without type= — skipped`);
+          break;
         }
+        const base = baseFields(attrs, 200, 1);
+        let data: Record<string, unknown> = {};
+        const bodyText = d.body.join("\n").trim();
+        if (bodyText) {
+          try {
+            data = JSON.parse(bodyText) as Record<string, unknown>;
+          } catch (e) {
+            warnings.push(`line ${d.line}: @node ${base.id} has invalid JSON data (${(e as Error).message}) — data dropped`);
+          }
+        }
+        nodes.push({
+          ...base,
+          type: attrs.type,
+          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+          data,
+        } as SpatialNode);
+        recordParent(attrs, base.id);
+        break;
       }
-      i++;
-      continue;
-    }
 
-    i++;
+      // v2 escape hatch: whole node as a single-line JSON blob.
+      case "custom": {
+        const raw = d.raw;
+        const jsonStart = raw.indexOf("{");
+        const jsonEnd = raw.lastIndexOf("}");
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          try {
+            const node = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as SpatialNode;
+            if (node.id && node.type) nodes.push(node);
+            else warnings.push(`line ${d.line}: @custom node missing id/type — skipped`);
+          } catch (e) {
+            warnings.push(`line ${d.line}: unparseable @custom node (${(e as Error).message}) — skipped`);
+          }
+        } else {
+          warnings.push(`line ${d.line}: @custom without JSON payload — skipped`);
+        }
+        break;
+      }
+
+      default:
+        warnings.push(`line ${d.line}: unknown directive @${d.tag} — skipped`);
+    }
   }
 
-  return { nodes, meta };
+  // Pass 2: resolve parent-relative coordinates to absolute. Handles nested
+  // frames in any document order; cycles and missing parents degrade to
+  // absolute coordinates with a warning.
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const resolved = new Set<string>();
+  const resolving = new Set<string>();
+  const resolve = (id: string): void => {
+    if (resolved.has(id)) return;
+    const parentId = pendingParent.get(id);
+    if (!parentId) {
+      resolved.add(id);
+      return;
+    }
+    const node = byId.get(id);
+    const parent = byId.get(parentId);
+    if (!node) return;
+    if (!parent) {
+      warnings.push(`node ${id}: parent="${parentId}" not found — coordinates treated as absolute`);
+      resolved.add(id);
+      return;
+    }
+    if (resolving.has(id)) {
+      warnings.push(`node ${id}: parent cycle detected — coordinates treated as absolute`);
+      resolved.add(id);
+      return;
+    }
+    resolving.add(id);
+    resolve(parentId);
+    resolving.delete(id);
+    node.x += parent.x;
+    node.y += parent.y;
+    resolved.add(id);
+  };
+  for (const id of pendingParent.keys()) resolve(id);
+
+  return { nodes, meta, warnings };
 }

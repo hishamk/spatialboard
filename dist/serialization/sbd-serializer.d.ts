@@ -7,5 +7,8 @@ export interface SerializeOptions {
         y: number;
         zoom: number;
     };
+    /** Returns the containing frame id for a node (frame-child relative
+     *  coordinates). Omit to serialize every node with absolute coordinates. */
+    parentOf?: (nodeId: string) => string | undefined;
 }
 export declare function serializeToSBD(nodes: SpatialNode[], options?: SerializeOptions): Promise<string>;

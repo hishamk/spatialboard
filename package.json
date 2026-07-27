@@ -46,7 +46,8 @@
     "dev": "npm run dev --workspace=examples/dev-app",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
-    "preview": "npm run preview --workspace=examples/dev-app"
+    "preview": "npm run preview --workspace=examples/dev-app",
+    "test": "vitest run"
   },
   "engines": {
     "node": ">=20"
@@ -79,7 +80,8 @@
     "react": "^18",
     "react-dom": "^18",
     "typescript": "^5",
-    "vite": "^5"
+    "vite": "^5",
+    "vitest": "^4.1.10"
   },
   "workspaces": [
     "examples/*"

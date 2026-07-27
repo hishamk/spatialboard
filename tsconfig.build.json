@@ -21,6 +21,7 @@
     "src/performance-test.ts",
     "src/App.tsx",
     "src/main.tsx",
-    "src/fonts.ts"
+    "src/fonts.ts",
+    "src/**/__tests__/**"
   ]
 }

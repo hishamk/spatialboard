@@ -45,6 +45,12 @@ type EventMap = {
     background: () => void;
     guides: () => void;
     lassoToggle: () => void;
+    /** A pointer-driven node gesture (drag/resize/rotate) started/ended.
+     *  While active, the canvas suppresses whole-board React syncs and lets
+     *  per-node subscriptions drive rendering; `gesture:end` triggers the
+     *  single commit render. */
+    "gesture:start": () => void;
+    "gesture:end": () => void;
     'node:create': (node: SpatialNode) => void;
     'node:delete': (node: SpatialNode) => void;
     'node:move': (node: SpatialNode, dx: number, dy: number) => void;
@@ -172,6 +178,13 @@ export declare class SpatialEngine {
     private static readonly AGENT_ACTION_TIMEOUT_MS;
     private clipboard;
     private pasteCount;
+    /** Node ids captured by the active pointer gesture; null when idle. */
+    private _gestureIds;
+    /** Monotonic counters bumped whenever the matching event reaches listeners.
+     *  Used as `useSyncExternalStore` snapshots by canvas overlays. */
+    private _changeTick;
+    private _selectionTick;
+    private _guidesTick;
     private nextZValue;
     private _minZ;
     private quadTree;
@@ -224,6 +237,23 @@ export declare class SpatialEngine {
     on<K extends keyof EventMap>(event: K, cb: EventMap[K]): void;
     off<K extends keyof EventMap>(event: K, cb: EventMap[K]): void;
     private emit;
+    /** True while a pointer-driven node gesture is active. */
+    get gestureActive(): boolean;
+    /** Node ids captured by the active gesture; null when idle. */
+    get gestureIds(): ReadonlySet<string> | null;
+    /** Monotonic tick bumped on every `change` reaching listeners. */
+    get changeTick(): number;
+    /** Monotonic tick covering `change` + `selection` + `guides`. */
+    get overlayTick(): number;
+    /**
+     * Mark the start of a pointer gesture over the given nodes. While a
+     * gesture is active the engine still mutates and emits per frame
+     * (collab sync depends on that); only the canvas's whole-board React
+     * mirror pauses. Idempotent: beginning while active replaces the id set.
+     */
+    beginNodeGesture(ids: Iterable<string>): void;
+    /** End the active pointer gesture (no-op when idle). */
+    endNodeGesture(): void;
     /** Request entering image crop mode (handled by the canvas component). */
     requestImageCrop(nodeId: string): void;
     getSearchState(): SpatialSearchState;
