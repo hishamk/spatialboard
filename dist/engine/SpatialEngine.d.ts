@@ -1,8 +1,11 @@
 import type { SpatialNode, Viewport, Mode, ActiveTool, NodeType, HandleSide, EdgeType, AgentCanvasState, AgentStateOptions } from "./types";
+import { History } from "./history";
+import { QuadTree } from "./QuadTree";
 import type { NodeTypeRegistry, SpatialNodeTypeCatalogEntry } from "../nodes/registry";
 import type { EdgeCreationAwareness } from "../collab/edge-creation-awareness";
 import type { RectDragAwareness } from "../collab/rect-drag-awareness";
 import type { EraserAwareness } from "../collab/eraser-awareness";
+import type { DragSnapContext } from "./spatialengine_snapping";
 export type BoardBackground = "plain-white" | "dot-grid" | "engineering" | "blueprint" | "dark-grid" | "japanese-stationery" | "kraft";
 /** Multi-select contextual alignment relative to the union of selected node bounds. */
 export type SelectionAlignMode = "left" | "centerH" | "right" | "top" | "centerV" | "bottom";
@@ -13,14 +16,6 @@ export interface AlignGuide {
     position: number;
     start: number;
     end: number;
-}
-interface DragSnapContext {
-    staticNodes: Array<{
-        x: number;
-        y: number;
-        w: number;
-        h: number;
-    }>;
 }
 export type SpatialSearchField = "text" | "label" | "content";
 export interface SpatialSearchMatch {
@@ -141,9 +136,17 @@ export declare class SpatialEngine {
     presentationMode: boolean;
     presentationSlides: string[];
     presentationIndex: number;
-    private _presentationAnimId;
+    /** @internal */ _presentationAnimId: number | null;
     /** Transition overlay state — consumed by PresentationOverlay for visual effects. */
-    private _transitionOverlay;
+    /** @internal */ _transitionOverlay: {
+        type: "fade" | "dissolve" | "fold" | "cube";
+        phase: "out" | "in";
+        progress: number;
+        /** Cube direction: 1 = next (rotate left), -1 = prev (rotate right). */
+        direction?: 1 | -1;
+        /** Overall 0–1 timeline for cube (drives zoom-out → rotate → zoom-in). */
+        t?: number;
+    } | null;
     get transitionOverlay(): {
         type: "fade" | "dissolve" | "fold" | "cube";
         phase: "out" | "in";
@@ -160,11 +163,11 @@ export declare class SpatialEngine {
     /** Current alignment guides (set during drag). */
     alignGuides: AlignGuide[];
     /** Container dimensions for viewport bounds computation. */
-    private _containerWidth;
-    private _containerHeight;
-    private history;
+    /** @internal */ _containerWidth: number;
+    /** @internal */ _containerHeight: number;
+    /** @internal */ history: History;
     /** When set, `updateNodeWithHistoryCoalesced` reuses one undo step until `endHistoryCoalesce()`. */
-    private _historyCoalesceKey;
+    /** @internal */ _historyCoalesceKey: string | null;
     private listeners;
     private _suppressEvents;
     private _collabMode;
@@ -176,8 +179,8 @@ export declare class SpatialEngine {
     private _agentActionTimer;
     /** Max ms between begin/end before depth is force-reset to 0. */
     private static readonly AGENT_ACTION_TIMEOUT_MS;
-    private clipboard;
-    private pasteCount;
+    /** @internal */ clipboard: SpatialNode[];
+    /** @internal */ pasteCount: number;
     /** Node ids captured by the active pointer gesture; null when idle. */
     private _gestureIds;
     /** Monotonic counters bumped whenever the matching event reaches listeners.
@@ -185,18 +188,18 @@ export declare class SpatialEngine {
     private _changeTick;
     private _selectionTick;
     private _guidesTick;
-    private nextZValue;
+    /** @internal */ nextZValue: number;
     private _minZ;
-    private quadTree;
+    /** @internal */ quadTree: QuadTree;
     private adjacency;
     /** Explicit frame→children tracking. Only nodes intentionally placed inside a frame are tracked. */
     private frameChildren;
     /** Node types that act as containers (frame-like behavior). "frame" is always included. */
     private _containerTypes;
-    private registry?;
+    /** @internal */ registry?: NodeTypeRegistry;
     /** Measured heights for auto-height nodes (canvas-coordinate units). */
-    private _measuredHeights;
-    private _search;
+    /** @internal */ _measuredHeights: Record<string, number>;
+    /** @internal */ _search: SpatialSearchState;
     constructor();
     private persistCanvasPrefs;
     /** Set the node type registry for lifecycle hooks. */
@@ -233,10 +236,12 @@ export declare class SpatialEngine {
     /** Set the container element (used by SpatialCanvas on mount). */
     setContainer(el: HTMLElement | null): void;
     /** Get the window object for the container (supports pop-out windows). */
-    private getWindow;
+    /** @internal */
+    getWindow(): Window;
     on<K extends keyof EventMap>(event: K, cb: EventMap[K]): void;
     off<K extends keyof EventMap>(event: K, cb: EventMap[K]): void;
-    private emit;
+    /** @internal — shard modules call this; not part of the public API. */
+    emit<K extends keyof EventMap>(event: K, ...args: Parameters<EventMap[K]>): void;
     /** True while a pointer-driven node gesture is active. */
     get gestureActive(): boolean;
     /** Node ids captured by the active gesture; null when idle. */
@@ -272,11 +277,8 @@ export declare class SpatialEngine {
         center?: boolean;
         minZoom?: number;
     }): void;
-    private refreshSearchIfNeeded;
-    private computeSearchMatches;
-    private getNodeSearchCandidates;
-    private extractBlockText;
-    private countOccurrences;
+    /** @internal — re-runs the active query after node mutations. */
+    refreshSearchIfNeeded(): void;
     toggleSnapToGrid(): void;
     toggleFreeFormEdges(): void;
     toggleSmartGuides(): void;
@@ -287,21 +289,6 @@ export declare class SpatialEngine {
     presentationNext(): void;
     presentationPrev(): void;
     presentationGoTo(index: number): void;
-    private _computeSlideViewport;
-    /** Pan transition: smooth viewport interpolation (default). */
-    private _transitionPan;
-    /** None transition: instant viewport snap. */
-    private _transitionNone;
-    /** Fade transition: fade to black, snap viewport, fade from black. */
-    private _transitionFade;
-    /** Dissolve transition: quick overlay fade, snap viewport at midpoint. */
-    private _transitionDissolve;
-    /** Zoom transition: zoom out from current, zoom into target. */
-    private _transitionZoom;
-    /** Fold transition: two halves fold shut like a book, snap viewport, unfold to reveal. */
-    private _transitionFold;
-    /** Cube transition: zoom out → 3D rotate → zoom in, snap viewport at midpoint. */
-    private _transitionCube;
     snap(x: number, y: number): {
         x: number;
         y: number;
@@ -340,19 +327,6 @@ export declare class SpatialEngine {
     zoomOut(): void;
     /** Zoom and pan to center a node for editing (e.g. after double-click on placeholder) */
     zoomToNode(nodeId: string, targetZoom?: number): void;
-    /** The viewport that frames a bounding box (minX..maxY) with padding, or null
-     *  when the box is empty. Shared by the instant + animated fit methods. */
-    private _boundsViewport;
-    /** The fit-to-all-content target viewport (null when the board is empty). */
-    private _contentViewport;
-    /** The fit-to-subset target viewport (null when no node id is found). Edges
-     *  are skipped (no meaningful box). */
-    private _nodesViewport;
-    private _prefersReducedMotion;
-    /** Move the camera to `target` — animated (reuses the existing ease-out
-     *  `_transitionPan` rAF tween) unless reduced-motion is preferred, in which
-     *  case snap instantly (`_transitionNone`). Additive; no other caller affected. */
-    private _animateOrSnap;
     fitToContent(): void;
     /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera tween.
      *  Additive; the instant fitToContent is unchanged for other callers. */
@@ -501,13 +475,13 @@ export declare class SpatialEngine {
     /** Remove groupParent entries for groups that no longer have any members. */
     private cleanupEmptyGroups;
     /** Set a groupParent entry and keep groupChildren in sync. */
-    private linkGroupParent;
+    /** @internal */
+    linkGroupParent(childId: string, parentId: string): void;
     /** Remove a groupParent entry and keep groupChildren in sync. */
     private unlinkGroupParent;
     /** Rebuild the groupChildren reverse index from groupParent. */
     private rebuildGroupChildren;
     deleteNodes(ids: string[]): void;
-    private flipSelected;
     flipSelectedHorizontal(): void;
     flipSelectedVertical(): void;
     /**
@@ -695,8 +669,6 @@ export declare class SpatialEngine {
         borderWidth?: number;
         borderStyle?: "solid" | "dashed" | "dotted";
     }): string;
-    /** Estimate text block height from rough line count. */
-    private estimateTextBlockHeight;
     /** Create a sticky note. Returns the new node id. */
     createSticky(text: string, x: number, y: number, options?: {
         w?: number;
