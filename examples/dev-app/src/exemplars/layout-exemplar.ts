@@ -4,7 +4,7 @@ import type { MathOpData } from "../nodes/math-op";
 import type { DisplayData } from "../nodes/display";
 
 /**
- * SpatialBoard exemplar — `llm-guidance/spatialboard-exemplars/README.md` + `spatialboard-board-layout.md`.
+ * SpatialBoard exemplar.
  * Minimal “pretty” L→R dataflow: generous column gaps, frame, title band separated from circuit.
  */
 export function loadLayoutExemplarBoard(engine: SpatialEngine): void {

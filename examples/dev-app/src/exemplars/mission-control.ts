@@ -5,7 +5,7 @@ import type { TimerData } from "../nodes/timer";
 import type { SpinningCubeData } from "../nodes/spinning-cube";
 
 /**
- * SpatialBoard exemplar — `llm-guidance/spatialboard-exemplars/README.md` + `spatialboard-board-layout.md`.
+ * SpatialBoard exemplar.
  * "Mars Rover Mission Control" — nested frames, rhythmic columns, rich widgets (clocks, cards, 3D).
  */
 export function loadMissionControlBoard(engine: SpatialEngine): void {

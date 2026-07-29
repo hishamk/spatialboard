@@ -5,7 +5,7 @@ import type { LogicGateData } from "../nodes/logic-gate";
 import type { DisplayData } from "../nodes/display";
 
 /**
- * SpatialBoard exemplar — `llm-guidance/spatialboard-exemplars/README.md` + `spatialboard-board-layout.md`.
+ * SpatialBoard exemplar.
  * Interactive half adder: Sum = A ⊕ B, Carry = A · B — 20px grid, title vs side panel clearance, pipeline columns.
  */
 export function loadHalfAdderBoard(engine: SpatialEngine): void {

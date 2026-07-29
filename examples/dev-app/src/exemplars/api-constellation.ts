@@ -13,7 +13,7 @@ import type { DelayData } from "../nodes/delay";
 import type { ConvertData } from "../nodes/convert";
 
 /**
- * SpatialBoard exemplar — `llm-guidance/spatialboard-exemplars/README.md` + `spatialboard-board-layout.md`.
+ * SpatialBoard exemplar.
  * "Packet Observatory" — wide layout: isolated left spine, three horizontal lanes with 180px row pitch,
  * merge + merged JSON + convert in a column **below** the lanes (no bbox overlap), logger in its own column.
  */
