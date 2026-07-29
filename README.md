@@ -158,7 +158,7 @@ current docs before making decisions based on them.)
 Two runnable apps, plus a guided path:
 
 - **`examples/simple`** — "Pocket Board": a ~150-line responsive, offline-first
-  PWA that persists the board to localStorage as SBD. The template for a
+  PWA that persists the board (as SBD) and camera to localStorage. The template for a
   minimal integration.
 - **`examples/dev-app`** — the development playground: every feature, plus five
   small custom data-flow nodes (`constant`, `interval`, `gate`, `logger`,

@@ -46,7 +46,8 @@ needs — run it with `npm run dev:simple` from the package root:
   (`public/sw.js`) caches the app shell and assets cache-first — after one
   online visit the whole app works in airplane mode.
 - **Persistence**: every board change is serialized to SBD (debounced) into
-  `localStorage`, restored on launch, with a save-state indicator and reset.
+  `localStorage` and the camera position is saved alongside it — both are
+  restored on launch, with a save-state indicator and reset.
 
 Read `src/App.tsx` top to bottom — it is the template for a minimal
 production integration.

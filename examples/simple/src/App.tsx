@@ -4,7 +4,27 @@ import "spatialboard/style.css";
 
 /** Everything you draw is serialized to SBD and kept in localStorage. */
 const STORAGE_KEY = "spatialboard-pocket-board";
+/** The camera (viewport x/y/zoom) is kept separately so it survives reloads. */
+const VIEWPORT_KEY = "spatialboard-pocket-viewport";
 const SAVE_DEBOUNCE_MS = 400;
+
+function readSavedViewport(): { x: number; y: number; zoom: number } | null {
+  try {
+    const raw = localStorage.getItem(VIEWPORT_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { x?: unknown; y?: unknown; zoom?: unknown };
+    if (
+      typeof v.x === "number" && Number.isFinite(v.x) &&
+      typeof v.y === "number" && Number.isFinite(v.y) &&
+      typeof v.zoom === "number" && Number.isFinite(v.zoom) && v.zoom > 0
+    ) {
+      return { x: v.x, y: v.y, zoom: v.zoom };
+    }
+  } catch {
+    /* corrupt value — fall through to default camera */
+  }
+  return null;
+}
 
 function seedStarterBoard(engine: SpatialEngine) {
   engine.createText("Pocket Board", 120, 80, { fontSize: 30 });
@@ -26,9 +46,17 @@ function seedStarterBoard(engine: SpatialEngine) {
 type SaveState = "loading" | "saving" | "saved";
 
 export default function App() {
-  const engine = useMemo(() => new SpatialEngine(), []);
+  // Restore the camera synchronously at creation so the board mounts already
+  // positioned where the user left it (no post-load jump).
+  const { engine, hadSavedViewport } = useMemo(() => {
+    const e = new SpatialEngine();
+    const saved = readSavedViewport();
+    if (saved) e.viewport = saved;
+    return { engine: e, hadSavedViewport: saved !== null };
+  }, []);
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const timer = useRef<number | null>(null);
+  const viewportTimer = useRef<number | null>(null);
 
   // Restore (or seed) once.
   useEffect(() => {
@@ -45,13 +73,13 @@ export default function App() {
         seedStarterBoard(engine);
       }
       if (cancelled) return;
-      engine.fitToContent();
+      if (!hadSavedViewport) engine.fitToContent();
       setSaveState("saved");
     })();
     return () => {
       cancelled = true;
     };
-  }, [engine]);
+  }, [engine, hadSavedViewport]);
 
   // Persist on every board change, debounced.
   useEffect(() => {
@@ -67,18 +95,34 @@ export default function App() {
         }
       }, SAVE_DEBOUNCE_MS);
     };
+    // Camera saves are ambient — no status flicker while panning/zooming.
+    const saveViewport = () => {
+      if (viewportTimer.current != null) window.clearTimeout(viewportTimer.current);
+      viewportTimer.current = window.setTimeout(() => {
+        try {
+          const { x, y, zoom } = engine.viewport;
+          localStorage.setItem(VIEWPORT_KEY, JSON.stringify({ x, y, zoom }));
+        } catch {
+          /* storage unavailable — panning still works */
+        }
+      }, SAVE_DEBOUNCE_MS);
+    };
     engine.on("change", save);
     engine.on("background", save);
+    engine.on("viewport", saveViewport);
     return () => {
       engine.off("change", save);
       engine.off("background", save);
+      engine.off("viewport", saveViewport);
       if (timer.current != null) window.clearTimeout(timer.current);
+      if (viewportTimer.current != null) window.clearTimeout(viewportTimer.current);
     };
   }, [engine]);
 
   const reset = () => {
     if (!window.confirm("Clear this board? This deletes the saved copy on this device.")) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(VIEWPORT_KEY);
     window.location.reload();
   };
 
