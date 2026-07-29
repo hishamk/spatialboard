@@ -2,7 +2,10 @@
 node_modules/
 node_modules
 
-# Build caches (dist/ is a committed output — do not ignore it)
+# Build output (generated — `npm run build`; `prepack` rebuilds before publishing)
+dist/
+
+# Build caches
 *.tsbuildinfo
 .vite/
 
