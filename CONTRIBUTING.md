@@ -28,7 +28,7 @@ npm run preview
 - `src/` - library source
 - `examples/dev-app/` - local development playground
 - `dist/` - build output
-- `sbd-spec*.md` - file format docs
+- `sbd-spec.md` - file format spec
 
 ## Pull Request Guidelines
 

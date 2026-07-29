@@ -154,8 +154,7 @@ Use `theme` prop on `SpatialBoard` to override sidebar/properties panel tokens.
 
 SpatialBoard uses the SBD format for board persistence and interchange.
 
-- `sbd-spec.md`
-- `sbd-spec_v2.md`
+- `sbd-spec.md` — the SBD v3 format specification
 
 ## Development
 

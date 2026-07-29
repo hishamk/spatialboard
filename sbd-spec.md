@@ -1,854 +1,94 @@
-# Spatial Block Document (SBD) Editor — PoC Spec
+# SBD v3 — Spatial Block Document format
 
-## Overview
+Normative spec for the SBD serialization format, version 3 (the current format; the earlier product/PoC spec revisions are superseded and removed). This document covers **only the interchange format**. The reference implementation is `src/serialization/sbd-parser.ts` + `sbd-serializer.ts`; the executable examples live in `src/serialization/__tests__/sbd-roundtrip.test.ts`.
 
-Build a proof-of-concept **Spatial Block Document Editor** — a hybrid between a freeform whiteboard (like Excalidraw) and a rich block-based document editor (like Notion/BlockNote). The core idea: **everything is a block on an infinite canvas**. Text, drawings, shapes, connections — all are spatial nodes the user can place, move, and connect freely.
+## Design goals
 
-This is a Vite + React + TypeScript app. No backend. All state is in-memory with export to a custom markdown-based format called **SBD (Spatial Block Document)**.
+- **Markdown-compatible**: an SBD file is valid markdown; stripping the HTML-comment directives yields a readable linear document.
+- **LLM/hand-editable**: one directive per node, flat scalar attributes, IDs (not object references) for links, frame-relative child coordinates so "move the frame" is a two-number edit.
+- **Diff-stable**: integer-rounded geometry, nodes emitted in document order (moving a node changes attribute values, never file order).
+- **Lossy by design**: SBD is an interchange/authoring format, not the storage format (live canvas content is CRDT-backed). Coordinates round to integers; freehand strokes are RDP-simplified; rich-text bodies round-trip through markdown.
+- **No silent data loss**: parse problems produce `warnings`, and malformed pieces degrade (absolute coords, empty data) rather than disappearing.
 
----
+## Document structure
 
-## Design Philosophy
-
-- **One document type for all thinking styles.** Structured thinkers can snap blocks to grids. Spatial/ADHD thinkers can scatter freely and organize later.
-- **Don't glue two libraries together.** We are NOT embedding BlockNote inside Excalidraw or vice versa. We build a single canvas engine that uses low-level primitives from focused libraries.
-- **Single state, single event system.** One viewport, one undo stack, one selection model, one serialization format.
-- **LLM-native format.** The serialization format is markdown with HTML comment metadata — readable by humans and trivially mutable by AI agents.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│  React UI Layer                             │
-│  ├── <SpatialCanvas />  (main component)    │
-│  ├── <Toolbar />        (mode + tools)      │
-│  ├── <Minimap />        (navigation)        │
-│  └── <PropertyPanel />  (selected node)     │
-├─────────────────────────────────────────────┤
-│  SpatialEngine (core, framework-agnostic)   │
-│  ├── Viewport   (pan, zoom, coordinates)    │
-│  ├── NodeStore  (CRUD, spatial index)       │
-│  ├── Selection  (single, multi, lasso)      │
-│  ├── History    (undo/redo stack)           │
-│  ├── Mode FSM   (select/draw/text/shape)   │
-│  └── Serializer (SBD markdown ↔ state)     │
-├─────────────────────────────────────────────┤
-│  Rendering                                  │
-│  ├── SVG layer  (draws, shapes, edges)      │
-│  └── DOM layer  (content blocks via TipTap) │
-├─────────────────────────────────────────────┤
-│  Low-level Dependencies                     │
-│  ├── @tiptap/core + extensions (rich text)  │
-│  ├── roughjs (hand-drawn aesthetic)         │
-│  ├── perfect-freehand (pen strokes)         │
-│  └── nanoid (block IDs)                     │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Data Model
-
-### SpatialNode (base interface)
-
-Every item on the canvas is a `SpatialNode`:
-
-```typescript
-interface SpatialNode {
-  id: string;             // nanoid, e.g. "b_x7kQ9mPa"
-  type: NodeType;
-  x: number;              // canvas coordinates (not screen)
-  y: number;
-  w: number;              // width in canvas units
-  h: number | "auto";     // "auto" = derive from content
-  z: number;              // z-index / layer order
-  rotation?: number;      // degrees, default 0
-  locked?: boolean;       // prevent move/edit
-  groupId?: string;       // for grouping nodes
-}
-
-type NodeType = "content" | "draw" | "shape" | "edge" | "image";
-```
-
-### ContentNode
-
-A rich text block. The content is stored as markdown. When actively being edited, a TipTap editor instance is mounted.
-
-```typescript
-interface ContentNode extends SpatialNode {
-  type: "content";
-  data: {
-    markdown: string;     // the source of truth
-  };
-}
-```
-
-**Rendering:** When not focused, render the markdown as static HTML. When clicked/focused, mount a TipTap editor in-place for editing. On blur, serialize the TipTap state back to markdown and unmount the editor.
-
-### DrawNode
-
-A freehand drawing stroke.
-
-```typescript
-interface DrawNode extends SpatialNode {
-  type: "draw";
-  data: {
-    tool: "pen" | "pencil" | "highlighter" | "eraser";
-    // Array of {x, y, pressure} points — fed into perfect-freehand
-    points: Array<[number, number, number]>;
-    color: string;
-    strokeWidth: number;
-    opacity?: number;      // 0-1, used for highlighter
-  };
-}
-```
-
-**Rendering:** Use the `perfect-freehand` library to convert points into an SVG path outline. Render as `<path>` inside the SVG layer. On save, simplify the points array.
-
-### ShapeNode
-
-Geometric primitives with optional hand-drawn/rough aesthetic.
-
-```typescript
-interface ShapeNode extends SpatialNode {
-  type: "shape";
-  data: {
-    shape: "rect" | "ellipse" | "diamond" | "line" | "arrow";
-    fill?: string;
-    stroke: string;
-    strokeWidth: number;
-    roughness: number;     // 0 = clean vector, 1+ = hand-drawn (roughjs)
-    label?: string;        // optional text label inside the shape
-  };
-}
-```
-
-**Rendering:** Use `roughjs` when `roughness > 0`, plain SVG otherwise.
-
-### EdgeNode
-
-A connection/arrow between two other nodes.
-
-```typescript
-interface EdgeNode extends SpatialNode {
-  type: "edge";
-  data: {
-    fromId: string;        // source node ID
-    toId: string;          // target node ID
-    label?: string;
-    style: "solid" | "dashed" | "dotted";
-    color: string;
-    strokeWidth: number;
-    arrowHead?: "none" | "arrow" | "dot";  // at target end
-    arrowTail?: "none" | "arrow" | "dot";  // at source end
-  };
-}
-```
-
-**Rendering:** Calculate anchor points on the bounding boxes of the connected nodes. Draw a path (straight line or simple curve) between them. Recalculate on node move. Edges don't have meaningful x/y of their own — their position is derived from connected nodes.
-
----
-
-## SBD Markdown Format (Serialization)
-
-The file format is **valid markdown** with spatial metadata in HTML comments. Stripping the comments yields a readable linear document.
-
-### Example Document
+A document is a sequence of **directives** — HTML comments of the form `<!--@tag attr="value" … -->` — each optionally followed by a **body** (the lines up to the next directive).
 
 ```markdown
-<!--@meta canvas_w="2000" canvas_h="1500" grid="20" snap="true" -->
+<!--@meta sbd="3" background="dot-grid" originView="0,0,1" -->
 
-<!--@block id="b_x7kQ9mPa" x="120" y="80" w="400" h="auto" z="1" -->
-# Project Overview
+<!--@frame id="f1" x="100" y="100" w="400" h="300" z="0" label="Telemetry" -->
 
-This is the main idea. We're building a spatial document editor
-that works for everyone.
+<!--@sticky id="s1" x="40" y="60" w="200" h="150" z="1" parent="f1" color="#FEF3C7" -->
+Battery check at 06:00.
 
-<!--@block id="b_k3mNp2Qw" x="600" y="80" w="350" h="auto" z="1" -->
-## Key Features
-
-- Freeform canvas layout
-- Rich text blocks
-- Freehand drawing
-- AI agent compatible
-
-<!--@block id="b_r9tYu4Wx" x="120" y="400" w="400" h="auto" z="2" -->
-> **Note:** This block has a higher z-index and floats above others.
-
-<!--@draw id="d_p5sLm8Nv" x="300" y="300" z="0" tool="pen" color="#e74c3c" width="2" -->
-M 0 0 C 12 45 67 89 120 34 C 145 12 200 78 230 56
-
-<!--@draw id="d_w2xKj6Rb" x="0" y="0" z="0" tool="shape" shape="rect" color="#3498db" fill="none" stroke="2" x1="580" y1="60" x2="970" y2="300" -->
-
-<!--@edge id="e_q8vHn1Yt" from="b_x7kQ9mPa" to="b_k3mNp2Qw" label="supports" style="dashed" color="#666" -->
-```
-
-### Parsing Rules
-
-1. Split the document on `<!--@block ...-->` directives.
-2. Each directive creates a ContentNode. The markdown content between this directive and the next directive (or EOF) is the block's markdown content.
-3. `<!--@draw ...-->` directives create DrawNode or ShapeNode entries. If `tool="shape"`, it's a ShapeNode. Otherwise it's a DrawNode, and the content line after the directive is the SVG path data.
-4. `<!--@edge ...-->` directives create EdgeNode entries.
-5. `<!--@meta ...-->` sets canvas-level configuration.
-6. All attributes are parsed as key="value" pairs from the HTML comment.
-
-### Serialization Rules
-
-1. Write `<!--@meta ...-->` first.
-2. For each ContentNode, write `<!--@block ...-->` with spatial attributes, then the markdown content, then a blank line.
-3. For each DrawNode, write `<!--@draw ...-->` with attributes, then the SVG path data on the next line (for pen/pencil/highlighter tools).
-4. For each ShapeNode, write `<!--@draw ...-->` with `tool="shape"` and shape-specific attributes.
-5. For each EdgeNode, write `<!--@edge ...-->`.
-6. Order: content blocks first (sorted by z then y then x), then draws, then edges.
-
----
-
-## SpatialEngine API
-
-The core engine is a plain TypeScript class with no React dependency. The React layer subscribes to changes.
-
-```typescript
-class SpatialEngine {
-  // --- State ---
-  nodes: Map<string, SpatialNode>;
-  viewport: { x: number; y: number; zoom: number };
-  selection: Set<string>;
-  mode: "select" | "draw" | "shape" | "text" | "edge";
-  activeTool: { tool: string; color: string; width: number } | null;
-
-  // --- Viewport ---
-  pan(dx: number, dy: number): void;
-  zoomTo(level: number, anchor?: { x: number; y: number }): void;
-  zoomIn(): void;     // step zoom
-  zoomOut(): void;
-  fitToContent(): void;
-  screenToCanvas(screenX: number, screenY: number): { x: number; y: number };
-  canvasToScreen(canvasX: number, canvasY: number): { x: number; y: number };
-
-  // --- Node CRUD ---
-  addNode(node: SpatialNode): void;
-  updateNode(id: string, patch: Partial<SpatialNode>): void;
-  deleteNode(id: string): void;
-  getNode(id: string): SpatialNode | undefined;
-  getAllNodes(): SpatialNode[];
-  getNodesByType(type: NodeType): SpatialNode[];
-
-  // --- Spatial Queries ---
-  hitTest(canvasX: number, canvasY: number): SpatialNode | null;
-  getNodesInRect(rect: { x: number; y: number; w: number; h: number }): SpatialNode[];
-
-  // --- Selection ---
-  select(id: string): void;
-  selectMultiple(ids: string[]): void;
-  deselectAll(): void;
-  deleteSelected(): void;
-
-  // --- History ---
-  undo(): void;
-  redo(): void;
-  canUndo(): boolean;
-  canRedo(): boolean;
-
-  // --- Serialization ---
-  toSBD(): string;                      // export to SBD markdown
-  fromSBD(sbd: string): void;           // import from SBD markdown
-  toJSON(): object;                     // export raw state
-  fromJSON(json: object): void;         // import raw state
-
-  // --- Event Emitter ---
-  on(event: string, callback: Function): void;
-  off(event: string, callback: Function): void;
-  // Events: "change", "viewport", "selection", "mode", "history"
-
-  // --- Agent Mutation API ---
-  applyMutation(mutation: AgentMutation): void;
-  applyMutations(mutations: AgentMutation[]): void;
-}
-```
-
-### Agent Mutation Types
-
-```typescript
-type AgentMutation =
-  | { action: "add_block"; id: string; x: number; y: number; w?: number; content: string }
-  | { action: "update_block"; id: string; content: string }
-  | { action: "move_block"; id: string; x: number; y: number }
-  | { action: "resize_block"; id: string; w: number; h?: number }
-  | { action: "delete_block"; id: string }
-  | { action: "add_draw"; id: string; tool: string; points?: number[][]; shape?: string;
-      x: number; y: number; color?: string; strokeWidth?: number }
-  | { action: "delete_draw"; id: string }
-  | { action: "add_edge"; id: string; from: string; to: string;
-      label?: string; style?: string; color?: string }
-  | { action: "delete_edge"; id: string }
-  | { action: "auto_arrange"; strategy?: "grid" | "cluster" | "tree" };
-```
-
----
-
-## React Components
-
-### Component Tree
-
-```
-<App>
-  <SpatialCanvas engine={engine}>
-    <SVGLayer />           ← draws, shapes, edges, selection rect
-    <BlocksLayer />        ← content nodes as positioned DOM elements
-    <InteractionLayer />   ← invisible overlay capturing pointer events
-  </SpatialCanvas>
-  <Toolbar />              ← top or left sidebar: mode, tools, colors
-  <Minimap />              ← bottom-right corner thumbnail
-  <PropertyPanel />        ← right sidebar: selected node properties
-  <DebugPanel />           ← bottom: SBD output, JSON state (dev only)
-</App>
-```
-
-### SpatialCanvas
-
-The main canvas component. Manages the three rendering layers and event delegation.
-
-```tsx
-function SpatialCanvas({ engine }: { engine: SpatialEngine }) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [viewport, setViewport] = useState(engine.viewport);
-  const [nodes, setNodes] = useState(engine.getAllNodes());
-  const [selection, setSelection] = useState(engine.selection);
-  const [mode, setMode] = useState(engine.mode);
-
-  // Subscribe to engine changes
-  useEffect(() => {
-    const handleChange = () => setNodes([...engine.getAllNodes()]);
-    const handleViewport = () => setViewport({ ...engine.viewport });
-    const handleSelection = () => setSelection(new Set(engine.selection));
-    const handleMode = () => setMode(engine.mode);
-
-    engine.on("change", handleChange);
-    engine.on("viewport", handleViewport);
-    engine.on("selection", handleSelection);
-    engine.on("mode", handleMode);
-
-    return () => {
-      engine.off("change", handleChange);
-      engine.off("viewport", handleViewport);
-      engine.off("selection", handleSelection);
-      engine.off("mode", handleMode);
-    };
-  }, [engine]);
-
-  const viewportTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
-
-  return (
-    <div
-      ref={canvasRef}
-      className="spatial-canvas"
-      style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}
-      onWheel={handleWheel}       // zoom
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    >
-      {/* Background: grid pattern */}
-      <GridBackground viewport={viewport} />
-
-      {/* Layer 1: SVG for draws, shapes, edges */}
-      <svg
-        style={{
-          position: "absolute", inset: 0,
-          transform: viewportTransform, transformOrigin: "0 0",
-          pointerEvents: "none",
-        }}
-      >
-        {nodes.filter(n => n.type === "draw" || n.type === "shape").map(renderDrawNode)}
-        {nodes.filter(n => n.type === "edge").map(renderEdgeNode)}
-        {/* Selection rectangle if lasso-selecting */}
-        {selectionRect && <rect ... />}
-      </svg>
-
-      {/* Layer 2: DOM for content blocks */}
-      <div
-        style={{
-          position: "absolute", inset: 0,
-          transform: viewportTransform, transformOrigin: "0 0",
-        }}
-      >
-        {nodes.filter(n => n.type === "content").map(node => (
-          <ContentBlock
-            key={node.id}
-            node={node}
-            isSelected={selection.has(node.id)}
-            engine={engine}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-### ContentBlock
-
-A draggable, resizable container that renders a TipTap editor.
-
-```tsx
-function ContentBlock({ node, isSelected, engine }) {
-  const [isEditing, setIsEditing] = useState(false);
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: node.x,
-        top: node.y,
-        width: node.w,
-        minHeight: 40,
-        border: isSelected ? "2px solid #3b82f6" : "1px solid #e2e8f0",
-        borderRadius: 8,
-        background: "white",
-        padding: 12,
-        cursor: isEditing ? "text" : "grab",
-        boxShadow: isSelected ? "0 0 0 2px rgba(59,130,246,0.3)" : "none",
-      }}
-      onPointerDown={(e) => {
-        if (!isEditing) {
-          e.stopPropagation();
-          engine.select(node.id);
-          // Start drag logic
-        }
-      }}
-      onDoubleClick={() => setIsEditing(true)}
-    >
-      {isEditing ? (
-        <TipTapEditor
-          content={node.data.markdown}
-          onBlur={(newMarkdown) => {
-            engine.updateNode(node.id, { data: { markdown: newMarkdown } });
-            setIsEditing(false);
-          }}
-          autoFocus
-        />
-      ) : (
-        <MarkdownPreview markdown={node.data.markdown} />
-      )}
-
-      {/* Resize handle */}
-      {isSelected && (
-        <div className="resize-handle" onPointerDown={startResize} />
-      )}
-    </div>
-  );
-}
-```
-
-### TipTapEditor
-
-Minimal TipTap setup. Keep it simple for the PoC.
-
-```tsx
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-
-function TipTapEditor({ content, onBlur, autoFocus }) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({ placeholder: "Type something..." }),
-    ],
-    content: markdownToHtml(content), // convert markdown to HTML for TipTap
-    autofocus: autoFocus,
-    onBlur: ({ editor }) => {
-      const markdown = htmlToMarkdown(editor.getHTML());
-      onBlur(markdown);
-    },
-  });
-
-  return <EditorContent editor={editor} />;
-}
-```
-
-For the PoC, use a simple markdown↔HTML conversion. Libraries: `marked` for md→html, `turndown` for html→md.
-
----
-
-## Interaction Model / Mode State Machine
-
-```
-                    ┌──────────┐
-           ┌───────│  SELECT   │───────┐
-           │       └──────────┘       │
-     press T          │   │         press D
-           │     click on  click on     │
-           │     block     canvas       │
-           ▼       │         │          ▼
-      ┌──────────┐ │         │   ┌──────────┐
-      │   TEXT    │◄┘         └──►│   DRAW   │
-      │ (editing) │              │ (freehand)│
-      └──────────┘              └──────────┘
-           │                         │
-       blur / Esc              release pointer
-           │                         │
-           └──────────►◄─────────────┘
-                  SELECT
-```
-
-### Mode Behaviors
-
-| Mode | Pointer Down on Canvas | Pointer Down on Block | Pointer Drag | Double Click Block |
-|------|----------------------|---------------------|-------------|-------------------|
-| **Select** | Start lasso selection | Select block, start drag | Pan canvas (middle/right) or drag block/lasso | Enter Text mode |
-| **Text** | Create new block at pointer, enter editing | Focus that block's editor | N/A (editor handles) | N/A |
-| **Draw** | Start new stroke | Start new stroke (over block) | Continue stroke, capture points | N/A |
-| **Shape** | Place shape at pointer | N/A | Drag to set shape size | N/A |
-| **Edge** | N/A | Start edge from this block | Rubber-band line to cursor | N/A |
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `V` or `1` | Select mode |
-| `T` or `2` | Text mode |
-| `D` or `3` | Draw mode (pen) |
-| `S` or `4` | Shape mode |
-| `E` or `5` | Edge/connector mode |
-| `Delete` / `Backspace` | Delete selected nodes (when not editing text) |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` | Redo |
-| `Ctrl+A` | Select all |
-| `Escape` | Deselect / exit current mode → select |
-| `Space` (hold) | Temporary hand tool (pan) |
-| `Ctrl +` / `Ctrl -` | Zoom in/out |
-| `Ctrl 0` | Fit to content |
-
----
-
-## Viewport & Coordinate System
-
-- **Canvas coordinates** are the "world space" — blocks are positioned in canvas coords.
-- **Screen coordinates** are pixel positions on the user's screen.
-- The **viewport** defines the transform: `screen = (canvas * zoom) + offset`.
-
-```typescript
-// Convert screen point to canvas point
-screenToCanvas(sx: number, sy: number) {
-  return {
-    x: (sx - this.viewport.x) / this.viewport.zoom,
-    y: (sy - this.viewport.y) / this.viewport.zoom,
-  };
-}
-
-// Convert canvas point to screen point
-canvasToScreen(cx: number, cy: number) {
-  return {
-    x: cx * this.viewport.zoom + this.viewport.x,
-    y: cy * this.viewport.zoom + this.viewport.y,
-  };
-}
-```
-
-**Zoom:** Use wheel events. Zoom toward the pointer position (not center).
-
-```typescript
-handleWheel(e: WheelEvent) {
-  e.preventDefault();
-  const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
-  const newZoom = clamp(this.viewport.zoom * zoomFactor, 0.1, 5);
-
-  // Zoom toward pointer
-  const mouseCanvas = this.screenToCanvas(e.clientX, e.clientY);
-  this.viewport.zoom = newZoom;
-  this.viewport.x = e.clientX - mouseCanvas.x * newZoom;
-  this.viewport.y = e.clientY - mouseCanvas.y * newZoom;
-}
-```
-
-**Pan:** Middle mouse button drag, or Space + left drag, or two-finger trackpad.
-
----
-
-## Drawing Implementation
-
-### Freehand Strokes (perfect-freehand)
-
-```typescript
-import getStroke from "perfect-freehand";
-
-function renderFreehandStroke(points: number[][], options: object): string {
-  const outlinePoints = getStroke(points, {
-    size: options.strokeWidth || 4,
-    thinning: 0.5,
-    smoothing: 0.5,
-    streamline: 0.5,
-    ...options,
-  });
-
-  // Convert outline points to SVG path
-  return getSvgPathFromStroke(outlinePoints);
-}
-
-function getSvgPathFromStroke(stroke: number[][]): string {
-  if (!stroke.length) return "";
-  const d = stroke.reduce(
-    (acc, [x0, y0], i, arr) => {
-      const [x1, y1] = arr[(i + 1) % arr.length];
-      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
-      return acc;
-    },
-    ["M", ...stroke[0], "Q"]
-  );
-  d.push("Z");
-  return d.join(" ");
-}
-```
-
-### Shapes (roughjs)
-
-```typescript
-import rough from "roughjs/bundled/rough.esm.js";
-
-function renderRoughShape(svgElement: SVGSVGElement, node: ShapeNode) {
-  const rc = rough.svg(svgElement);
-
-  switch (node.data.shape) {
-    case "rect":
-      return rc.rectangle(node.x, node.y, node.w, node.h, {
-        stroke: node.data.stroke,
-        fill: node.data.fill,
-        roughness: node.data.roughness,
-        strokeWidth: node.data.strokeWidth,
-      });
-    case "ellipse":
-      return rc.ellipse(
-        node.x + node.w / 2, node.y + node.h / 2,
-        node.w, node.h,
-        { /* same options */ }
-      );
-    // ... diamond, line, arrow
-  }
-}
-```
-
----
-
-## File Structure
-
-```
-sbd-editor/
-├── index.html
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-├── src/
-│   ├── main.tsx                    # Entry point
-│   ├── App.tsx                     # Root component
-│   │
-│   ├── engine/
-│   │   ├── SpatialEngine.ts        # Core engine class
-│   │   ├── types.ts                # All TypeScript interfaces
-│   │   ├── viewport.ts             # Pan/zoom math
-│   │   ├── history.ts              # Undo/redo stack
-│   │   └── spatial-index.ts        # Hit testing, rect queries
-│   │
-│   ├── serialization/
-│   │   ├── sbd-parser.ts           # SBD markdown → SpatialNode[]
-│   │   ├── sbd-serializer.ts       # SpatialNode[] → SBD markdown
-│   │   └── markdown-utils.ts       # md↔html helpers (marked + turndown)
-│   │
-│   ├── components/
-│   │   ├── SpatialCanvas.tsx        # Main canvas container
-│   │   ├── SVGLayer.tsx             # Draws, shapes, edges
-│   │   ├── BlocksLayer.tsx          # Content blocks
-│   │   ├── ContentBlock.tsx         # Single content block
-│   │   ├── TipTapEditor.tsx         # TipTap editor wrapper
-│   │   ├── MarkdownPreview.tsx      # Static markdown render
-│   │   ├── GridBackground.tsx       # Canvas grid
-│   │   ├── Toolbar.tsx              # Mode/tool selection
-│   │   ├── Minimap.tsx              # Canvas overview
-│   │   ├── PropertyPanel.tsx        # Node properties editor
-│   │   └── DebugPanel.tsx           # SBD output viewer
-│   │
-│   ├── rendering/
-│   │   ├── freehand.ts             # perfect-freehand helpers
-│   │   ├── rough-shapes.ts         # roughjs shape rendering
-│   │   └── edge-routing.ts         # Edge path calculation
-│   │
-│   ├── interactions/
-│   │   ├── pointer-handler.ts      # Unified pointer event handling
-│   │   ├── keyboard-handler.ts     # Keyboard shortcut handling
-│   │   └── drag-handler.ts         # Block dragging + resize
-│   │
-│   └── styles/
-│       └── index.css               # Minimal CSS (mostly inline/Tailwind)
-```
-
----
-
-## Dependencies
-
-```json
+<!--@node type="analog-clock" id="clock1" x="80" y="90" w="200" h="200" z="3" -->
 {
-  "dependencies": {
-    "react": "^18",
-    "react-dom": "^18",
-    "@tiptap/react": "^2",
-    "@tiptap/starter-kit": "^2",
-    "@tiptap/extension-placeholder": "^2",
-    "roughjs": "^4.6",
-    "perfect-freehand": "^1.2",
-    "nanoid": "^5",
-    "marked": "^12",
-    "turndown": "^7"
-  },
-  "devDependencies": {
-    "vite": "^5",
-    "@vitejs/plugin-react": "^4",
-    "typescript": "^5",
-    "@types/react": "^18",
-    "@types/react-dom": "^18"
-  }
+  "timezone": "America/Chicago",
+  "label": "Houston"
 }
+
+<!--@edge id="e1" from="s1" to="clock1" style="dashed" color="#666" arrowHead="arrow" -->
 ```
 
-Do NOT use Tailwind. Use plain CSS or inline styles to keep the PoC focused.
+### Directives
 
----
+| Tag | Node type | Body |
+|---|---|---|
+| `@meta` | — (document header) | none |
+| `@defaults` | — (per-type attribute defaults) | none |
+| `@frame` | `frame` | none |
+| `@block` | `content` (rich text) | markdown |
+| `@text` | `text` | plain text |
+| `@sticky` | `sticky` | plain text |
+| `@draw` | `draw` (freehand) or `shape` (when `tool="shape"`) | one line of `x,y,pressure` points (freehand only) |
+| `@image` | `image` | none |
+| `@edge` | `edge` | none |
+| `@node` | any registered custom type (generic form) | pretty-printed JSON `data` |
+| `@custom` | *(v2 compat, parse-only)* whole node as single-line JSON | none |
 
-## PoC Scope — What to Build
+### Grammar rules
 
-### Must Have (PoC v0.1)
+1. **Directive extent** — a directive starts on a line whose trimmed form begins `<!--@` and runs through the first `-->`. Attributes may span lines:
+   ```markdown
+   <!--@frame id="f1"
+       x="60" y="450"
+       w="760" h="310"
+       label="Rover Telemetry" -->
+   ```
+2. **Attributes** — `name="value"` pairs. In values, `"` is escaped as `&quot;` and `-->` as `--&gt;`. Unknown attributes are ignored (forward compatibility).
+3. **Bodies** — lines between a directive and the next directive (or EOF). Leading/trailing blank lines are padding, not content. A body line that would read as a directive is escaped with a backslash immediately before `<!--@`; parsers strip exactly one backslash (writers add one, including to already-escaped lines).
+4. **Order carries no meaning** — parsers resolve `parent`/`from`/`to` references in a second pass, so any document order is valid. Writers MUST preserve input order (diff stability), not sort.
+5. **Warnings, not drops** — a malformed directive (bad JSON, unknown tag, missing `@node type`) yields a warning; salvageable parts are kept (an `@node` with bad JSON keeps its geometry with empty `data`).
 
-1. **Canvas with pan & zoom** — wheel to zoom, middle-click or space+drag to pan. Grid background that scales with zoom.
-2. **Content blocks** — double-click canvas to create. Renders as editable TipTap editors. Drag to move. Resize handle on bottom-right corner.
-3. **Freehand drawing** — pen tool that captures pointer events and renders via perfect-freehand. Multiple strokes. Color/size picker in toolbar.
-4. **Basic shapes** — at minimum: rectangle and ellipse. Drag to size. Use roughjs for hand-drawn look.
-5. **Selection** — click to select. Click empty canvas to deselect. Delete key to remove. Multi-select with Shift+click.
-6. **Mode switching** — toolbar buttons and keyboard shortcuts (V=select, T=text, D=draw, S=shape).
-7. **Undo/redo** — Ctrl+Z / Ctrl+Shift+Z. Works across all node types.
-8. **SBD export** — button that generates the SBD markdown and shows it in a debug panel or copies to clipboard.
-9. **SBD import** — paste SBD markdown to load a document.
+### Base attributes (all node directives)
 
-### Nice to Have (if time allows)
+`id` (nanoid; generated if absent), `x`, `y`, `w`, `h` (`"auto"` allowed where the type supports it), `z`, and optional `rotation` (degrees), `locked` (`"true"`), `group`, `parent`.
 
-10. **Edges/connectors** — click two blocks to connect them with an arrow.
-11. **Minimap** — small thumbnail of the full canvas in the corner.
-12. **Auto-arrange** — button that snaps blocks to a grid layout.
-13. **roughjs toggle** — switch between hand-drawn and clean vector shapes.
-14. **Lasso selection** — drag in select mode to select multiple nodes.
-15. **Block z-ordering** — bring to front / send to back.
+### `parent` — frame-relative coordinates
 
-### Out of Scope for PoC
+A directive with `parent="<frameId>"` positions `x`/`y` **relative to that node's top-left**. Nesting is allowed (a frame may itself have a `parent`); cycles and unknown ids degrade to absolute coordinates plus a warning. Writers emit `parent` for nodes the engine tracks as frame children. Exceptions: `@draw` freehand strokes (geometry lives in absolute point data) and `@edge` (no intrinsic position) never carry `parent`.
 
-- Collaboration / multiplayer
-- Mobile / touch optimization
-- Agent mutation API (design is in the spec but not wired up)
-- Image blocks
-- File save/load to disk
-- Block grouping
-- Snap-to-grid / smart guides
-- Comments / annotations
-- Keyboard navigation between blocks
+### `@node` — the generic/custom form
 
----
+Base fields as attributes (`type` required), node `data` as a pretty-printed JSON body. This replaces the v2 `@custom` single-line blob for writing; `@custom` remains parseable for old files. Any type — including built-ins — may be expressed with `@node`; the per-type tags are sugar that map tool-specific attributes (`color`, `fontSize`, …) into `data`.
 
-## Implementation Order
+### `@defaults` — authoring convenience
 
-Build in this exact order. Each step should produce something testable.
+`<!--@defaults type="sticky" color="#BBF7D0" fontSize="18" -->` supplies attribute defaults applied to every later directive of that type that omits them (`type` matches the directive tag, or the `type` attribute for `@node`). Writers don't emit `@defaults`; it exists for hand-written and generated documents.
 
-### Step 1: Scaffolding (15 min)
-- Vite + React + TypeScript project
-- Install all dependencies
-- Basic App.tsx with a full-viewport div
-- Verify it runs
+### `@meta`
 
-### Step 2: Engine Core (1-2 hrs)
-- `types.ts` — all interfaces
-- `SpatialEngine.ts` — node store (Map), viewport state, mode state, event emitter
-- `viewport.ts` — pan, zoom, screenToCanvas, canvasToScreen
-- `history.ts` — undo/redo with snapshot-based approach (simple for PoC: store full state snapshots)
-- Unit-testable with no React
+`sbd="3"` version-stamps the document (absent ⇒ v2 semantics; v3 parsers accept both). Other fields: `background`, `originView="x,y,zoom"` (plus legacy `canvas_w`/`canvas_h`/`grid`/`snap`, which are vestigial).
 
-### Step 3: Canvas + Viewport (1 hr)
-- `SpatialCanvas.tsx` — full-viewport div with wheel zoom and pan
-- `GridBackground.tsx` — dot or line grid that transforms with viewport
-- Verify: can pan around and zoom in/out smoothly
+## Non-goals (rejected by design)
 
-### Step 4: Content Blocks (1-2 hrs)
-- `ContentBlock.tsx` — positioned div, renders markdown preview
-- `TipTapEditor.tsx` — mounts on double-click, saves on blur
-- `MarkdownPreview.tsx` — renders markdown content as HTML
-- Double-click canvas → create new block at that position
-- Drag blocks to move them
-- Verify: can create multiple blocks, edit them, move them around
+- **Variables/templating** (`{{mission.start}}`) — breaks WYSIWYG round-trip; belongs in a layer above that generates concrete SBD.
+- **Data binding** (`bind=`) — renderer semantics, not format semantics; a custom node type may define such an attribute for itself.
+- **Class/theme system** — destroys node-level self-containedness and creates an unsolvable style-attribution inverse problem; `@defaults` covers the duplication concern.
+- **YAML bodies** — one structured-body format (JSON) keeps the grammar small; attributes stay flat scalars.
 
-### Step 5: Drawing (1-2 hrs)
-- `freehand.ts` — perfect-freehand integration
-- `SVGLayer.tsx` — renders all draw nodes
-- Draw mode: capture pointer events, accumulate points, render stroke
-- On pointer up, finalize the DrawNode and add to engine
-- Verify: can draw freehand strokes with pressure sensitivity
+## Compatibility
 
-### Step 6: Shapes (1 hr)
-- `rough-shapes.ts` — roughjs integration
-- Shape mode: pointer down sets origin, drag sets size, pointer up finalizes
-- Support rect and ellipse
-- Verify: can draw rough rectangles and ellipses
-
-### Step 7: Selection & Deletion (1 hr)
-- Click node to select (blue border/highlight)
-- Click empty canvas to deselect
-- Delete/Backspace removes selected nodes
-- Shift+click for multi-select
-- Verify: can select and delete any node type
-
-### Step 8: Toolbar & Mode Switching (30 min)
-- `Toolbar.tsx` — buttons for Select, Text, Draw, Shape modes
-- Color picker (simple preset swatches)
-- Stroke width selector
-- Active mode indicator
-- Keyboard shortcuts
-
-### Step 9: Undo/Redo (30 min)
-- Wire up history to all mutations
-- Ctrl+Z / Ctrl+Shift+Z
-- Verify: creating, moving, editing, deleting all undo correctly
-
-### Step 10: SBD Serialization (1-2 hrs)
-- `sbd-serializer.ts` — converts engine state to SBD markdown string
-- `sbd-parser.ts` — parses SBD markdown string back to engine state
-- `DebugPanel.tsx` — shows live SBD output at bottom of screen
-- Export button (copy to clipboard)
-- Import button (paste from clipboard)
-- Verify: export → clear → import roundtrips correctly
-
----
-
-## Visual Design Guidelines for the PoC
-
-Keep it minimal but not ugly. Think: clean, slightly warm, like a real tool.
-
-- **Background:** Light warm gray `#f8f7f5` with a subtle dot grid (dots: `#e0ddd8`)
-- **Content blocks:** White `#ffffff` with `1px solid #e2e8f0` border, `border-radius: 8px`, subtle shadow `0 1px 3px rgba(0,0,0,0.08)`
-- **Selected state:** Blue border `#3b82f6`, outer glow `0 0 0 2px rgba(59,130,246,0.2)`
-- **Toolbar:** Left sidebar, `48px` wide, dark background `#1e1e2e`, icon buttons with tooltip on hover
-- **Drawing strokes:** Default color `#1e1e2e`, smooth anti-aliased SVG paths
-- **Shapes:** roughjs with `roughness: 1` by default for the hand-drawn look
-- **Font in blocks:** System font stack: `-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-- **Cursor changes:** `grab` on blocks in select mode, `crosshair` in draw/shape mode, `text` in text mode
-
----
-
-## Key Technical Notes
-
-1. **TipTap editors are expensive.** Don't mount one per block permanently. Only mount the TipTap editor on the actively-focused block. All other blocks render static HTML from their markdown. This keeps performance good even with 50+ blocks.
-
-2. **SVG vs Canvas for drawing.** Use SVG for the PoC. It's easier to debug and integrate with React. Canvas would be better for performance at 1000+ strokes, but that's not a PoC concern.
-
-3. **Event handling priority.** The pointer event flow: InteractionLayer catches everything → based on mode and hit test, delegates to the right handler. Content blocks use `stopPropagation` when in edit mode to prevent canvas interactions.
-
-4. **Zoom performance.** Apply the viewport transform via CSS `transform` on the layers, not by recalculating positions. This means the browser's compositor handles zoom, which is fast.
-
-5. **History implementation.** For the PoC, use simple full-state snapshots (JSON clone of all nodes). This is O(n) memory but trivially correct. A production version would use command-based undo with inverse operations.
-
-6. **Don't over-engineer.** This is a PoC. Hardcode defaults. Skip edge cases. No configuration files. No theme system. No plugin architecture. Get the core interaction loop working and looking good.
+- v3 parsers read v2 documents unchanged (single-line directives, no `parent`, `@custom` blobs).
+- v2 parsers reading v3 documents will: mis-handle multi-line directives (v3 writers keep directives single-line for that reason — multi-line is an *authoring* affordance), ignore `parent` (positions appear frame-relative!), and skip `@node`/`@defaults`. Consumers should upgrade the parser before ingesting v3 files.
