@@ -18,7 +18,7 @@ stdio MCP server that drives `examples/dev-app` in headless Chromium (Playwright
 
 See **`llm-guidance/spatialboard-board-layout.md`** — spacing, columns, mind maps, loader exemplars.
 
-Canonical boards live in **`llm-guidance/spatialboard-exemplars/`** (`README.md` indexes the four TypeScript loaders).
+Canonical boards live in **`../src/exemplars/`** (four TypeScript loaders).
 
 **Important:** after your eval script loads or edits nodes, call **`engine.fitToContent()`** before `spatialboard_screenshot` so pan/zoom match the new content (the React canvas listens for engine viewport events).
 
@@ -26,7 +26,7 @@ The dev-app sets **`window.__nodeTypeDocs`** (inspector help for custom nodes); 
 
 ## Exemplar loaders (TypeScript)
 
-Resolved by Vite as **`@spatialboard-exemplars`** (see `examples/dev-app/vite.config.ts`).
+Imported relatively from `../src/exemplars`.
 
 | Loader | Export |
 |--------|--------|
@@ -38,7 +38,7 @@ Resolved by Vite as **`@spatialboard-exemplars`** (see `examples/dev-app/vite.co
 Example eval:
 
 ```js
-const { loadLayoutExemplarBoard } = await import("@spatialboard-exemplars");
+const { loadLayoutExemplarBoard } = await import("../src/exemplars/index.ts");
 loadLayoutExemplarBoard(engine);
 return { ok: true, nodes: engine.nodes.size };
 ```

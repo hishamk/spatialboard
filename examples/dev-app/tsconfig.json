@@ -14,9 +14,7 @@
     "paths": {
       "spatialboard": ["../../src/index.ts"],
       "spatialboard/*": ["../../src/*"],
-      "@spatialboard-exemplars": ["../../../llm-guidance/spatialboard-exemplars/loaders/index.ts"],
-      "@spatialboard-exemplars/*": ["../../../llm-guidance/spatialboard-exemplars/loaders/*"]
     }
   },
-  "include": ["src", "../../../llm-guidance/spatialboard-exemplars/loaders/**/*.ts"]
+  "include": ["src", "../../src/assets.d.ts"]
 }

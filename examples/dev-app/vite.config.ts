@@ -119,10 +119,6 @@ export default defineConfig({
       // Resolve library imports to source for HMR during development
       "spatialboard/style.css": resolve(__dirname, "../../src/styles/index.css"),
       spatialboard: resolve(__dirname, "../../src/index.ts"),
-      "@spatialboard-exemplars": resolve(
-        __dirname,
-        "../../../llm-guidance/spatialboard-exemplars/loaders",
-      ),
     },
   },
 });

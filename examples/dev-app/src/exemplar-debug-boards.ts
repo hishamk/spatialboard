@@ -1,6 +1,6 @@
 /**
  * Debug-panel exemplar boards for this dev-app.
- * Layout implementations live in `llm-guidance/spatialboard-exemplars/loaders/` (imported via `@spatialboard-exemplars`).
+ * Layout implementations live in `src/exemplars/`.
  */
 import type { DebugBoardEntry } from "spatialboard";
 import {
@@ -8,7 +8,7 @@ import {
   loadHalfAdderBoard,
   loadLayoutExemplarBoard,
   loadMissionControlBoard,
-} from "@spatialboard-exemplars";
+} from "./exemplars";
 
 export const exemplarDebugBoards: DebugBoardEntry[] = [
   { label: "Packet Observatory", color: "#22d3ee", load: (eng) => loadApiConstellationBoard(eng) },
