@@ -6,10 +6,9 @@
   "author": "Hisham Khalifa",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hishamk/spatialboard.git",
-    "directory": "spatialboard"
+    "url": "https://github.com/hishamk/spatialboard.git"
   },
-  "homepage": "https://github.com/hishamk/spatialboard",
+  "homepage": "https://github.com/hishamk/spatialboard#readme",
   "bugs": {
     "url": "https://github.com/hishamk/spatialboard/issues"
   },

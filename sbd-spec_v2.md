@@ -103,7 +103,7 @@ When a content node is not focused, we can optionally render a lightweight stati
 
 ### Custom Block Types (BlockNote Schema)
 
-BlockNote supports custom block types via its schema system. This is critical for the host app — you can define domain-specific blocks that appear in the slash menu alongside the defaults.
+BlockNote supports custom block types via its schema system. This is critical for host applications — you can define domain-specific blocks that appear in the slash menu alongside the defaults.
 
 ```typescript
 import { BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";

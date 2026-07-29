@@ -159,7 +159,7 @@ SpatialBoard uses the SBD format for board persistence and interchange.
 
 ## Development
 
-From `spatialboard/`:
+From the package root:
 
 ```bash
 npm install

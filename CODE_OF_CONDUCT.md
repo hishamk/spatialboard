@@ -45,9 +45,9 @@ individual is officially representing the project in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers at:
+reported privately to the project maintainer:
 
-- https://github.com/hishamk/spatialboard/security/advisories/new
+- [@hishamk](https://github.com/hishamk)
 
 All complaints will be reviewed and investigated promptly and fairly.
 

@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+node_modules
+
+# Build caches (dist/ is a committed output — do not ignore it)
+*.tsbuildinfo
+.vite/
+
+# Example app build output
+examples/**/dist/
+
+# Environment files hold secrets — keep *.example templates tracked
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Packaging + OS noise
+*.tgz
+.DS_Store

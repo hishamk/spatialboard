@@ -9,7 +9,7 @@ latest published version.
 
 Please do not open public issues for suspected vulnerabilities.
 
-Instead, report details privately to:
+Instead, report details privately via GitHub's security advisories:
 
 - https://github.com/hishamk/spatialboard/security/advisories/new
 
