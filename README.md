@@ -1,42 +1,14 @@
 # SpatialBoard
 
-A React + TypeScript spatial canvas and node-board library for building whiteboards, visual editors, and graph-style interfaces.
+**An embeddable spatial canvas engine for React** — whiteboard, node-graph
+editor, presentation surface, and LLM-readable board format in one
+TypeScript library.
 
-SpatialBoard ships with:
-
-- A high-performance `SpatialEngine`
-- Built-in node types (content, draw, shape, edge, image, text, frame, sticky)
-- Extensible custom node APIs
-- Optional data-flow engine for node ports
-- SBD serialization/parsing utilities
-- Presentation mode, frames, and themed sidebar UI
-- Mermaid sketch importer (flowchart + sequence diagram to native nodes)
-
-## Installation
-
-```bash
-npm install spatialboard
-```
-
-or
-
-```bash
-yarn add spatialboard
-```
-
-## Peer Dependencies
-
-SpatialBoard expects these peer dependencies in your app:
-
-- `react` `^18`
-- `react-dom` `^18`
-- `@blocknote/core` `^0.46`
-- `@blocknote/react` `^0.46`
-- `@blocknote/mantine` `^0.46`
-- `@mantine/core` `^8`
-- `@mantine/hooks` `^8`
-
-## Quick Start
+SpatialBoard is built around a framework-agnostic `SpatialEngine` with a thin
+React shell on top. You get an infinite canvas with hand-drawn aesthetics out
+of the box, and a registry API that lets you turn that canvas into whatever
+your product needs: a diagramming tool, a visual programming environment, a
+slide deck, or a board that AI agents can read and write.
 
 ```tsx
 import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
@@ -44,149 +16,160 @@ import "spatialboard/style.css";
 
 export default function App() {
   const engine = new SpatialEngine();
-
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      <SpatialBoard
-        engine={engine}
-        nodeTypes={builtinNodeTypes}
-      />
+      <SpatialBoard engine={engine} nodeTypes={builtinNodeTypes} />
     </div>
   );
 }
 ```
 
-## Core Concepts
+## What you can build with it
 
-- `SpatialEngine`: state, history, selection, viewport, and node graph operations.
-- `SpatialBoard`: full React UI wrapper around the engine.
-- `NodeTypeDefinition`: declare custom renderers, ports, and properties panels.
-- `DataFlowEngine`: optional reactive graph evaluation for nodes with ports.
+**A whiteboard.** Pressure-aware freehand ink (perfect-freehand), rough
+hand-drawn shapes (roughjs), sticky notes, rich-text blocks (BlockNote),
+images, text, and frames — with snapping, smart alignment guides, grouping,
+multi-select arrange/align/distribute, infinite pan/zoom, undo history, and a
+minimap. Excalidraw `.excalidrawlib` libraries import directly, and a built-in
+Mermaid importer turns flowcharts and sequence diagrams into editable nodes.
 
-## Provenance & Compatibility
+**A node-based tool.** Define your own node types with typed input/output
+ports and a pure `compute` function; the reactive `DataFlowEngine` propagates
+values through the wired graph, detects cycles, and can badge live values on
+edges. This is the foundation for visual programming, pipelines, and
+dashboards. See [docs/data-flow.md](docs/data-flow.md).
 
-SpatialBoard includes compatibility adapters for selected ecosystem formats
-(notably Excalidraw library files and directory interoperability), while keeping
-its runtime/editor implementation independent.
+**A presentation.** Frames double as slides: order them explicitly or let
+reading order decide, then step through with animated transitions (pan, fade,
+dissolve, zoom, fold, 3D cube). One method call — `engine.enterPresentation()`.
 
-For dependency and interoperability provenance details, see
-`THIRD_PARTY_NOTICES.md`.
+**A collaborative canvas.** The engine exposes remote-op methods
+(`addRemoteNode`, `applyRemoteNodeUpdate`, `deleteRemoteNode`) and broadcasts
+gesture awareness (live stroke, shape, drag, eraser, and laser previews) so
+you can wire it to any transport or CRDT. Storage is deliberately not
+SpatialBoard's business — serialize with `toSBD()`/`toJSON()` and persist
+however you like.
 
-## Custom Nodes
+**An AI-native surface.** `getAgentState()` returns a structured, budgeted
+snapshot for LLM context (`getAgentStateMarkdown()` for prompts); a
+programmatic creation API (`createShape`, `createSticky`, `createEdge`, …)
+plus `beginAgentAction()` batching lets agents draw; and the whole board
+round-trips through **SBD** — a markdown-compatible format that models can
+both read and write. See [docs/agents.md](docs/agents.md) and
+[sbd-spec.md](sbd-spec.md).
 
-You can extend built-ins by appending your own node definitions:
+## Install
+
+```bash
+npm install spatialboard
+```
+
+Peer dependencies (your app provides these): `react` `^18`, `react-dom` `^18`,
+`@blocknote/core` `^0.46`, `@blocknote/react` `^0.46`, `@blocknote/mantine`
+`^0.46`, `@mantine/core` `^8`, `@mantine/hooks` `^8`.
+
+## Custom nodes in one glance
+
+Everything on the canvas is a node type — the built-ins use the same API you
+do. A custom type is a React component plus a definition object:
 
 ```tsx
-import { SpatialBoard, builtinNodeTypes } from "spatialboard";
-import { myCustomNodeType } from "./my-custom-node";
+import type { NodeTypeDefinition, NodeRendererProps } from "spatialboard";
 
-const nodeTypes = [...builtinNodeTypes, myCustomNodeType];
+type CounterData = { count: number };
 
-export function MyBoard() {
-  return <SpatialBoard nodeTypes={nodeTypes} />;
+function Counter({ data, updateData }: NodeRendererProps<CounterData>) {
+  return (
+    <button onClick={() => updateData({ count: data.count + 1 })}>
+      Clicked {data.count} times
+    </button>
+  );
 }
+
+export const counterNodeType: NodeTypeDefinition<CounterData> = {
+  type: "counter",
+  component: Counter,
+};
+
+// <SpatialBoard nodeTypes={[...builtinNodeTypes, counterNodeType]} />
 ```
 
-## GIF Search (Optional)
+Definitions can also declare container behavior, custom hit-testing, a
+properties panel, lifecycle hooks (`onCreate`, `onResize`, `onFlip`, …), and
+data-flow ports with a `compute` function. The full tour:
+[docs/custom-nodes.md](docs/custom-nodes.md).
 
-SpatialBoard includes a GIF picker UI when `gifApiBaseUrl` is provided:
+## The SBD format
 
-```tsx
-<SpatialBoard gifApiBaseUrl="/api/v1/gifs" />
+Boards serialize to **SBD** — a markdown document with HTML-comment
+directives. It is diff-stable, hand-editable, and LLM-friendly:
+
+```markdown
+<!--@meta sbd="3" background="dot-grid" -->
+
+<!--@frame id="f1" x="100" y="100" w="400" h="300" label="Plan" -->
+
+<!--@sticky id="s1" x="40" y="60" w="200" h="150" parent="f1" color="#FEF3C7" -->
+Battery check at 06:00.
+
+<!--@edge id="e1" from="s1" to="f1" style="dashed" -->
 ```
 
-Expected endpoints:
+`serializeToSBD(engine)` / `parseSBD(text)`, spec in
+[sbd-spec.md](sbd-spec.md).
 
-- `GET /search?q=<query>&page=<n>&per_page=<n>`
-- `GET /trending?page=<n>&per_page=<n>`
+## Documentation
 
-The responses should follow the Klipy-compatible shape used by `src/utils/klipy.ts`.
+| Guide | What's inside |
+|-------|---------------|
+| [docs/getting-started.md](docs/getting-started.md) | Install, first board, engine lifecycle, persistence, key props |
+| [docs/design-philosophy.md](docs/design-philosophy.md) | Why the engine lives outside React, the performance model, the layering |
+| [docs/custom-nodes.md](docs/custom-nodes.md) | The `NodeTypeDefinition` API end to end, with a worked example |
+| [docs/data-flow.md](docs/data-flow.md) | Ports, `compute`, the reactive `DataFlowEngine`, cycles, edge overlays |
+| [docs/agents.md](docs/agents.md) | LLM/agent integration: state snapshots, programmatic drawing, SBD loops |
+| [docs/examples.md](docs/examples.md) | Guided path through `examples/`, simplest to most complex |
+| [sbd-spec.md](sbd-spec.md) | The normative SBD v3 format specification |
 
-## Mermaid Sketch Importer
+## Examples
 
-SpatialBoard includes a Mermaid importer in the sidebar that converts diagrams
-to editable native `shape`/`edge`/`text` nodes.
-
-Current support:
-
-- `flowchart` / `graph` with directions (`TB`, `BT`, `LR`, `RL`)
-- Common node syntaxes:
-  - `A[Rect]`
-  - `A(Rounded)`
-  - `A((Circle))`
-  - `A{Decision}`
-- Common edges:
-  - `A-->B`
-  - `A -- label --> B`
-  - `A-->>B`, `A-.->B`, `A==>B`, `A-xB`
-- Flowchart `subgraph ... end` groups (rendered as background rectangle shapes)
-- `sequenceDiagram` participants, messages, notes, and `box ... end` groups
-  (groups also rendered as background rectangle shapes)
-
-The importer is intentionally lightweight and aims for useful editable sketches
-rather than full Mermaid spec parity.
-
-## Public API (Selected Exports)
-
-- `SpatialBoard`
-- `SpatialEngine`
-- `NodeTypeRegistry`
-- `builtinNodeTypes`
-- `DataFlowEngine`
-- `serializeToSBD`
-- `parseSBD`
-- `markdownToBlocks`
-- `getStrokePath`
-
-See `src/index.ts` for the complete export surface.
-
-## Styling
-
-Import default styles once:
-
-```ts
-import "spatialboard/style.css";
-```
-
-Use `theme` prop on `SpatialBoard` to override sidebar/properties panel tokens.
-
-## SBD Format
-
-SpatialBoard uses the SBD format for board persistence and interchange.
-
-- `sbd-spec.md` — the SBD v3 format specification
-
-## Development
-
-From the package root:
+`examples/dev-app` is the development playground — every feature, plus five
+small custom data-flow nodes (`constant`, `interval`, `gate`, `logger`,
+`map-remap`) that make a good template for your own. From the package root:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Other commands:
+[docs/examples.md](docs/examples.md) walks the examples from a minimal
+single-file board up to the full playground.
+
+## Optional integrations
+
+- **GIF picker** — pass `gifApiBaseUrl` and SpatialBoard renders a GIF search
+  UI against your endpoint (Klipy-compatible response shape; see
+  `src/utils/klipy.ts`).
+- **Theming** — override sidebar/panel tokens via the `theme` prop; RTL and
+  localization via `direction` and `localization`.
+- **Read-only + preview modes** — `readOnly` keeps pan/zoom/select alive while
+  guarding all mutations; `preview` renders a static board.
+
+## Development
 
 ```bash
-npm run build
-npm run preview
+npm install
+npm run dev        # examples/dev-app playground
+npm run typecheck
+npm run test
+npm run build      # dist/ (generated; not committed)
 ```
 
-The development app lives in `examples/dev-app`.
+## Contributing, security, licenses
 
-## Contributing
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Security reports: [SECURITY.md](SECURITY.md).
 
-Contributions are welcome. Please read `CONTRIBUTING.md` first.
-
-## Security
-
-If you discover a security issue, please follow `SECURITY.md`.
-
-## Third-Party Notices
-
-See `THIRD_PARTY_NOTICES.md` for dependency and interoperability provenance
-notes (including roughjs, perfect-freehand, and Excalidraw compatibility).
-
-## License
-
-MIT - see `LICENSE`.
+SpatialBoard is [MIT licensed](LICENSE). Third-party components and their
+licenses are inventoried in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); bundled and runtime fonts
+in [FONTS.md](FONTS.md).
