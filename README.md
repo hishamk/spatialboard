@@ -118,6 +118,29 @@ Battery check at 06:00.
 `serializeToSBD(engine)` / `parseSBD(text)`, spec in
 [sbd-spec.md](sbd-spec.md).
 
+## How it compares
+
+Excalidraw and tldraw are excellent, mature projects — if you need a pure
+whiteboard with a huge ecosystem, or a polished commercial canvas SDK, use
+them. SpatialBoard's niche is combining the whiteboard with typed data flow,
+built-in presentations, and an agent-first API, under a plain MIT license:
+
+| | SpatialBoard | Excalidraw | tldraw |
+|---|---|---|---|
+| **License** | MIT | MIT | tldraw license — production needs a license key; free hobby tier keeps the watermark, paid removes it |
+| **Custom nodes** | First-class: plain React component + declarative definition (typed `data`, panels, lifecycle hooks) | Not a public extension point of the core package | First-class (`ShapeUtil` classes) |
+| **Typed ports + reactive data flow** | Built in (`ports` + `compute`, cycle detection, live edge values) | — | Build your own on shapes |
+| **Presentations** | Built in: frames → slides with animated transitions (incl. 3D cube/fold) | Frames + laser pointer (slides are an Excalidraw+ feature) | Build your own |
+| **Rich text** | BlockNote block-editor nodes | Plain text elements | Rich-text shapes |
+| **Interchange format** | SBD — markdown-compatible, diff-stable, LLM-writable — plus JSON | JSON (`.excalidraw`) | JSON (`.tldr`) |
+| **Agent / LLM API** | Built in: budgeted state snapshots, markdown summaries, node-type catalog, one-call create API | Text-to-diagram in Excalidraw+ | Official agent templates / experimental AI tooling |
+| **Rendering** | React DOM + SVG layers | Canvas2D | React DOM/SVG |
+| **Collaboration** | Transport-agnostic primitives (remote ops + gesture awareness) — bring your own CRDT/sync | excalidraw-room; E2E rooms on excalidraw.com | tldraw sync (hosted or self-hosted) |
+| **Excalidraw interop** | Imports `.excalidrawlib` libraries | Native | — |
+
+(License and feature notes as of mid-2026 — verify against each project's
+current docs before making decisions based on them.)
+
 ## Documentation
 
 | Guide | What's inside |
