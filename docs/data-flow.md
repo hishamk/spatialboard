@@ -47,11 +47,14 @@ its current inputs/outputs.
 
 ## Running the graph
 
+**Inside `<SpatialBoard>` this is automatic**: when any type in `nodeTypes`
+declares ports, the component creates and connects a `DataFlowEngine` for you
+— declaring `ports` + `compute` is all a custom node needs. Construct one
+yourself only for headless or host-driven use:
+
 ```ts
 import { DataFlowEngine, NodeTypeRegistry } from "spatialboard";
 
-// <SpatialBoard> builds a registry from `nodeTypes` internally; for headless
-// or host-driven use, construct your own:
 const registry = new NodeTypeRegistry();
 [...builtinNodeTypes, mathNodeType].forEach((t) => registry.register(t));
 engine.setRegistry(registry);
