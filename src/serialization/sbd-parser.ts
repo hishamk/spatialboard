@@ -14,24 +14,23 @@ import type {
 import type { BoardBackground } from "../engine/SpatialEngine";
 
 /* ---------------------------------------------------------------------------
- * SBD v3 parser.
+ * SBD parser.
  *
- * Grammar changes vs v2 (all backward compatible — v2 documents parse as-is):
+ * Grammar:
  *  - Directives may span multiple lines; a directive runs from a line whose
  *    trimmed form starts with `<!--@` through the first `-->`.
  *  - `parent="<id>"` on a directive makes its x/y RELATIVE to that node
  *    (frame-child serialization). Resolved to absolute after all nodes parse,
  *    so document order never matters. A missing parent degrades to absolute
  *    coordinates plus a warning.
- *  - `<!--@node type="..." ... -->` is the readable custom-node form: base
- *    fields as attributes, `data` as a pretty-printed JSON body. The v2
- *    single-line `<!--@custom {json} -->` blob still parses.
+ *  - `<!--@node type="..." ... -->` is the generic/custom-node form: base
+ *    fields as attributes, `data` as a pretty-printed JSON body.
  *  - `<!--@defaults type="sticky" color="..." -->` supplies per-type attribute
  *    defaults applied to later directives that omit those attributes.
  *  - Body lines that would read as a directive are escaped with a leading
  *    backslash (`\<!--@`); the parser strips exactly one backslash. Attribute
  *    values escape `-->` as `--&gt;` and `"` as `&quot;`.
- *  - `<!--@meta sbd="3" ... -->` version-stamps the document (absent = 2).
+ *  - `<!--@meta sbd="3" ... -->` version-stamps the document.
  *  - Problems are collected into `warnings` instead of being silently dropped.
  * ------------------------------------------------------------------------- */
 
@@ -74,7 +73,7 @@ const BG_ALIASES: Record<string, BoardBackground> = {
 export interface SBDParseResult {
   nodes: SpatialNode[];
   meta: {
-    /** Format version from `sbd="N"` in @meta; 2 when absent. */
+    /** Format version from `sbd="N"` in @meta, when present. */
     version?: number;
     background?: BoardBackground;
     originView?: { x: number; y: number; zoom: number };
@@ -89,7 +88,7 @@ interface RawDirective {
   attrs: Record<string, string>;
   /** Content lines between this directive and the next (trailing blanks trimmed). */
   body: string[];
-  /** Full raw directive text (used by @custom to extract its JSON payload). */
+  /** Full raw directive text. */
   raw: string;
   line: number;
 }
@@ -103,7 +102,7 @@ function tokenize(sbd: string): RawDirective[] {
   while (i < lines.length) {
     const trimmed = lines[i].trim();
     if (!trimmed.startsWith("<!--@")) {
-      i++; // stray text outside any directive body — ignored (v2 behavior)
+      i++; // stray text outside any directive body — ignored
       continue;
     }
 
@@ -452,25 +451,6 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
           data,
         } as SpatialNode);
         recordParent(attrs, base.id);
-        break;
-      }
-
-      // v2 escape hatch: whole node as a single-line JSON blob.
-      case "custom": {
-        const raw = d.raw;
-        const jsonStart = raw.indexOf("{");
-        const jsonEnd = raw.lastIndexOf("}");
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          try {
-            const node = JSON.parse(raw.slice(jsonStart, jsonEnd + 1)) as SpatialNode;
-            if (node.id && node.type) nodes.push(node);
-            else warnings.push(`line ${d.line}: @custom node missing id/type — skipped`);
-          } catch (e) {
-            warnings.push(`line ${d.line}: unparseable @custom node (${(e as Error).message}) — skipped`);
-          }
-        } else {
-          warnings.push(`line ${d.line}: @custom without JSON payload — skipped`);
-        }
         break;
       }
 

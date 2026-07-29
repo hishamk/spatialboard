@@ -1,6 +1,6 @@
-# SBD v3 — Spatial Block Document format
+# SBD — Spatial Block Document format
 
-Normative spec for the SBD serialization format, version 3 (the current format; the earlier product/PoC spec revisions are superseded and removed). This document covers **only the interchange format**. The reference implementation is `src/serialization/sbd-parser.ts` + `sbd-serializer.ts`; the executable examples live in `src/serialization/__tests__/sbd-roundtrip.test.ts`.
+Normative spec for the SBD serialization format. This document covers **only the interchange format**. The reference implementation is `src/serialization/sbd-parser.ts` + `sbd-serializer.ts`; the executable examples live in `src/serialization/__tests__/sbd-roundtrip.test.ts`.
 
 ## Design goals
 
@@ -45,7 +45,6 @@ Battery check at 06:00.
 | `@image` | `image` | none |
 | `@edge` | `edge` | none |
 | `@node` | any registered custom type (generic form) | pretty-printed JSON `data` |
-| `@custom` | *(v2 compat, parse-only)* whole node as single-line JSON | none |
 
 ### Grammar rules
 
@@ -56,6 +55,8 @@ Battery check at 06:00.
        w="760" h="310"
        label="Rover Telemetry" -->
    ```
+   Multi-line directives are an *authoring* affordance — writers always emit
+   single-line directives.
 2. **Attributes** — `name="value"` pairs. In values, `"` is escaped as `&quot;` and `-->` as `--&gt;`. Unknown attributes are ignored (forward compatibility).
 3. **Bodies** — lines between a directive and the next directive (or EOF). Leading/trailing blank lines are padding, not content. A body line that would read as a directive is escaped with a backslash immediately before `<!--@`; parsers strip exactly one backslash (writers add one, including to already-escaped lines).
 4. **Order carries no meaning** — parsers resolve `parent`/`from`/`to` references in a second pass, so any document order is valid. Writers MUST preserve input order (diff stability), not sort.
@@ -71,7 +72,7 @@ A directive with `parent="<frameId>"` positions `x`/`y` **relative to that node'
 
 ### `@node` — the generic/custom form
 
-Base fields as attributes (`type` required), node `data` as a pretty-printed JSON body. This replaces the v2 `@custom` single-line blob for writing; `@custom` remains parseable for old files. Any type — including built-ins — may be expressed with `@node`; the per-type tags are sugar that map tool-specific attributes (`color`, `fontSize`, …) into `data`.
+Base fields as attributes (`type` required), node `data` as a pretty-printed JSON body. Any type — including built-ins — may be expressed with `@node`; the per-type tags are sugar that map tool-specific attributes (`color`, `fontSize`, …) into `data`.
 
 ### `@defaults` — authoring convenience
 
@@ -79,7 +80,7 @@ Base fields as attributes (`type` required), node `data` as a pretty-printed JSO
 
 ### `@meta`
 
-`sbd="3"` version-stamps the document (absent ⇒ v2 semantics; v3 parsers accept both). Other fields: `background`, `originView="x,y,zoom"` (plus legacy `canvas_w`/`canvas_h`/`grid`/`snap`, which are vestigial).
+`sbd="3"` states the format version. Other fields: `background`, `originView="x,y,zoom"`. Per rule 2, unknown meta attributes are ignored, so documents from older or richer writers degrade gracefully.
 
 ## Non-goals (rejected by design)
 
@@ -87,8 +88,3 @@ Base fields as attributes (`type` required), node `data` as a pretty-printed JSO
 - **Data binding** (`bind=`) — renderer semantics, not format semantics; a custom node type may define such an attribute for itself.
 - **Class/theme system** — destroys node-level self-containedness and creates an unsolvable style-attribution inverse problem; `@defaults` covers the duplication concern.
 - **YAML bodies** — one structured-body format (JSON) keeps the grammar small; attributes stay flat scalars.
-
-## Compatibility
-
-- v3 parsers read v2 documents unchanged (single-line directives, no `parent`, `@custom` blobs).
-- v2 parsers reading v3 documents will: mis-handle multi-line directives (v3 writers keep directives single-line for that reason — multi-line is an *authoring* affordance), ignore `parent` (positions appear frame-relative!), and skip `@node`/`@defaults`. Consumers should upgrade the parser before ingesting v3 files.

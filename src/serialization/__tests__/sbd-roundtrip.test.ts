@@ -5,7 +5,7 @@ import type { SpatialNode, StickyNoteNode, ShapeNode, EdgeNode, FrameNode, TextN
 
 /* Content (@block) nodes are deliberately absent here: their markdown body
  * codec goes through BlockNote, which needs more than a bare Node runtime.
- * Everything else round-trips through the pure v3 codec under test. */
+ * Everything else round-trips through the pure SBD codec under test. */
 
 const sticky = (id: string, x: number, y: number, text: string, extra: Partial<StickyNoteNode> = {}): StickyNoteNode =>
   ({
@@ -17,7 +17,7 @@ const sticky = (id: string, x: number, y: number, text: string, extra: Partial<S
 const frame = (id: string, x: number, y: number, w = 400, h = 300): FrameNode =>
   ({ id, type: "frame", x, y, w, h, z: 0, data: { label: `Frame ${id}` } }) as FrameNode;
 
-describe("SBD v3 grammar", () => {
+describe("SBD grammar", () => {
   it("parses multi-line directives", async () => {
     const doc = [
       '<!--@meta sbd="3" -->',
@@ -38,19 +38,17 @@ describe("SBD v3 grammar", () => {
     expect(n.data.color).toBe("#FDE68A");
   });
 
-  it("v2 documents (no version stamp, @custom blob) still parse", async () => {
+  it("documents without a version stamp (and with unknown meta attrs) parse", async () => {
     const doc = [
       '<!--@meta canvas_w="2000" canvas_h="1500" grid="20" snap="false" -->',
       '<!--@sticky id="s1" x="10" y="20" w="200" h="150" z="1" color="#FEF3C7" -->',
-      "legacy sticky",
-      '<!--@custom {"id":"clock1","type":"analog-clock","x":5,"y":6,"w":100,"h":100,"z":3,"data":{"tz":"UTC"}} -->',
+      "plain sticky",
     ].join("\n");
     const { nodes, meta, warnings } = await parseSBD(doc);
     expect(warnings).toEqual([]);
     expect(meta.version).toBeUndefined();
-    expect(nodes.map((n) => n.type).sort()).toEqual(["analog-clock", "sticky"]);
-    const clock = nodes.find((n) => n.type === "analog-clock")!;
-    expect((clock.data as { tz: string }).tz).toBe("UTC");
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].type).toBe("sticky");
   });
 
   it("resolves parent-relative coordinates regardless of document order", async () => {
@@ -130,7 +128,7 @@ describe("SBD v3 grammar", () => {
   });
 });
 
-describe("SBD v3 escaping", () => {
+describe("SBD escaping", () => {
   it("round-trips sticky text containing directive-lookalike lines", async () => {
     const evil = 'first line\n<!--@sticky id="fake" -->\n  <!--@indented -->\n\\<!--@already-escaped -->';
     const s0 = await serializeToSBD([sticky("s1", 0, 0, evil)]);
@@ -152,7 +150,7 @@ describe("SBD v3 escaping", () => {
   });
 });
 
-describe("SBD v3 serialization", () => {
+describe("SBD serialization", () => {
   it("emits nodes in input order (diff stability) with an sbd=3 stamp", async () => {
     const ns: SpatialNode[] = [sticky("z-last", 0, 0, "one"), frame("a-frame", 10, 10), sticky("m-mid", 5, 5, "two")];
     const out = await serializeToSBD(ns);
@@ -180,7 +178,6 @@ describe("SBD v3 serialization", () => {
     const out = await serializeToSBD([custom]);
     expect(out).toContain('<!--@node type="analog-clock" id="clock1"');
     expect(out).toContain('  "timezone": "America/Chicago"');
-    expect(out).not.toContain("<!--@custom");
     const { nodes, warnings } = await parseSBD(out);
     expect(warnings).toEqual([]);
     expect(nodes[0].type).toBe("analog-clock");

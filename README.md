@@ -128,7 +128,7 @@ Battery check at 06:00.
 | [docs/data-flow.md](docs/data-flow.md) | Ports, `compute`, the reactive `DataFlowEngine`, cycles, edge overlays |
 | [docs/agents.md](docs/agents.md) | LLM/agent integration: state snapshots, programmatic drawing, SBD loops |
 | [docs/examples.md](docs/examples.md) | Guided path through `examples/`, simplest to most complex |
-| [sbd-spec.md](sbd-spec.md) | The normative SBD v3 format specification |
+| [sbd-spec.md](sbd-spec.md) | The normative SBD format specification |
 
 ## Examples
 

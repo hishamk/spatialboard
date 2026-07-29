@@ -17,7 +17,7 @@ Suggested reading order:
 
 Reference material:
 
-- **[../sbd-spec.md](../sbd-spec.md)** — the normative SBD v3 interchange
+- **[../sbd-spec.md](../sbd-spec.md)** — the normative SBD interchange
   format specification.
 - **[../FONTS.md](../FONTS.md)** — bundled + runtime font inventory and
   licenses.

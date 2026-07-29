@@ -13,11 +13,10 @@ import type { BoardBackground } from "../engine/SpatialEngine";
 import { simplifyStroke } from "./stroke-utils";
 
 /* ---------------------------------------------------------------------------
- * SBD v3 serializer.
+ * SBD serializer.
  *
- * Changes vs v2:
- *  - Nodes emit in INPUT (document) order instead of type-grouped + spatially
- *    sorted — moving a node changes two attribute values, not the file order,
+ * Properties:
+ *  - Nodes emit in INPUT (document) order — moving a node changes two attribute values, not the file order,
  *    so git diffs stay minimal. The parser resolves references in two passes,
  *    so order carries no semantics.
  *  - Frame children carry `parent="<frameId>"` with x/y RELATIVE to the frame
@@ -25,8 +24,7 @@ import { simplifyStroke } from "./stroke-utils";
  *    edits don't have to recompute child positions. Draw strokes are the
  *    exception (their geometry derives from absolute point data).
  *  - Custom node types emit as readable `<!--@node type="..." ...>` directives
- *    with pretty-printed JSON data bodies, replacing the v2 single-line
- *    `@custom` blob.
+ *    with pretty-printed JSON data bodies.
  *  - All string attribute values escape `"` and `-->`; body lines that would
  *    read as directives are backslash-escaped.
  *  - `@meta` carries `sbd="3"`.
@@ -74,7 +72,7 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
   // Meta
-  const metaAttrs = ['sbd="3"', 'canvas_w="2000"', 'canvas_h="1500"', 'grid="20"', 'snap="false"'];
+  const metaAttrs = ['sbd="3"'];
   if (options?.background && options.background !== "dot-grid") {
     metaAttrs.push(`background="${options.background}"`);
   }
