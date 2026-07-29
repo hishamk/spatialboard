@@ -43,6 +43,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=examples/dev-app",
+    "dev:simple": "npm run dev --workspace=examples/simple",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
     "prepack": "npm run build",

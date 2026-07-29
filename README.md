@@ -155,13 +155,21 @@ current docs before making decisions based on them.)
 
 ## Examples
 
-`examples/dev-app` is the development playground — every feature, plus five
-small custom data-flow nodes (`constant`, `interval`, `gate`, `logger`,
-`map-remap`) that make a good template for your own. From the package root:
+Two runnable apps, plus a guided path:
+
+- **`examples/simple`** — "Pocket Board": a ~150-line responsive, offline-first
+  PWA that persists the board to localStorage as SBD. The template for a
+  minimal integration.
+- **`examples/dev-app`** — the development playground: every feature, plus five
+  small custom data-flow nodes (`constant`, `interval`, `gate`, `logger`,
+  `map-remap`) that make a good template for your own.
+
+From the package root:
 
 ```bash
 npm install
-npm run dev
+npm run dev          # dev-app playground
+npm run dev:simple   # Pocket Board demo
 ```
 
 [docs/examples.md](docs/examples.md) walks the examples from a minimal

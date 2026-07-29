@@ -1,0 +1,19 @@
+{
+  "name": "Pocket Board — SpatialBoard demo",
+  "short_name": "Pocket Board",
+  "description": "An offline-first spatial whiteboard demo built with SpatialBoard. Everything you draw is saved on your device.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f7f4",
+  "theme_color": "#1e1e2e",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
