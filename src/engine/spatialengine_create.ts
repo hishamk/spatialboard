@@ -8,7 +8,7 @@ import type {
   ShapeNode,
   TextNode,
   StickyNoteNode,
-  ContentNode,
+  BlockNoteNode,
   FrameNode,
   ImageNode,
   DrawNode,
@@ -205,7 +205,7 @@ export function createContentBlock(
   const id = nanoid(10);
   engine.addNode({
     id,
-    type: "content",
+    type: "blocknote",
     x, y,
     w: options?.w ?? 300,
     h: options?.h ?? "auto",
@@ -219,7 +219,7 @@ export function createContentBlock(
       opacity: options?.opacity ?? undefined,
       edgeStyle: options?.edgeStyle ?? undefined,
     },
-  } as ContentNode);
+  } as BlockNoteNode);
   return id;
 }
 

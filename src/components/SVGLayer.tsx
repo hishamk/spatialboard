@@ -969,7 +969,7 @@ export default function SVGLayer({
   // Nodes that need selection boxes (everything except edges, content, and image
   // which render their own selection UI)
   const svgNodes = nodes.filter(
-    (n) => n.type !== "edge" && n.type !== "content" && n.type !== "image"
+    (n) => n.type !== "edge" && n.type !== "blocknote" && n.type !== "image"
   );
 
   // Edge nodes sorted by z + lookup map

@@ -267,7 +267,7 @@ export function nodeTypeHasPorts(
 
 /** Built-in SpatialBoard node `type` strings — anything else is embedder-defined (“custom”). */
 const SPATIALBOARD_BUILTIN_TYPE_IDS = new Set<string>([
-  "content",
+  "blocknote",
   "draw",
   "shape",
   "edge",

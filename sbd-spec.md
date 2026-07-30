@@ -38,7 +38,7 @@ Battery check at 06:00.
 | `@meta` | — (document header) | none |
 | `@defaults` | — (per-type attribute defaults) | none |
 | `@frame` | `frame` | none |
-| `@block` | `content` (rich text) | markdown |
+| `@block` | `blocknote` (rich text) | markdown |
 | `@text` | `text` | plain text |
 | `@sticky` | `sticky` | plain text |
 | `@draw` | `draw` (freehand) or `shape` (when `tool="shape"`) | one line of `x,y,pressure` points (freehand only) |

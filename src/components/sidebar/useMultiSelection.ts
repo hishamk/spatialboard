@@ -20,8 +20,8 @@ export interface MergedCommonProps {
   borderStyle?: "solid" | "dashed" | "dotted" | "mixed";
 }
 
-const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "content", "frame", "sticky"]);
-const BORDER_TYPES = new Set(["text", "image", "content", "frame"]);
+const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky"]);
+const BORDER_TYPES = new Set(["text", "image", "blocknote", "frame"]);
 
 function getOpacity(node: SpatialNode): number {
   const data = node.data as Record<string, unknown>;

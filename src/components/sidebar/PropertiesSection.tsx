@@ -12,7 +12,7 @@ import type {
   TextNode,
   EdgeNode,
   ImageNode,
-  ContentNode,
+  BlockNoteNode,
   FrameNode,
   StickyNoteNode,
 } from "../../engine/types";
@@ -44,8 +44,8 @@ const TYPE_LABELS: Record<string, string> = {
   sticky: "Sticky Note",
 };
 
-const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "content", "frame", "sticky"]);
-const BORDER_TYPES = new Set(["text", "image", "content", "frame"]);
+const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky"]);
+const BORDER_TYPES = new Set(["text", "image", "blocknote", "frame"]);
 
 function getFontsInScene(engine: SpatialEngine): string[] {
   const seen = new Set<string>();
@@ -125,8 +125,8 @@ function SingleNodeProperties({
       return <EdgeProperties engine={engine} node={node as EdgeNode} />;
     case "image":
       return <ImageProperties engine={engine} node={node as ImageNode} />;
-    case "content":
-      return <ContentProperties engine={engine} node={node as ContentNode} />;
+    case "blocknote":
+      return <ContentProperties engine={engine} node={node as BlockNoteNode} />;
     case "frame":
       return <FrameProperties engine={engine} node={node as FrameNode} />;
     case "sticky":

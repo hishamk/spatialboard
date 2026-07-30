@@ -1,4 +1,4 @@
-import type { ContentNode } from "../engine/types";
+import type { BlockNoteNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
 import ContentBlock from "../components/ContentBlock";
 import { schema } from "../schema";
@@ -10,10 +10,10 @@ import { setSbdMarkdownCodec } from "../serialization/markdown-codec";
 // @blocknote edge unless this node module is loaded.
 setSbdMarkdownCodec({ blocksToMarkdown, markdownToBlocks, htmlToBlocks });
 
-export type ContentNodeData = ContentNode["data"];
+export type BlockNoteNodeData = BlockNoteNode["data"];
 
-function ContentNodeRenderer(props: NodeRendererProps<ContentNodeData>) {
-  const node = props.node as ContentNode;
+function BlockNoteNodeRenderer(props: NodeRendererProps<BlockNoteNodeData>) {
+  const node = props.node as BlockNoteNode;
   return (
     <ContentBlock
       node={node}
@@ -28,12 +28,12 @@ function ContentNodeRenderer(props: NodeRendererProps<ContentNodeData>) {
   );
 }
 
-export const contentNodeType: NodeTypeDefinition<ContentNodeData> = {
-  type: "content",
-  component: ContentNodeRenderer,
+export const blocknoteNodeType: NodeTypeDefinition<BlockNoteNodeData> = {
+  type: "blocknote",
+  component: BlockNoteNodeRenderer,
   handlesOwnLayout: true,
   getClipboardText: (node) => {
-    const data = node.data as ContentNodeData;
+    const data = node.data as BlockNoteNodeData;
     return data.markdown || null;
   },
 };

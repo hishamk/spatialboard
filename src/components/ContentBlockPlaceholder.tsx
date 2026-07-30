@@ -1,5 +1,5 @@
 import { memo, useCallback } from "react";
-import type { ContentNode } from "../engine/types";
+import type { BlockNoteNode } from "../engine/types";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 
 /** Extract text from a single block (paragraph, heading, etc.) */
@@ -13,7 +13,7 @@ function blockToText(block: { content?: Array<{ type?: string; text?: string }> 
 
 /** First two lines of content (first two blocks), then count of remaining for skeleton */
 function getPreviewLines(
-  blocks: ContentNode["data"]["blocks"]
+  blocks: BlockNoteNode["data"]["blocks"]
 ): { lines: string[]; skeletonCount: number } {
   if (!blocks?.length)
     return { lines: [], skeletonCount: 2 };
@@ -26,7 +26,7 @@ function getPreviewLines(
 }
 
 interface ContentBlockPlaceholderProps {
-  node: ContentNode;
+  node: BlockNoteNode;
   isSelected: boolean;
   engine: SpatialEngine;
   interactive: boolean;

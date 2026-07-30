@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../engine/SpatialEngine";
-import type { ContentNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
+import type { BlockNoteNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
 import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
 import { isYouTubeUrl, extractYouTubeVideoId } from "../utils/youtube";
@@ -85,8 +85,8 @@ function nodesToPlainText(nodes: SpatialNode[]): string {
   const parts: string[] = [];
   for (const node of nodes) {
     switch (node.type) {
-      case "content": {
-        const d = node.data as ContentNode["data"];
+      case "blocknote": {
+        const d = node.data as BlockNoteNode["data"];
         if (d.blocks?.length) parts.push(extractBlockText(d.blocks));
         else if (d.markdown) parts.push(d.markdown);
         break;
@@ -349,9 +349,9 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
         const blocks = codec.htmlToBlocks(cleanHtml);
         if (blocks.length > 0) {
           consumePasteEvent(e);
-          const node: ContentNode = {
+          const node: BlockNoteNode = {
             id: nanoid(10),
-            type: "content",
+            type: "blocknote",
             x,
             y,
             w: 300,
@@ -372,9 +372,9 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     if (codec && text.trim()) {
       consumePasteEvent(e);
       const blocks = await codec.markdownToBlocks(text);
-      const node: ContentNode = {
+      const node: BlockNoteNode = {
         id: nanoid(10),
-        type: "content",
+        type: "blocknote",
         x,
         y,
         w: 300,

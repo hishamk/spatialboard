@@ -16,7 +16,7 @@ export type {
   ToolKey,
   BuiltinNodeType,
   NodeType,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,
@@ -45,7 +45,7 @@ export type {
 } from "./nodes/registry";
 
 // ── Built-in node types (individually for tree-shaking) ──────
-// NOTE: the rich-text `contentNodeType` is NOT exported here — it and its
+// NOTE: the rich-text `blocknoteNodeType` is NOT exported here — it and its
 // @blocknote/@mantine peers live behind the `spatialboard/blocknote` subpath.
 export { drawNodeType } from "./nodes/draw";
 export { shapeNodeType } from "./nodes/shape";

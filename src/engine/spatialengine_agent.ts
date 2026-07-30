@@ -9,7 +9,7 @@ import type {
   ShapeNode,
   EdgeNode,
   FrameNode,
-  ContentNode,
+  BlockNoteNode,
   AgentCanvasState,
   AgentStateOptions,
 } from "./types";
@@ -70,8 +70,8 @@ export function getAgentState(engine: SpatialEngine, options?: AgentStateOptions
         color = (data as EdgeNode["data"]).color;
       } else if (n.type === "frame" && data) {
         label = (data as FrameNode["data"]).label;
-      } else if (n.type === "content" && data) {
-        const md = (data as ContentNode["data"]).markdown;
+      } else if (n.type === "blocknote" && data) {
+        const md = (data as BlockNoteNode["data"]).markdown;
         if (md) text = md.length > 200 ? md.slice(0, 197) + "..." : md;
       }
       return {

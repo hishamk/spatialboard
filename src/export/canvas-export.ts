@@ -2,7 +2,7 @@ import excalifontUrl from "../assets/fonts/Excalifont-Regular.woff2";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type {
   SpatialNode,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,
@@ -164,8 +164,8 @@ async function buildElements(
       case "frame":
         elements.push(renderFrameNode(n as FrameNode, x, y, h));
         break;
-      case "content":
-        elements.push(renderContentNode(n as ContentNode, x, y, n.w, h));
+      case "blocknote":
+        elements.push(renderContentNode(n as BlockNoteNode, x, y, n.w, h));
         break;
       case "draw":
         elements.push(renderDrawNode(n as DrawNode, ox, oy));
@@ -249,7 +249,7 @@ function renderFrameNode(node: FrameNode, x: number, y: number, h: number): stri
 }
 
 function renderContentNode(
-  node: ContentNode,
+  node: BlockNoteNode,
   x: number,
   y: number,
   w: number,

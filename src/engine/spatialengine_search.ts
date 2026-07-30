@@ -158,7 +158,7 @@ function getNodeSearchCandidates(node: SpatialNode): Array<{ field: SpatialSearc
     case "frame":
       push("label", data.label);
       break;
-    case "content": {
+    case "blocknote": {
       const blockText = extractBlockText(data.blocks);
       push("content", blockText);
       push("content", data.markdown);

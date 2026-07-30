@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import { usePropertyHistorySession } from "./sidebar/PropertyHistoryCoalesceContext";
-import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, ContentNode, FrameNode, StickyNoteNode } from "../engine/types";
+import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, BlockNoteNode, FrameNode, StickyNoteNode } from "../engine/types";
 import type { NodeTypeRegistry } from "../nodes/registry";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../fonts";
 import FontPicker from "./FontPicker";
@@ -98,7 +98,7 @@ type PanelTarget =
   | { kind: "text"; node: TextNode }
   | { kind: "edge"; node: EdgeNode }
   | { kind: "image"; node: ImageNode }
-  | { kind: "content"; node: ContentNode }
+  | { kind: "blocknote"; node: BlockNoteNode }
   | { kind: "frame"; node: FrameNode }
   | { kind: "sticky"; node: StickyNoteNode }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,7 +197,7 @@ export default function PropertiesPanel({
       if (node?.type === "text") return { kind: "text", node: node as TextNode };
       if (node?.type === "edge") return { kind: "edge", node: node as EdgeNode };
       if (node?.type === "image") return { kind: "image", node: node as ImageNode };
-      if (node?.type === "content") return { kind: "content", node: node as ContentNode };
+      if (node?.type === "blocknote") return { kind: "blocknote", node: node as BlockNoteNode };
       if (node?.type === "frame") return { kind: "frame", node: node as FrameNode };
       if (node?.type === "sticky") return { kind: "sticky", node: node as StickyNoteNode };
       // Check registry for custom node types with a properties panel
@@ -289,14 +289,14 @@ export default function PropertiesPanel({
   );
 
   const updateContent = useCallback(
-    (patch: Partial<ContentNode["data"]>) => {
-      if (!target || target.kind !== "content") return;
+    (patch: Partial<BlockNoteNode["data"]>) => {
+      if (!target || target.kind !== "blocknote") return;
       const k = getCoalesceKey();
       engine.updateNodeWithHistoryCoalesced(
         target.node.id,
         {
           data: { ...target.node.data, ...patch },
-        } as Partial<ContentNode>,
+        } as Partial<BlockNoteNode>,
         k,
       );
     },
@@ -357,7 +357,7 @@ export default function PropertiesPanel({
   const isText = target.kind === "text";
   const isEdge = target.kind === "edge";
   const isImage = target.kind === "image";
-  const isContent = target.kind === "content";
+  const isContent = target.kind === "blocknote";
   const isFrame = target.kind === "frame";
   const isSticky = target.kind === "sticky";
   const isTool = target.kind === "tool";

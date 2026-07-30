@@ -2,7 +2,7 @@ import { Component, type ErrorInfo, memo, type ReactNode, useCallback, useEffect
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-import type { ContentNode } from "../engine/types";
+import type { BlockNoteNode } from "../engine/types";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type { SBDSchema } from "../schema";
 import { getRotatedCursor } from "../interactions/resize-cursors";
@@ -60,7 +60,7 @@ function MarkdownFallback({ markdown }: { markdown: string }) {
 }
 
 interface ContentBlockProps {
-  node: ContentNode;
+  node: BlockNoteNode;
   isSelected: boolean;
   multiSelected: boolean;
   engine: SpatialEngine;
@@ -232,7 +232,7 @@ function ContentBlock({
     const blocks = editor.document;
     lastSyncedBlocksJsonRef.current = JSON.stringify(blocks);
     engine.updateNode(node.id, {
-      data: { ...(current as ContentNode)?.data, blocks },
+      data: { ...(current as BlockNoteNode)?.data, blocks },
     });
   }, [editor, engine, node.id]);
 
@@ -246,7 +246,7 @@ function ContentBlock({
     const scheduleSync = () => {
       if (isAdjustingRef.current || isDraggingRef.current || isApplyingRemoteRef.current) return;
       const newCount = editor.document.length;
-      const current = engine.getNode(node.id) as ContentNode | undefined;
+      const current = engine.getNode(node.id) as BlockNoteNode | undefined;
       const prevCount = current?.data?.blocks?.length ?? 0;
       // Block count decreased: likely mid-drag reorder—don't persist, wait for final state
       if (newCount < prevCount) return;
@@ -337,7 +337,7 @@ function ContentBlock({
    * so the editable area fills the block height.
    */
   const adjustTrailingParagraphs = useCallback(() => {
-    const currentNode = engine.getNode(node.id) as ContentNode | undefined;
+    const currentNode = engine.getNode(node.id) as BlockNoteNode | undefined;
     if (!currentNode || currentNode.h === "auto" || !editor || !blockRef.current)
       return;
 
@@ -386,7 +386,7 @@ function ContentBlock({
     }
 
     // Sync final state to engine
-    const latest = engine.getNode(node.id) as ContentNode | undefined;
+    const latest = engine.getNode(node.id) as BlockNoteNode | undefined;
     if (latest) {
       engine.updateNode(node.id, {
         data: { ...latest.data, blocks: editor.document },

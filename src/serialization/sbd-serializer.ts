@@ -1,6 +1,6 @@
 import type {
   SpatialNode,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,
@@ -114,7 +114,7 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
     return a;
   };
 
-  const KNOWN = new Set(["frame", "content", "draw", "shape", "image", "text", "edge", "sticky"]);
+  const KNOWN = new Set(["frame", "blocknote", "draw", "shape", "image", "text", "edge", "sticky"]);
 
   for (const node of nodes) {
     switch (KNOWN.has(node.type) ? node.type : "@node") {
@@ -135,8 +135,8 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
         break;
       }
 
-      case "content": {
-        const n = node as ContentNode;
+      case "blocknote": {
+        const n = node as BlockNoteNode;
         const a = baseAttrs(n);
         a.pushIf(n.data.borderColor, "borderColor", () => n.data.borderColor!);
         a.pushIf(n.data.borderWidth != null, "borderWidth", () => n.data.borderWidth!);

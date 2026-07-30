@@ -26,7 +26,7 @@ export type {
   ToolKey,
   BuiltinNodeType,
   NodeType,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,

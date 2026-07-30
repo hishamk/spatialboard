@@ -9,7 +9,7 @@ import type {
   Viewport,
   SpatialNode,
   Mode,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,
@@ -226,9 +226,9 @@ async function pasteFromSystemClipboard(
       try {
         const blocks = codec.htmlToBlocks(cleanHtml);
         if (blocks.length > 0) {
-          const node: ContentNode = {
+          const node: BlockNoteNode = {
             id: nanoid(10),
-            type: "content",
+            type: "blocknote",
             x: cx,
             y: cy,
             w: 300,
@@ -248,9 +248,9 @@ async function pasteFromSystemClipboard(
     // Plain text fallback → content block
     if (codec && text?.trim()) {
       const blocks = await codec.markdownToBlocks(text);
-      const node: ContentNode = {
+      const node: BlockNoteNode = {
         id: nanoid(10),
-        type: "content",
+        type: "blocknote",
         x: cx,
         y: cy,
         w: 300,
@@ -283,8 +283,8 @@ async function copyToSystemClipboard(
   // Build a plain-text fallback from node contents
   const parts: string[] = [];
   for (const node of nodes) {
-    if (node.type === "content") {
-      const d = node.data as ContentNode["data"];
+    if (node.type === "blocknote") {
+      const d = node.data as BlockNoteNode["data"];
       if (d.markdown) parts.push(d.markdown);
     } else if (node.type === "text") {
       const d = node.data as TextNode["data"];
@@ -1684,7 +1684,7 @@ export default function SpatialCanvas({
           return def && !def.isSVGOnly;
         }
         return (
-          n.type === "content" ||
+          n.type === "blocknote" ||
           n.type === "draw" ||
           n.type === "shape" ||
           n.type === "image" ||
@@ -1846,7 +1846,7 @@ export default function SpatialCanvas({
         return !!def && !def.isSVGOnly;
       }
       return (
-        n.type === "content" ||
+        n.type === "blocknote" ||
         n.type === "draw" ||
         n.type === "shape" ||
         n.type === "image" ||
@@ -2242,7 +2242,7 @@ export default function SpatialCanvas({
           return !!def && !def.isSVGOnly;
         }
         return (
-          n.type === "content" ||
+          n.type === "blocknote" ||
           n.type === "draw" ||
           n.type === "shape" ||
           n.type === "image" ||
@@ -2405,7 +2405,7 @@ export default function SpatialCanvas({
       newlyCreatedContentIdRef.current = id;
       engine.addNode({
         id,
-        type: "content",
+        type: "blocknote",
         x,
         y,
         w,

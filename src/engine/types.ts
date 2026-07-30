@@ -1,5 +1,5 @@
 /** Built-in node types. Custom types use arbitrary strings. */
-export type BuiltinNodeType = "content" | "draw" | "shape" | "edge" | "image" | "text" | "frame" | "sticky" | "youtube";
+export type BuiltinNodeType = "blocknote" | "draw" | "shape" | "edge" | "image" | "text" | "frame" | "sticky" | "youtube";
 
 /** @deprecated Use `BuiltinNodeType` for built-in types or `string` for extensible usage. */
 export type NodeType = BuiltinNodeType;
@@ -36,8 +36,8 @@ export interface SpatialNode {
   data?: unknown;
 }
 
-export interface ContentNode extends SpatialNode {
-  type: "content";
+export interface BlockNoteNode extends SpatialNode {
+  type: "blocknote";
   data: {
     // BlockNote's native block array — source of truth while editing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +220,7 @@ export interface YouTubeNode extends SpatialNode {
 }
 
 export type AnySpatialNode =
-  | ContentNode
+  | BlockNoteNode
   | DrawNode
   | ShapeNode
   | EdgeNode

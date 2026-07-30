@@ -6,14 +6,14 @@
 // the BlockNote/Mantine peers — and, as a side effect of loading the content node
 // module, registers the markdown codec that SBD serialize/parse and clipboard
 // paste use (see `serialization/markdown-codec.ts`). Hosts that want rich text
-// spread `defaultBoardNodes` (or `contentNodeType`) into their `nodeTypes`.
+// spread `defaultBoardNodes` (or `blocknoteNodeType`) into their `nodeTypes`.
 
 import type { NodeTypeDefinition } from "./nodes/registry";
 import { coreBoardNodes } from "./nodes";
-import { contentNodeType } from "./nodes/content";
+import { blocknoteNodeType } from "./nodes/blocknote";
 
-export { contentNodeType } from "./nodes/content";
-export type { ContentNodeData } from "./nodes/content";
+export { blocknoteNodeType } from "./nodes/blocknote";
+export type { BlockNoteNodeData } from "./nodes/blocknote";
 export {
   blocksToMarkdown,
   markdownToBlocks,
@@ -27,5 +27,5 @@ export {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const defaultBoardNodes: NodeTypeDefinition<any>[] = [
   ...coreBoardNodes,
-  contentNodeType,
+  blocknoteNodeType,
 ];

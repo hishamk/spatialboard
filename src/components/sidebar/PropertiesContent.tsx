@@ -12,7 +12,7 @@ import type {
   TextNode,
   EdgeNode,
   ImageNode,
-  ContentNode,
+  BlockNoteNode,
   FrameNode,
   StickyNoteNode,
   YouTubeNode,
@@ -38,8 +38,8 @@ import CustomNodeProperties from "./sections/CustomNodeProperties";
 import { PAPER_TYPES } from "../paper-types";
 import { useSBI18n } from "../LocalizationContext";
 
-const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "content", "frame", "sticky", "youtube"]);
-const BORDER_TYPES = new Set(["text", "image", "content", "frame", "youtube"]);
+const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky", "youtube"]);
+const BORDER_TYPES = new Set(["text", "image", "blocknote", "frame", "youtube"]);
 
 function buildTypeLabels(labels: ReturnType<typeof useSBI18n>["labels"]): Record<string, string> {
   return {
@@ -267,8 +267,8 @@ function SingleNodeProperties({
       return <EdgeProperties engine={engine} node={node as EdgeNode} />;
     case "image":
       return <ImageProperties engine={engine} node={node as ImageNode} />;
-    case "content":
-      return <ContentProperties engine={engine} node={node as ContentNode} />;
+    case "blocknote":
+      return <ContentProperties engine={engine} node={node as BlockNoteNode} />;
     case "frame":
       return <FrameProperties engine={engine} node={node as FrameNode} />;
     case "sticky":

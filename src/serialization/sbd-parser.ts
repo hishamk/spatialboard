@@ -3,7 +3,7 @@ import { getSbdMarkdownCodec } from "./markdown-codec";
 import { DEFAULT_FONT } from "../font-constants";
 import type {
   SpatialNode,
-  ContentNode,
+  BlockNoteNode,
   DrawNode,
   ShapeNode,
   EdgeNode,
@@ -263,7 +263,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         }
         nodes.push({
           ...base,
-          type: "content",
+          type: "blocknote",
           h: hField(attrs.h),
           data: {
             blocks,
@@ -273,7 +273,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
           },
-        } as ContentNode);
+        } as BlockNoteNode);
         recordParent(attrs, base.id);
         break;
       }

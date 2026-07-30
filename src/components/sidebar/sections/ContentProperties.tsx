@@ -1,5 +1,5 @@
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
-import type { ContentNode } from "../../../engine/types";
+import type { BlockNoteNode } from "../../../engine/types";
 import { useBatchUpdate } from "../MultiNodeContext";
 import BorderControls from "../controls/BorderControls";
 import EdgeStyleIcon from "../controls/EdgeStyleIcon";
@@ -9,12 +9,12 @@ import { rowStyle, labelStyle, btnBase } from "../styles";
 
 interface ContentPropertiesProps {
   engine: SpatialEngine;
-  node: ContentNode;
+  node: BlockNoteNode;
 }
 
 export default function ContentProperties({ engine, node }: ContentPropertiesProps) {
   const theme = useSBTheme();
-  const update = useBatchUpdate<ContentNode["data"]>(engine, node);
+  const update = useBatchUpdate<BlockNoteNode["data"]>(engine, node);
 
   const { data } = node;
 
@@ -24,7 +24,7 @@ export default function ContentProperties({ engine, node }: ContentPropertiesPro
         borderColor={data.borderColor ?? null}
         borderStyle={data.borderStyle}
         borderWidth={data.borderWidth}
-        onChange={(prop, value) => update({ [prop]: value } as Partial<ContentNode["data"]>)}
+        onChange={(prop, value) => update({ [prop]: value } as Partial<BlockNoteNode["data"]>)}
       />
       {/* Edge style */}
       <div style={rowStyle}>

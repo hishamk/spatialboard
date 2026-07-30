@@ -33,7 +33,7 @@ import { youtubeNodeType } from "./youtube";
  * The default board node types — NO heavy peer dependencies (no BlockNote /
  * Mantine). This is the slim set `SpatialBoard` ships by default. The rich-text
  * content node is opt-in via the `spatialboard/blocknote` subpath, whose
- * `defaultBoardNodes` is `[...coreBoardNodes, contentNodeType]`.
+ * `defaultBoardNodes` is `[...coreBoardNodes, blocknoteNodeType]`.
  *
  * IMPORTANT: this barrel must not import `./content` (it pulls @blocknote) —
  * that edge lives only behind the `blocknote` subpath.
