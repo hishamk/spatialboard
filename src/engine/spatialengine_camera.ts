@@ -98,7 +98,16 @@ function _boundsViewport(
   engine: SpatialEngine,
   minX: number, minY: number, maxX: number, maxY: number, padding: number,
 ): { x: number; y: number; zoom: number } | null {
-  if (!Number.isFinite(minX)) return null;
+  // Reject non-finite or degenerate boxes — a single node with a non-finite
+  // dimension (e.g. w="1e400" in a hostile board) would otherwise poison the
+  // viewport with NaN/Infinity and break every subsequent transform.
+  if (
+    !Number.isFinite(minX) || !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) || !Number.isFinite(maxY) ||
+    maxX < minX || maxY < minY
+  ) {
+    return null;
+  }
   minX -= padding; minY -= padding; maxX += padding; maxY += padding;
   const contentW = maxX - minX;
   const contentH = maxY - minY;
@@ -202,7 +211,13 @@ export function centerOnRectAnimated(
   minX: number, minY: number, maxX: number, maxY: number,
   opts?: { zoom?: number; durationMs?: number; padding?: number; offsetX?: number; offsetY?: number },
 ): void {
-  if (!Number.isFinite(minX) || maxX <= minX || maxY <= minY) return;
+  if (
+    !Number.isFinite(minX) || !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) || !Number.isFinite(maxY) ||
+    maxX <= minX || maxY <= minY
+  ) {
+    return;
+  }
   const screenW = engine._containerWidth;
   const screenH = engine._containerHeight;
   const pad = opts?.padding ?? 60;

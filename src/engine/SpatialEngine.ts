@@ -2365,10 +2365,30 @@ export class SpatialEngine {
     return result;
   }
 
+  /** Build a groupParent map from untrusted entries, dropping any edge that
+   *  would introduce a cycle. The group-walk loops (selection expansion, etc.)
+   *  follow parent links unbounded, so a cyclic chain from a crafted board JSON
+   *  would hang the tab; sanitizing at ingress protects every walk at once. */
+  private static sanitizeGroupParent(entries: [string, string][]): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const [child, parent] of entries) {
+      if (child === parent) continue;
+      let cur: string | undefined = parent;
+      let steps = 0;
+      let cyclic = false;
+      while (cur !== undefined && steps++ <= entries.length) {
+        if (cur === child) { cyclic = true; break; }
+        cur = map.get(cur);
+      }
+      if (!cyclic) map.set(child, parent);
+    }
+    return map;
+  }
+
   fromJSON(json: { nodes: [string, SpatialNode][]; viewport?: Viewport; groupParent?: [string, string][] }): void {
     this.history.clear();
     this.nodes = new Map(json.nodes);
-    this.groupParent = new Map(json.groupParent ?? []);
+    this.groupParent = SpatialEngine.sanitizeGroupParent(json.groupParent ?? []);
     this.rebuildGroupChildren();
     this.rebuildQuadTree();
     this.rebuildFrameChildren();

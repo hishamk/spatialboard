@@ -28,8 +28,11 @@ export class DataFlowEngine {
   /** Whether a microtask flush is already scheduled. */
   private scheduled = false;
 
-  /** Generation counter for canceling stale async results. */
-  private generation = 0;
+  /** Per-node generation counters for canceling stale async results. A single
+   *  global counter would discard an earlier async node's outputs whenever a
+   *  later node also computed async in the same flush — the guard must be
+   *  scoped to the node it protects. */
+  private generations = new Map<string, number>();
 
   /** Change subscribers. */
   private listeners = new Set<() => void>();
@@ -421,9 +424,10 @@ export class DataFlowEngine {
 
     // Handle async compute
     if (result instanceof Promise) {
-      const gen = ++this.generation;
+      const gen = (this.generations.get(nodeId) ?? 0) + 1;
+      this.generations.set(nodeId, gen);
       result.then((outputs) => {
-        if (gen !== this.generation) return; // stale
+        if (gen !== this.generations.get(nodeId)) return; // stale — this node re-ran
         const t1 = typeof performance !== "undefined" ? performance.now() : 0;
         this.lastComputeMs.set(nodeId, t1 - t0);
         const didChange = this.applyOutputs(nodeId, ports, outputs);

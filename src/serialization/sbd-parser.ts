@@ -60,6 +60,29 @@ function optNumber(raw: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** parseFloat that clamps to a finite fallback — hostile SBD must never inject
+ *  Infinity/NaN geometry (a single non-finite w/h poisons the whole viewport). */
+function finiteNum(raw: string | undefined, fallback: number): number {
+  if (raw == null || raw === "") return fallback;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** Height field: "auto", a finite non-negative number, or "auto" as the safe default. */
+function hField(raw: string | undefined): number | "auto" {
+  if (raw === "auto" || !raw) return "auto";
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? Math.max(0, n) : "auto";
+}
+
+/** JSON.parse for untrusted @node bodies — drops prototype-pollution keys so a
+ *  crafted `{"__proto__": …}` can't reach a consumer's unsafe deep-merge. */
+function safeJsonParse(text: string): unknown {
+  return JSON.parse(text, (key, value) =>
+    key === "__proto__" || key === "constructor" ? undefined : value,
+  );
+}
+
 /** Backward-compat aliases for old background values. */
 const BG_ALIASES: Record<string, BoardBackground> = {
   "default": "dot-grid",
@@ -142,11 +165,11 @@ function tokenize(sbd: string): RawDirective[] {
 function baseFields(attrs: Record<string, string>, fallbackW: number, fallbackZ: number) {
   return {
     id: attrs.id || nanoid(10),
-    x: parseFloat(attrs.x || "0"),
-    y: parseFloat(attrs.y || "0"),
-    w: parseFloat(attrs.w || String(fallbackW)),
-    z: parseInt(attrs.z || String(fallbackZ)),
-    rotation: attrs.rotation ? parseFloat(attrs.rotation) : undefined,
+    x: finiteNum(attrs.x, 0),
+    y: finiteNum(attrs.y, 0),
+    w: Math.max(0, finiteNum(attrs.w, fallbackW)),
+    z: finiteNum(attrs.z, fallbackZ),
+    rotation: optNumber(attrs.rotation),
     locked: attrs.locked === "true" || undefined,
     groupId: attrs.group || undefined,
   };
@@ -210,7 +233,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         nodes.push({
           ...base,
           type: "frame",
-          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+          h: hField(attrs.h),
           data: {
             label: attrs.label || undefined,
             backgroundColor: attrs.backgroundColor || undefined,
@@ -238,7 +261,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         nodes.push({
           ...base,
           type: "content",
-          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+          h: hField(attrs.h),
           data: {
             blocks,
             markdown,
@@ -258,7 +281,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
           nodes.push({
             ...base,
             type: "shape",
-            h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+            h: hField(attrs.h),
             data: {
               shape: (attrs.shape || "rect") as ShapeNode["data"]["shape"],
               stroke: attrs.color || "#1e1e2e",
@@ -292,6 +315,15 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
                   return [parts[0] || 0, parts[1] || 0, parts[2] || 0.5] as [number, number, number];
                 })
             : [];
+
+          // Cap hostile strokes: a single line with tens of thousands of points
+          // freezes the RDP simplifier on the next serialize. Truncate + warn
+          // rather than drop (SBD's "warnings, not drops" contract).
+          const MAX_STROKE_POINTS = 20000;
+          if (points.length > MAX_STROKE_POINTS) {
+            warnings.push(`line ${d.line}: draw stroke has ${points.length} points — truncated to ${MAX_STROKE_POINTS}`);
+            points.length = MAX_STROKE_POINTS;
+          }
 
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
           for (const [px, py] of points) {
@@ -338,7 +370,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         nodes.push({
           ...base,
           type: "image",
-          h: parseFloat(attrs.h || "150"),
+          h: Math.max(0, finiteNum(attrs.h, 150)),
           data: {
             src: attrs.src || "",
             alt: attrs.alt,
@@ -416,7 +448,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         nodes.push({
           ...base,
           type: "sticky",
-          h: parseFloat(attrs.h || "150"),
+          h: Math.max(0, finiteNum(attrs.h, 150)),
           data: {
             text: d.body.join("\n"),
             color: attrs.color || "#FEF3C7",
@@ -439,7 +471,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         const bodyText = d.body.join("\n").trim();
         if (bodyText) {
           try {
-            data = JSON.parse(bodyText) as Record<string, unknown>;
+            data = (safeJsonParse(bodyText) ?? {}) as Record<string, unknown>;
           } catch (e) {
             warnings.push(`line ${d.line}: @node ${base.id} has invalid JSON data (${(e as Error).message}) — data dropped`);
           }
@@ -447,7 +479,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
         nodes.push({
           ...base,
           type: attrs.type,
-          h: attrs.h === "auto" || !attrs.h ? "auto" : parseFloat(attrs.h),
+          h: hField(attrs.h),
           data,
         } as SpatialNode);
         recordParent(attrs, base.id);

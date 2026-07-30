@@ -341,6 +341,15 @@ function nodeBBoxAtLayout(
   };
 }
 
+/**
+ * Above this per-component member count the O(n²) refinement passes below are
+ * skipped: they run tens of iterations of an all-pairs loop and would freeze
+ * the main thread for seconds on a large pasted/imported graph. The base
+ * grid/layered layout already produces a valid, non-overlapping arrangement;
+ * only the cosmetic overlap polish is dropped.
+ */
+const MAX_REFINE_MEMBERS = 200;
+
 /** Push nodes whose centers sit on top of each other (common in pasted graphs). */
 function unwrapCoincidentNodes(
   positions: Map<string, { x: number; y: number }>,
@@ -348,6 +357,7 @@ function unwrapCoincidentNodes(
   measured: Record<string, number> | undefined,
   zoom: number,
 ): void {
+  if (members.length > MAX_REFINE_MEMBERS) return;
   const minCenter = 14 + 10 / Math.max(0.35, zoom);
   for (let round = 0; round < 40; round++) {
     for (let i = 0; i < members.length; i++) {
@@ -572,7 +582,7 @@ function refineLayoutOverlap(
   measured: Record<string, number> | undefined,
   zoom: number,
 ): void {
-  if (members.length < 2) return;
+  if (members.length < 2 || members.length > MAX_REFINE_MEMBERS) return;
 
   const byId = new Map(members.map((m) => [m.id, m]));
   const memberIds = new Set(members.map((m) => m.id));

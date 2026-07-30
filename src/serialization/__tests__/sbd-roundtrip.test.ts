@@ -51,6 +51,35 @@ describe("SBD grammar", () => {
     expect(nodes[0].type).toBe("sticky");
   });
 
+  it("degrades hostile input to warnings, never crashes (robustness contract)", async () => {
+    // Non-finite geometry must be clamped, not poison the viewport.
+    const inf = await parseSBD('<!--@sticky id="s1" x="1e400" y="0" w="Infinity" h="NaN" color="#FEF3C7" -->\nx');
+    expect(inf.nodes).toHaveLength(1);
+    expect(Number.isFinite(inf.nodes[0].x)).toBe(true);
+    expect(Number.isFinite(inf.nodes[0].w)).toBe(true);
+    expect(inf.nodes[0].w).toBeGreaterThanOrEqual(0);
+    expect(inf.nodes[0].h === "auto" || Number.isFinite(inf.nodes[0].h)).toBe(true);
+
+    // An oversized stroke is truncated with a warning, not dropped.
+    const pts = Array.from({ length: 60000 }, (_, i) => `${i},${i},0.5`).join(" ");
+    const big = await parseSBD(`<!--@draw id="d1" tool="pen" color="#000" width="2" -->\n${pts}`);
+    const draw = big.nodes.find((n) => n.type === "draw")!;
+    expect((draw.data as { points: unknown[] }).points.length).toBeLessThanOrEqual(20000);
+    expect(big.warnings.some((w) => /truncated/.test(w))).toBe(true);
+  });
+
+  it("strips prototype-pollution keys from @node JSON bodies", async () => {
+    const doc = [
+      '<!--@node type="widget" id="n1" x="0" y="0" w="100" h="100" z="1" -->',
+      '{ "__proto__": { "polluted": true }, "constructor": { "bad": 1 }, "keep": 42 }',
+    ].join("\n");
+    const { nodes } = await parseSBD(doc);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined(); // Object.prototype clean
+    const data = nodes[0].data as Record<string, unknown>;
+    expect(data.keep).toBe(42);
+    expect(Object.prototype.hasOwnProperty.call(data, "__proto__")).toBe(false);
+  });
+
   it("resolves parent-relative coordinates regardless of document order", async () => {
     const doc = [
       '<!--@meta sbd="3" -->',
