@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type { ContentNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
-import { htmlToBlocks, markdownToBlocks } from "../serialization/blocknote-markdown";
+import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
 import { isYouTubeUrl, extractYouTubeVideoId } from "../utils/youtube";
 
@@ -338,13 +338,15 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
 
     // 4) Rich HTML from external apps (rendered markdown, web pages, etc.)
     //    Strip Chrome's clipboard wrapper to get the actual content.
+    //    Rich-text paste needs the BlockNote codec (registered by the node module).
+    const codec = getSbdMarkdownCodec();
     const cleanHtml = html
       .replace(/^<meta[^>]*>/i, "")
       .replace(/<!--StartFragment-->|<!--EndFragment-->/g, "")
       .trim();
-    if (cleanHtml) {
+    if (codec && cleanHtml) {
       try {
-        const blocks = htmlToBlocks(cleanHtml);
+        const blocks = codec.htmlToBlocks(cleanHtml);
         if (blocks.length > 0) {
           consumePasteEvent(e);
           const node: ContentNode = {
@@ -367,9 +369,9 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     }
 
     // 5) Plain text fallback
-    if (text.trim()) {
+    if (codec && text.trim()) {
       consumePasteEvent(e);
-      const blocks = await markdownToBlocks(text);
+      const blocks = await codec.markdownToBlocks(text);
       const node: ContentNode = {
         id: nanoid(10),
         type: "content",

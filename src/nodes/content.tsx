@@ -2,6 +2,13 @@ import type { ContentNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
 import ContentBlock from "../components/ContentBlock";
 import { schema } from "../schema";
+import { blocksToMarkdown, markdownToBlocks, htmlToBlocks } from "../serialization/blocknote-markdown";
+import { setSbdMarkdownCodec } from "../serialization/markdown-codec";
+
+// Opting into this rich-text node also registers the markdown codec that core
+// SBD serialize/parse and clipboard paste use — so those paths carry no
+// @blocknote edge unless this node module is loaded.
+setSbdMarkdownCodec({ blocksToMarkdown, markdownToBlocks, htmlToBlocks });
 
 export type ContentNodeData = ContentNode["data"];
 

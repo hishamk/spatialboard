@@ -50,7 +50,7 @@ import SVGLayer from "./SVGLayer";
 import ContextMenu from "./ContextMenu";
 import type { ContextMenuSection } from "./ContextMenu";
 import { SB_ALIGN_MENU_ICONS } from "./context-menu-align-icons";
-import { htmlToBlocks, markdownToBlocks } from "../serialization/blocknote-markdown";
+import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
 import { getRotatedCursor } from "../interactions/resize-cursors";
 import { applyCornerAspectLock } from "../interactions/resize-aspect";
 import { encodeClipboardNodes, extractEmbeddedNodes } from "../interactions/keyboard-handler";
@@ -214,15 +214,18 @@ async function pasteFromSystemClipboard(
     }
 
     const text = await navigator.clipboard.readText();
+    // Rich-text paste only applies when the BlockNote node is registered
+    // (its module registers this codec); otherwise fall through.
+    const codec = getSbdMarkdownCodec();
 
     // Rich HTML from external app (rendered markdown, web page, etc.)
-    if (externalHtml) {
+    if (codec && externalHtml) {
       const cleanHtml = externalHtml
         .replace(/^<meta[^>]*>/i, "")
         .replace(/<!--StartFragment-->|<!--EndFragment-->/g, "")
         .trim();
       try {
-        const blocks = htmlToBlocks(cleanHtml);
+        const blocks = codec.htmlToBlocks(cleanHtml);
         if (blocks.length > 0) {
           const node: ContentNode = {
             id: nanoid(10),
@@ -244,8 +247,8 @@ async function pasteFromSystemClipboard(
     }
 
     // Plain text fallback → content block
-    if (text?.trim()) {
-      const blocks = await markdownToBlocks(text);
+    if (codec && text?.trim()) {
+      const blocks = await codec.markdownToBlocks(text);
       const node: ContentNode = {
         id: nanoid(10),
         type: "content",

@@ -29,8 +29,3 @@ export function htmlToBlocks(html: string): any[] {
   const editor = getSerializerEditor();
   return editor.tryParseHTMLToBlocks(html);
 }
-
-// Register this codec so core SBD can round-trip rich-text content nodes
-// without a static @blocknote edge (see markdown-codec.ts).
-import { setSbdMarkdownCodec } from "./markdown-codec";
-setSbdMarkdownCodec({ blocksToMarkdown, markdownToBlocks });

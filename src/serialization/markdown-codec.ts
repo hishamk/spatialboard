@@ -9,6 +9,8 @@
 export interface SbdMarkdownCodec {
   blocksToMarkdown(blocks: unknown[]): Promise<string> | string;
   markdownToBlocks(markdown: string): Promise<unknown[]> | unknown[];
+  /** Convert pasted HTML → BlockNote blocks (paste-into-rich-text). */
+  htmlToBlocks(html: string): unknown[];
 }
 
 let codec: SbdMarkdownCodec | null = null;
