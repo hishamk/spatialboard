@@ -11,6 +11,7 @@ import type {
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
 import { simplifyStroke } from "./stroke-utils";
+import { getSbdMarkdownCodec } from "./markdown-codec";
 
 /* ---------------------------------------------------------------------------
  * SBD serializer.
@@ -142,10 +143,12 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
         a.pushIf(n.data.borderStyle && n.data.borderStyle !== "solid", "borderStyle", () => n.data.borderStyle!);
         a.pushIf(n.data.opacity !== undefined && n.data.opacity !== 1, "opacity", () => n.data.opacity!);
         lines.push(`<!--@block ${a} -->`);
-        let markdown = "";
-        if (n.data.blocks.length > 0) {
-          const { blocksToMarkdown } = await import("./blocknote-markdown");
-          markdown = await blocksToMarkdown(n.data.blocks);
+        // Prefer the registered rich-text codec; without it (BlockNote not
+        // loaded) fall back to the node's last stored markdown — no @blocknote edge.
+        let markdown = n.data.markdown ?? "";
+        const mdCodec = getSbdMarkdownCodec();
+        if (mdCodec && n.data.blocks.length > 0) {
+          markdown = await mdCodec.blocksToMarkdown(n.data.blocks);
         }
         lines.push(escapeBody(markdown));
         lines.push("");

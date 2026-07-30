@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { getSbdMarkdownCodec } from "./markdown-codec";
 import { DEFAULT_FONT } from "../fonts";
 import type {
   SpatialNode,
@@ -253,10 +254,12 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
       case "block": {
         const base = baseFields(attrs, 300, 1);
         const markdown = d.body.join("\n");
+        // Convert via the registered rich-text codec; without it (BlockNote not
+        // loaded) keep empty blocks + the raw markdown — no @blocknote edge.
         let blocks: unknown[] = [];
-        if (markdown.trim().length > 0) {
-          const { markdownToBlocks } = await import("./blocknote-markdown");
-          blocks = await markdownToBlocks(markdown);
+        const mdCodec = getSbdMarkdownCodec();
+        if (mdCodec && markdown.trim().length > 0) {
+          blocks = await mdCodec.markdownToBlocks(markdown);
         }
         nodes.push({
           ...base,
