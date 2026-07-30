@@ -8,6 +8,7 @@ import {
   strokeStyleToDash,
   type RoughShapeOptions,
 } from "../rendering/rough-shapes";
+import { safeColor } from "../rendering/svg-safe";
 
 /**
  * Render an array of SpatialNodes as a compact SVG string
@@ -108,7 +109,7 @@ function renderShapePreview(node: ShapeNode): string {
   const g = opacity < 1 ? `<g opacity="${opacity}">` : "<g>";
   const parts = paths.map(
     (p) =>
-      `<path d="${esc(p.d)}" fill="${p.fill || "none"}" stroke="${p.stroke}" stroke-width="${p.strokeWidth}"${p.strokeDasharray ? ` stroke-dasharray="${p.strokeDasharray}"` : ""} stroke-linecap="round" stroke-linejoin="round"/>`,
+      `<path d="${esc(p.d)}" fill="${safeColor(p.fill)}" stroke="${safeColor(p.stroke)}" stroke-width="${p.strokeWidth}"${p.strokeDasharray ? ` stroke-dasharray="${p.strokeDasharray}"` : ""} stroke-linecap="round" stroke-linejoin="round"/>`,
   );
   return `${g}${parts.join("")}</g>`;
 }
@@ -123,7 +124,7 @@ function renderDrawPreview(node: DrawNode): string {
 
   const opacity = d.opacity ?? 1;
   const fill = d.tool === "vector" && d.fill ? d.fill : "none";
-  return `<polygon points="${pts}" fill="${fill}" stroke="${d.color}" stroke-width="${d.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${opacity < 1 ? ` opacity="${opacity}"` : ""}/>`;
+  return `<polygon points="${pts}" fill="${safeColor(fill)}" stroke="${safeColor(d.color)}" stroke-width="${d.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${opacity < 1 ? ` opacity="${opacity}"` : ""}/>`;
 }
 
 function renderTextPreview(node: TextNode): string {
@@ -132,5 +133,5 @@ function renderTextPreview(node: TextNode): string {
   const opacity = d.opacity ?? 1;
   // Render first line of text only for thumbnail
   const firstLine = d.text.split("\n")[0] || "";
-  return `<text x="${node.x}" y="${node.y + fontSize}" fill="${d.color}" font-size="${fontSize}" font-family="sans-serif"${opacity < 1 ? ` opacity="${opacity}"` : ""}>${esc(firstLine)}</text>`;
+  return `<text x="${node.x}" y="${node.y + fontSize}" fill="${safeColor(d.color)}" font-size="${fontSize}" font-family="sans-serif"${opacity < 1 ? ` opacity="${opacity}"` : ""}>${esc(firstLine)}</text>`;
 }

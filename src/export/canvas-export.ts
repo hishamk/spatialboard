@@ -31,6 +31,7 @@ import {
 } from "../engine/edge-geometry";
 import { getPaperType } from "../components/paper-types";
 import { getFontFamilyCSS } from "../fonts";
+import { safeColor } from "../rendering/svg-safe";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,7 +71,7 @@ export async function exportBoard(
   const bgColor = bg ? getPaperType(engine.boardBackground).canvasBg : "transparent";
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`,
-    `<rect width="${svgW}" height="${svgH}" fill="${bgColor}"/>`,
+    `<rect width="${svgW}" height="${svgH}" fill="${safeColor(bgColor)}"/>`,
     ...elements,
     `</svg>`,
   ].join("\n");
@@ -234,7 +235,7 @@ function renderFrameNode(node: FrameNode, x: number, y: number, h: number): stri
 
   let inner =
     `<rect x="${x}" y="${y}" width="${node.w}" height="${h}" rx="4" ` +
-    `fill="${bgFill}" stroke="${borderColor}" stroke-width="${borderW}"` +
+    `fill="${safeColor(bgFill)}" stroke="${safeColor(borderColor)}" stroke-width="${borderW}"` +
     (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
     `/>`;
 
@@ -266,7 +267,7 @@ function renderContentNode(
   if (borderColor && borderW > 0) {
     inner +=
       `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ` +
-      `fill="white" stroke="${borderColor}" stroke-width="${borderW}"` +
+      `fill="white" stroke="${safeColor(borderColor)}" stroke-width="${borderW}"` +
       (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
       `/>`;
   } else {
@@ -304,7 +305,7 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
     const pts: [number, number][] = absolutePoints.map(([px, py]) => [px, py]);
     if (pts.length > 2) {
       const fillPath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
-      inner += `<path d="${fillPath}" fill="${d.fill}" fill-opacity="0.4" stroke="none"/>`;
+      inner += `<path d="${fillPath}" fill="${safeColor(d.fill)}" fill-opacity="0.4" stroke="none"/>`;
     }
   }
 
@@ -316,13 +317,13 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
       .join(" ");
     const da = dashArray.map((v) => v * Math.max(d.strokeWidth, 1)).join(" ");
     inner +=
-      `<path d="${centerPath}" fill="none" stroke="${d.color}" ` +
+      `<path d="${centerPath}" fill="none" stroke="${safeColor(d.color)}" ` +
       `stroke-width="${d.strokeWidth}" stroke-dasharray="${da}" stroke-linecap="round" stroke-linejoin="round"/>`;
   } else {
     // Filled outline (solid stroke)
     const pathD = getStrokePath(absolutePoints, { size: d.strokeWidth });
     if (pathD) {
-      inner += `<path d="${pathD}" fill="${d.color}" stroke="none"/>`;
+      inner += `<path d="${pathD}" fill="${safeColor(d.color)}" stroke="none"/>`;
     }
   }
 
@@ -346,7 +347,7 @@ function renderVectorPath(
     : "";
 
   const inner =
-    `<path d="${pathD}" fill="${d.fill || "none"}" stroke="${d.color}" ` +
+    `<path d="${pathD}" fill="${safeColor(d.fill)}" stroke="${safeColor(d.color)}" ` +
     `stroke-width="${d.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${dash}/>`;
 
   const h = node.h === "auto" ? 0 : (node.h as number);
@@ -403,8 +404,8 @@ function renderShapeNode(
     .map(
       (p) =>
         `<path d="${p.d}" ` +
-        `fill="${p.fill || "none"}" ` +
-        `stroke="${p.stroke}" stroke-width="${p.strokeWidth}"` +
+        `fill="${safeColor(p.fill)}" ` +
+        `stroke="${safeColor(p.stroke)}" stroke-width="${p.strokeWidth}"` +
         (p.strokeDasharray ? ` stroke-dasharray="${p.strokeDasharray}"` : "") +
         `/>`,
     )
@@ -431,7 +432,7 @@ function renderTextNode(node: TextNode, x: number, y: number, w: number, resolve
     const dashArray = borderDashArray(d.borderStyle, borderW);
     inner +=
       `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ` +
-      `fill="none" stroke="${d.borderColor}" stroke-width="${borderW}"` +
+      `fill="none" stroke="${safeColor(d.borderColor)}" stroke-width="${borderW}"` +
       (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
       `/>`;
   }
@@ -462,7 +463,7 @@ function renderStickyNode(
   const d = node.data;
   const fontSize = d.fontSize ?? 16;
   const inner =
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${d.color}"/>` +
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${safeColor(d.color)}"/>` +
     textBlock(d.text, x + 12, y + 12 + fontSize, w - 24, fontSize, 1.4, "#1e1e2e", "left", "sans-serif");
   return wrapG(inner, x, y, w, h, node.rotation, d.opacity);
 }
@@ -495,7 +496,7 @@ async function renderImageNode(
   if (borderColor && borderW > 0) {
     inner +=
       `<rect x="${x}" y="${y}" width="${w}" height="${h}" ` +
-      `fill="none" stroke="${borderColor}" stroke-width="${borderW}"` +
+      `fill="none" stroke="${safeColor(borderColor)}" stroke-width="${borderW}"` +
       (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
       `/>`;
   }
@@ -580,7 +581,7 @@ function renderEdgeNode(
   const sw = d.strokeWidth;
 
   let inner =
-    `<path d="${result.path}" fill="none" stroke="${d.color}" stroke-width="${sw}"` +
+    `<path d="${result.path}" fill="none" stroke="${safeColor(d.color)}" stroke-width="${sw}"` +
     (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
     ` stroke-linecap="round" stroke-linejoin="round"/>`;
 
@@ -592,14 +593,14 @@ function renderEdgeNode(
     if (d.arrowHead === "arrow") {
       inner +=
         `<path d="${arrowHeadPath(result.x2, result.y2, result.arrowAngle, headSize)}" ` +
-        `fill="none" stroke="${d.color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+        `fill="none" stroke="${safeColor(d.color)}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
     } else if (d.arrowHead === "filled") {
       inner +=
         `<path d="${filledArrowHeadPath(result.x2, result.y2, result.arrowAngle, headSize)}" ` +
-        `fill="${d.color}" stroke="none"/>`;
+        `fill="${safeColor(d.color)}" stroke="none"/>`;
     } else if (d.arrowHead === "dot") {
       const r = headSize / 3;
-      inner += `<circle cx="${result.x2}" cy="${result.y2}" r="${r}" fill="${d.color}"/>`;
+      inner += `<circle cx="${result.x2}" cy="${result.y2}" r="${r}" fill="${safeColor(d.color)}"/>`;
     }
   }
 
@@ -607,14 +608,14 @@ function renderEdgeNode(
     if (d.arrowTail === "arrow") {
       inner +=
         `<path d="${arrowHeadPath(result.x1, result.y1, result.tailAngle, tailSize)}" ` +
-        `fill="none" stroke="${d.color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+        `fill="none" stroke="${safeColor(d.color)}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`;
     } else if (d.arrowTail === "filled") {
       inner +=
         `<path d="${filledArrowHeadPath(result.x1, result.y1, result.tailAngle, tailSize)}" ` +
-        `fill="${d.color}" stroke="none"/>`;
+        `fill="${safeColor(d.color)}" stroke="none"/>`;
     } else if (d.arrowTail === "dot") {
       const r = tailSize / 3;
-      inner += `<circle cx="${result.x1}" cy="${result.y1}" r="${r}" fill="${d.color}"/>`;
+      inner += `<circle cx="${result.x1}" cy="${result.y1}" r="${r}" fill="${safeColor(d.color)}"/>`;
     }
   }
 
@@ -622,7 +623,7 @@ function renderEdgeNode(
   if (d.label) {
     inner +=
       `<text x="${result.labelX}" y="${result.labelY}" ` +
-      `font-size="12" fill="${d.color}" text-anchor="middle" ` +
+      `font-size="12" fill="${safeColor(d.color)}" text-anchor="middle" ` +
       `dominant-baseline="central" font-family="sans-serif">${escapeXml(d.label)}</text>`;
   }
 
@@ -658,7 +659,7 @@ function textBlock(
     .join("");
 
   return (
-    `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${fill}" ` +
+    `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${safeColor(fill)}" ` +
     `font-family="${escapeXml(fontFamily)}" text-anchor="${anchor}">${tspans}</text>`
   );
 }
@@ -885,7 +886,7 @@ export async function renderFrameToSVG(
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`,
     fontCSS ? `<defs><style>${fontCSS}</style></defs>` : "",
-    `<rect width="${svgW}" height="${svgH}" fill="${bgColor}"/>`,
+    `<rect width="${svgW}" height="${svgH}" fill="${safeColor(bgColor)}"/>`,
     ...elements,
     `</svg>`,
   ].join("\n");
