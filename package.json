@@ -55,7 +55,7 @@
     "dev:simple": "npm run dev --workspace=examples/simple",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
-    "prepare": "npm run build",
+    "prepare": "node -e \"try{require.resolve('vite')}catch{console.log('spatialboard: vite unavailable — skipping prepare build (using provided dist)');process.exit(0)}require('child_process').execSync('npm run build',{stdio:'inherit'})\"",
     "preview": "npm run preview --workspace=examples/dev-app",
     "test": "vitest run",
     "verify:headless": "npm run build && node scripts/assert-headless.mjs"
