@@ -53,7 +53,7 @@ export { imageNodeType } from "./nodes/image";
 export { textNodeType } from "./nodes/text";
 export { frameNodeType } from "./nodes/frame";
 export { stickyNodeType } from "./nodes/sticky";
-export { builtinNodeTypes } from "./nodes";
+export { builtinNodeTypes, coreBoardNodes } from "./nodes";
 
 // ── React components ─────────────────────────────────────────
 export { default as SpatialBoard } from "./components/SpatialBoard";

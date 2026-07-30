@@ -31,10 +31,12 @@ import { frameNodeType } from "./frame";
 import { stickyNodeType } from "./sticky";
 import { youtubeNodeType } from "./youtube";
 
-/** All built-in node type definitions shipped with spatialboard. */
+/**
+ * Built-in node types with NO heavy peer dependencies — no BlockNote/Mantine.
+ * This is the slim set; the rich-text content node is added separately.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const builtinNodeTypes: NodeTypeDefinition<any>[] = [
-  contentNodeType,
+export const coreBoardNodes: NodeTypeDefinition<any>[] = [
   drawNodeType,
   shapeNodeType,
   edgeNodeType,
@@ -43,4 +45,11 @@ export const builtinNodeTypes: NodeTypeDefinition<any>[] = [
   frameNodeType,
   stickyNodeType,
   youtubeNodeType,
+];
+
+/** All built-in node type definitions (core + the rich-text content node). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const builtinNodeTypes: NodeTypeDefinition<any>[] = [
+  ...coreBoardNodes,
+  contentNodeType,
 ];
