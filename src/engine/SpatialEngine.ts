@@ -26,6 +26,11 @@ import type {
   AgentCanvasState,
   AgentStateOptions,
   StrokeStyle,
+  FillStyle,
+  TextAlign,
+  StrokeSharpness,
+  ArrowMarker,
+  ShapeType,
 } from "./types";
 import { History } from "./history";
 import { hitTest, hitTestAll } from "./spatial-index";
@@ -143,9 +148,9 @@ type EventMap = {
     opacity?: number;
     roughness?: number;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   }) => void;
   'shape:end': () => void;
   'edge:progress': (preview: EdgeCreationAwareness) => void;
@@ -2253,9 +2258,9 @@ export class SpatialEngine {
     opacity?: number;
     roughness?: number;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   }): void {
     this.emit("shape:progress", preview);
   }
@@ -2476,18 +2481,18 @@ export class SpatialEngine {
     mode: Mode;
     color?: string;
     width?: number;
-    shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+    shapeType?: ShapeType;
     fillColor?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
     roughness?: number;
     opacity?: number;
     fontSize?: number;
     fontFamily?: string;
-    textAlign?: "left" | "center" | "right";
+    textAlign?: TextAlign;
     edgeType?: EdgeType;
-    arrowHead?: "none" | "arrow" | "filled" | "dot";
-    arrowTail?: "none" | "arrow" | "filled" | "dot";
+    arrowHead?: ArrowMarker;
+    arrowTail?: ArrowMarker;
   }): void {
     CreateOps.activateTool(this, config);
   }
@@ -2495,7 +2500,7 @@ export class SpatialEngine {
   /** Create a shape node (rect, ellipse, diamond, line, arrow).
    *  Returns the new node id. */
   createShape(
-    shape: "rect" | "ellipse" | "diamond" | "line" | "arrow",
+    shape: ShapeType,
     x: number,
     y: number,
     w: number,
@@ -2504,13 +2509,13 @@ export class SpatialEngine {
       stroke?: string;
       strokeWidth?: number;
       fill?: string;
-      fillStyle?: "hachure" | "cross-hatch" | "solid";
+      fillStyle?: FillStyle;
       roughness?: number;
       opacity?: number;
       label?: string;
       labelFontSize?: number;
       strokeStyle?: StrokeStyle;
-      edgeStyle?: "sharp" | "round";
+      edgeStyle?: StrokeSharpness;
     },
   ): string {
     return CreateOps.createShape(this, shape, x, y, w, h, options);
@@ -2526,7 +2531,7 @@ export class SpatialEngine {
       fontSize?: number;
       fontFamily?: string;
       color?: string;
-      align?: "left" | "center" | "right";
+      align?: TextAlign;
       opacity?: number;
       borderColor?: string;
       borderWidth?: number;
@@ -2547,7 +2552,7 @@ export class SpatialEngine {
       color?: string;
       fontSize?: number;
       opacity?: number;
-      edgeStyle?: "sharp" | "round";
+      edgeStyle?: StrokeSharpness;
     },
   ): string {
     return CreateOps.createSticky(this, text, x, y, options);
@@ -2566,7 +2571,7 @@ export class SpatialEngine {
       borderWidth?: number;
       borderStyle?: StrokeStyle;
       opacity?: number;
-      edgeStyle?: "sharp" | "round";
+      edgeStyle?: StrokeSharpness;
     },
   ): string {
     return CreateOps.createBlockNote(this, blocks, x, y, options);
@@ -2623,7 +2628,7 @@ export class SpatialEngine {
       tool?: "pen" | "pencil" | "highlighter" | "vector";
       opacity?: number;
       fill?: string;
-      fillStyle?: "hachure" | "cross-hatch" | "solid";
+      fillStyle?: FillStyle;
       strokeStyle?: StrokeStyle;
     },
   ): string {
@@ -2639,8 +2644,8 @@ export class SpatialEngine {
       color?: string;
       strokeWidth?: number;
       edgeType?: EdgeType;
-      arrowHead?: "none" | "arrow" | "filled" | "dot";
-      arrowTail?: "none" | "arrow" | "filled" | "dot";
+      arrowHead?: ArrowMarker;
+      arrowTail?: ArrowMarker;
       sourceHandle?: HandleSide;
       targetHandle?: HandleSide;
       style?: StrokeStyle;

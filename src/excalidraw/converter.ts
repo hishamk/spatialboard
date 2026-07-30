@@ -7,6 +7,8 @@ import type {
   TextNode,
   FrameNode,
   StrokeStyle,
+  FillStyle,
+  TextAlign,
 } from "../engine/types";
 
 // NOTE:
@@ -34,7 +36,7 @@ function mapFill(bg: string): string | undefined {
 
 function mapFillStyle(
   style: string,
-): "hachure" | "cross-hatch" | "solid" | undefined {
+): FillStyle | undefined {
   if (style === "solid") return "solid";
   if (style === "cross-hatch") return "cross-hatch";
   if (style === "hachure") return "hachure";
@@ -62,7 +64,7 @@ function mapFontFamily(ff: number | undefined): string {
 
 function mapTextAlign(
   align: string | undefined,
-): "left" | "center" | "right" {
+): TextAlign {
   if (align === "right") return "right";
   if (align === "center") return "center";
   return "left";

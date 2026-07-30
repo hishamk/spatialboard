@@ -48,7 +48,7 @@ export interface BlockNoteNode extends SpatialNode {
     borderWidth?: number;
     borderStyle?: StrokeStyle;
     opacity?: number;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   };
 }
 
@@ -61,7 +61,7 @@ export interface DrawNode extends SpatialNode {
     strokeWidth: number;
     opacity?: number;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
   };
 }
@@ -69,20 +69,20 @@ export interface DrawNode extends SpatialNode {
 export interface ShapeNode extends SpatialNode {
   type: "shape";
   data: {
-    shape: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+    shape: ShapeType;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     stroke: string;
     strokeWidth: number;
     strokeStyle?: StrokeStyle;
     roughness: number;
     opacity?: number;
     /** Corner style for rect shapes: "sharp" (default) or "round" */
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
     label?: string;
     labelFontSize?: number;
     labelFontFamily?: string;
-    labelAlign?: "left" | "center" | "right";
+    labelAlign?: TextAlign;
     /** Relative to node (x,y) — only for line/arrow */
     startPoint?: [number, number];
     endPoint?: [number, number];
@@ -92,6 +92,11 @@ export interface ShapeNode extends SpatialNode {
 export type StrokeStyle = "solid" | "dashed" | "dotted";
 export type EdgeType = "straight" | "bezier" | "smoothstep" | "step";
 export type HandleSide = "top" | "right" | "bottom" | "left";
+export type FillStyle = "hachure" | "cross-hatch" | "solid";
+export type TextAlign = "left" | "center" | "right";
+export type StrokeSharpness = "sharp" | "round";
+export type ArrowMarker = "none" | "arrow" | "filled" | "dot";
+export type ShapeType = "rect" | "ellipse" | "diamond" | "line" | "arrow";
 
 export interface EdgeNode extends SpatialNode {
   type: "edge";
@@ -102,8 +107,8 @@ export interface EdgeNode extends SpatialNode {
     style: StrokeStyle;
     color: string;
     strokeWidth: number;
-    arrowHead?: "none" | "arrow" | "filled" | "dot";
-    arrowTail?: "none" | "arrow" | "filled" | "dot";
+    arrowHead?: ArrowMarker;
+    arrowTail?: ArrowMarker;
     arrowHeadSize?: number;
     arrowTailSize?: number;
     edgeType?: EdgeType;
@@ -156,7 +161,7 @@ export interface TextNode extends SpatialNode {
     fontSize: number;
     fontFamily: string;
     color: string;
-    align: "left" | "center" | "right";
+    align: TextAlign;
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
@@ -204,7 +209,7 @@ export interface StickyNoteNode extends SpatialNode {
     color: string;
     fontSize?: number;
     opacity?: number;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   };
 }
 
@@ -241,19 +246,19 @@ export interface ActiveTool {
   tool: string;
   color: string;
   width: number;
-  shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+  shapeType?: ShapeType;
   fillColor?: string;
-  fillStyle?: "hachure" | "cross-hatch" | "solid";
+  fillStyle?: FillStyle;
   strokeStyle?: StrokeStyle;
   roughness?: number;
   opacity?: number;
   fontSize?: number;
   fontFamily?: string;
-  textAlign?: "left" | "center" | "right";
+  textAlign?: TextAlign;
   // Edge tool settings
   edgeType?: EdgeType;
-  arrowHead?: "none" | "arrow" | "filled" | "dot";
-  arrowTail?: "none" | "arrow" | "filled" | "dot";
+  arrowHead?: ArrowMarker;
+  arrowTail?: ArrowMarker;
   attachmentGap?: number;
 }
 

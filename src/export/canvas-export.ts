@@ -12,6 +12,7 @@ import type {
   StickyNoteNode,
   YouTubeNode,
   StrokeStyle,
+  TextAlign,
 } from "../engine/types";
 import { getYouTubeThumbnailUrl } from "../utils/youtube";
 import { getStrokePath } from "../rendering/freehand";
@@ -643,7 +644,7 @@ function textBlock(
   fontSize: number,
   lineHeight: number,
   fill: string,
-  align: "left" | "center" | "right",
+  align: TextAlign,
   fontFamily: string,
 ): string {
   if (!text) return "";

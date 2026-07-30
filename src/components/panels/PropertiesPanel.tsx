@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { usePropertyHistorySession } from "../sidebar/PropertyHistoryCoalesceContext";
-import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, BlockNoteNode, FrameNode, StickyNoteNode } from "../../engine/types";
+import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, BlockNoteNode, FrameNode, StickyNoteNode, ShapeType, TextAlign } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../../fonts";
 import FontPicker from "./FontPicker";
@@ -59,7 +59,7 @@ const SHAPE_TYPES: { key: string; label: string }[] = [
 
 const FONT_SIZES = [14, 20, 28, 36];
 
-const TEXT_ALIGNS: { key: "left" | "center" | "right"; label: string }[] = [
+const TEXT_ALIGNS: { key: TextAlign; label: string }[] = [
   { key: "left", label: "\u2190" },
   { key: "center", label: "\u2194" },
   { key: "right", label: "\u2192" },
@@ -534,7 +534,7 @@ export default function PropertiesPanel({
     }
   };
 
-  const setTextAlign = (a: "left" | "center" | "right") => {
+  const setTextAlign = (a: TextAlign) => {
     if (isText) updateText({ align: a });
     else {
       engine.activeTool.textAlign = a;
@@ -788,7 +788,7 @@ export default function PropertiesPanel({
                   key={t.key}
                   title={t.label}
                   onClick={() => {
-                    engine.activeTool.shapeType = t.key as "rect" | "ellipse" | "diamond" | "line" | "arrow";
+                    engine.activeTool.shapeType = t.key as ShapeType;
                     forceUpdate((n) => n + 1);
                   }}
                   style={{

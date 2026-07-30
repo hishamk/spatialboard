@@ -2,6 +2,8 @@
 // Excalidraw file format types
 // ============================================================================
 
+import type { StrokeSharpness } from "../engine/types";
+
 /** Any Excalidraw element as it appears in .excalidraw / .excalidrawlib JSON. */
 export interface ExcalidrawElement {
   id: string;
@@ -22,7 +24,7 @@ export interface ExcalidrawElement {
   boundElements?: Array<{ id: string; type: string }> | null;
   roundness?: { type: number } | null;
   /** V1 property — replaced by `roundness` in V2 */
-  strokeSharpness?: "sharp" | "round";
+  strokeSharpness?: StrokeSharpness;
   locked?: boolean;
   isDeleted?: boolean;
 

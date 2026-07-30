@@ -12,6 +12,8 @@ import type {
   StickyNoteNode,
   FrameNode,
   StrokeStyle,
+  StrokeSharpness,
+  TextAlign,
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
 
@@ -293,7 +295,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
               fillStyle: (attrs.fillStyle || undefined) as ShapeNode["data"]["fillStyle"],
               strokeWidth: parseFloat(attrs.stroke || "2"),
               strokeStyle: (attrs.strokeStyle || undefined) as ShapeNode["data"]["strokeStyle"],
-              edgeStyle: (attrs.edgeStyle as "sharp" | "round") || undefined,
+              edgeStyle: (attrs.edgeStyle as StrokeSharpness) || undefined,
               roughness: parseFloat(attrs.roughness || "1"),
               opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
               startPoint: attrs.startPt ? (attrs.startPt.split(",").map(Number) as [number, number]) : undefined,
@@ -301,7 +303,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
               label: attrs.label || undefined,
               labelFontSize: attrs.labelFontSize ? parseFloat(attrs.labelFontSize) : undefined,
               labelFontFamily: attrs.labelFontFamily || undefined,
-              labelAlign: (attrs.labelAlign as "left" | "center" | "right") || undefined,
+              labelAlign: (attrs.labelAlign as TextAlign) || undefined,
             },
           } as ShapeNode);
           recordParent(attrs, base.id);
@@ -439,7 +441,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             fontSize: parseFloat(attrs.fontSize || "20"),
             fontFamily: attrs.fontFamily || DEFAULT_FONT,
             color: attrs.color || "#1e1e2e",
-            align: (attrs.align || "left") as "left" | "center" | "right",
+            align: (attrs.align || "left") as TextAlign,
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
           },
         } as TextNode);

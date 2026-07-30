@@ -1,4 +1,4 @@
-import type { StrokeStyle } from "../../engine/types";
+import type { StrokeStyle, FillStyle, TextAlign } from "../../engine/types";
 
 export const TOOL_STRIP_WIDTH = 52;
 export const PROPERTIES_WIDTH = 300;
@@ -23,7 +23,7 @@ export const FILL_COLORS: (string | null)[] = [
   "#9b59b6",
 ];
 
-export const FILL_STYLES: { key: "hachure" | "cross-hatch" | "solid"; label: string }[] = [
+export const FILL_STYLES: { key: FillStyle; label: string }[] = [
   { key: "hachure", label: "Hachure" },
   { key: "cross-hatch", label: "Cross-hatch" },
   { key: "solid", label: "Solid" },
@@ -58,7 +58,7 @@ export const WIDTHS = WIDTHS_SHAPE;
 
 export const FONT_SIZES = [14, 20, 28, 36];
 
-export const TEXT_ALIGNS: { key: "left" | "center" | "right"; label: string }[] = [
+export const TEXT_ALIGNS: { key: TextAlign; label: string }[] = [
   { key: "left", label: "\u2190" },
   { key: "center", label: "\u2194" },
   { key: "right", label: "\u2192" },

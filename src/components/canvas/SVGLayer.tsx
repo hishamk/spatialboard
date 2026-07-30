@@ -7,6 +7,8 @@ import type {
   HandleSide,
   Mode,
   StrokeStyle,
+  FillStyle,
+  StrokeSharpness,
 } from "../../engine/types";
 import { getStrokePath } from "../../rendering/freehand";
 import { strokeStyleToDash, getRoughPathPaths, getRoughLinePaths, getRoughRectPaths, getRoughEllipsePaths, getRoughDiamondPaths, getRoughArrowPaths, roundedRectRadius } from "../../rendering/rough-shapes";
@@ -120,10 +122,10 @@ interface SVGLayerProps {
     roughness: number;
     shapeType?: string;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
     opacity?: number;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   } | null;
   onResizeHandleDown?: (
     nodeId: string,

@@ -17,6 +17,11 @@ import type {
   EdgeType,
   HandleSide,
   StrokeStyle,
+  FillStyle,
+  TextAlign,
+  StrokeSharpness,
+  ArrowMarker,
+  ShapeType,
 } from "./types";
 import type { SpatialEngine } from "./SpatialEngine";
 
@@ -24,18 +29,18 @@ export function activateTool(engine: SpatialEngine, config: {
   mode: Mode;
   color?: string;
   width?: number;
-  shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
+  shapeType?: ShapeType;
   fillColor?: string;
-  fillStyle?: "hachure" | "cross-hatch" | "solid";
+  fillStyle?: FillStyle;
   strokeStyle?: StrokeStyle;
   roughness?: number;
   opacity?: number;
   fontSize?: number;
   fontFamily?: string;
-  textAlign?: "left" | "center" | "right";
+  textAlign?: TextAlign;
   edgeType?: EdgeType;
-  arrowHead?: "none" | "arrow" | "filled" | "dot";
-  arrowTail?: "none" | "arrow" | "filled" | "dot";
+  arrowHead?: ArrowMarker;
+  arrowTail?: ArrowMarker;
 }): void {
   engine.setMode(config.mode);
   if (config.color !== undefined) engine.activeTool.color = config.color;
@@ -57,7 +62,7 @@ export function activateTool(engine: SpatialEngine, config: {
 
 export function createShape(
   engine: SpatialEngine,
-  shape: "rect" | "ellipse" | "diamond" | "line" | "arrow",
+  shape: ShapeType,
   x: number,
   y: number,
   w: number,
@@ -66,13 +71,13 @@ export function createShape(
     stroke?: string;
     strokeWidth?: number;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     roughness?: number;
     opacity?: number;
     label?: string;
     labelFontSize?: number;
     strokeStyle?: StrokeStyle;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   },
 ): string {
   const isLinear = shape === "line" || shape === "arrow";
@@ -114,7 +119,7 @@ export function createText(
     fontSize?: number;
     fontFamily?: string;
     color?: string;
-    align?: "left" | "center" | "right";
+    align?: TextAlign;
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
@@ -165,7 +170,7 @@ export function createSticky(
     color?: string;
     fontSize?: number;
     opacity?: number;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   },
 ): string {
   const id = nanoid(10);
@@ -200,7 +205,7 @@ export function createBlockNote(
     borderWidth?: number;
     borderStyle?: StrokeStyle;
     opacity?: number;
-    edgeStyle?: "sharp" | "round";
+    edgeStyle?: StrokeSharpness;
   },
 ): string {
   const id = nanoid(10);
@@ -309,7 +314,7 @@ export function createDrawStroke(
     tool?: "pen" | "pencil" | "highlighter" | "vector";
     opacity?: number;
     fill?: string;
-    fillStyle?: "hachure" | "cross-hatch" | "solid";
+    fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
   },
 ): string {
@@ -359,8 +364,8 @@ export function createEdge(
     color?: string;
     strokeWidth?: number;
     edgeType?: EdgeType;
-    arrowHead?: "none" | "arrow" | "filled" | "dot";
-    arrowTail?: "none" | "arrow" | "filled" | "dot";
+    arrowHead?: ArrowMarker;
+    arrowTail?: ArrowMarker;
     sourceHandle?: HandleSide;
     targetHandle?: HandleSide;
     style?: StrokeStyle;
