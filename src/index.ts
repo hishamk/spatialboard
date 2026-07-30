@@ -84,7 +84,7 @@ export {
   DEFAULT_LOCALIZATION as DEFAULT_SB_LOCALIZATION,
   useSBI18n,
 } from "./components/LocalizationContext";
-export { DEFAULT_FONT } from "./fonts";
+export { DEFAULT_FONT } from "./font-constants";
 export { PAPER_TYPES, getPaperType } from "./components/paper-types";
 export type { PaperTypeConfig, PaperGroup } from "./components/paper-types";
 

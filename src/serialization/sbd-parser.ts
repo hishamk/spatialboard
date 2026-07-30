@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { getSbdMarkdownCodec } from "./markdown-codec";
-import { DEFAULT_FONT } from "../fonts";
+import { DEFAULT_FONT } from "../font-constants";
 import type {
   SpatialNode,
   ContentNode,
