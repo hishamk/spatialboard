@@ -25,13 +25,17 @@
     "visual-editor"
   ],
   "type": "module",
-  "main": "./dist/spatialboard.js",
-  "module": "./dist/spatialboard.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/spatialboard.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./blocknote": {
+      "types": "./dist/blocknote.d.ts",
+      "import": "./dist/blocknote.js"
     },
     "./style.css": "./dist/style.css",
     "./package.json": "./package.json"
@@ -62,6 +66,13 @@
     "@mantine/hooks": "^8",
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"
+  },
+  "peerDependenciesMeta": {
+    "@blocknote/core": { "optional": true },
+    "@blocknote/mantine": { "optional": true },
+    "@blocknote/react": { "optional": true },
+    "@mantine/core": { "optional": true },
+    "@mantine/hooks": { "optional": true }
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

@@ -1,6 +1,5 @@
 import type { NodeTypeDefinition } from "./registry";
 
-export { contentNodeType } from "./content";
 export { drawNodeType } from "./draw";
 export { shapeNodeType } from "./shape";
 export { edgeNodeType } from "./edge";
@@ -20,8 +19,7 @@ export type {
   NodePropertiesPanelProps,
 } from "./registry";
 
-// Re-import for the builtinNodeTypes array
-import { contentNodeType } from "./content";
+// Re-import for the coreBoardNodes array
 import { drawNodeType } from "./draw";
 import { shapeNodeType } from "./shape";
 import { edgeNodeType } from "./edge";
@@ -32,8 +30,13 @@ import { stickyNodeType } from "./sticky";
 import { youtubeNodeType } from "./youtube";
 
 /**
- * Built-in node types with NO heavy peer dependencies — no BlockNote/Mantine.
- * This is the slim set; the rich-text content node is added separately.
+ * The default board node types — NO heavy peer dependencies (no BlockNote /
+ * Mantine). This is the slim set `SpatialBoard` ships by default. The rich-text
+ * content node is opt-in via the `spatialboard/blocknote` subpath, whose
+ * `defaultBoardNodes` is `[...coreBoardNodes, contentNodeType]`.
+ *
+ * IMPORTANT: this barrel must not import `./content` (it pulls @blocknote) —
+ * that edge lives only behind the `blocknote` subpath.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const coreBoardNodes: NodeTypeDefinition<any>[] = [
@@ -45,11 +48,4 @@ export const coreBoardNodes: NodeTypeDefinition<any>[] = [
   frameNodeType,
   stickyNodeType,
   youtubeNodeType,
-];
-
-/** All built-in node type definitions (core + the rich-text content node). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const builtinNodeTypes: NodeTypeDefinition<any>[] = [
-  ...coreBoardNodes,
-  contentNodeType,
 ];

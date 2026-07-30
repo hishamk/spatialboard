@@ -9,9 +9,8 @@ import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./DebugPanel";
 const DebugPanel = lazy(() => import("./DebugPanel"));
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
-import { schema } from "../schema";
 import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
-import { builtinNodeTypes } from "../nodes";
+import { coreBoardNodes } from "../nodes";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import { loadGoogleFonts } from "../fonts";
 import { SBThemeContext, DEFAULT_SB_THEME } from "./sidebar/ThemeContext";
@@ -180,7 +179,7 @@ export interface SpatialBoardProps {
 }
 
 export default function SpatialBoard({
-  nodeTypes = builtinNodeTypes,
+  nodeTypes = coreBoardNodes,
   engine: externalEngine,
   keyboardShortcuts = true,
   style,
@@ -217,11 +216,11 @@ export default function SpatialBoard({
   const registry = useMemo(() => {
     // Custom catalogs are additive: keep built-ins (sticky, text, …) so toolbar
     // tools like workflow's Note still resolve; host types override by `type`.
-    if (nodeTypes === builtinNodeTypes) {
-      return new NodeTypeRegistry(builtinNodeTypes);
+    if (nodeTypes === coreBoardNodes) {
+      return new NodeTypeRegistry(coreBoardNodes);
     }
     const byType = new Map<string, NodeTypeDefinition>();
-    for (const nt of builtinNodeTypes) byType.set(nt.type, nt);
+    for (const nt of coreBoardNodes) byType.set(nt.type, nt);
     for (const nt of nodeTypes) byType.set(nt.type, nt);
     return new NodeTypeRegistry([...byType.values()]);
   }, [nodeTypes]);
@@ -381,7 +380,6 @@ export default function SpatialBoard({
       >
         <SpatialCanvas
           engine={engine}
-          schema={schema}
           registry={registry}
           dataFlow={dataFlow}
           dataFlowEdgeOverlay={dataFlowEdgeOverlay}

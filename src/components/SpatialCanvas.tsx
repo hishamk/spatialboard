@@ -21,7 +21,6 @@ import type {
   HandleSide,
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
-import type { SBDSchema } from "../schema";
 import type { NodeTypeRegistry, NodeCallbacks } from "../nodes/registry";
 import { resolveNodePorts, nodeTypeHasPorts } from "../nodes/registry";
 import type { DataFlowEngine } from "../engine/DataFlowEngine";
@@ -662,7 +661,6 @@ function UnifiedDomViewportLayer({
 interface NodeItemCtx {
   engine: SpatialEngine;
   registry?: NodeTypeRegistry;
-  schema: SBDSchema;
   mode: Mode;
   zoom: number;
   selection: Set<string>;
@@ -1171,7 +1169,6 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
 
 export default function SpatialCanvas({
   engine,
-  schema,
   registry,
   dataFlow,
   dataFlowEdgeOverlay = "off",
@@ -1184,7 +1181,6 @@ export default function SpatialCanvas({
   overlayNodes = null,
 }: {
   engine: SpatialEngine;
-  schema: SBDSchema;
   registry?: NodeTypeRegistry;
   dataFlow?: DataFlowEngine | null;
   /** Port edge captions; only applies when `dataFlow` is active. Default `off`. */
@@ -5713,7 +5709,6 @@ export default function SpatialCanvas({
     () => ({
       engine,
       registry,
-      schema,
       mode,
       zoom: viewport.zoom,
       selection,
@@ -5746,7 +5741,6 @@ export default function SpatialCanvas({
     [
       engine,
       registry,
-      schema,
       mode,
       viewport.zoom,
       selection,

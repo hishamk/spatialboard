@@ -45,7 +45,8 @@ export type {
 } from "./nodes/registry";
 
 // ── Built-in node types (individually for tree-shaking) ──────
-export { contentNodeType } from "./nodes/content";
+// NOTE: the rich-text `contentNodeType` is NOT exported here — it and its
+// @blocknote/@mantine peers live behind the `spatialboard/blocknote` subpath.
 export { drawNodeType } from "./nodes/draw";
 export { shapeNodeType } from "./nodes/shape";
 export { edgeNodeType } from "./nodes/edge";
@@ -53,7 +54,7 @@ export { imageNodeType } from "./nodes/image";
 export { textNodeType } from "./nodes/text";
 export { frameNodeType } from "./nodes/frame";
 export { stickyNodeType } from "./nodes/sticky";
-export { builtinNodeTypes, coreBoardNodes } from "./nodes";
+export { coreBoardNodes } from "./nodes";
 
 // ── React components ─────────────────────────────────────────
 export { default as SpatialBoard } from "./components/SpatialBoard";
@@ -104,7 +105,8 @@ export { serializeToSBD } from "./serialization/sbd-serializer";
 export type { SerializeOptions } from "./serialization/sbd-serializer";
 export { parseSBD } from "./serialization/sbd-parser";
 export type { SBDParseResult } from "./serialization/sbd-parser";
-export { markdownToBlocks } from "./serialization/blocknote-markdown";
+// `markdownToBlocks` (and the rest of the BlockNote markdown codec) is exported
+// from the `spatialboard/blocknote` subpath — it carries the @blocknote edge.
 
 // ── Utilities ────────────────────────────────────────────────
 export { setupKeyboardHandler } from "./interactions/keyboard-handler";

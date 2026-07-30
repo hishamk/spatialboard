@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
+import { SpatialBoard, SpatialEngine } from "spatialboard";
+import { defaultBoardNodes } from "spatialboard/blocknote";
 import "spatialboard/style.css";
 
 /** Everything you draw is serialized to SBD and kept in localStorage. */
@@ -166,7 +167,7 @@ export default function App() {
         </button>
       </header>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <SpatialBoard engine={engine} nodeTypes={builtinNodeTypes} />
+        <SpatialBoard engine={engine} nodeTypes={defaultBoardNodes} />
       </div>
     </div>
   );

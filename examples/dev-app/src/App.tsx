@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
-import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
+import { SpatialBoard, SpatialEngine } from "spatialboard";
+import { defaultBoardNodes } from "spatialboard/blocknote";
 import { dataCardNodeType, type DataCardData } from "./nodes/data-card";
 import { timerNodeType, type TimerData } from "./nodes/timer";
 import { analogClockNodeType, type AnalogClockData } from "./nodes/analog-clock";
@@ -47,7 +48,7 @@ import { DEV_CUSTOM_NODE_DOCS } from "./localization/custom-node-docs";
 import { nanoid } from "nanoid";
 
 const nodeTypes = [
-  ...builtinNodeTypes,
+  ...defaultBoardNodes,
   dataCardNodeType, timerNodeType, analogClockNodeType, spinningCubeNodeType,
   constantNodeType, mathOpNodeType, templateNodeType, displayNodeType,
   conditionNodeType, randomNodeType, buttonNodeType, loopNodeType, startNodeType,
