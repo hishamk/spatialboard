@@ -1,9 +1,9 @@
-/* Pocket Board service worker — cache-first with background refresh.
+/* SpatialBoard example service worker — cache-first with background refresh.
  * Zero dependencies: every same-origin GET (plus Google Fonts) is cached on
  * first fetch, so after one online visit the app fully works offline.
  * Board data itself lives in localStorage, not here. */
 
-const CACHE = "sb-pocket-v1";
+const CACHE = "sb-basic-v1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,9 +36,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((cache) => cache.put(req, copy));
           return res;
         })
-        .catch(() =>
-          caches.match(req).then((hit) => hit || caches.match("./index.html")),
-        ),
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html"))),
     );
     return;
   }

@@ -157,26 +157,29 @@ current docs before making decisions based on them.)
 
 ## Examples
 
-Two runnable apps, plus a guided path:
+Four runnable apps — three focused tiers plus the kitchen sink. All are
+self-contained, persist to localStorage, and work offline (PWA):
 
-- **`examples/simple`** — "Pocket Board": a ~150-line responsive, offline-first
-  PWA that persists the board (as SBD) and camera to localStorage. The template for a
-  minimal integration.
-- **`examples/dev-app`** — the development playground: every feature and ~40
-  custom node types, including five minimal data-flow templates (`constant`,
-  `interval`, `gate`, `logger`, `map-remap`) that make a good starting point
-  for your own.
+- **`examples/basic`** — the slim core board (`<SpatialBoard />`), no rich text and
+  **zero `@blocknote` peers**.
+- **`examples/rich-text`** — opt-in BlockNote nodes via `spatialboard/blocknote`.
+- **`examples/custom-nodes`** — three custom node types wired as a live data-flow
+  graph (Number × Number → Multiply → Gauge).
+- **`examples/dev-app`** — the development playground: every feature, ~40 custom
+  node types, and an MCP eval server.
 
 From the package root:
 
 ```bash
 npm install
-npm run dev          # dev-app playground
-npm run dev:simple   # Pocket Board demo
+npm run dev            # examples/basic
+npm run dev:rich-text  # examples/rich-text
+npm run dev:custom     # examples/custom-nodes
+npm run dev:app        # examples/dev-app
 ```
 
-[docs/examples.md](docs/examples.md) walks the examples from a minimal
-single-file board up to the full playground.
+[docs/examples.md](docs/examples.md) walks them from the one-liner up to the full
+playground.
 
 ## Optional integrations
 
@@ -192,7 +195,7 @@ single-file board up to the full playground.
 
 ```bash
 npm install
-npm run dev        # examples/dev-app playground
+npm run dev        # examples/basic (or dev:rich-text / dev:custom / dev:app)
 npm run typecheck
 npm run test
 npm run build      # dist/ (generated; not committed)

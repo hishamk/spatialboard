@@ -1,7 +1,7 @@
 {
-  "name": "Pocket Board — SpatialBoard demo",
-  "short_name": "Pocket Board",
-  "description": "An offline-first spatial whiteboard demo built with SpatialBoard. Everything you draw is saved on your device.",
+  "name": "SpatialBoard — Custom nodes",
+  "short_name": "Custom Nodes",
+  "description": "Custom SpatialBoard node types with ports + compute, wired as a live data-flow graph.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

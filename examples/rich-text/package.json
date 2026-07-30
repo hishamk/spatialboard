@@ -1,0 +1,29 @@
+{
+  "name": "spatialboard-example-rich-text",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "SpatialBoard example 2 — opt-in rich-text (BlockNote) nodes via spatialboard/blocknote.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "spatialboard": "file:../../"
+  },
+  "devDependencies": {
+    "@blocknote/core": "^0.46",
+    "@blocknote/mantine": "^0.46",
+    "@blocknote/react": "^0.46",
+    "@mantine/core": "^8",
+    "@mantine/hooks": "^8",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5",
+    "vite": "^5"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "spatialboard-example-basic",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "SpatialBoard example 1 — the slim core board (no rich text, no heavy peers).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "spatialboard": "file:../../"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5",
+    "vite": "^5"
+  }
+}
