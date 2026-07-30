@@ -37,6 +37,10 @@
       "types": "./dist/blocknote.d.ts",
       "import": "./dist/blocknote.js"
     },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "import": "./dist/engine.js"
+    },
     "./style.css": "./dist/style.css",
     "./package.json": "./package.json"
   },
@@ -53,7 +57,8 @@
     "build": "vite build && tsc -p tsconfig.build.json",
     "prepare": "npm run build",
     "preview": "npm run preview --workspace=examples/dev-app",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:headless": "npm run build && node scripts/assert-headless.mjs"
   },
   "engines": {
     "node": ">=20"
