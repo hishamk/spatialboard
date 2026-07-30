@@ -1,4 +1,5 @@
 import excalifontUrl from "./assets/fonts/Excalifont-Regular.woff2";
+import hishamHandUrl from "./assets/fonts/HishamHand-Regular.ttf";
 import { FONT_FAMILIES, NON_GOOGLE_FONTS } from "./font-constants";
 
 // Re-export the asset-free font constants/helpers so existing React-layer imports
@@ -15,12 +16,19 @@ export function loadGoogleFonts(doc: Document = document): void {
   if (_fontsLoaded) return;
   _fontsLoaded = true;
 
-  // Bundled Excalifont
+  // Bundled fonts (base64-inlined into the JS at build time)
   const style = doc.createElement("style");
   style.textContent = `
 @font-face {
   font-family: 'Excalifont';
   src: url('${excalifontUrl}') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'HishamHand';
+  src: url('${hishamHandUrl}') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
