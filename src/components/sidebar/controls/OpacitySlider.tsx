@@ -1,6 +1,6 @@
 import { rowStyle, labelStyle } from "../styles";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface OpacitySliderProps {
   value: number | undefined;

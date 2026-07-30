@@ -3,7 +3,7 @@ import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { SpatialNode } from "../../../engine/types";
 import { useBatchUpdate } from "../MultiNodeContext";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 function humanizeNodeType(type: string): string {
   return type

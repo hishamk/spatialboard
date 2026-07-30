@@ -6,7 +6,7 @@ import OpacitySlider from "../controls/OpacitySlider";
 import EdgeStyleIcon from "../controls/EdgeStyleIcon";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase, STICKY_PALETTES } from "../styles";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface StickyPropertiesProps {
   engine: SpatialEngine;

@@ -1,5 +1,5 @@
 import type { SpatialNode, DrawNode, EdgeNode, EdgeType, HandleSide } from "./types";
-import type { PortDefinition } from "./data-flow-types";
+import type { PortDefinition, PortDirection } from "./data-flow-types";
 import { spatialPerf } from "../perf/spatial-perf";
 
 function resolveH(node: SpatialNode, measured?: Record<string, number>): number {
@@ -61,7 +61,7 @@ export function getPortOuterLocal(
   zoom: number,
   measuredH?: Record<string, number>,
   portAnchor: PortAnchorMode = "bbox",
-): { px: number; py: number; direction: "input" | "output" } | null {
+): { px: number; py: number; direction: PortDirection } | null {
   const port = ports.find((p) => p.id === portId);
   if (!port) return null;
 
@@ -100,7 +100,7 @@ export function getPortOuterLocal(
  */
 export function getPortStubInnerLocal(
   node: SpatialNode,
-  direction: "input" | "output",
+  direction: PortDirection,
   outerLocal: { x: number; y: number },
   measuredH?: Record<string, number>,
   portAnchor: PortAnchorMode = "bbox",

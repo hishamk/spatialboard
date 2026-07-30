@@ -6,7 +6,7 @@ import {
   installFromUrl,
   getInstalled,
 } from "../../excalidraw/library-store";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 const DIRECTORY_URL = "https://libraries.excalidraw.com/libraries.json";
 const BASE_URL = "https://libraries.excalidraw.com/libraries";

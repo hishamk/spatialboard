@@ -7,11 +7,11 @@ import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import FillIcon from "../controls/FillIcon";
-import FontPicker from "../../FontPicker";
+import FontPicker from "../../panels/FontPicker";
 import EdgeStyleIcon from "../controls/EdgeStyleIcon";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 import {
   rowStyle,
   labelStyle,

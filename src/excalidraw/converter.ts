@@ -6,6 +6,7 @@ import type {
   DrawNode,
   TextNode,
   FrameNode,
+  StrokeStyle,
 } from "../engine/types";
 
 // NOTE:
@@ -42,7 +43,7 @@ function mapFillStyle(
 
 function mapStrokeStyle(
   style: string,
-): "solid" | "dashed" | "dotted" | undefined {
+): StrokeStyle | undefined {
   if (style === "dashed") return "dashed";
   if (style === "dotted") return "dotted";
   return undefined; // "solid" is default

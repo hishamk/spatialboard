@@ -5,7 +5,7 @@ import BorderControls from "../controls/BorderControls";
 import OpacitySlider from "../controls/OpacitySlider";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase } from "../styles";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface ImagePropertiesProps {
   engine: SpatialEngine;

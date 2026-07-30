@@ -1,4 +1,5 @@
 import rough from "roughjs";
+import type { StrokeStyle } from "../engine/types";
 
 const generator = rough.generator();
 
@@ -221,7 +222,7 @@ export function getRoughPathPaths(
 
 /** Convert strokeStyle string to roughjs strokeLineDash array */
 export function strokeStyleToDash(
-  style?: "solid" | "dashed" | "dotted"
+  style?: StrokeStyle
 ): number[] | undefined {
   if (style === "dashed") return [8, 4];
   if (style === "dotted") return [2, 2];

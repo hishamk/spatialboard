@@ -6,10 +6,10 @@ import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import FillIcon from "../controls/FillIcon";
-import FontPicker from "../../FontPicker";
+import FontPicker from "../../panels/FontPicker";
 import { DEFAULT_FONT } from "../../../fonts";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 import {
   rowStyle,
   labelStyle,

@@ -3,30 +3,18 @@ import { useFitSidePopoverPosition } from "../../hooks/useFitSidePopoverPosition
 import { createPortal } from "react-dom";
 import type { SpatialEngine, BoardBackground } from "../../engine/SpatialEngine";
 import type { Mode, ToolKey } from "../../engine/types";
+import type { NodeTypeRegistry } from "../../nodes/registry";
+import { TOOLS, modeAvailable } from "../../tools";
 import { TOOL_STRIP_WIDTH } from "./styles";
 import { useSBTheme } from "./ThemeContext";
 import { PAPER_TYPES, type PaperGroup } from "../paper-types";
-import { TEMPLATES } from "../../templates";
+import { TEMPLATES } from "../../templates/index";
 import { screenToCanvas } from "../../engine/viewport";
 import LibraryPanel from "./LibraryPanel";
 import LibraryDirectory from "./LibraryDirectory";
 import GifSearchPanel from "./GifSearchPanel";
 import MermaidPanel from "./MermaidPanel";
-import { useSBI18n } from "../LocalizationContext";
-
-const MODE_KEYS: { key: Mode; shortcut: string; num: string }[] = [
-  { key: "select", shortcut: "S", num: "" },
-  { key: "hand", shortcut: "P", num: "" },
-  { key: "draw", shortcut: "D", num: "" },
-  { key: "shape", shortcut: "G", num: "" },
-  { key: "text", shortcut: "T", num: "" },
-  { key: "note", shortcut: "B", num: "" },
-  { key: "sticky", shortcut: "Y", num: "" },
-  { key: "frame", shortcut: "F", num: "" },
-  { key: "edge", shortcut: "C", num: "" },
-  { key: "erase", shortcut: "E", num: "" },
-  { key: "laser", shortcut: "Z", num: "" },
-];
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 const btnBase: React.CSSProperties = {
   border: "none",
@@ -632,12 +620,12 @@ function MermaidPicker({ engine }: { engine: SpatialEngine }) {
   );
 }
 
-export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: SpatialEngine; gifApiBaseUrl?: string; tools?: ToolKey[] }) {
+export default function ToolStrip({ engine, gifApiBaseUrl, tools, registry }: { engine: SpatialEngine; gifApiBaseUrl?: string; tools?: ToolKey[]; registry?: NodeTypeRegistry }) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
-  // Toolbar-visibility allowlist: undefined ⇒ everything renders (canvas
-  // byte-identical); otherwise only listed keys show.
-  const show = (key: ToolKey) => !tools || tools.includes(key);
+  // Toolbar visibility: the host `tools` allowlist (undefined ⇒ all) AND, for
+  // node-creating tools, whether that node type is registered.
+  const show = (key: ToolKey) => (!tools || tools.includes(key)) && modeAvailable(key, registry);
   const anyPicker = show("paper") || show("template") || show("library") || show("mermaid") || (!!gifApiBaseUrl && show("gif"));
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [background, setBackground] = useState<BoardBackground>(engine.boardBackground);
@@ -657,19 +645,9 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
     };
   }, [engine]);
 
-  const modes = MODE_KEYS.filter((m) => show(m.key)).map((m) => ({
-    ...m,
-    label:
-      m.key === "select" ? labels.toolSelect :
-      m.key === "hand" ? labels.toolHand :
-      m.key === "draw" ? labels.toolDraw :
-      m.key === "shape" ? labels.toolShape :
-      m.key === "text" ? labels.toolText :
-      m.key === "note" ? labels.toolNote :
-      m.key === "sticky" ? labels.toolSticky :
-      m.key === "frame" ? labels.toolFrame :
-      m.key === "erase" ? labels.toolEraser :
-      labels.toolLaser,
+  const modes = TOOLS.filter((t) => show(t.mode)).map((t) => ({
+    ...t,
+    label: labels[t.labelKey],
   }));
 
   return (
@@ -691,17 +669,17 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
       {/* Mode buttons */}
       {modes.map((m) => {
         // When lasso is active, don't highlight the select button
-        const isActive = mode === m.key && !(m.key === "select" && lassoActive);
+        const isActive = mode === m.mode && !(m.mode === "select" && lassoActive);
         return (
         <button
-          key={m.key}
-          title={`${m.label} (${m.shortcut}${m.num ? ` / ${m.num}` : ""})`}
+          key={m.mode}
+          title={`${m.label} (${m.shortcut.toUpperCase()})`}
           onClick={() => {
             if (lassoActive) {
               engine.toggleLassoSelect();
               setLassoActive(false);
             }
-            engine.setMode(m.key);
+            engine.setMode(m.mode);
           }}
           style={{
             ...btnBase,
@@ -713,7 +691,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
             position: "relative",
           }}
         >
-          <ToolIcon name={m.key} textGlyph={labels.toolTextGlyph} />
+          <ToolIcon name={m.mode} textGlyph={labels.toolTextGlyph} />
           <span
             style={{
               position: "absolute",
@@ -726,7 +704,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
               pointerEvents: "none",
             }}
           >
-            {m.num || m.shortcut}
+            {m.shortcut.toUpperCase()}
           </span>
         </button>
         );
@@ -806,10 +784,10 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools }: { engine: Sp
  *  BottomBar instead of the side rail (SpatialBoard `toolsInBottomBar`).
  *  Same MODE_KEYS / icons / active semantics as the rail, rendered as one
  *  row of BottomBar-sized (32px) buttons. The bar provides the pill chrome. */
-export function ModeCluster({ engine, tools }: { engine: SpatialEngine; tools?: ToolKey[] }) {
+export function ModeCluster({ engine, tools, registry }: { engine: SpatialEngine; tools?: ToolKey[]; registry?: NodeTypeRegistry }) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
-  const show = (key: ToolKey) => !tools || tools.includes(key);
+  const show = (key: ToolKey) => (!tools || tools.includes(key)) && modeAvailable(key, registry);
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
 
@@ -824,35 +802,25 @@ export function ModeCluster({ engine, tools }: { engine: SpatialEngine; tools?: 
     };
   }, [engine]);
 
-  const modes = MODE_KEYS.filter((m) => show(m.key)).map((m) => ({
-    ...m,
-    label:
-      m.key === "select" ? labels.toolSelect :
-      m.key === "hand" ? labels.toolHand :
-      m.key === "draw" ? labels.toolDraw :
-      m.key === "shape" ? labels.toolShape :
-      m.key === "text" ? labels.toolText :
-      m.key === "note" ? labels.toolNote :
-      m.key === "sticky" ? labels.toolSticky :
-      m.key === "frame" ? labels.toolFrame :
-      m.key === "erase" ? labels.toolEraser :
-      labels.toolLaser,
+  const modes = TOOLS.filter((t) => show(t.mode)).map((t) => ({
+    ...t,
+    label: labels[t.labelKey],
   }));
 
   return (
     <>
       {modes.map((m) => {
-        const isActive = mode === m.key && !(m.key === "select" && lassoActive);
+        const isActive = mode === m.mode && !(m.mode === "select" && lassoActive);
         return (
           <button
-            key={m.key}
-            title={`${m.label} (${m.shortcut}${m.num ? ` / ${m.num}` : ""})`}
+            key={m.mode}
+            title={`${m.label} (${m.shortcut.toUpperCase()})`}
             onClick={() => {
               if (lassoActive) {
                 engine.toggleLassoSelect();
                 setLassoActive(false);
               }
-              engine.setMode(m.key);
+              engine.setMode(m.mode);
             }}
             style={{
               ...btnBase,
@@ -866,7 +834,7 @@ export function ModeCluster({ engine, tools }: { engine: SpatialEngine; tools?: 
           >
             {/* No shortcut letter badge here — at bar size it reads cramped;
                 the tooltip carries the shortcut, like the bar's other buttons. */}
-            <ToolIcon name={m.key} size={16} textGlyph={labels.toolTextGlyph} />
+            <ToolIcon name={m.mode} size={16} textGlyph={labels.toolTextGlyph} />
           </button>
         );
       })}

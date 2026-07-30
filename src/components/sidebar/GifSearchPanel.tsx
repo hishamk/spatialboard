@@ -6,7 +6,7 @@ import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { ImageNode } from "../../engine/types";
 import { useSBTheme } from "./ThemeContext";
 import { searchGifs, trendingGifs, type KlipyItem } from "../../utils/klipy";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 /** MIME type for drag-and-drop of GIF items */
 export const GIF_ITEM_MIME = "application/x-spatialboard-gif-item";

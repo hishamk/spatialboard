@@ -6,7 +6,7 @@ import { useMultiSelection } from "./useMultiSelection";
 import { PROPERTIES_WIDTH, TOOL_STRIP_WIDTH } from "./styles";
 import { useSBTheme } from "./ThemeContext";
 import PropertiesContent from "./PropertiesContent";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 interface FloatingPropertiesProps {
   engine: SpatialEngine;

@@ -5,7 +5,7 @@
 
 import { nanoid } from "nanoid";
 import type { SpatialNode } from "./types";
-import { TEMPLATES } from "../templates";
+import { TEMPLATES } from "../templates/index";
 import { screenToCanvas } from "./viewport";
 import type { SpatialEngine } from "./SpatialEngine";
 

@@ -54,36 +54,36 @@ export { imageNodeType } from "./nodes/image";
 export { textNodeType } from "./nodes/text";
 export { frameNodeType } from "./nodes/frame";
 export { stickyNodeType } from "./nodes/sticky";
-export { coreBoardNodes } from "./nodes";
+export { coreBoardNodes } from "./nodes/index";
 
 // ── React components ─────────────────────────────────────────
 export { default as SpatialBoard } from "./components/SpatialBoard";
 export type { SpatialBoardProps, PortConnectEmptyEvent } from "./components/SpatialBoard";
-export { default as SpatialCanvas } from "./components/SpatialCanvas";
-export type { DataFlowEdgeOverlay } from "./components/SVGLayer";
+export { default as SpatialCanvas } from "./components/canvas/SpatialCanvas";
+export type { DataFlowEdgeOverlay } from "./components/canvas/SVGLayer";
 export { default as Sidebar } from "./components/sidebar/Sidebar";
 export { SIDEBAR_WIDTH } from "./components/sidebar/styles";
 /** @deprecated Use Sidebar instead. Toolbar is now part of the Sidebar. */
-export { default as Toolbar } from "./components/Toolbar";
+export { default as Toolbar } from "./components/chrome/Toolbar";
 /** @deprecated Properties are now integrated into the Sidebar. */
-export { default as PropertiesPanel } from "./components/PropertiesPanel";
-export type { DebugBoardEntry } from "./components/DebugPanel";
+export { default as PropertiesPanel } from "./components/panels/PropertiesPanel";
+export type { DebugBoardEntry } from "./components/overlays/DebugPanel";
 export type { SpatialBoardTheme } from "./components/sidebar/ThemeContext";
 export { DEFAULT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext";
 // read-only context for node renderers and host UI.
 export {
   SpatialBoardReadOnlyContext,
   useSpatialBoardReadOnly,
-} from "./components/SpatialBoardReadOnlyContext";
+} from "./components/contexts/SpatialBoardReadOnlyContext";
 export type {
   SpatialBoardDirection,
   SpatialBoardLocalization,
   CustomNodeDocEntry,
-} from "./components/LocalizationContext";
+} from "./components/contexts/LocalizationContext";
 export {
   DEFAULT_LOCALIZATION as DEFAULT_SB_LOCALIZATION,
   useSBI18n,
-} from "./components/LocalizationContext";
+} from "./components/contexts/LocalizationContext";
 export { DEFAULT_FONT } from "./font-constants";
 export { PAPER_TYPES, getPaperType } from "./components/paper-types";
 export type { PaperTypeConfig, PaperGroup } from "./components/paper-types";
@@ -127,9 +127,9 @@ export type { EdgeCreationAwareness } from "./collab/edge-creation-awareness";
 export { serializeEdgeCreationAwareness } from "./collab/edge-creation-awareness";
 export type { RectDragAwareness, RectDragKind } from "./collab/rect-drag-awareness";
 export type { EraserAwareness } from "./collab/eraser-awareness";
-export { RemoteEdgeCreationPreview } from "./components/RemoteEdgeCreationPreview";
-export { RemoteRectDragPreview } from "./components/RemoteRectDragPreview";
-export { RemoteEraserPreview } from "./components/RemoteEraserPreview";
+export { RemoteEdgeCreationPreview } from "./components/collab/RemoteEdgeCreationPreview";
+export { RemoteRectDragPreview } from "./components/collab/RemoteRectDragPreview";
+export { RemoteEraserPreview } from "./components/collab/RemoteEraserPreview";
 
 // ── Styles (consumers import as: import 'spatialboard/style.css') ──
 import "./styles/index.css";

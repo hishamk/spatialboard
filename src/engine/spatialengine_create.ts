@@ -16,6 +16,7 @@ import type {
   Mode,
   EdgeType,
   HandleSide,
+  StrokeStyle,
 } from "./types";
 import type { SpatialEngine } from "./SpatialEngine";
 
@@ -26,7 +27,7 @@ export function activateTool(engine: SpatialEngine, config: {
   shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
   fillColor?: string;
   fillStyle?: "hachure" | "cross-hatch" | "solid";
-  strokeStyle?: "solid" | "dashed" | "dotted";
+  strokeStyle?: StrokeStyle;
   roughness?: number;
   opacity?: number;
   fontSize?: number;
@@ -70,7 +71,7 @@ export function createShape(
     opacity?: number;
     label?: string;
     labelFontSize?: number;
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
     edgeStyle?: "sharp" | "round";
   },
 ): string {
@@ -117,7 +118,7 @@ export function createText(
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
   },
 ): string {
   const id = nanoid(10);
@@ -186,7 +187,7 @@ export function createSticky(
   return id;
 }
 
-export function createContentBlock(
+export function createBlockNote(
   engine: SpatialEngine,
   blocks: unknown[],
   x: number,
@@ -197,7 +198,7 @@ export function createContentBlock(
     markdown?: string;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
     opacity?: number;
     edgeStyle?: "sharp" | "round";
   },
@@ -234,7 +235,7 @@ export function createFrame(
     backgroundColor?: string;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
     opacity?: number;
     slideOrder?: number;
     devicePreset?: string;
@@ -274,7 +275,7 @@ export function createImage(
     flipV?: boolean;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
   },
 ): string {
   const id = nanoid(10);
@@ -309,7 +310,7 @@ export function createDrawStroke(
     opacity?: number;
     fill?: string;
     fillStyle?: "hachure" | "cross-hatch" | "solid";
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
   },
 ): string {
   if (points.length === 0) throw new Error("createDrawStroke: must provide at least one point");
@@ -362,7 +363,7 @@ export function createEdge(
     arrowTail?: "none" | "arrow" | "filled" | "dot";
     sourceHandle?: HandleSide;
     targetHandle?: HandleSide;
-    style?: "solid" | "dashed" | "dotted";
+    style?: StrokeStyle;
     animated?: boolean;
     animatedDirection?: "forward" | "reverse" | "both" | "bop";
     sourcePort?: string;

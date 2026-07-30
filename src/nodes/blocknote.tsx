@@ -1,6 +1,6 @@
 import type { BlockNoteNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
-import ContentBlock from "../components/ContentBlock";
+import BlockNoteBlock from "../components/blocks/BlockNoteBlock";
 import { schema } from "../schema";
 import { blocksToMarkdown, markdownToBlocks, htmlToBlocks } from "../serialization/blocknote-markdown";
 import { setSbdMarkdownCodec } from "../serialization/markdown-codec";
@@ -15,7 +15,7 @@ export type BlockNoteNodeData = BlockNoteNode["data"];
 function BlockNoteNodeRenderer(props: NodeRendererProps<BlockNoteNodeData>) {
   const node = props.node as BlockNoteNode;
   return (
-    <ContentBlock
+    <BlockNoteBlock
       node={node}
       isSelected={props.isSelected}
       multiSelected={props.multiSelected}

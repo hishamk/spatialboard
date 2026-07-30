@@ -11,7 +11,7 @@ import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, STROKE_PALETTES, STROKE_COLORS } from "../styles";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface FramePropertiesProps {
   engine: SpatialEngine;

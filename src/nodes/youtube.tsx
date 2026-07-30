@@ -1,6 +1,6 @@
 import type { YouTubeNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
-import YouTubeBlock from "../components/YouTubeBlock";
+import YouTubeBlock from "../components/blocks/YouTubeBlock";
 
 type YouTubeNodeData = YouTubeNode["data"];
 

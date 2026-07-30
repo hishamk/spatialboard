@@ -11,6 +11,7 @@ import type {
   TextNode,
   StickyNoteNode,
   FrameNode,
+  StrokeStyle,
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
 
@@ -240,7 +241,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             backgroundColor: attrs.backgroundColor || undefined,
             borderColor: attrs.borderColor || undefined,
             borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
+            borderStyle: (attrs.borderStyle as StrokeStyle) || undefined,
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
             slideOrder: attrs.slideOrder ? parseInt(attrs.slideOrder, 10) : undefined,
             transition: attrs.transition || undefined,
@@ -270,7 +271,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             markdown,
             borderColor: attrs.borderColor || undefined,
             borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
+            borderStyle: (attrs.borderStyle as StrokeStyle) || undefined,
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
           },
         } as BlockNoteNode);
@@ -380,7 +381,7 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             opacity: attrs.opacity ? parseFloat(attrs.opacity) : undefined,
             borderColor: attrs.borderColor || undefined,
             borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
-            borderStyle: (attrs.borderStyle as "solid" | "dashed" | "dotted") || undefined,
+            borderStyle: (attrs.borderStyle as StrokeStyle) || undefined,
           },
         } as ImageNode);
         recordParent(attrs, base.id);

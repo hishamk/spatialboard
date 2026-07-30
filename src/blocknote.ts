@@ -9,7 +9,7 @@
 // spread `defaultBoardNodes` (or `blocknoteNodeType`) into their `nodeTypes`.
 
 import type { NodeTypeDefinition } from "./nodes/registry";
-import { coreBoardNodes } from "./nodes";
+import { coreBoardNodes } from "./nodes/index";
 import { blocknoteNodeType } from "./nodes/blocknote";
 
 export { blocknoteNodeType } from "./nodes/blocknote";

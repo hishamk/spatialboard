@@ -46,7 +46,7 @@ export interface BlockNoteNode extends SpatialNode {
     markdown?: string;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
     opacity?: number;
     edgeStyle?: "sharp" | "round";
   };
@@ -62,7 +62,7 @@ export interface DrawNode extends SpatialNode {
     opacity?: number;
     fill?: string;
     fillStyle?: "hachure" | "cross-hatch" | "solid";
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
   };
 }
 
@@ -74,7 +74,7 @@ export interface ShapeNode extends SpatialNode {
     fillStyle?: "hachure" | "cross-hatch" | "solid";
     stroke: string;
     strokeWidth: number;
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
     roughness: number;
     opacity?: number;
     /** Corner style for rect shapes: "sharp" (default) or "round" */
@@ -89,6 +89,7 @@ export interface ShapeNode extends SpatialNode {
   };
 }
 
+export type StrokeStyle = "solid" | "dashed" | "dotted";
 export type EdgeType = "straight" | "bezier" | "smoothstep" | "step";
 export type HandleSide = "top" | "right" | "bottom" | "left";
 
@@ -98,7 +99,7 @@ export interface EdgeNode extends SpatialNode {
     fromId: string;
     toId: string;
     label?: string;
-    style: "solid" | "dashed" | "dotted";
+    style: StrokeStyle;
     color: string;
     strokeWidth: number;
     arrowHead?: "none" | "arrow" | "filled" | "dot";
@@ -142,7 +143,7 @@ export interface ImageNode extends SpatialNode {
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
     /** Non-destructive crop region as fractions (0–1) of the natural image dimensions */
     crop?: { x: number; y: number; w: number; h: number };
   };
@@ -159,7 +160,7 @@ export interface TextNode extends SpatialNode {
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
   };
 }
 
@@ -183,7 +184,7 @@ export interface FrameNode extends SpatialNode {
     backgroundColor?: string;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
     opacity?: number;
     /** Explicit slide order for presentation mode. Lower numbers come first. */
     slideOrder?: number;
@@ -215,7 +216,7 @@ export interface YouTubeNode extends SpatialNode {
     opacity?: number;
     borderColor?: string;
     borderWidth?: number;
-    borderStyle?: "solid" | "dashed" | "dotted";
+    borderStyle?: StrokeStyle;
   };
 }
 
@@ -243,7 +244,7 @@ export interface ActiveTool {
   shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
   fillColor?: string;
   fillStyle?: "hachure" | "cross-hatch" | "solid";
-  strokeStyle?: "solid" | "dashed" | "dotted";
+  strokeStyle?: StrokeStyle;
   roughness?: number;
   opacity?: number;
   fontSize?: number;

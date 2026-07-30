@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { labelStyle, btnBase } from "../styles";
 import type { ColorPalette } from "../styles";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface PaletteColorPickerProps {
   label: string;

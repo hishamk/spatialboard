@@ -21,6 +21,9 @@ export function nodeShowsEdgeComputeOverlay(node: SpatialNode): boolean {
 /** Supported data types for ports. */
 export type PortDataType = "number" | "string" | "boolean" | "object" | "any" | "signal";
 
+/** Whether a port receives or sends data. */
+export type PortDirection = "input" | "output";
+
 /** Definition of a single port on a node type. */
 export interface PortDefinition {
   /** Unique identifier within the node (e.g. "input_a", "result"). */
@@ -28,7 +31,7 @@ export interface PortDefinition {
   /** Display label shown next to the port circle. */
   label?: string;
   /** Whether this port receives or sends data. */
-  direction: "input" | "output";
+  direction: PortDirection;
   /** The data type this port carries. */
   dataType: PortDataType;
   /** Default value used when no edge is connected. */

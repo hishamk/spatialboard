@@ -2,14 +2,14 @@ import { memo } from "react";
 import type { DrawNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
 import { isPointInDrawNode } from "../engine/spatial-index";
-import SVGNodeBlock from "../components/SVGNodeBlock";
+import VectorNodeBlock from "../components/blocks/VectorNodeBlock";
 
 export type DrawNodeData = DrawNode["data"];
 
 const DrawNodeRenderer = memo(function DrawNodeRenderer(
   props: NodeRendererProps<DrawNodeData>,
 ) {
-  return <SVGNodeBlock node={props.node as DrawNode} />;
+  return <VectorNodeBlock node={props.node as DrawNode} />;
 });
 
 export const drawNodeType: NodeTypeDefinition<DrawNodeData> = {

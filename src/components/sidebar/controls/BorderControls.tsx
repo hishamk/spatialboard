@@ -1,12 +1,13 @@
+import type { StrokeStyle } from "../../../engine/types";
 import PaletteColorPicker from "./PaletteColorPicker";
 import StrokeStylePicker from "./StrokeStylePicker";
 import WidthPicker from "./WidthPicker";
 import { STROKE_PALETTES } from "../styles";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface BorderControlsProps {
   borderColor: string | null | undefined;
-  borderStyle: "solid" | "dashed" | "dotted" | undefined;
+  borderStyle: StrokeStyle | undefined;
   borderWidth: number | undefined;
   mixed?: {
     color?: boolean;

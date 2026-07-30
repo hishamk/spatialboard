@@ -4,10 +4,10 @@ import { useBatchUpdate } from "../MultiNodeContext";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import BorderControls from "../controls/BorderControls";
 import OpacitySlider from "../controls/OpacitySlider";
-import FontPicker from "../../FontPicker";
+import FontPicker from "../../panels/FontPicker";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 import {
   rowStyle,
   labelStyle,

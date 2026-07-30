@@ -1,3 +1,5 @@
+import type { StrokeStyle } from "../../engine/types";
+
 export const TOOL_STRIP_WIDTH = 52;
 export const PROPERTIES_WIDTH = 300;
 export const SIDEBAR_WIDTH = TOOL_STRIP_WIDTH + PROPERTIES_WIDTH;
@@ -28,7 +30,7 @@ export const FILL_STYLES: { key: "hachure" | "cross-hatch" | "solid"; label: str
 ];
 
 export const STROKE_STYLES: {
-  key: "solid" | "dashed" | "dotted";
+  key: StrokeStyle;
   label: string;
   dash: string;
 }[] = [

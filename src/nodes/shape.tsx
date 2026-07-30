@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { ShapeNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
 import { isPointInShapeNode } from "../engine/spatial-index";
-import SVGNodeBlock from "../components/SVGNodeBlock";
+import VectorNodeBlock from "../components/blocks/VectorNodeBlock";
 
 export type ShapeNodeData = ShapeNode["data"];
 
@@ -10,7 +10,7 @@ const ShapeNodeRenderer = memo(function ShapeNodeRenderer(
   props: NodeRendererProps<ShapeNodeData>,
 ) {
   const node = props.node as ShapeNode;
-  return <SVGNodeBlock node={node} editingLabel={props.editing} />;
+  return <VectorNodeBlock node={node} editingLabel={props.editing} />;
 });
 
 export const shapeNodeType: NodeTypeDefinition<ShapeNodeData> = {

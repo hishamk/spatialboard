@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type { BlockNoteNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
 import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
+import { TOOLS, modeAvailable } from "../tools";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
 import { isYouTubeUrl, extractYouTubeVideoId } from "../utils/youtube";
 
@@ -149,10 +150,12 @@ function writeToClipboard(
 }
 
 export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElement | null, tools?: ToolKey[]): () => void {
-  // Toolbar-visibility allowlist (undefined ⇒ all shortcuts active, canvas
-  // byte-identical). When provided, a mode/lasso shortcut whose tool is not
-  // listed no-ops — so e.g. `F` (frame) can't enter a hidden mode in workflow.
-  const toolAllowed = (k: ToolKey) => !tools || tools.includes(k);
+  // A shortcut fires only when the host allows the tool (`tools` allowlist,
+  // undefined ⇒ all) AND, for a node-creating tool, its node type is registered
+  // (so pressing `B` on a slim `coreBoardNodes` board doesn't enter an unusable
+  // rich-text mode). Same gating as the toolbar — driven by the shared TOOLS table.
+  const toolAllowed = (k: ToolKey) =>
+    (!tools || tools.includes(k)) && modeAvailable(k, engine.getRegistry());
   let currentDoc = container?.ownerDocument ?? document;
   let currentWin = currentDoc.defaultView ?? window;
   let lastClientX = currentWin.innerWidth / 2;
@@ -503,22 +506,16 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
     // Each is gated by the `tools` allowlist: a shortcut whose tool the host has
     // hidden no-ops (so a hidden tool can't be reached by keyboard either).
     if (!mod && !e.altKey && !e.shiftKey) {
-      if (e.key === "s") { if (toolAllowed("select")) engine.setMode("select"); return; }
-      if (e.key === "p") { if (toolAllowed("hand")) engine.setMode("hand"); return; }
-      if (e.key === "d") { if (toolAllowed("draw")) engine.setMode("draw"); return; }
-      if (e.key === "g") { if (toolAllowed("shape")) engine.setMode("shape"); return; }
-      if (e.key === "t") { if (toolAllowed("text")) engine.setMode("text"); return; }
-      if (e.key === "b") { if (toolAllowed("note")) engine.setMode("note"); return; }
-      if (e.key === "y") { if (toolAllowed("sticky")) engine.setMode("sticky"); return; }
-      if (e.key === "f") { if (toolAllowed("frame")) engine.setMode("frame"); return; }
-      if (e.key === "c") { if (toolAllowed("edge")) engine.setMode("edge"); return; }
-      if (e.key === "e") { if (toolAllowed("erase")) engine.setMode("erase"); return; }
+      // Lasso is a toggle, not a mode — handle it explicitly.
       if (e.key === "l") {
         if (toolAllowed("lasso")) engine.toggleLassoSelect();
         return;
       }
-      if (e.key === "z") {
-        if (toolAllowed("laser")) engine.setMode("laser");
+      // Every other single-key shortcut activates a tool mode (TOOLS is the
+      // single source of truth, shared with the toolbar).
+      const spec = TOOLS.find((t) => t.shortcut === e.key);
+      if (spec) {
+        if (toolAllowed(spec.mode)) engine.setMode(spec.mode);
         return;
       }
     }

@@ -11,6 +11,7 @@ import type {
   FrameNode,
   StickyNoteNode,
   YouTubeNode,
+  StrokeStyle,
 } from "../engine/types";
 import { getYouTubeThumbnailUrl } from "../utils/youtube";
 import { getStrokePath } from "../rendering/freehand";
@@ -697,7 +698,7 @@ function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
 // ---------------------------------------------------------------------------
 
 function borderDashArray(
-  style?: "solid" | "dashed" | "dotted",
+  style?: StrokeStyle,
   width?: number,
 ): string | undefined {
   const w = width ?? 1;

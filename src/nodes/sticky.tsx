@@ -1,6 +1,6 @@
 import type { StickyNoteNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
-import StickyNoteBlock from "../components/StickyNoteBlock";
+import StickyNoteBlock from "../components/blocks/StickyNoteBlock";
 
 export type StickyNodeData = StickyNoteNode["data"];
 

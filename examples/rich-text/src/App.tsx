@@ -19,7 +19,7 @@ function seed(engine: SpatialEngine) {
 
   // A rich-text node is a full BlockNote editor. Double-click to edit; it
   // serializes to markdown inside the SBD document.
-  engine.createContentBlock(
+  engine.createBlockNote(
     [
       { type: "heading", props: { level: 3 }, content: [{ type: "text", text: "A block editor, on the canvas", styles: {} }], children: [] },
       {

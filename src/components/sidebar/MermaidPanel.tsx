@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { useSBTheme } from "./ThemeContext";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 const STARTER = `flowchart LR
   A[Idea] --> B{Decision}

@@ -4,7 +4,7 @@ import type { ToolKey } from "../../engine/types";
 import ToolStrip from "./ToolStrip";
 import FloatingProperties from "./FloatingProperties";
 import { TOOL_STRIP_WIDTH } from "./styles";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 export { TOOL_STRIP_WIDTH as SIDEBAR_WIDTH };
 
@@ -41,7 +41,7 @@ export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, t
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <ToolStrip engine={engine} gifApiBaseUrl={gifApiBaseUrl} tools={tools} />
+          <ToolStrip engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} tools={tools} />
         </div>
       )}
       {nodeInspector && <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} />}

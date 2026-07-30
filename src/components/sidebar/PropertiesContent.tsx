@@ -36,7 +36,7 @@ import YouTubeProperties from "./sections/YouTubeProperties";
 import ToolModeProperties from "./sections/ToolModeProperties";
 import CustomNodeProperties from "./sections/CustomNodeProperties";
 import { PAPER_TYPES } from "../paper-types";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky", "youtube"]);
 const BORDER_TYPES = new Set(["text", "image", "blocknote", "frame", "youtube"]);

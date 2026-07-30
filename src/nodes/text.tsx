@@ -1,6 +1,6 @@
 import type { TextNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
-import TextNodeBlock from "../components/TextNodeBlock";
+import TextNodeBlock from "../components/blocks/TextNodeBlock";
 
 export type TextNodeData = TextNode["data"];
 

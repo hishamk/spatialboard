@@ -1,10 +1,11 @@
+import type { StrokeStyle } from "../../../engine/types";
 import { rowStyle, labelStyle, btnBase, STROKE_STYLES } from "../styles";
 import { useSBTheme } from "../ThemeContext";
 
 interface StrokeStylePickerProps {
   label: string;
-  value: "solid" | "dashed" | "dotted" | undefined;
-  onChange: (style: "solid" | "dashed" | "dotted") => void;
+  value: StrokeStyle | undefined;
+  onChange: (style: StrokeStyle) => void;
   mixed?: boolean;
 }
 

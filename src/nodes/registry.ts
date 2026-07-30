@@ -1,6 +1,6 @@
 import type { SpatialNode } from "../engine/types";
 import type { SpatialEngine } from "../engine/SpatialEngine";
-import type { PortDefinition, PortValue } from "../engine/data-flow-types";
+import type { PortDefinition, PortValue, PortDirection } from "../engine/data-flow-types";
 import type { PortAnchorMode } from "../engine/edge-geometry";
 
 // ── Renderer props passed to every node component ────────────
@@ -282,7 +282,7 @@ const SPATIALBOARD_BUILTIN_TYPE_IDS = new Set<string>([
 export interface SpatialNodeTypeCatalogPort {
   id: string;
   label?: string;
-  direction: "input" | "output";
+  direction: PortDirection;
   dataType: string;
   defaultValue?: unknown;
 }

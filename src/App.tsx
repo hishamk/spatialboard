@@ -1,9 +1,9 @@
 import { useMemo, useEffect } from "react";
 import { SpatialEngine } from "./engine/SpatialEngine";
-import SpatialCanvas from "./components/SpatialCanvas";
+import SpatialCanvas from "./components/canvas/SpatialCanvas";
 import Sidebar from "./components/sidebar/Sidebar";
 import { TOOL_STRIP_WIDTH } from "./components/sidebar/styles";
-import DebugPanel from "./components/DebugPanel";
+import DebugPanel from "./components/overlays/DebugPanel";
 import { setupKeyboardHandler } from "./interactions/keyboard-handler";
 import { schema } from "./schema";
 

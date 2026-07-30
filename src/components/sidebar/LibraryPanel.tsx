@@ -24,7 +24,7 @@ import {
   removePersonalItem,
   type PersonalLibraryItem,
 } from "../../store/personal-library";
-import { useSBI18n } from "../LocalizationContext";
+import { useSBI18n } from "../contexts/LocalizationContext";
 
 // ============================================================================
 // Placement helper — mirrors engine.applyTemplate logic

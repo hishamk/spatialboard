@@ -8,7 +8,7 @@ import WidthPicker from "../controls/WidthPicker";
 import PropertySection from "../controls/PropertySection";
 import { useSBTheme } from "../ThemeContext";
 import { rowStyle, labelStyle, btnBase, STROKE_PALETTES, ROUGHNESS_LEVELS, WIDTHS_EDGE } from "../styles";
-import { useSBI18n } from "../../LocalizationContext";
+import { useSBI18n } from "../../contexts/LocalizationContext";
 
 const HANDLE_TO_T: Record<HandleSide, number> = { top: 0, right: 0.25, bottom: 0.5, left: 0.75 };
 const T_TO_HANDLE: [number, HandleSide][] = [[0, "top"], [0.25, "right"], [0.5, "bottom"], [0.75, "left"]];

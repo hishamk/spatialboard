@@ -1,45 +1,46 @@
 import { useMemo, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { SpatialEngine } from "../engine/SpatialEngine";
 import { DataFlowEngine } from "../engine/DataFlowEngine";
-import SpatialCanvas from "./SpatialCanvas";
-import type { DataFlowEdgeOverlay } from "./SVGLayer";
+import SpatialCanvas from "./canvas/SpatialCanvas";
+import type { DataFlowEdgeOverlay } from "./canvas/SVGLayer";
 import Sidebar from "./sidebar/Sidebar";
 import { ModeCluster } from "./sidebar/ToolStrip";
 import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
-import type { DebugBoardEntry } from "./DebugPanel";
-const DebugPanel = lazy(() => import("./DebugPanel"));
+import type { DebugBoardEntry } from "./overlays/DebugPanel";
+const DebugPanel = lazy(() => import("./overlays/DebugPanel"));
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
 import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
-import { coreBoardNodes } from "../nodes";
+import { coreBoardNodes } from "../nodes/index";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import { loadGoogleFonts } from "../fonts";
 import { SBThemeContext, DEFAULT_SB_THEME } from "./sidebar/ThemeContext";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
-import BottomBar from "./BottomBar";
-import CanvasSearchBar from "./CanvasSearchBar";
-import FramesPanel from "./FramesPanel";
-import PresentationOverlay from "./PresentationOverlay";
-import PerformanceOverlay from "./PerformanceOverlay";
+import BottomBar from "./chrome/BottomBar";
+import CanvasSearchBar from "./overlays/CanvasSearchBar";
+import FramesPanel from "./panels/FramesPanel";
+import PresentationOverlay from "./overlays/PresentationOverlay";
+import PerformanceOverlay from "./overlays/PerformanceOverlay";
 import { spatialPerf } from "../perf/spatial-perf";
 import {
   SBLocalizationContext,
   useSBLocalizationValue,
   type SpatialBoardDirection,
   type SpatialBoardLocalization,
-} from "./LocalizationContext";
-import { SpatialBoardReadOnlyContext } from "./SpatialBoardReadOnlyContext";
+} from "./contexts/LocalizationContext";
+import { SpatialBoardReadOnlyContext } from "./contexts/SpatialBoardReadOnlyContext";
 
 /** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
 export type PortConnectEmptyEvent = {
   nodeId: string;
   portId: string;
-  direction: "input" | "output";
+  direction: PortDirection;
   canvasX: number;
   canvasY: number;
   clientX: number;
   clientY: number;
 };
 import type { ToolKey } from "../engine/types";
+import type { PortDirection } from "../engine/data-flow-types";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -401,7 +402,7 @@ export default function SpatialBoard({
             engine={engine}
             tools={tools}
             leadingSlot={bottomBarLeading}
-            toolsSlot={toolsInBottomBar && !readOnly ? <ModeCluster engine={engine} tools={tools} /> : undefined}
+            toolsSlot={toolsInBottomBar && !readOnly ? <ModeCluster engine={engine} tools={tools} registry={registry} /> : undefined}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
             showMinimap={minimapVisible}

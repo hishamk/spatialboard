@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
-import type { SpatialNode, Mode } from "../../engine/types";
+import type { SpatialNode, Mode, StrokeStyle } from "../../engine/types";
 
 export interface TypeGroup {
   type: string;
@@ -17,7 +17,7 @@ export interface MergedCommonProps {
   opacity?: number | "mixed";
   borderColor?: string | null | "mixed";
   borderWidth?: number | "mixed";
-  borderStyle?: "solid" | "dashed" | "dotted" | "mixed";
+  borderStyle?: StrokeStyle | "mixed";
 }
 
 const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky"]);
@@ -67,7 +67,7 @@ function computeCommonProps(nodes: SpatialNode[]): MergedCommonProps {
       (n) => ((getBorderProp(n, "borderStyle") as string) ?? "solid") === firstStyle
     );
     result.borderStyle = allStyleSame
-      ? (firstStyle as "solid" | "dashed" | "dotted")
+      ? (firstStyle as StrokeStyle)
       : "mixed";
   }
 

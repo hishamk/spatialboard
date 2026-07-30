@@ -25,6 +25,7 @@ import type {
   EdgeType,
   AgentCanvasState,
   AgentStateOptions,
+  StrokeStyle,
 } from "./types";
 import { History } from "./history";
 import { hitTest, hitTestAll } from "./spatial-index";
@@ -143,7 +144,7 @@ type EventMap = {
     roughness?: number;
     fill?: string;
     fillStyle?: "hachure" | "cross-hatch" | "solid";
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
     edgeStyle?: "sharp" | "round";
   }) => void;
   'shape:end': () => void;
@@ -2253,7 +2254,7 @@ export class SpatialEngine {
     roughness?: number;
     fill?: string;
     fillStyle?: "hachure" | "cross-hatch" | "solid";
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
     edgeStyle?: "sharp" | "round";
   }): void {
     this.emit("shape:progress", preview);
@@ -2478,7 +2479,7 @@ export class SpatialEngine {
     shapeType?: "rect" | "ellipse" | "diamond" | "line" | "arrow";
     fillColor?: string;
     fillStyle?: "hachure" | "cross-hatch" | "solid";
-    strokeStyle?: "solid" | "dashed" | "dotted";
+    strokeStyle?: StrokeStyle;
     roughness?: number;
     opacity?: number;
     fontSize?: number;
@@ -2508,7 +2509,7 @@ export class SpatialEngine {
       opacity?: number;
       label?: string;
       labelFontSize?: number;
-      strokeStyle?: "solid" | "dashed" | "dotted";
+      strokeStyle?: StrokeStyle;
       edgeStyle?: "sharp" | "round";
     },
   ): string {
@@ -2529,7 +2530,7 @@ export class SpatialEngine {
       opacity?: number;
       borderColor?: string;
       borderWidth?: number;
-      borderStyle?: "solid" | "dashed" | "dotted";
+      borderStyle?: StrokeStyle;
     },
   ): string {
     return CreateOps.createText(this, text, x, y, options);
@@ -2553,7 +2554,7 @@ export class SpatialEngine {
   }
 
   /** Create a rich-content block (BlockNote). Returns the new node id. */
-  createContentBlock(
+  createBlockNote(
     blocks: unknown[],
     x: number,
     y: number,
@@ -2563,12 +2564,12 @@ export class SpatialEngine {
       markdown?: string;
       borderColor?: string;
       borderWidth?: number;
-      borderStyle?: "solid" | "dashed" | "dotted";
+      borderStyle?: StrokeStyle;
       opacity?: number;
       edgeStyle?: "sharp" | "round";
     },
   ): string {
-    return CreateOps.createContentBlock(this, blocks, x, y, options);
+    return CreateOps.createBlockNote(this, blocks, x, y, options);
   }
 
   /** Create a frame node. Returns the new node id. */
@@ -2582,7 +2583,7 @@ export class SpatialEngine {
       backgroundColor?: string;
       borderColor?: string;
       borderWidth?: number;
-      borderStyle?: "solid" | "dashed" | "dotted";
+      borderStyle?: StrokeStyle;
       opacity?: number;
       slideOrder?: number;
       devicePreset?: string;
@@ -2605,7 +2606,7 @@ export class SpatialEngine {
       flipV?: boolean;
       borderColor?: string;
       borderWidth?: number;
-      borderStyle?: "solid" | "dashed" | "dotted";
+      borderStyle?: StrokeStyle;
     },
   ): string {
     return CreateOps.createImage(this, src, x, y, options);
@@ -2623,7 +2624,7 @@ export class SpatialEngine {
       opacity?: number;
       fill?: string;
       fillStyle?: "hachure" | "cross-hatch" | "solid";
-      strokeStyle?: "solid" | "dashed" | "dotted";
+      strokeStyle?: StrokeStyle;
     },
   ): string {
     return CreateOps.createDrawStroke(this, points, options);
@@ -2642,7 +2643,7 @@ export class SpatialEngine {
       arrowTail?: "none" | "arrow" | "filled" | "dot";
       sourceHandle?: HandleSide;
       targetHandle?: HandleSide;
-      style?: "solid" | "dashed" | "dotted";
+      style?: StrokeStyle;
       animated?: boolean;
       animatedDirection?: "forward" | "reverse" | "both" | "bop";
       sourcePort?: string;

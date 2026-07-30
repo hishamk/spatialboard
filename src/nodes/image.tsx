@@ -1,6 +1,6 @@
 import type { ImageNode } from "../engine/types";
 import type { NodeTypeDefinition, NodeRendererProps } from "./registry";
-import ImageBlock from "../components/ImageBlock";
+import ImageBlock from "../components/blocks/ImageBlock";
 
 export type ImageNodeData = ImageNode["data"];
 
