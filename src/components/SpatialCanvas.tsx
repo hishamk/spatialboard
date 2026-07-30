@@ -733,7 +733,7 @@ const NodeItem = memo(function NodeItem({
 
   if (ctx.registry) {
     const def = ctx.registry.get(node.type);
-    if (def) {
+    if (def && def.component) {
       const Component = def.component;
       const isSelected = ctx.selection.has(node.id) && ctx.mode !== "edge";
       // AND `!engine.readOnly` so every Block already

@@ -49,13 +49,15 @@ export interface NodePropertiesPanelProps<TData = unknown> {
 
 // ── Node type definition ─────────────────────────────────────
 
-export interface NodeTypeDefinition<TData = unknown> {
+/**
+ * Framework-agnostic node type: behavior, spatial policy, and data-flow — NO
+ * React types, so the engine, agents, and headless code can consume it. Layer
+ * the DOM renderer on with `NodeTypeReactUI` via `defineReactNode`.
+ */
+export interface NodeTypeDef<TData = unknown> {
   type: string;
 
-  // ── Rendering ──────────────────────────────────────
-  /** React component to render this node in the DOM layer. */
-  component: React.ComponentType<NodeRendererProps<TData>>;
-
+  // ── Rendering policy (React-free flags; the component lives in NodeTypeReactUI) ──
   /** If true, this node is excluded from the main DOM render loop
    *  and only rendered via SVGLayer (like edges). Default: false. */
   isSVGOnly?: boolean;
@@ -109,10 +111,6 @@ export interface NodeTypeDefinition<TData = unknown> {
 
   /** Text representation for clipboard copy operations. */
   getClipboardText?: (node: SpatialNode) => string | null;
-
-  // ── Properties panel ─────────────────────────────────
-  /** Custom properties panel shown when this node type is selected. */
-  propertiesPanel?: React.ComponentType<NodePropertiesPanelProps<TData>>;
 
   /**
    * Optional in-inspector help (?): strings come from `localization.customNodeDocs[key]`
@@ -208,6 +206,30 @@ export interface NodeTypeDefinition<TData = unknown> {
   ) => Record<string, PortValue> | Promise<Record<string, PortValue>>;
 }
 
+/**
+ * The React UI half of a node type, kept separate so `NodeTypeDef` stays
+ * framework-agnostic. `component` is optional: a compute-only / headless type
+ * renders no DOM (the React host skips it).
+ */
+export interface NodeTypeReactUI<TData = unknown> {
+  /** React component to render this node in the DOM layer. */
+  component?: React.ComponentType<NodeRendererProps<TData>>;
+  /** Custom properties panel shown when this node type is selected. */
+  propertiesPanel?: React.ComponentType<NodePropertiesPanelProps<TData>>;
+}
+
+/** A fully-specified node type for the React board: behavior + UI. */
+export type NodeTypeDefinition<TData = unknown> = NodeTypeDef<TData> &
+  NodeTypeReactUI<TData>;
+
+/** Compose a framework-agnostic def with its React UI into a board node type. */
+export function defineReactNode<TData = unknown>(
+  def: NodeTypeDef<TData>,
+  ui: NodeTypeReactUI<TData>,
+): NodeTypeDefinition<TData> {
+  return { ...def, ...ui };
+}
+
 // ── Dynamic-port resolution ───────────────────────────────────
 
 /**
@@ -219,7 +241,7 @@ export interface NodeTypeDefinition<TData = unknown> {
  * instance (e.g. an N-way branch node).
  */
 export function resolveNodePorts(
-  def: NodeTypeDefinition<unknown> | undefined,
+  def: NodeTypeDef<unknown> | undefined,
   node: SpatialNode | undefined,
 ): PortDefinition[] | undefined {
   const p = def?.ports;
@@ -235,7 +257,7 @@ export function resolveNodePorts(
  * function whose `.length` is its arity, not a port count).
  */
 export function nodeTypeHasPorts(
-  def: NodeTypeDefinition<unknown> | undefined,
+  def: NodeTypeDef<unknown> | undefined,
 ): boolean {
   const p = def?.ports;
   return typeof p === "function" || (Array.isArray(p) && p.length > 0);

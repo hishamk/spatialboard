@@ -32,9 +32,11 @@ export type {
 } from "./engine/types";
 
 // ── Node type registry ───────────────────────────────────────
-export { NodeTypeRegistry, resolveNodePorts, nodeTypeHasPorts } from "./nodes/registry";
+export { NodeTypeRegistry, resolveNodePorts, nodeTypeHasPorts, defineReactNode } from "./nodes/registry";
 export type {
   NodeTypeDefinition,
+  NodeTypeDef,
+  NodeTypeReactUI,
   NodeRendererProps,
   NodeCallbacks,
   NodePropertiesPanelProps,

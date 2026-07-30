@@ -10,8 +10,15 @@ export { frameNodeType } from "./frame";
 export { stickyNodeType } from "./sticky";
 export { youtubeNodeType } from "./youtube";
 
-export { NodeTypeRegistry } from "./registry";
-export type { NodeTypeDefinition, NodeRendererProps, NodeCallbacks } from "./registry";
+export { NodeTypeRegistry, defineReactNode } from "./registry";
+export type {
+  NodeTypeDefinition,
+  NodeTypeDef,
+  NodeTypeReactUI,
+  NodeRendererProps,
+  NodeCallbacks,
+  NodePropertiesPanelProps,
+} from "./registry";
 
 // Re-import for the builtinNodeTypes array
 import { contentNodeType } from "./content";
