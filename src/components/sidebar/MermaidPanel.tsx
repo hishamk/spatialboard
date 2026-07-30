@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { useSBTheme } from "./ThemeContext";
-import { buildMermaidSketchNodes } from "../../utils/mermaid";
 import { useSBI18n } from "../LocalizationContext";
 
 const STARTER = `flowchart LR
@@ -52,11 +51,14 @@ export default function MermaidPanel({
     [labels.mermaidSupportedHint],
   );
 
-  const onInsert = useCallback(() => {
+  const onInsert = useCallback(async () => {
     try {
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const pt = engine.screenToCanvas(cx, cy);
+      // The mermaid→sketch parser (~1k LOC, dep-free) is only needed on insert —
+      // load it lazily so it stays out of the main board chunk.
+      const { buildMermaidSketchNodes } = await import("../../utils/mermaid");
       const { nodes, shapeNodeIds } = buildMermaidSketchNodes(source, pt.x, pt.y, () => engine.nextZ());
       if (nodes.length === 0) {
         throw new Error(labels.mermaidNoNodesParsed);
