@@ -154,7 +154,8 @@ export const statusNodeType: NodeTypeDefinition<StatusData> = {
 
 ## Real examples to copy
 
-The dev playground registers five small data-flow node types you can lift as
-templates: `examples/dev-app/src/nodes/` — `constant.tsx`, `interval.tsx`,
-`gate.tsx`, `logger.tsx`, `map-remap.tsx`. The graded walkthrough is in
+Among the ~40 node types in the dev playground, five are minimal data-flow
+templates you can lift directly: `examples/dev-app/src/nodes/` —
+`constant.tsx`, `interval.tsx`, `gate.tsx`, `logger.tsx`, `map-remap.tsx`. The
+graded walkthrough is in
 [examples.md](examples.md).

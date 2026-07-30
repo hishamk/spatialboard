@@ -61,8 +61,9 @@ instances with `engine.addNode(...)`.
 
 ## 4. Data-flow nodes (real code in the repo)
 
-[`examples/dev-app/src/nodes/`](../examples/dev-app/src/nodes/) contains five
-small, readable custom node types that together form a working pipeline:
+[`examples/dev-app/src/nodes/`](../examples/dev-app/src/nodes/) holds ~40 custom
+node types; five of them are small, readable data-flow nodes that together form
+a working pipeline:
 
 | File | Node | Demonstrates |
 |------|------|--------------|

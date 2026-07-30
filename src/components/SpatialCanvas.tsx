@@ -4399,16 +4399,9 @@ export default function SpatialCanvas({
           }
         }
 
-        // Enforce minimum size (with per-type overrides for embeddable custom nodes)
-        let minW = 10;
-        let minH = 10;
-        if (node.type === "legacy-voicenote") {
-          minW = 260;
-          minH = 120;
-        } else if (node.type === "legacy-canvas-link") {
-          minW = 220;
-          minH = 86;
-        }
+        // Enforce minimum size
+        const minW = 10;
+        const minH = 10;
         if (newW < minW) {
           newW = minW;
           if (handle === "nw" || handle === "w" || handle === "sw") {
@@ -6079,7 +6072,7 @@ export default function SpatialCanvas({
       />
 
       {/* Unified multi-selection bounding box (resize / rotate / connection
-          handles). hidden in readOnly so viewers don't see dead
+          handles). Hidden in readOnly so viewers don't see dead
           affordances — selection itself still works (engine.selection is
           view-state, not doc-state), but the frame chrome with handles is
           for editing only. */}

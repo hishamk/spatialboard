@@ -13,9 +13,10 @@ slide deck, or a board that AI agents can read and write.
 ```tsx
 import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
 import "spatialboard/style.css";
+import { useMemo } from "react";
 
 export default function App() {
-  const engine = new SpatialEngine();
+  const engine = useMemo(() => new SpatialEngine(), []);
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <SpatialBoard engine={engine} nodeTypes={builtinNodeTypes} />
@@ -115,8 +116,9 @@ Battery check at 06:00.
 <!--@edge id="e1" from="s1" to="f1" style="dashed" -->
 ```
 
-`serializeToSBD(engine)` / `parseSBD(text)`, spec in
-[sbd-spec.md](sbd-spec.md).
+Round-trip with `await engine.toSBD()` / `await engine.fromSBD(text)`. The
+lower-level functions are `serializeToSBD(nodes)` and `parseSBD(text)` (which
+returns `{ nodes, meta, warnings }`). Spec in [sbd-spec.md](sbd-spec.md).
 
 ## How it compares
 
@@ -160,9 +162,10 @@ Two runnable apps, plus a guided path:
 - **`examples/simple`** — "Pocket Board": a ~150-line responsive, offline-first
   PWA that persists the board (as SBD) and camera to localStorage. The template for a
   minimal integration.
-- **`examples/dev-app`** — the development playground: every feature, plus five
-  small custom data-flow nodes (`constant`, `interval`, `gate`, `logger`,
-  `map-remap`) that make a good template for your own.
+- **`examples/dev-app`** — the development playground: every feature and ~40
+  custom node types, including five minimal data-flow templates (`constant`,
+  `interval`, `gate`, `logger`, `map-remap`) that make a good starting point
+  for your own.
 
 From the package root:
 
