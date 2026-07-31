@@ -42,19 +42,19 @@ The default board registers `coreBoardNodes` (`src/nodes/index.ts:42`); hosts th
 
 Reading top to bottom, the component:
 
-1. **Owns or adopts the engine** — `externalEngine ?? new SpatialEngine()` (`SpatialBoard.tsx:213`). Passing your own engine is how a host embeds the board inside a larger system (collab drivers, external persistence).
-2. **Builds the node-type registry** from the `nodeTypes` prop (`SpatialBoard.tsx:217`) and hands it to the engine for lifecycle hooks: `engine.setRegistry(registry)` (`SpatialBoard.tsx:234`).
-3. **Loads initial content** via `engine.fromSBD(initialData)` (`SpatialBoard.tsx:263`).
-4. **Creates the data-flow engine only if any registered type declares ports** — `new DataFlowEngine(engine, registry)` (`SpatialBoard.tsx:303`), then `dataFlow.connect()` subscribes it to engine events.
-5. **Mounts the providers**: theme (`SBThemeContext`, `SpatialBoard.tsx:347`), localization, and read-only context.
-6. **Installs keyboard shortcuts** scoped to the focused board: `setupKeyboardHandler(engine, boardRef.current, tools)` (`SpatialBoard.tsx:291`).
-7. **Renders the layout**: `<Sidebar>` (tool rail + inspector, `SpatialBoard.tsx:378`), `<SpatialCanvas>` (the board itself, `SpatialBoard.tsx:390`), `<BottomBar>` (`SpatialBoard.tsx:409`), `<PresentationOverlay>` (`SpatialBoard.tsx:430`).
+1. **Owns or adopts the engine** — `externalEngine ?? new SpatialEngine()` (`SpatialBoard.tsx:214`). Passing your own engine is how a host embeds the board inside a larger system (collab drivers, external persistence).
+2. **Builds the node-type registry** from the `nodeTypes` prop (`SpatialBoard.tsx:218`) and hands it to the engine for lifecycle hooks: `engine.setRegistry(registry)` (`SpatialBoard.tsx:235`).
+3. **Loads initial content** via `engine.fromSBD(initialData)` (`SpatialBoard.tsx:264`).
+4. **Creates the data-flow engine only if any registered type declares ports** — `new DataFlowEngine(engine, registry)` (`SpatialBoard.tsx:304`), then `dataFlow.connect()` subscribes it to engine events.
+5. **Mounts the providers**: theme (`SBThemeContext`, `SpatialBoard.tsx:348`), localization, and read-only context.
+6. **Installs keyboard shortcuts** scoped to the focused board: `setupKeyboardHandler(engine, boardRef.current, tools)` (`SpatialBoard.tsx:292`).
+7. **Renders the layout**: `<Sidebar>` (tool rail + inspector, `SpatialBoard.tsx:379`), `<SpatialCanvas>` (the board itself, `SpatialBoard.tsx:391`), `<BottomBar>` (`SpatialBoard.tsx:410`), `<PresentationOverlay>` (`SpatialBoard.tsx:431`).
 
 ## 2. The engine (`src/engine/`)
 
-`SpatialEngine` (`src/engine/SpatialEngine.ts:184`) is the single source of truth. Its core state is declared as fields near the top of the class: the node map, viewport, `selection: Set<string>`, mode, a `QuadTree` spatial index, `frameChildren`/`groupParent` structural indices, and a `History` instance (`src/engine/history.ts`).
+`SpatialEngine` (`src/engine/SpatialEngine.ts:183`) is the single source of truth. Its core state is declared as fields near the top of the class: the node map, viewport, `selection: Set<string>`, mode, a `QuadTree` spatial index, `frameChildren`/`groupParent` structural indices, and a `History` instance (`src/engine/history.ts`).
 
-**Events.** The engine is an emitter over a typed `EventMap` (`SpatialEngine.ts:120`): `"change"`, `"viewport"`, `"selection"`, `"mode"`, `"gesture:start"`/`"gesture:end"`, `"presentation"`, and friends, dispatched via `emit()` (`SpatialEngine.ts:406`). Every mutation funnels through `notifyChange()` (`SpatialEngine.ts:1278`). This event surface is the *only* contract the React layer depends on.
+**Events.** The engine is an emitter over a typed `EventMap` (`SpatialEngine.ts:119`): `"change"`, `"viewport"`, `"selection"`, `"mode"`, `"gesture:start"`/`"gesture:end"`, `"presentation"`, and friends, dispatched via `emit()` (`SpatialEngine.ts:405`). Every mutation funnels through `notifyChange()` (`SpatialEngine.ts:1277`). This event surface is the *only* contract the React layer depends on.
 
 **Domain shards.** The class itself is a facade: state fields plus thin one-line delegators. The actual logic lives in `spatialengine_<domain>.ts` shard modules, each exporting `engine`-first functions (e.g. `zoomTo(engine, level)` in `spatialengine_camera.ts`, delegated by the class method of the same name):
 
@@ -89,10 +89,10 @@ Reading top to bottom, the component:
 
 Inside `SpatialCanvas`'s return:
 
-- **`GridBackground`** (`SpatialCanvas.tsx:545`) — paper/grid, a single memoized SVG.
-- **DOM layer — `UnifiedDomViewportLayer`** (`SpatialCanvas.tsx:548`) — one `transform: translate(…) scale(…)` container holding a `NodeItem` per visible node (`SpatialCanvas.tsx:556`). Each `NodeItem` renders its type's registered React `component` (sticky, image, YouTube, rich-text, custom nodes) from `src/components/blocks/`. Draw strokes and shapes render here too, as positioned per-node SVGs (`blocks/VectorNodeBlock.tsx`) so they participate in DOM z-ordering with content blocks.
-- **SVG layer — `LiveSVGLayerHost` → `SVGLayer`** (`SpatialCanvas.tsx:614`, `canvas/SVGLayer.tsx`) — the full-canvas vector overlay: edges with arrowheads and ports, in-progress previews (edge drags, marquee, lasso, eraser trail), snap guides.
-- **`SelectionChromeOverlay`** (`SpatialCanvas.tsx:667`) — selection rectangles and resize/rotate handles, live during gestures.
+- **`GridBackground`** (`SpatialCanvas.tsx:535`) — paper/grid, a single memoized SVG.
+- **DOM layer — `UnifiedDomViewportLayer`** (`SpatialCanvas.tsx:538`) — one `transform: translate(…) scale(…)` container holding a `NodeItem` per visible node (`SpatialCanvas.tsx:546`). Each `NodeItem` renders its type's registered React `component` (sticky, image, YouTube, rich-text, custom nodes) from `src/components/blocks/`. Draw strokes and shapes render here too, as positioned per-node SVGs (`blocks/VectorNodeBlock.tsx`) so they participate in DOM z-ordering with content blocks.
+- **SVG layer — `LiveSVGLayerHost` → `SVGLayer`** (`SpatialCanvas.tsx:604`, `canvas/SVGLayer.tsx`) — the full-canvas vector overlay: edges with arrowheads and ports, in-progress previews (edge drags, marquee, lasso, eraser trail), snap guides.
+- **`SelectionChromeOverlay`** (`SpatialCanvas.tsx:657`) — selection rectangles and resize/rotate handles, live during gestures.
 
 A node type declares which world it lives in: types marked `isSVGOnly` (edges) render exclusively in the SVG layer.
 

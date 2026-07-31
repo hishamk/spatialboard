@@ -99,7 +99,7 @@ export default function Minimap({
     return () => engine.off("presentation", h);
   }, [engine]);
 
-  const { minX, minY, maxX, maxY, scale, offsetX, offsetY } = useMemo(() => {
+  const { minX, minY, scale, offsetX, offsetY } = useMemo(() => {
     const { w: cw, h: ch } = containerSize;
     if (cw <= 0 || ch <= 0) {
       return { minX: 0, minY: 0, maxX: 1, maxY: 1, scale: 1, offsetX: 0, offsetY: 0 };

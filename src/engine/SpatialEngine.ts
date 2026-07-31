@@ -24,7 +24,6 @@
 
 import type {
   SpatialNode,
-  EdgeNode,
   Viewport,
   Mode,
   ActiveTool,

@@ -7,7 +7,6 @@ import Sidebar from "./sidebar/Sidebar";
 import { ModeCluster } from "./sidebar/ToolStrip";
 import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./overlays/DebugPanel";
-const DebugPanel = lazy(() => import("./overlays/DebugPanel"));
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
 import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
 import { coreBoardNodes } from "../nodes/index";
@@ -30,6 +29,8 @@ import {
 import { SpatialBoardReadOnlyContext } from "./contexts/SpatialBoardReadOnlyContext";
 import type { ToolKey } from "../engine/types";
 import type { PortDirection } from "../engine/data-flow-types";
+
+const DebugPanel = lazy(() => import("./overlays/DebugPanel"));
 
 /** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
 export type PortConnectEmptyEvent = {

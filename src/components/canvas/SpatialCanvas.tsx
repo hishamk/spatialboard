@@ -1,16 +1,14 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { SpatialEngine } from "../../engine/SpatialEngine";
-import type { AlignGuide } from "../../engine/SpatialEngine";
 import type {
   SpatialNode,
-  BlockNoteNode,
   ShapeNode,
   EdgeType,
   HandleSide,
   StrokeStyle,
 } from "../../engine/types";
 import type { PortDirection } from "../../engine/data-flow-types";
-import type { NodeTypeRegistry, NodeCallbacks } from "../../nodes/registry";
+import type { NodeTypeRegistry } from "../../nodes/registry";
 import type { DataFlowEngine } from "../../engine/DataFlowEngine";
 import type { DataFlowEdgeOverlay } from "./SVGLayer";
 import GridBackground from "./GridBackground";
@@ -24,11 +22,6 @@ import {
 } from "../sidebar/PropertyHistoryCoalesceContext";
 import { prefersSafariWebKitViewportWorkaround } from "../../utils/safari-viewport-raster";
 import { serializeEdgeCreationAwareness } from "../../collab/edge-creation-awareness";
-import VectorNodeBlock from "../blocks/VectorNodeBlock";
-import ImageBlock from "../blocks/ImageBlock";
-import TextNodeBlock from "../blocks/TextNodeBlock";
-import StickyNoteBlock from "../blocks/StickyNoteBlock";
-import SVGLayer from "./SVGLayer";
 import ContextMenu from "../overlays/ContextMenu";
 import { useSBI18n } from "../contexts/LocalizationContext";
 import { hostNodeInScope } from "./canvas-helpers";
@@ -116,7 +109,6 @@ export default function SpatialCanvas({
     setEditingShapeLabelId,
     croppingImageId,
     setCroppingImageId,
-    editingYouTubeId,
     setEditingYouTubeId,
     editingNodeId,
     editClickRef,
@@ -148,7 +140,6 @@ export default function SpatialCanvas({
     searchState,
     gridActive,
     gridSize,
-    smartGuidesActive,
     boardBackground,
     setViewport,
     setGridActive,
@@ -244,7 +235,6 @@ export default function SpatialCanvas({
     getNodeAABB,
     getNodesInMarqueeRect,
     getNodesInLassoPolygon,
-    handleZoomToNode,
     selBounds,
     activeGroupBounds,
   } = useCanvasGeometry({

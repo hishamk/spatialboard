@@ -10,7 +10,7 @@ import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";
 import OpacitySlider from "../controls/OpacitySlider";
 import { useSBTheme } from "../ThemeContext";
-import { rowStyle, labelStyle, STROKE_PALETTES, STROKE_COLORS } from "../styles";
+import { rowStyle, labelStyle, STROKE_PALETTES } from "../styles";
 import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface FramePropertiesProps {

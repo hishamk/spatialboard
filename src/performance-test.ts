@@ -69,7 +69,6 @@ export async function runBenchmark(engine: SpatialEngine) {
 
     // 4. Query Small Rect (Hit Test Candidate Selection equivalent)
     console.time(`Query ${QUERY_COUNT} times (Small Rect)`);
-    const smallRect = { x: 0, y: 0, w: 10, h: 10 };
     const startSmall = performance.now();
     for (let i = 0; i < QUERY_COUNT; i++) {
         const rx = Math.random() * WORLD_SIZE - WORLD_SIZE / 2;

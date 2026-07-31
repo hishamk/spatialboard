@@ -21,28 +21,7 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
   const { target, commonProps } = useMultiSelection(engine);
   const visible = target.kind !== "none";
 
-  const withAlpha = useCallback((color: string, alpha: number) => {
-    const c = color.trim();
-    if (c.startsWith("#")) {
-      const hex = c.slice(1);
-      const expanded = hex.length === 3 ? hex.split("").map((ch) => ch + ch).join("") : hex;
-      if (expanded.length === 6) {
-        const r = parseInt(expanded.slice(0, 2), 16);
-        const g = parseInt(expanded.slice(2, 4), 16);
-        const b = parseInt(expanded.slice(4, 6), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      }
-    }
-    if (c.startsWith("rgb(")) {
-      const values = c.slice(4, -1);
-      return `rgba(${values}, ${alpha})`;
-    }
-    if (c.startsWith("rgba(")) return c;
-    return c;
-  }, []);
-
   const [isMobile, setIsMobile] = useState(false);
-  const [isCompactScreen, setIsCompactScreen] = useState(false);
   const [canvasInteracting, setCanvasInteracting] = useState(false);
   const [autoHideEnabled, setAutoHideEnabled] = useState(false);
   const interactionClearTimerRef = useRef<number | null>(null);
@@ -120,7 +99,6 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
       const width = entries[0]?.contentRect.width ?? container.clientWidth;
       setIsMobile(width < 600);
       const compact = computeCompactScreen(width);
-      setIsCompactScreen(compact);
       if (!autoHideInitializedRef.current) {
         setAutoHideEnabled(compact);
         autoHideInitializedRef.current = true;
@@ -129,7 +107,6 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
     ro.observe(container);
     setIsMobile(container.clientWidth < 600);
     const initialCompact = computeCompactScreen(container.clientWidth);
-    setIsCompactScreen(initialCompact);
     if (!autoHideInitializedRef.current) {
       setAutoHideEnabled(initialCompact);
       autoHideInitializedRef.current = true;

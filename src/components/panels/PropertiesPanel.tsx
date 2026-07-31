@@ -3,7 +3,7 @@ import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { usePropertyHistorySession } from "../sidebar/PropertyHistoryCoalesceContext";
 import type { SpatialNode, Mode, ShapeNode, DrawNode, TextNode, EdgeNode, ImageNode, BlockNoteNode, FrameNode, StickyNoteNode, ShapeType, TextAlign } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
-import { getFontFamilyCSS, DEFAULT_FONT } from "../../fonts";
+import { DEFAULT_FONT } from "../../fonts";
 import FontPicker from "./FontPicker";
 
 const STROKE_COLORS = [

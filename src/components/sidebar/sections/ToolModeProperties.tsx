@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
-import type { Mode, ShapeNode, TextNode } from "../../../engine/types";
+import type { Mode, ShapeNode } from "../../../engine/types";
 import PaletteColorPicker from "../controls/PaletteColorPicker";
 import StrokeStylePicker from "../controls/StrokeStylePicker";
 import WidthPicker from "../controls/WidthPicker";

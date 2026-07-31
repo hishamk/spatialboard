@@ -43,23 +43,6 @@ export function useVirtualizedView({
 }) {
   const virtualizedView = useMemo(() => {
     const t0 = performance.now();
-    const renderable = nodes.filter(
-      (n) => {
-        if (registry) {
-          const def = registry.get(n.type);
-          return def && !def.isSVGOnly;
-        }
-        return (
-          n.type === "blocknote" ||
-          n.type === "draw" ||
-          n.type === "shape" ||
-          n.type === "image" ||
-          n.type === "text" ||
-          n.type === "frame" ||
-          n.type === "sticky"
-        );
-      }
-    );
     if (
       containerSize.w <= 0 ||
       containerSize.h <= 0

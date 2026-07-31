@@ -302,19 +302,6 @@ function mtvMoveAOutOfB(a: BBox, b: BBox): { dx: number; dy: number } | null {
   return acy < bcy ? { dx: 0, dy: -oy } : { dx: 0, dy: oy };
 }
 
-function nodeBBoxAt(
-  n: SpatialNode,
-  pos: { x: number; y: number },
-  measured: Record<string, number> | undefined,
-): BBox {
-  return {
-    x: pos.x,
-    y: pos.y,
-    w: n.w,
-    h: arrangeNodeHeight(n, measured),
-  };
-}
-
 /** Wider box so port dots / labels outside the node rect are separated too. */
 function nodeBBoxAtLayout(
   n: SpatialNode,
