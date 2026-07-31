@@ -9,6 +9,19 @@ import { FONT_FAMILIES, NON_GOOGLE_FONTS } from "./font-constants";
 // the .woff2 asset.
 export * from "./font-constants";
 
+/**
+ * Bundled (non-Google) font families → their in-bundle asset URL + CSS font format.
+ * Single source of truth for both the live-canvas @font-face injection below and
+ * the export path's font embedding (src/export/canvas-export.ts).
+ */
+export const BUNDLED_FONT_SOURCES: Record<
+  string,
+  { url: string; format: "woff2" | "truetype" }
+> = {
+  Excalifont: { url: excalifontUrl, format: "woff2" },
+  HishamHand: { url: hishamHandUrl, format: "truetype" },
+};
+
 let _fontsLoaded = false;
 
 /** Inject bundled @font-face rules + a Google Fonts <link> for all remote families. Idempotent. */
@@ -18,21 +31,18 @@ export function loadGoogleFonts(doc: Document = document): void {
 
   // Bundled fonts (base64-inlined into the JS at build time)
   const style = doc.createElement("style");
-  style.textContent = `
+  style.textContent = Object.entries(BUNDLED_FONT_SOURCES)
+    .map(
+      ([family, { url, format }]) => `
 @font-face {
-  font-family: 'Excalifont';
-  src: url('${excalifontUrl}') format('woff2');
+  font-family: '${family}';
+  src: url('${url}') format('${format}');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
-}
-@font-face {
-  font-family: 'HishamHand';
-  src: url('${hishamHandUrl}') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}`;
+}`,
+    )
+    .join("");
   doc.head.appendChild(style);
 
   // Google Fonts

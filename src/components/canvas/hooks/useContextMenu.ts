@@ -408,6 +408,32 @@ export function useContextMenu({
         ],
       });
 
+      // Frame export section — shown when the right-clicked point hits a frame
+      // (border/label — frame interiors pass hits through to children) OR when
+      // the current selection is exactly one frame.
+      const frameHit = engine.hitTest(cx, cy, measuredHeights);
+      let exportFrameId: string | null =
+        frameHit && frameHit.type === "frame" ? frameHit.id : null;
+      if (!exportFrameId && engine.selection.size === 1) {
+        const sel = engine.getNode([...engine.selection][0]);
+        if (sel && sel.type === "frame") exportFrameId = sel.id;
+      }
+      if (exportFrameId) {
+        const frameId = exportFrameId;
+        sections.push({
+          items: [
+            {
+              label: labels.actionExportFrameAsPng,
+              action: () => exportBoard(engine, { format: "png", frameId }),
+            },
+            {
+              label: labels.actionExportFrameAsSvg,
+              action: () => exportBoard(engine, { format: "svg", frameId }),
+            },
+          ],
+        });
+      }
+
       // Export section (always shown)
       sections.push({
         items: [

@@ -1,4 +1,3 @@
-import excalifontUrl from "../assets/fonts/Excalifont-Regular.woff2";
 import type { SpatialEngine } from "../engine/SpatialEngine";
 import type {
   SpatialNode,
@@ -16,6 +15,7 @@ import type {
 } from "../engine/types";
 import { getYouTubeThumbnailUrl } from "../utils/youtube";
 import { getStrokePath } from "../rendering/freehand";
+import { computeDrawFillData } from "../rendering/draw-fill";
 import {
   getRoughRectPaths,
   getRoughEllipsePaths,
@@ -32,7 +32,13 @@ import {
   filledArrowHeadPath,
 } from "../engine/edge-geometry";
 import { getPaperType } from "../components/paper-types";
-import { getFontFamilyCSS } from "../fonts";
+import { contrastingTextColor } from "../components/blocks/VectorNodeBlock";
+import {
+  getFontFamilyCSS,
+  DEFAULT_FONT,
+  SYSTEM_FONTS,
+  BUNDLED_FONT_SOURCES,
+} from "../fonts";
 import { safeColor } from "../rendering/svg-safe";
 
 // ---------------------------------------------------------------------------
@@ -42,24 +48,46 @@ import { safeColor } from "../rendering/svg-safe";
 export interface ExportOptions {
   format: "png" | "svg";
   background?: boolean; // default true
-  padding?: number; // canvas-unit padding (default 40)
+  padding?: number; // canvas-unit padding (default 40; 0 for frame exports)
   scale?: number; // PNG resolution multiplier (default 2)
+  /** Export only this frame: nodes inside it + edges fully within, cropped to the frame rect. */
+  frameId?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
-export async function exportBoard(
+/**
+ * Build the export SVG string (board-wide, or frame-scoped when
+ * `options.frameId` is set). Returns null when there is nothing to export.
+ * Internal module export (used by exportBoard + tests) — not part of the
+ * package barrel.
+ */
+export async function buildBoardSVG(
   engine: SpatialEngine,
   options: ExportOptions,
-): Promise<void> {
-  const nodes = engine.getAllNodes();
-  if (nodes.length === 0) return;
-
+): Promise<{ svg: string; width: number; height: number } | null> {
   const mH = engine.measuredHeights;
-  const bounds = computeContentBounds(nodes, mH, engine);
-  const pad = options.padding ?? 40;
+
+  let nodes: SpatialNode[];
+  let bounds: { x: number; y: number; w: number; h: number };
+  let pad: number;
+  if (options.frameId) {
+    const collected = collectFrameNodes(engine, options.frameId);
+    if (!collected) return null;
+    nodes = collected;
+    // Frame exports crop to the frame's own rect (no content-driven bounds)
+    const frame = collected[0] as FrameNode;
+    bounds = { x: frame.x, y: frame.y, w: frame.w, h: engine.resolveHeight(frame) };
+    pad = options.padding ?? 0;
+  } else {
+    nodes = engine.getAllNodes();
+    if (nodes.length === 0) return null;
+    bounds = computeContentBounds(nodes, mH, engine);
+    pad = options.padding ?? 40;
+  }
+
   const bg = options.background !== false;
   const embedImages = options.format === "png";
 
@@ -70,21 +98,51 @@ export async function exportBoard(
 
   const elements = await buildElements(nodes, engine, mH, ox, oy, embedImages);
 
+  // Embed fonts so text renders faithfully in standalone SVGs and in the
+  // isolated <img> document used for PNG rasterization (no access to page fonts).
+  const fontCSS = await buildEmbeddedFontCSS(collectFontKeys(nodes));
+
   const bgColor = bg ? getPaperType(engine.boardBackground).canvasBg : "transparent";
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`,
+    fontCSS ? `<defs><style>${fontCSS}</style></defs>` : "",
     `<rect width="${svgW}" height="${svgH}" fill="${safeColor(bgColor)}"/>`,
     ...elements,
     `</svg>`,
   ].join("\n");
 
+  return { svg, width: svgW, height: svgH };
+}
+
+export async function exportBoard(
+  engine: SpatialEngine,
+  options: ExportOptions,
+): Promise<void> {
+  const built = await buildBoardSVG(engine, options);
+  if (!built) return;
+
+  const baseName = options.frameId
+    ? frameExportBaseName(engine, options.frameId)
+    : "board";
+
   if (options.format === "svg") {
-    downloadBlob(new Blob([svg], { type: "image/svg+xml" }), "board.svg");
+    downloadBlob(new Blob([built.svg], { type: "image/svg+xml" }), `${baseName}.svg`);
   } else {
     const scale = options.scale ?? 4;
-    const blob = await svgToPng(svg, svgW, svgH, scale);
-    downloadBlob(blob, "board.png");
+    const blob = await svgToPng(built.svg, built.width, built.height, scale);
+    downloadBlob(blob, `${baseName}.png`);
   }
+}
+
+/** Filename stem for a frame export: slugified frame label, else "frame". */
+function frameExportBaseName(engine: SpatialEngine, frameId: string): string {
+  const frame = engine.getNode(frameId);
+  const label = frame && frame.type === "frame" ? (frame as FrameNode).data.label : undefined;
+  const slug = label
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "frame";
 }
 
 // ---------------------------------------------------------------------------
@@ -153,8 +211,19 @@ async function buildElements(
   oy: number,
   embedImages: boolean,
 ): Promise<string[]> {
-  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-  const sorted = [...nodes].sort((a, b) => a.z - b.z);
+  // Edge endpoint geometry resolves against the FULL graph, not just the
+  // rendered set — a frame-scoped export includes edges whose far endpoint
+  // lies outside the frame (the viewBox clips them), and routing them needs
+  // that endpoint node.
+  const nodeMap = new Map<string, SpatialNode>();
+  for (const n of engine.getAllNodes()) nodeMap.set(n.id, n);
+  for (const n of nodes) nodeMap.set(n.id, n);
+  // Canvas layering rule: the DOM node layer renders BELOW the SVG edge layer,
+  // so every edge paints above every non-edge node (each layer z-sorted internally).
+  const sorted = [
+    ...nodes.filter((n) => n.type !== "edge").sort((a, b) => a.z - b.z),
+    ...nodes.filter((n) => n.type === "edge").sort((a, b) => a.z - b.z),
+  ];
   const elements: string[] = [];
 
   for (const n of sorted) {
@@ -302,13 +371,29 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
 
   let inner = "";
 
-  // Fill (if path is closed enough)
-  if (d.fill) {
-    const pts: [number, number][] = absolutePoints.map(([px, py]) => [px, py]);
-    if (pts.length > 2) {
-      const fillPath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
-      inner += `<path d="${fillPath}" fill="${safeColor(d.fill)}" fill-opacity="0.4" stroke="none"/>`;
+  // Fill — same computation as the canvas renderer (DrawBlock): closed-enough
+  // strokes fill the whole smooth outline; open strokes fill only
+  // self-intersection loops; an open non-intersecting stroke gets NO fill.
+  // Geometry is node-relative (as on canvas), so wrap in a translate group.
+  const fillData = computeDrawFillData(d.points, d.fill, d.fillStyle, d.strokeWidth);
+  if (fillData) {
+    let fillMarkup = "";
+    if (fillData.kind === "solid") {
+      if (fillData.regions) {
+        for (const r of fillData.regions) {
+          fillMarkup += `<path d="${r.pathD}" fill="${safeColor(fillData.fill)}" stroke="none"/>`;
+        }
+      } else {
+        fillMarkup += `<path d="${fillData.d}" fill="${safeColor(fillData.fill)}" stroke="none"/>`;
+      }
+    } else {
+      for (const p of fillData.paths) {
+        fillMarkup +=
+          `<path d="${p.d}" stroke="${safeColor(p.stroke)}" stroke-width="${p.strokeWidth}" ` +
+          `fill="${safeColor(p.fill)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
     }
+    inner += `<g transform="translate(${node.x - ox}, ${node.y - oy})">${fillMarkup}</g>`;
   }
 
   // Stroke
@@ -413,7 +498,49 @@ function renderShapeNode(
     )
     .join("\n");
 
-  return wrapG(inner, x, y, w, h, node.rotation, d.opacity);
+  // Label — mirrors ShapeBlock's static label: vertically centered flex box with
+  // 4px/8px padding, line-height 1.3, contrasting text on solid fills, hidden
+  // for line/arrow shapes. On canvas the label div sits OUTSIDE the
+  // opacity-carrying <g>, so node opacity does not dim it — replicate that.
+  const isLinear = d.shape === "line" || d.shape === "arrow";
+  let labelMarkup = "";
+  if (!isLinear && d.label) {
+    const labelFontSize = d.labelFontSize ?? 14;
+    const labelAlign = d.labelAlign ?? "center";
+    const labelColor =
+      d.fill && d.fillStyle === "solid" ? contrastingTextColor(d.fill) : d.stroke;
+    const labelFontCSS = getFontFamilyCSS(d.labelFontFamily ?? DEFAULT_FONT);
+    const padX = 8;
+    const lineHeight = 1.3;
+    const maxW = w - padX * 2;
+    const lines = wrapText(d.label, maxW, labelFontSize);
+    const blockH = lines.length * labelFontSize * lineHeight;
+    // First-line baseline ≈ centered block top + one font-size (approx. ascent)
+    const ty = y + (h - blockH) / 2 + labelFontSize;
+    const tx =
+      labelAlign === "center" ? x + w / 2 : labelAlign === "right" ? x + w - padX : x + padX;
+    labelMarkup = textBlock(
+      d.label,
+      tx,
+      ty,
+      maxW,
+      labelFontSize,
+      lineHeight,
+      labelColor,
+      labelAlign,
+      labelFontCSS,
+    );
+  }
+
+  if (!labelMarkup) return wrapG(inner, x, y, w, h, node.rotation, d.opacity);
+  return wrapG(
+    wrapG(inner, x, y, w, h, undefined, d.opacity) + labelMarkup,
+    x,
+    y,
+    w,
+    h,
+    node.rotation,
+  );
 }
 
 function renderTextNode(node: TextNode, x: number, y: number, w: number, resolvedH: number): string {
@@ -466,7 +593,8 @@ function renderStickyNode(
   const fontSize = d.fontSize ?? 16;
   const inner =
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${safeColor(d.color)}"/>` +
-    textBlock(d.text, x + 12, y + 12 + fontSize, w - 24, fontSize, 1.4, "#1e1e2e", "left", "sans-serif");
+    // Stickies always render in the default font on canvas (StickyNoteBlock)
+    textBlock(d.text, x + 12, y + 12 + fontSize, w - 24, fontSize, 1.4, "#1e1e2e", "left", getFontFamilyCSS(DEFAULT_FONT));
   return wrapG(inner, x, y, w, h, node.rotation, d.opacity);
 }
 
@@ -766,23 +894,47 @@ function svgToPng(
 // Font embedding (for SVG data-URLs which can't load external fonts)
 // ---------------------------------------------------------------------------
 
-const SYSTEM_FONTS = new Set(["sans-serif", "serif", "monospace"]);
 const fontRuleCache = new Map<string, string>();
 const MAX_FONT_CACHE = 12;
 
-/** Collect unique font keys used by text nodes. */
+/**
+ * Collect unique font keys used by rendered text: text nodes (their own family),
+ * stickies (always the default font — StickyNoteBlock), and shape labels
+ * (labelFontFamily ?? default — ShapeBlock; line/arrow shapes render no label).
+ */
 function collectFontKeys(nodes: SpatialNode[]): string[] {
   const keys = new Set<string>();
+  const add = (key: string | undefined) => {
+    if (key && !SYSTEM_FONTS.has(key)) keys.add(key);
+  };
   for (const n of nodes) {
     if (n.type === "text") {
-      const key = (n as TextNode).data.fontFamily;
-      if (key && !SYSTEM_FONTS.has(key)) keys.add(key);
+      add((n as TextNode).data.fontFamily);
+    } else if (n.type === "sticky") {
+      add(DEFAULT_FONT);
+    } else if (n.type === "shape") {
+      const d = (n as ShapeNode).data;
+      const isLinear = d.shape === "line" || d.shape === "arrow";
+      if (d.label && !isLinear) add(d.labelFontFamily ?? DEFAULT_FONT);
     }
   }
   return [...keys];
 }
 
-/** Build @font-face CSS with base64-embedded woff2 data for all requested fonts. */
+/** Fetch a font and return it as a base64 data URI. Uses arrayBuffer + btoa
+ *  (rather than FileReader) so it also works outside a full DOM environment. */
+async function fetchFontAsDataUri(url: string, mime: string): Promise<string> {
+  const resp = await fetch(url);
+  const bytes = new Uint8Array(await resp.arrayBuffer());
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+/** Build @font-face CSS with base64-embedded font data for all requested fonts. */
 async function buildEmbeddedFontCSS(fontKeys: string[]): Promise<string> {
   if (fontKeys.length === 0) return "";
 
@@ -793,21 +945,49 @@ async function buildEmbeddedFontCSS(fontKeys: string[]): Promise<string> {
       continue;
     }
     try {
-      let dataUri: string;
-      if (key === "Excalifont") {
-        dataUri = await fetchImageAsDataUri(excalifontUrl);
+      let rule: string;
+      const bundled = BUNDLED_FONT_SOURCES[key];
+      if (bundled) {
+        const dataUri = await fetchFontAsDataUri(
+          bundled.url,
+          bundled.format === "truetype" ? "font/ttf" : "font/woff2",
+        );
+        rule = `@font-face { font-family: '${key}'; src: url('${dataUri}') format('${bundled.format}'); }`;
       } else {
-        // Google Font — fetch CSS to find woff2 URL
+        // Google Font — the css2 response contains one @font-face block PER
+        // UNICODE SUBSET (cyrillic, greek, latin-ext, latin, …). Grabbing the
+        // first woff2 used to land on a non-latin subset, so latin glyphs fell
+        // back to a system font. Parse every block, keep its unicode-range,
+        // and embed the latin-covering subsets (all blocks if none matched).
         const cssResp = await fetch(
           `https://fonts.googleapis.com/css2?family=${encodeURIComponent(key)}&display=swap`,
         );
         const css = await cssResp.text();
-        const urlMatch = css.match(/url\((https:\/\/[^)]+\.woff2)\)/);
-        if (!urlMatch) continue;
-        dataUri = await fetchImageAsDataUri(urlMatch[1]);
+        const blocks: Array<{ url: string; range?: string }> = [];
+        for (const m of css.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+          const body = m[1];
+          const url = body.match(/url\((https:\/\/[^)]+\.woff2)\)/)?.[1];
+          if (!url) continue;
+          const range = body.match(/unicode-range:\s*([^;]+);/)?.[1]?.trim();
+          blocks.push({ url, range });
+        }
+        if (blocks.length === 0) continue;
+        // Latin basic starts at U+0000/U+0020; latin-ext at U+0100.
+        const latin = blocks.filter(
+          (b) => !b.range || /U\+00/i.test(b.range) || /U\+01[0-9A-F]{2}/i.test(b.range),
+        );
+        const chosen = latin.length > 0 ? latin : blocks;
+        const parts: string[] = [];
+        for (const b of chosen) {
+          const dataUri = await fetchFontAsDataUri(b.url, "font/woff2");
+          parts.push(
+            `@font-face { font-family: '${key}'; src: url('${dataUri}') format('woff2');` +
+              (b.range ? ` unicode-range: ${b.range};` : "") +
+              ` }`,
+          );
+        }
+        rule = parts.join("\n");
       }
-      const rule =
-        `@font-face { font-family: '${key}'; src: url('${dataUri}') format('woff2'); }`;
       // LRU eviction — drop oldest entry when cache is full
       if (fontRuleCache.size >= MAX_FONT_CACHE) {
         const oldest = fontRuleCache.keys().next().value;
@@ -827,25 +1007,20 @@ async function buildEmbeddedFontCSS(fontKeys: string[]): Promise<string> {
 // ---------------------------------------------------------------------------
 
 /**
- * Render a single frame and its children to an SVG data-URL string.
- * Images use their original URLs (no embedding) so this is synchronous-safe.
+ * Collect the nodes a frame-scoped render should show. The frame comes first,
+ * followed by: spatial overlap via the QuadTree + formal frame children
+ * (belt-and-suspenders so auto-height nodes that haven't been re-indexed in
+ * the QuadTree still appear) + edges where BOTH endpoints are in the set.
+ * Returns null when `frameId` doesn't resolve to a frame node.
  */
-export async function renderFrameToSVG(
+function collectFrameNodes(
   engine: SpatialEngine,
   frameId: string,
-): Promise<string> {
+): SpatialNode[] | null {
   const frame = engine.getNode(frameId);
-  if (!frame || frame.type !== "frame") return "";
+  if (!frame || frame.type !== "frame") return null;
 
   const fH = engine.resolveHeight(frame);
-  const pad = 0;
-  const svgW = frame.w + pad * 2;
-  const svgH = fH + pad * 2;
-  const ox = frame.x - pad;
-  const oy = frame.y - pad;
-
-  // Collect visible nodes: spatial overlap + formal frame children (belt-and-suspenders
-  // so auto-height nodes that haven't been re-indexed in the QuadTree still appear)
   const allNodes: SpatialNode[] = [frame];
   const nodeIdSet = new Set<string>([frameId]);
 
@@ -855,25 +1030,57 @@ export async function renderFrameToSVG(
     allNodes.push(n);
   };
 
-  // 1. Spatial overlap via QuadTree
-  for (const n of engine.getNodesInRect({ x: frame.x, y: frame.y, w: frame.w, h: fH })) {
-    addNode(n);
+  // 1. Every node whose AABB intersects the frame rect — a direct scan rather
+  // than the QuadTree (whose entries can be stale for auto-height nodes), so
+  // partially-overlapping nodes are always included. The SVG viewBox clips
+  // them to the frame, matching what the canvas shows inside the frame.
+  for (const n of engine.getAllNodes()) {
+    if (n.type === "edge") continue;
+    const nh = engine.resolveHeight(n);
+    if (n.x < frame.x + frame.w && n.x + n.w > frame.x && n.y < frame.y + fH && n.y + nh > frame.y) {
+      addNode(n);
+    }
   }
 
-  // 2. Formal frame children (always included even if QuadTree misses them)
+  // 2. Formal frame children (always included even if the AABB test misses them)
   for (const n of engine.getFrameChildren(frameId)) {
     addNode(n);
   }
 
-  // 3. Edges where both endpoints are in the visible set
+  // 3. Edges with at least one endpoint in the visible set — a connector
+  // running out of the frame is visible inside it on canvas, so it exports
+  // too (clipped at the frame boundary by the viewBox). Edges whose both
+  // endpoints are outside are skipped even if their path crosses the frame.
   for (const n of engine.getAllNodes()) {
     if (n.type === "edge") {
       const edge = n as EdgeNode;
-      if (nodeIdSet.has(edge.data.fromId) && nodeIdSet.has(edge.data.toId)) {
+      if (nodeIdSet.has(edge.data.fromId) || nodeIdSet.has(edge.data.toId)) {
         allNodes.push(n);
       }
     }
   }
+
+  return allNodes;
+}
+
+/**
+ * Render a single frame and its children to an SVG data-URL string.
+ * Images use their original URLs (no embedding) so this is synchronous-safe.
+ */
+export async function renderFrameToSVG(
+  engine: SpatialEngine,
+  frameId: string,
+): Promise<string> {
+  const allNodes = collectFrameNodes(engine, frameId);
+  if (!allNodes) return "";
+  const frame = allNodes[0] as FrameNode;
+
+  const fH = engine.resolveHeight(frame);
+  const pad = 0;
+  const svgW = frame.w + pad * 2;
+  const svgH = fH + pad * 2;
+  const ox = frame.x - pad;
+  const oy = frame.y - pad;
 
   const mH = engine.measuredHeights;
   // embedImages=true so the SVG data-URL can render images

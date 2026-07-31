@@ -235,6 +235,8 @@ export interface SpatialBoardLocalization {
   actionSmartGuides: string;
   actionExportAsPng: string;
   actionExportAsSvg: string;
+  actionExportFrameAsPng: string;
+  actionExportFrameAsSvg: string;
   typeShape: string;
   typeDrawing: string;
   typeText: string;
@@ -476,6 +478,8 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   actionSmartGuides: "Smart Guides",
   actionExportAsPng: "Export as PNG",
   actionExportAsSvg: "Export as SVG",
+  actionExportFrameAsPng: "Export frame as PNG",
+  actionExportFrameAsSvg: "Export frame as SVG",
   typeShape: "Shape",
   typeDrawing: "Drawing",
   typeText: "Text",

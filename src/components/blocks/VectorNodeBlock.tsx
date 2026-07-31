@@ -1,21 +1,20 @@
 import { memo, useMemo } from "react";
 import type { DrawNode, ShapeNode } from "../../engine/types";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../../fonts";
-import { getStrokePath, getSmoothClosedPath, streamlinePoints } from "../../rendering/freehand";
-import { getEnclosedRegionsFromPath } from "../../rendering/polygon-fill";
+import { getStrokePath } from "../../rendering/freehand";
+import { computeDrawFillData } from "../../rendering/draw-fill";
 import {
   getRoughRectPaths,
   getRoughEllipsePaths,
   getRoughDiamondPaths,
   getRoughLinePaths,
   getRoughArrowPaths,
-  getRoughPolygonFillPaths,
   strokeStyleToDash,
   roundedRectRadius,
 } from "../../rendering/rough-shapes";
 
 /** Return black or white depending on which contrasts better with `hex`. */
-function contrastingTextColor(hex: string): string {
+export function contrastingTextColor(hex: string): string {
   const c = hex.replace("#", "");
   const r = parseInt(c.substring(0, 2), 16) || 0;
   const g = parseInt(c.substring(2, 4), 16) || 0;
@@ -80,79 +79,18 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
     return d.join(" ");
   }, [node.data.points, isDashed]);
 
-  // Build fill data for freehand paths.
-  // The <clipPath> (stroke outline) constrains fill to the interior,
-  // so no centroid shrink is needed — use original points directly.
-  const fillData = useMemo(() => {
-    if (!node.data.fill || !node.data.points || node.data.points.length < 3) return null;
-    const raw = node.data.points.map((p) => [p[0], p[1]] as [number, number]);
-
-    // Apply the same streamline filter as perfect-freehand so fill
-    // boundaries track the stroke center line for both code paths.
-    const pts = streamlinePoints(raw);
-
-    // Check if path is "closed enough" for fill purposes.
-    const first = pts[0];
-    const last = pts[pts.length - 1];
-    const endGap = Math.hypot(first[0] - last[0], first[1] - last[1]);
-    let pathLen = 0;
-    for (let i = 1; i < pts.length; i++) {
-      pathLen += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    }
-    const isClosed =
-      pathLen >= 1 &&
-      endGap <= Math.max(node.data.strokeWidth * 4, 20) &&
-      endGap <= pathLen * 0.1;
-
-    const fillStyle = node.data.fillStyle || "solid";
-
-    if (isClosed) {
-      // getSmoothClosedPath already applies streamline internally,
-      // but since pts are already smoothed, pass streamline=0 to skip double-smoothing.
-      const d = getSmoothClosedPath(pts, 0);
-
-      if (fillStyle === "solid") {
-        return { kind: "solid" as const, d, fill: node.data.fill! };
-      }
-      const roughPaths = getRoughPolygonFillPaths(pts, {
-        stroke: "none",
-        fill: node.data.fill,
-        fillStyle,
-        roughness: 1,
-        strokeWidth: node.data.strokeWidth,
-      });
-      return { kind: "rough" as const, paths: roughPaths };
-    }
-
-    // Open path: fill only enclosed regions from self-intersections.
-    // pts are already streamline-smoothed, so regions follow the stroke.
-    const regions = getEnclosedRegionsFromPath(pts);
-    if (regions.length === 0) return null;
-
-    if (fillStyle === "solid") {
-      return {
-        kind: "solid" as const,
-        d: "",
-        fill: node.data.fill!,
-        regions,
-      };
-    }
-    const allRoughPaths: { d: string; stroke: string; strokeWidth: number; fill?: string }[] = [];
-    for (const { points } of regions) {
-      if (points.length >= 3) {
-        allRoughPaths.push(
-          ...getRoughPolygonFillPaths(points, {
-            stroke: "none",
-            fill: node.data.fill,
-            fillStyle,
-            roughness: 1,
-            strokeWidth: node.data.strokeWidth,
-          })
-        );
-      }
-    }
-    return { kind: "rough" as const, paths: allRoughPaths, regions };
-  }, [node.data.fill, node.data.fillStyle, node.data.points, node.data.strokeWidth]);
+  // Build fill data for freehand paths (shared with the SVG exporter so exports
+  // paint identically — see src/rendering/draw-fill.ts).
+  const fillData = useMemo(
+    () =>
+      computeDrawFillData(
+        node.data.points,
+        node.data.fill,
+        node.data.fillStyle,
+        node.data.strokeWidth,
+      ),
+    [node.data.fill, node.data.fillStyle, node.data.points, node.data.strokeWidth]
+  );
 
   const rawH = node.h === "auto" ? 0 : (node.h as number);
   const w = Number.isFinite(node.w) ? (node.w as number) : 0;
