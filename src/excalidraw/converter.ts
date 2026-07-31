@@ -81,6 +81,81 @@ function mapEdgeStyle(
 }
 
 // ============================================================================
+// Curve resampling (rounded linear elements)
+// ============================================================================
+
+/**
+ * Excalidraw renders `line`/`arrow` elements that have `roundness` (V2) or
+ * `strokeSharpness: "round"` (V1) as a smooth curve THROUGH the control
+ * points (rough.js `curve`, a Catmull-Rom interpolation) — the stored points
+ * are deliberately sparse. Emitting them verbatim as straight segments turns
+ * smooth library art (hearts, blobs, waves) into hard polygons, so rounded
+ * linear elements are resampled through a uniform Catmull-Rom spline first.
+ */
+function resampleRoundedPoints(
+  pts: Array<[number, number]>,
+  closed: boolean,
+): Array<[number, number]> {
+  const n = pts.length;
+  if (n < 3) return pts;
+  // Adaptive density: ~360 output points max, 4–16 subdivisions per segment.
+  const segs = closed ? n : n - 1;
+  const SUB = Math.max(4, Math.min(16, Math.floor(360 / segs)));
+  const at = (i: number): [number, number] =>
+    closed ? pts[((i % n) + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < segs; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+    for (let s = 0; s < SUB; s++) {
+      const t = s / SUB;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push([
+        0.5 *
+          (2 * p1[0] +
+            (-p0[0] + p2[0]) * t +
+            (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+            (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+        0.5 *
+          (2 * p1[1] +
+            (-p0[1] + p2[1]) * t +
+            (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+            (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+      ]);
+    }
+  }
+  // Terminate explicitly: back to the start for closed paths, at the final
+  // control point for open ones.
+  out.push(closed ? [out[0][0], out[0][1]] : [pts[n - 1][0], pts[n - 1][1]]);
+  return out;
+}
+
+/** Rounded linear element (V2 `roundness` or V1 `strokeSharpness`). */
+function isRoundedLinear(el: ExcalidrawElement): boolean {
+  return !!el.roundness || el.strokeSharpness === "round";
+}
+
+/** Whether a point path forms a closed loop (seam within ~1% of its size). */
+function isClosedPath(pts: Array<[number, number]>): boolean {
+  if (pts.length < 3) return false;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [px, py] of pts) {
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px > maxX) maxX = px;
+    if (py > maxY) maxY = py;
+  }
+  const diag = Math.hypot(maxX - minX, maxY - minY);
+  const tol = Math.max(1, diag * 0.01);
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  return Math.hypot(last[0] - first[0], last[1] - first[1]) <= tol;
+}
+
+// ============================================================================
 // Element converters
 // ============================================================================
 
@@ -159,10 +234,36 @@ function convertLinearElement(
     ];
   }
 
+  const hasFill = el.backgroundColor && el.backgroundColor !== "transparent";
+
+  // 3+ points, rounded: Excalidraw draws these as a smooth curve through the
+  // control points — resample and emit a single DrawNode (segment
+  // decomposition would re-facet the curve).
+  if (!isArrow && isRoundedLinear(el)) {
+    const pts2d = pts as Array<[number, number]>;
+    const closed = isClosedPath(pts2d);
+    // Drop an exactly-duplicated closing point so the seam doesn't kink.
+    const seamDup =
+      closed &&
+      pts2d.length > 3 &&
+      pts2d[0][0] === pts2d[pts2d.length - 1][0] &&
+      pts2d[0][1] === pts2d[pts2d.length - 1][1];
+    const smooth = resampleRoundedPoints(
+      seamDup ? pts2d.slice(0, -1) : pts2d,
+      closed,
+    );
+    const node = polylineDrawNode(el, pts2d, smooth, {
+      // Open unfilled curves use the pen tool: the vector tool Z-closes its
+      // path, which would stroke a chord back to the start.
+      tool: hasFill || closed ? "vector" : "pen",
+      includeFill: !!hasFill,
+    });
+    if (node) return [node];
+  }
+
   // 3+ points with fill: convert as a single DrawNode to preserve the filled polygon.
   // Complex icons/logos in Excalidraw libraries use multi-point filled lines to trace
   // SVG-like paths — decomposing them into 2-point segments would lose the fill.
-  const hasFill = el.backgroundColor && el.backgroundColor !== "transparent";
   if (hasFill) {
     const filled = convertFilledPolygon(el);
     if (filled) return [filled];
@@ -205,15 +306,32 @@ function convertLinearElement(
 
 /** Convert a multi-point filled line/arrow into a single DrawNode. */
 function convertFilledPolygon(el: ExcalidrawElement): DrawNode | null {
-  const pts = el.points ?? [];
+  const pts = (el.points ?? []) as Array<[number, number]>;
   if (pts.length < 3) return null;
+  return polylineDrawNode(el, pts, pts, { tool: "vector", includeFill: true });
+}
+
+/**
+ * Build a DrawNode from a linear element's points. `bboxPts` (the original
+ * control points) define the node bounds — matching Excalidraw's own element
+ * bounds — while `pathPts` (possibly spline-resampled) define the rendered
+ * path. Slight curve overshoot outside the bounds is fine: the renderer pads
+ * and uses visible overflow.
+ */
+function polylineDrawNode(
+  el: ExcalidrawElement,
+  bboxPts: Array<[number, number]>,
+  pathPts: Array<[number, number]>,
+  opts: { tool: "vector" | "pen"; includeFill: boolean },
+): DrawNode | null {
+  if (bboxPts.length < 3 || pathPts.length < 2) return null;
 
   // Compute bounding box
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
     maxY = -Infinity;
-  for (const [px, py] of pts) {
+  for (const [px, py] of bboxPts) {
     if (px < minX) minX = px;
     if (py < minY) minY = py;
     if (px > maxX) maxX = px;
@@ -222,7 +340,7 @@ function convertFilledPolygon(el: ExcalidrawElement): DrawNode | null {
   if (!isFinite(minX)) return null;
 
   // Make points relative to bounding box origin, add uniform pressure
-  const relPoints: Array<[number, number, number]> = pts.map(([px, py]) => [
+  const relPoints: Array<[number, number, number]> = pathPts.map(([px, py]) => [
     px - minX,
     py - minY,
     0.5,
@@ -239,13 +357,13 @@ function convertFilledPolygon(el: ExcalidrawElement): DrawNode | null {
     rotation: mapAngle(el.angle),
     locked: el.locked || undefined,
     data: {
-      tool: "vector" as const,
+      tool: opts.tool,
       points: relPoints,
       color: el.strokeColor || "#1e1e2e",
       strokeWidth: el.strokeWidth || 2,
       opacity: mapOpacity(el.opacity ?? 100),
-      fill: mapFill(el.backgroundColor),
-      fillStyle: mapFillStyle(el.fillStyle),
+      fill: opts.includeFill ? mapFill(el.backgroundColor) : undefined,
+      fillStyle: opts.includeFill ? mapFillStyle(el.fillStyle) : undefined,
     },
   } as DrawNode;
 }
