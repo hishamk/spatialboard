@@ -10,13 +10,16 @@
 //   spatialengine_arrange.ts       flip / arrange / align / distribute
 //   spatialengine_clipboard.ts     duplicate / copy / cut / paste / templates
 //   spatialengine_create.ts        tool activation + node factories
-//   spatialengine_agent.ts         agent/LLM state observation
+//   spatialengine_agent.ts         agent/LLM state observation + agent-action grouping
 //   spatialengine_nodes.ts         node CRUD + history-recording update wrappers
 //   spatialengine_edges.ts         data-flow edge helpers
 //   spatialengine_frames.ts        frame/container membership tracking
 //   spatialengine_groups.ts        grouping + nested-group bookkeeping
 //   spatialengine_selection.ts     selection + pointer-gesture selection
 //   spatialengine_history.ts       engine-level undo/redo + snapshot control
+//   spatialengine_serialization.ts SBD + JSON (de)serialization
+//   spatialengine_zorder.ts        z-order reordering (bring/send front/back)
+//   spatialengine_remote.ts        remote-collab node apply (add/update/delete)
 // Fields and methods marked @internal are shard plumbing, not public API.
 
 import type {
@@ -41,8 +44,6 @@ import { History } from "./history";
 import { hitTest, hitTestAll } from "./spatial-index";
 import { QuadTree } from "./QuadTree";
 import { screenToCanvas, canvasToScreen } from "./viewport";
-import { serializeToSBD } from "../serialization/sbd-serializer";
-import { parseSBD } from "../serialization/sbd-parser";
 import type {
   NodeTypeRegistry,
   SpatialNodeTypeCatalogEntry,
@@ -67,6 +68,9 @@ import * as FrameOps from "./spatialengine_frames";
 import * as SelectionOps from "./spatialengine_selection";
 import * as GroupOps from "./spatialengine_groups";
 import * as HistoryOps from "./spatialengine_history";
+import * as SerializationOps from "./spatialengine_serialization";
+import * as ZOrderOps from "./spatialengine_zorder";
+import * as RemoteOps from "./spatialengine_remote";
 
 export type BoardBackground =
   | "plain-white"
@@ -249,16 +253,14 @@ export class SpatialEngine {
   /** @internal */ _historyCoalesceKey: string | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
-  private _suppressEvents = false;
+  /** @internal */ _suppressEvents = false;
   /** @internal */ _collabMode = false;
   /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
    *  so a single `beginAgentAction()` snapshot covers multiple operations. */
   /** @internal */ _agentActionDepth = 0;
   /** Auto-reset timer for `beginAgentAction()` when no matching `endAgentAction()`
    *  arrives in time (cross-process MCP callers can crash between begin/end). */
-  private _agentActionTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Max ms between begin/end before depth is force-reset to 0. */
-  private static readonly AGENT_ACTION_TIMEOUT_MS = 60_000;
+  /** @internal */ _agentActionTimer: ReturnType<typeof setTimeout> | null = null;
   /** @internal */ clipboard: SpatialNode[] = [];
   /** @internal */ pasteCount = 0;
   /** Node ids captured by the active pointer gesture; null when idle. */
@@ -842,112 +844,19 @@ export class SpatialEngine {
   // --- Z-ordering ---
 
   bringToFront(ids: string[]): void {
-    if (ids.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    for (const id of ids) {
-      const node = this.nodes.get(id);
-      if (node && !node.locked) this.nodes.set(id, { ...node, z: this.nextZValue++ });
-    }
-    this.emit("change");
-    this.emit("history");
+    ZOrderOps.bringToFront(this, ids);
   }
 
   sendToBack(ids: string[]): void {
-    if (ids.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    for (let i = ids.length - 1; i >= 0; i--) {
-      const node = this.nodes.get(ids[i]);
-      if (node && !node.locked) this.nodes.set(ids[i], { ...node, z: --this._minZ });
-    }
-    this.emit("change");
-    this.emit("history");
-  }
-
-  /** AABB overlap test between two nodes. */
-  private _nodesOverlap(a: SpatialNode, b: SpatialNode): boolean {
-    const ah = this.resolveHeight(a);
-    const bh = this.resolveHeight(b);
-    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + bh && a.y + ah > b.y;
+    ZOrderOps.sendToBack(this, ids);
   }
 
   bringForward(ids: string[]): void {
-    if (ids.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-
-    for (const id of ids) {
-      const node = this.nodes.get(id);
-      if (!node || node.locked) continue;
-      // Find overlapping nodes with higher z (same rendering layer)
-      const isEdge = node.type === "edge";
-      const candidates: SpatialNode[] = [];
-      for (const n of this.nodes.values()) {
-        if (
-          n.id !== id &&
-          (isEdge ? n.type === "edge" : n.type !== "edge") &&
-          n.z >= node.z &&
-          this._nodesOverlap(node, n)
-        ) {
-          candidates.push(n);
-        }
-      }
-      if (candidates.length === 0) continue;
-      // Pick the one with the lowest z among those above (nearest overlapping neighbor)
-      candidates.sort((a, b) => a.z - b.z);
-      const target = candidates[0];
-      const targetNode = this.nodes.get(target.id)!;
-      const curZ = node.z, tgtZ = targetNode.z;
-      if (curZ === tgtZ) {
-        this.nodes.set(id, { ...node, z: tgtZ + 1 });
-      } else {
-        this.nodes.set(id, { ...node, z: tgtZ });
-        this.nodes.set(target.id, { ...targetNode, z: curZ });
-      }
-    }
-
-    this.emit("change");
-    this.emit("history");
+    ZOrderOps.bringForward(this, ids);
   }
 
   sendBackward(ids: string[]): void {
-    if (ids.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-
-    for (const id of ids) {
-      const node = this.nodes.get(id);
-      if (!node || node.locked) continue;
-      // Find overlapping nodes with lower z (same rendering layer)
-      const isEdge = node.type === "edge";
-      const candidates: SpatialNode[] = [];
-      for (const n of this.nodes.values()) {
-        if (
-          n.id !== id &&
-          (isEdge ? n.type === "edge" : n.type !== "edge") &&
-          n.z <= node.z &&
-          this._nodesOverlap(node, n)
-        ) {
-          candidates.push(n);
-        }
-      }
-      if (candidates.length === 0) continue;
-      // Pick the one with the highest z among those below (nearest overlapping neighbor)
-      candidates.sort((a, b) => b.z - a.z);
-      const target = candidates[0];
-      const targetNode = this.nodes.get(target.id)!;
-      const curZ = node.z, tgtZ = targetNode.z;
-      if (curZ === tgtZ) {
-        this.nodes.set(id, { ...node, z: tgtZ - 1 });
-      } else {
-        this.nodes.set(id, { ...node, z: tgtZ });
-        this.nodes.set(target.id, { ...targetNode, z: curZ });
-      }
-    }
-
-    this.emit("change");
-    this.emit("history");
+    ZOrderOps.sendBackward(this, ids);
   }
 
   /** Update the QuadTree bounds for an auto-height node when its measured height changes. */
@@ -1352,96 +1261,17 @@ export class SpatialEngine {
 
   /** Add a remote node without emitting events or pushing history. */
   addRemoteNode(node: SpatialNode): void {
-    this._suppressEvents = true;
-    this.nodes.set(node.id, node);
-    this.quadTree.insert(node);
-
-    // Update adjacency for edges
-    if (node.type === "edge") {
-      const edge = node as import("./types").EdgeNode;
-      const { fromId, toId } = edge.data;
-      if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
-      if (!this.adjacency.has(toId)) this.adjacency.set(toId, new Set());
-      this.adjacency.get(fromId)!.add(node.id);
-      this.adjacency.get(toId)!.add(node.id);
-    }
-
-    // Update z-counters
-    if (node.z >= this.nextZValue) this.nextZValue = node.z + 1;
-    if (node.z < this._minZ) this._minZ = node.z;
-
-    this._suppressEvents = false;
-    this.refreshSearchIfNeeded();
+    RemoteOps.addRemoteNode(this, node);
   }
 
   /** Delete a remote node without emitting events or pushing history. */
   deleteRemoteNode(id: string): void {
-    this._suppressEvents = true;
-    const node = this.nodes.get(id);
-    if (node) {
-      this.quadTree.remove(node);
-      this.nodes.delete(id);
-      this.selection.delete(id);
-      this.adjacency.delete(id);
-      this.frameChildren.delete(id);
-      for (const children of this.frameChildren.values()) children.delete(id);
-
-      // Cascade: delete edges connected to this node
-      for (const [edgeId, edgeNode] of this.nodes) {
-        if (edgeNode.type === "edge") {
-          const data = edgeNode.data as { fromId: string; toId: string };
-          if (data.fromId === id || data.toId === id) {
-            const edge = this.nodes.get(edgeId);
-            if (edge) this.quadTree.remove(edge);
-            this.nodes.delete(edgeId);
-            this.selection.delete(edgeId);
-            const otherId = data.fromId === id ? data.toId : data.fromId;
-            this.adjacency.get(otherId)?.delete(edgeId);
-          }
-        }
-      }
-    }
-    this._suppressEvents = false;
-    this.refreshSearchIfNeeded();
+    RemoteOps.deleteRemoteNode(this, id);
   }
 
   /** Apply a remote node update without emitting events or pushing history. */
   applyRemoteNodeUpdate(id: string, props: Partial<SpatialNode>): void {
-    this._suppressEvents = true;
-    const existing = this.nodes.get(id);
-    if (existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updated: any = { ...existing, ...props };
-      if (
-        props.data &&
-        typeof props.data === "object" &&
-        existing.data &&
-        typeof existing.data === "object"
-      ) {
-        updated.data = {
-          ...(existing as { data: Record<string, unknown> }).data,
-          ...(props as { data: Record<string, unknown> }).data,
-        };
-      }
-      this.nodes.set(id, updated);
-
-      // Update QuadTree if geometry changed
-      if (
-        existing.x !== updated.x ||
-        existing.y !== updated.y ||
-        existing.w !== updated.w ||
-        existing.h !== updated.h
-      ) {
-        this.quadTree.remove(existing);
-        this.quadTree.insert(updated);
-        this.updateConnectedEdges(id);
-      }
-
-      // Update z-counter
-      if (updated.z >= this.nextZValue) this.nextZValue = updated.z + 1;
-      if (props.data) this.refreshSearchIfNeeded();
-    }
-    this._suppressEvents = false;
+    RemoteOps.applyRemoteNodeUpdate(this, id, props);
   }
 
   /** Trigger a re-render without pushing history. Used after remote updates. */
@@ -1531,100 +1361,19 @@ export class SpatialEngine {
   // --- Serialization ---
 
   async toSBD(): Promise<string> {
-    // Reverse frameChildren → childId → frameId so children serialize with
-    // parent-relative coordinates (SBD v3). fromSBD resolves them back to
-    // absolute and rebuildFrameChildren re-derives membership geometrically.
-    const parentByChild = new Map<string, string>();
-    for (const [frameId, children] of this.frameChildren) {
-      for (const childId of children) parentByChild.set(childId, frameId);
-    }
-    return serializeToSBD(this.getAllNodes(), {
-      background: this.boardBackground,
-      originView: this.originView ?? undefined,
-      parentOf: (nodeId) => parentByChild.get(nodeId),
-    });
+    return SerializationOps.toSBD(this);
   }
 
   async fromSBD(sbd: string): Promise<void> {
-    this.history.clear();
-    this.nodes.clear();
-    this.groupParent.clear();
-    this.groupChildren.clear();
-    const { nodes: parsed, meta } = await parseSBD(sbd);
-    if (meta.background) {
-      this.boardBackground = meta.background;
-      this.emit("background");
-    }
-    if (meta.originView) {
-      this.originView = meta.originView;
-    } else {
-      this.originView = null;
-    }
-    let maxZ = 0;
-    let minZ = 0;
-    for (const node of parsed) {
-      this.nodes.set(node.id, node);
-      if (node.z > maxZ) maxZ = node.z;
-      if (node.z < minZ) minZ = node.z;
-    }
-    this.rebuildQuadTree();
-    this.rebuildFrameChildren();
-    this.nextZValue = maxZ + 1;
-    this._minZ = minZ;
-    this.selection.clear();
-    this.refreshSearchIfNeeded();
-    // Apply origin view if saved, otherwise fit-to-content
-    this.goToOriginView();
-    this.emit("change");
-    this.emit("selection");
-    this.emit("history");
+    return SerializationOps.fromSBD(this, sbd);
   }
 
   toJSON(): object {
-    const result: Record<string, unknown> = {
-      nodes: Array.from(this.nodes.entries()),
-      viewport: this.viewport,
-    };
-    if (this.groupParent.size > 0) {
-      result.groupParent = Array.from(this.groupParent.entries());
-    }
-    return result;
-  }
-
-  /** Build a groupParent map from untrusted entries, dropping any edge that
-   *  would introduce a cycle. The group-walk loops (selection expansion, etc.)
-   *  follow parent links unbounded, so a cyclic chain from a crafted board JSON
-   *  would hang the tab; sanitizing at ingress protects every walk at once. */
-  private static sanitizeGroupParent(entries: [string, string][]): Map<string, string> {
-    const map = new Map<string, string>();
-    for (const [child, parent] of entries) {
-      if (child === parent) continue;
-      let cur: string | undefined = parent;
-      let steps = 0;
-      let cyclic = false;
-      while (cur !== undefined && steps++ <= entries.length) {
-        if (cur === child) { cyclic = true; break; }
-        cur = map.get(cur);
-      }
-      if (!cyclic) map.set(child, parent);
-    }
-    return map;
+    return SerializationOps.toJSON(this);
   }
 
   fromJSON(json: { nodes: [string, SpatialNode][]; viewport?: Viewport; groupParent?: [string, string][] }): void {
-    this.history.clear();
-    this.nodes = new Map(json.nodes);
-    this.groupParent = SpatialEngine.sanitizeGroupParent(json.groupParent ?? []);
-    this.rebuildGroupChildren();
-    this.rebuildQuadTree();
-    this.rebuildFrameChildren();
-    if (json.viewport) this.viewport = json.viewport;
-    this.selection.clear();
-    this.refreshSearchIfNeeded();
-    this.emit("change");
-    this.emit("viewport");
-    this.emit("selection");
-    this.emit("history");
+    SerializationOps.fromJSON(this, json);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1642,50 +1391,20 @@ export class SpatialEngine {
    *  permanently disable per-op undo snapshots. In-process JS callers should
    *  prefer `runAgentAction(fn)` which handles begin/end via try/finally. */
   beginAgentAction(): void {
-    if (this._agentActionDepth === 0) {
-      this._historyCoalesceKey = null;
-      this.history.pushSnapshot(this.nodes, this.groupParent);
-      this.emit("history");
-    }
-    this._agentActionDepth++;
-    if (this._agentActionTimer) clearTimeout(this._agentActionTimer);
-    this._agentActionTimer = setTimeout(() => {
-      console.warn(
-        `[SpatialEngine] Agent action timed out after ${SpatialEngine.AGENT_ACTION_TIMEOUT_MS}ms — force-resetting depth (was ${this._agentActionDepth}).`,
-      );
-      this._agentActionDepth = 0;
-      this._agentActionTimer = null;
-    }, SpatialEngine.AGENT_ACTION_TIMEOUT_MS);
+    AgentOps.beginAgentAction(this);
   }
 
   /** End a grouped agent action. The undo snapshot pushed by `beginAgentAction()`
    *  now covers all intermediate mutations. */
   endAgentAction(): void {
-    if (this._agentActionDepth > 0) {
-      this._agentActionDepth--;
-    }
-    if (this._agentActionDepth === 0 && this._agentActionTimer) {
-      clearTimeout(this._agentActionTimer);
-      this._agentActionTimer = null;
-    }
+    AgentOps.endAgentAction(this);
   }
 
   /** Run a callback inside a `begin/end` agent action with try/finally semantics.
    *  Use this from in-process JS callers (the dev-app demo, tests, etc.) so a
    *  thrown exception can never leak `_agentActionDepth`. Supports sync + async. */
   runAgentAction<T>(fn: () => T | Promise<T>): T | Promise<T> {
-    this.beginAgentAction();
-    try {
-      const result = fn();
-      if (result && typeof (result as { then?: unknown }).then === "function") {
-        return (result as Promise<T>).finally(() => this.endAgentAction());
-      }
-      this.endAgentAction();
-      return result;
-    } catch (err) {
-      this.endAgentAction();
-      throw err;
-    }
+    return AgentOps.runAgentAction(this, fn);
   }
 
   /** Whether the engine is inside a `beginAgentAction()` / `endAgentAction()` block. */
