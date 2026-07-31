@@ -42,13 +42,13 @@ The default board registers `coreBoardNodes` (`src/nodes/index.ts:42`); hosts th
 
 Reading top to bottom, the component:
 
-1. **Owns or adopts the engine** — `externalEngine ?? new SpatialEngine()` (`SpatialBoard.tsx:212`). Passing your own engine is how a host embeds the board inside a larger system (collab drivers, external persistence).
+1. **Owns or adopts the engine** — `externalEngine ?? new SpatialEngine()` (`SpatialBoard.tsx:213`). Passing your own engine is how a host embeds the board inside a larger system (collab drivers, external persistence).
 2. **Builds the node-type registry** from the `nodeTypes` prop (`SpatialBoard.tsx:217`) and hands it to the engine for lifecycle hooks: `engine.setRegistry(registry)` (`SpatialBoard.tsx:234`).
 3. **Loads initial content** via `engine.fromSBD(initialData)` (`SpatialBoard.tsx:263`).
 4. **Creates the data-flow engine only if any registered type declares ports** — `new DataFlowEngine(engine, registry)` (`SpatialBoard.tsx:303`), then `dataFlow.connect()` subscribes it to engine events.
-5. **Mounts the providers**: theme (`SBThemeContext`, `SpatialBoard.tsx:338`), localization, and read-only context.
+5. **Mounts the providers**: theme (`SBThemeContext`, `SpatialBoard.tsx:347`), localization, and read-only context.
 6. **Installs keyboard shortcuts** scoped to the focused board: `setupKeyboardHandler(engine, boardRef.current, tools)` (`SpatialBoard.tsx:291`).
-7. **Renders the layout**: `<Sidebar>` (tool rail + inspector, `SpatialBoard.tsx:371`), `<SpatialCanvas>` (the board itself, `SpatialBoard.tsx:383`), `<BottomBar>` (`SpatialBoard.tsx:402`), `<PresentationOverlay>` (`SpatialBoard.tsx:423`).
+7. **Renders the layout**: `<Sidebar>` (tool rail + inspector, `SpatialBoard.tsx:378`), `<SpatialCanvas>` (the board itself, `SpatialBoard.tsx:390`), `<BottomBar>` (`SpatialBoard.tsx:409`), `<PresentationOverlay>` (`SpatialBoard.tsx:430`).
 
 ## 2. The engine (`src/engine/`)
 

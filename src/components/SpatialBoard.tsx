@@ -28,6 +28,8 @@ import {
   type SpatialBoardLocalization,
 } from "./contexts/LocalizationContext";
 import { SpatialBoardReadOnlyContext } from "./contexts/SpatialBoardReadOnlyContext";
+import type { ToolKey } from "../engine/types";
+import type { PortDirection } from "../engine/data-flow-types";
 
 /** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
 export type PortConnectEmptyEvent = {
@@ -39,8 +41,6 @@ export type PortConnectEmptyEvent = {
   clientX: number;
   clientY: number;
 };
-import type { ToolKey } from "../engine/types";
-import type { PortDirection } from "../engine/data-flow-types";
 
 export interface SpatialBoardProps {
   /** Node type definitions. Defaults to all built-in types. */
@@ -333,6 +333,15 @@ export default function SpatialBoard({
     return () => engine.off("presentation", handlePresentation);
   }, [engine, onPresentationChange]);
 
+  // Chrome visibility. Standard chrome hides in preview mode and while
+  // presenting; the creation sidebar additionally hides for read-only viewers
+  // (they can't add nodes — no point surfacing the affordance); and the side
+  // rail yields entirely when the tools are seated in the BottomBar instead.
+  // `railVisible` also drives the canvas inset, so the two can never drift.
+  const showChrome = !isPreview && !presenting;
+  const showSidebarUI = showSidebar && !presenting && !readOnly;
+  const railVisible = showSidebarUI && !toolsInBottomBar;
+
   return (
     <SBLocalizationContext.Provider value={localizationValue}>
     <SBThemeContext.Provider value={resolvedTheme}>
@@ -366,16 +375,14 @@ export default function SpatialBoard({
         ...style,
       }}
     >
-      {/* sidebar (creation tool strip) hidden in readOnly: viewers
-          can't add nodes anyway, no point in surfacing the affordance. */}
-      {showSidebar && !presenting && !readOnly && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar} />}
+      {showSidebarUI && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
           position: "absolute",
-          left: showSidebar && !presenting && !readOnly && !toolsInBottomBar && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          left: railVisible && !localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           top: 0,
-          right: showSidebar && !presenting && !readOnly && !toolsInBottomBar && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
+          right: railVisible && localizationValue.isRTL ? TOOL_STRIP_WIDTH : 0,
           bottom: 0,
           overflow: "hidden",
         }}
@@ -393,12 +400,12 @@ export default function SpatialBoard({
           hostVisibleNodeIds={visibleNodeIds ?? null}
           overlayNodes={overlayNodes ?? null}
         />
-        {!isPreview && !presenting && <CanvasSearchBar engine={engine} />}
+        {showChrome && <CanvasSearchBar engine={engine} />}
         {/* BottomBar + FramesPanel stay visible in readOnly so
             viewers can launch presentation mode and browse the slides
             list. Edit affordances inside FramesPanel (rename, reorder)
             silently no-op via the engine's readOnly guard. */}
-        {!isPreview && !presenting && (
+        {showChrome && (
           <BottomBar
             engine={engine}
             tools={tools}
@@ -412,8 +419,8 @@ export default function SpatialBoard({
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
         )}
-        {!isPreview && !presenting && showPerfOverlay && <PerformanceOverlay />}
-        {!isPreview && !presenting && showSlides && (
+        {showChrome && showPerfOverlay && <PerformanceOverlay />}
+        {showChrome && showSlides && (
           <FramesPanel
             engine={engine}
             open={framesPanelOpen}
@@ -421,37 +428,57 @@ export default function SpatialBoard({
           />
         )}
         {!isPreview && <PresentationOverlay engine={engine} />}
-        {/* small "View only" pill so the absence of editing
-            chrome is obviously by design rather than broken. Sits above
-            the BottomBar so it doesn't crowd the play / slides controls. */}
-        {readOnly && !presenting && !isPreview && (
-          <div
-            data-sb-readonly-pill
-            style={{
-              position: "absolute",
-              top: 12,
-              [localizationValue.isRTL ? "left" : "right"]: 12,
-              padding: "4px 10px",
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 500,
-              lineHeight: 1.2,
-              background: resolvedTheme.panelBg,
-              color: resolvedTheme.textMuted,
-              border: `1px solid ${resolvedTheme.border}`,
-              boxShadow: resolvedTheme.panelShadow,
-              pointerEvents: "none",
-              userSelect: "none",
-              zIndex: 10,
-            }}
-          >
-            {localizationValue.labels.viewOnly ?? "View only"}
-          </div>
+        {readOnly && showChrome && (
+          <ReadOnlyPill
+            theme={resolvedTheme}
+            isRTL={localizationValue.isRTL}
+            label={localizationValue.labels.viewOnly ?? "View only"}
+          />
         )}
       </div>
     </div>
     </SpatialBoardReadOnlyContext.Provider>
     </SBThemeContext.Provider>
     </SBLocalizationContext.Provider>
+  );
+}
+
+/**
+ * Small "View only" pill so the absence of editing chrome reads as deliberate
+ * rather than broken. Sits above the BottomBar so it doesn't crowd the
+ * play / slides controls.
+ */
+function ReadOnlyPill({
+  theme,
+  isRTL,
+  label,
+}: {
+  theme: SpatialBoardTheme;
+  isRTL: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      data-sb-readonly-pill
+      style={{
+        position: "absolute",
+        top: 12,
+        [isRTL ? "left" : "right"]: 12,
+        padding: "4px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 500,
+        lineHeight: 1.2,
+        background: theme.panelBg,
+        color: theme.textMuted,
+        border: `1px solid ${theme.border}`,
+        boxShadow: theme.panelShadow,
+        pointerEvents: "none",
+        userSelect: "none",
+        zIndex: 10,
+      }}
+    >
+      {label}
+    </div>
   );
 }
