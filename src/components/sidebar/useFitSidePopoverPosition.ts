@@ -1,5 +1,5 @@
 import { useLayoutEffect, type RefObject } from "react";
-import { fitSidePopoverPosition } from "../utils/fit-fixed-popup";
+import { fitSidePopoverPosition } from "../../utils/fit-fixed-popup";
 
 /**
  * Positions a fixed popover beside a toolbar trigger; re-runs when the panel resizes.

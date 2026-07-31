@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useFitSidePopoverPosition } from "../../hooks/useFitSidePopoverPosition";
+import { useFitSidePopoverPosition } from "./useFitSidePopoverPosition";
 import { createPortal } from "react-dom";
 import type { SpatialEngine, BoardBackground } from "../../engine/SpatialEngine";
 import type { Mode, ToolKey } from "../../engine/types";

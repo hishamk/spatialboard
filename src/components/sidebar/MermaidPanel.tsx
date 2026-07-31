@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
+import { useFitSidePopoverPositionFromRect } from "./useFitSidePopoverPosition";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { useSBTheme } from "./ThemeContext";
 import { useSBI18n } from "../contexts/LocalizationContext";

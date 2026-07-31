@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useFitSidePopoverPositionFromRect } from "../../hooks/useFitSidePopoverPosition";
+import { useFitSidePopoverPositionFromRect } from "./useFitSidePopoverPosition";
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { ImageNode } from "../../engine/types";
