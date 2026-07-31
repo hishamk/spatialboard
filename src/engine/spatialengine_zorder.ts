@@ -53,7 +53,9 @@ export function bringForward(engine: SpatialEngine, ids: string[]): void {
         n.id !== id &&
         (isEdge ? n.type === "edge" : n.type !== "edge") &&
         n.z >= node.z &&
-        nodesOverlap(engine, node, n)
+        // Edges store zero bounds, so the AABB overlap gate would never match —
+        // treat all edges as one stack and step among them.
+        (isEdge || nodesOverlap(engine, node, n))
       ) {
         candidates.push(n);
       }
@@ -92,7 +94,9 @@ export function sendBackward(engine: SpatialEngine, ids: string[]): void {
         n.id !== id &&
         (isEdge ? n.type === "edge" : n.type !== "edge") &&
         n.z <= node.z &&
-        nodesOverlap(engine, node, n)
+        // Edges store zero bounds, so the AABB overlap gate would never match —
+        // treat all edges as one stack and step among them.
+        (isEdge || nodesOverlap(engine, node, n))
       ) {
         candidates.push(n);
       }
