@@ -4,7 +4,7 @@ import { useFitSidePopoverPositionFromRect } from "./useFitSidePopoverPosition";
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { SpatialNode } from "../../engine/types";
-import { useSBTheme } from "./ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
 import {
   getInstalled,
   getItems,
@@ -519,6 +519,7 @@ export default function LibraryPanel({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >

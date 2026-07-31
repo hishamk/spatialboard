@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFitSidePopoverPositionFromRect } from "./useFitSidePopoverPosition";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
-import { useSBTheme } from "./ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
 const STARTER = `flowchart LR
@@ -98,6 +98,7 @@ export default function MermaidPanel({
         display: "flex",
         flexDirection: "column",
         zIndex: 99999,
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >

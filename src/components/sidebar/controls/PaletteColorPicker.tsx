@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { labelStyle, btnBase } from "../styles";
 import type { ColorPalette } from "../styles";
-import { useSBTheme } from "../ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "../ThemeContext";
 import { useSBI18n } from "../../contexts/LocalizationContext";
 
 interface PaletteColorPickerProps {
@@ -221,6 +221,7 @@ export default function PaletteColorPicker({
                       gap: 2,
                       minWidth: 120,
                       boxShadow: theme.panelShadow,
+                      fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
                     }}
                   >
                     {palettes.map((p, i) => (

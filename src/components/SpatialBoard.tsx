@@ -13,7 +13,7 @@ import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
 import { coreBoardNodes } from "../nodes/index";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import { loadGoogleFonts } from "../fonts";
-import { SBThemeContext, DEFAULT_SB_THEME } from "./sidebar/ThemeContext";
+import { SBThemeContext, DEFAULT_SB_THEME, SB_UI_FONT } from "./sidebar/ThemeContext";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./chrome/BottomBar";
 import CanvasSearchBar from "./overlays/CanvasSearchBar";
@@ -362,6 +362,7 @@ export default function SpatialBoard({
         height: "100%",
         position: "relative",
         outline: "none",
+        fontFamily: resolvedTheme.uiFontFamily ?? SB_UI_FONT,
         ...style,
       }}
     >

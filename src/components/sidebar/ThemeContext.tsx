@@ -35,7 +35,12 @@ export interface SpatialBoardTheme {
   error: string;
   /** Native control accent (e.g. slider thumb) */
   accentColor: string;
+  /** Font stack for the built-in UI chrome (panels, popovers, menus). */
+  uiFontFamily?: string;
 }
+
+export const SB_UI_FONT =
+  'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 export const DEFAULT_SB_THEME: SpatialBoardTheme = {
   toolbarBg: "#1e1e2e",

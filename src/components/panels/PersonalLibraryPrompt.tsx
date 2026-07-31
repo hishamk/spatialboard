@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { SpatialNode } from "../../engine/types";
 import { renderPreviewSVG } from "../../excalidraw/preview-renderer";
+import { useSBTheme, SB_UI_FONT } from "../sidebar/ThemeContext";
 
 interface PersonalLibraryPromptProps {
   nodes: SpatialNode[];
@@ -14,6 +15,7 @@ export default function PersonalLibraryPrompt({
   onSave,
   onCancel,
 }: PersonalLibraryPromptProps) {
+  const theme = useSBTheme();
   const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,7 @@ export default function PersonalLibraryPrompt({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
       }}
     >
       <div
@@ -76,8 +79,7 @@ export default function PersonalLibraryPrompt({
           width: 280,
           color: "#e0e0e0",
           fontSize: 13,
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
         }}
       >
         <div

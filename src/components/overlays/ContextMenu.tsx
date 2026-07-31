@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { fitAnchorPopupPosition } from "../../utils/fit-fixed-popup";
+import { useSBTheme, SB_UI_FONT } from "../sidebar/ThemeContext";
 
 export interface ContextMenuItem {
   label: string;
@@ -38,6 +39,7 @@ export default function ContextMenu({
   sections,
   onClose,
 }: ContextMenuProps) {
+  const theme = useSBTheme();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click or scroll
@@ -124,7 +126,7 @@ export default function ContextMenu({
         padding: "4px 0",
         color: "#e0e0e0",
         fontSize: 13,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
         userSelect: "none",
       }}
     >

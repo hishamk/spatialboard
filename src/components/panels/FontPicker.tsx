@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { FONT_FAMILIES, getFontFamilyCSS, getFontIcon } from "../../fonts";
 import { fitAnchorPopupPosition } from "../../utils/fit-fixed-popup";
 import type { FontOption } from "../../fonts";
-import { useSBTheme } from "../sidebar/ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "../sidebar/ThemeContext";
 
 const SEARCH_ICON = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -198,6 +198,7 @@ export default function FontPicker({
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
+              fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
             }}
           >
           {/* Search */}

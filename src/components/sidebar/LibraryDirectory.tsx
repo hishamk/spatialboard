@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useSBTheme } from "./ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
 import type { ExcalidrawDirectoryEntry } from "../../excalidraw/types";
 import {
   installFromUrl,
@@ -99,6 +99,7 @@ export default function LibraryDirectory({
         justifyContent: "center",
         background: "rgba(0,0,0,0.4)",
         backdropFilter: "blur(4px)",
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
       }}
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose();

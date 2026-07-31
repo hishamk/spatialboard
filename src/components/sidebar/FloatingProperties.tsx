@@ -4,7 +4,7 @@ import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { useMultiSelection } from "./useMultiSelection";
 import { PROPERTIES_WIDTH, TOOL_STRIP_WIDTH } from "./styles";
-import { useSBTheme } from "./ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
 import PropertiesContent from "./PropertiesContent";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
@@ -396,6 +396,7 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
         zIndex: poppedOut ? 9990 : 99,
         color: theme.text,
         fontSize: 11,
+        fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
         maxHeight: poppedOut ? "calc(100vh - 40px)" : "calc(100% - 40px)",
         boxShadow: theme.panelShadow,
         backdropFilter: "blur(8px) saturate(120%)",

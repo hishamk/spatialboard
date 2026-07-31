@@ -6,7 +6,7 @@ import type { Mode, ToolKey } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { TOOLS, modeAvailable } from "../../tools";
 import { TOOL_STRIP_WIDTH } from "./styles";
-import { useSBTheme } from "./ThemeContext";
+import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
 import { PAPER_TYPES, type PaperGroup } from "../paper-types";
 import { TEMPLATES } from "../../templates/index";
 import { screenToCanvas } from "../../engine/viewport";
@@ -241,6 +241,7 @@ function PaperPicker({
               width: 180,
               maxHeight: 400,
               overflowY: "auto",
+              fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -383,6 +384,7 @@ function TemplatePicker({ engine }: { engine: SpatialEngine }) {
                 zIndex: 99999,
                 boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
                 width: 180,
+                fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
