@@ -11,9 +11,14 @@
 //   spatialengine_clipboard.ts     duplicate / copy / cut / paste / templates
 //   spatialengine_create.ts        tool activation + node factories
 //   spatialengine_agent.ts         agent/LLM state observation
+//   spatialengine_nodes.ts         node CRUD + history-recording update wrappers
+//   spatialengine_edges.ts         data-flow edge helpers
+//   spatialengine_frames.ts        frame/container membership tracking
+//   spatialengine_groups.ts        grouping + nested-group bookkeeping
+//   spatialengine_selection.ts     selection + pointer-gesture selection
+//   spatialengine_history.ts       engine-level undo/redo + snapshot control
 // Fields and methods marked @internal are shard plumbing, not public API.
 
-import { nanoid } from "nanoid";
 import type {
   SpatialNode,
   EdgeNode,
@@ -38,7 +43,6 @@ import { QuadTree } from "./QuadTree";
 import { screenToCanvas, canvasToScreen } from "./viewport";
 import { serializeToSBD } from "../serialization/sbd-serializer";
 import { parseSBD } from "../serialization/sbd-parser";
-import { computeEdgePath } from "./edge-geometry";
 import type {
   NodeTypeRegistry,
   SpatialNodeTypeCatalogEntry,
@@ -57,6 +61,12 @@ import * as PresentOps from "./spatialengine_presentation";
 import * as SnapOps from "./spatialengine_snapping";
 import type { DragSnapContext } from "./spatialengine_snapping";
 import * as ArrangeOps from "./spatialengine_arrange";
+import * as NodeOps from "./spatialengine_nodes";
+import * as EdgeOps from "./spatialengine_edges";
+import * as FrameOps from "./spatialengine_frames";
+import * as SelectionOps from "./spatialengine_selection";
+import * as GroupOps from "./spatialengine_groups";
+import * as HistoryOps from "./spatialengine_history";
 
 export type BoardBackground =
   | "plain-white"
@@ -176,7 +186,7 @@ export class SpatialEngine {
   /** Maps child groupId → parent groupId for nested groups. */
   groupParent = new Map<string, string>();
   /** Reverse index: parent groupId → set of child groupIds. Maintained alongside groupParent. */
-  private groupChildren = new Map<string, Set<string>>();
+  /** @internal */ groupChildren = new Map<string, Set<string>>();
   mode: Mode = "select";
   activeTool: ActiveTool = {
     tool: "pen",
@@ -240,10 +250,10 @@ export class SpatialEngine {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
   private _suppressEvents = false;
-  private _collabMode = false;
+  /** @internal */ _collabMode = false;
   /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
    *  so a single `beginAgentAction()` snapshot covers multiple operations. */
-  private _agentActionDepth = 0;
+  /** @internal */ _agentActionDepth = 0;
   /** Auto-reset timer for `beginAgentAction()` when no matching `endAgentAction()`
    *  arrives in time (cross-process MCP callers can crash between begin/end). */
   private _agentActionTimer: ReturnType<typeof setTimeout> | null = null;
@@ -252,20 +262,20 @@ export class SpatialEngine {
   /** @internal */ clipboard: SpatialNode[] = [];
   /** @internal */ pasteCount = 0;
   /** Node ids captured by the active pointer gesture; null when idle. */
-  private _gestureIds: ReadonlySet<string> | null = null;
+  /** @internal */ _gestureIds: ReadonlySet<string> | null = null;
   /** Monotonic counters bumped whenever the matching event reaches listeners.
    *  Used as `useSyncExternalStore` snapshots by canvas overlays. */
   private _changeTick = 0;
   private _selectionTick = 0;
   private _guidesTick = 0;
   /** @internal */ nextZValue = 1;
-  private _minZ = 0;
+  /** @internal */ _minZ = 0;
   /** @internal */ quadTree = new QuadTree({ x: -100000, y: -100000, w: 200000, h: 200000 });
-  private adjacency = new Map<string, Set<string>>();
+  /** @internal */ adjacency = new Map<string, Set<string>>();
   /** Explicit frame→children tracking. Only nodes intentionally placed inside a frame are tracked. */
-  private frameChildren = new Map<string, Set<string>>();
+  /** @internal */ frameChildren = new Map<string, Set<string>>();
   /** Node types that act as containers (frame-like behavior). "frame" is always included. */
-  private _containerTypes = new Set<string>(["frame"]);
+  /** @internal */ _containerTypes = new Set<string>(["frame"]);
   /** @internal */ registry?: NodeTypeRegistry;
   /** Measured heights for auto-height nodes (canvas-coordinate units). */
   /** @internal */ _measuredHeights: Record<string, number> = {};
@@ -360,23 +370,12 @@ export class SpatialEngine {
 
   /** Get all edge nodes connected to a given node. */
   getEdgesForNode(nodeId: string): SpatialNode[] {
-    const edgeIds = this.adjacency.get(nodeId);
-    if (!edgeIds) return [];
-    const result: SpatialNode[] = [];
-    for (const eid of edgeIds) {
-      const n = this.nodes.get(eid);
-      if (n && n.type === "edge") result.push(n);
-    }
-    return result;
+    return EdgeOps.getEdgesForNode(this, nodeId);
   }
 
   /** Get all edge nodes in the board. */
   getAllEdges(): SpatialNode[] {
-    const result: SpatialNode[] = [];
-    for (const n of this.nodes.values()) {
-      if (n.type === "edge") result.push(n);
-    }
-    return result;
+    return EdgeOps.getAllEdges(this);
   }
 
   /** Set the container element (used by SpatialCanvas on mount). */
@@ -439,15 +438,12 @@ export class SpatialEngine {
    * mirror pauses. Idempotent: beginning while active replaces the id set.
    */
   beginNodeGesture(ids: Iterable<string>): void {
-    this._gestureIds = new Set(ids);
-    this.emit("gesture:start");
+    SelectionOps.beginNodeGesture(this, ids);
   }
 
   /** End the active pointer gesture (no-op when idle). */
   endNodeGesture(): void {
-    if (this._gestureIds === null) return;
-    this._gestureIds = null;
-    this.emit("gesture:end");
+    SelectionOps.endNodeGesture(this);
   }
 
   /** Request entering image crop mode (handled by the canvas component). */
@@ -720,141 +716,15 @@ export class SpatialEngine {
   // --- Node CRUD ---
 
   addNode(node: SpatialNode, opts?: { skipHistory?: boolean }): void {
-    if (this.readOnly) return;
-    // `skipHistory` (host-managed ephemeral nodes — e.g. the workflow loop
-    // Start/End frame): the node renders + hit-tests + connects like any node
-    // but never enters the undo stack (the host reconciles it from UI scope,
-    // and serialize excludes it by type). Undo of a REAL edit still restores a
-    // snapshot that includes it, and the host re-reconciles if a snapshot lacks it.
-    if (this._agentActionDepth === 0 && !opts?.skipHistory) {
-      this._historyCoalesceKey = null;
-      this.history.pushSnapshot(this.nodes, this.groupParent);
-    }
-    this.nodes.set(node.id, node);
-    this.quadTree.insert(node);
-    if (node.z < this._minZ) this._minZ = node.z;
-
-    // Update adjacency
-    if (node.type === "edge") {
-      const edge = node as import("./types").EdgeNode;
-      const { fromId, toId } = edge.data;
-      if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
-      if (!this.adjacency.has(toId)) this.adjacency.set(toId, new Set());
-      this.adjacency.get(fromId)!.add(node.id);
-      this.adjacency.get(toId)!.add(node.id);
-    }
-
-    // Auto-add to frame if created inside one
-    if (node.type !== "edge") {
-      this.updateFrameMembership([node.id]);
-    }
-
-    // Lifecycle hooks
-    this.registry?.get(node.type)?.onCreate?.(node, this);
-    this.emit("node:create", node);
-
-    this.refreshSearchIfNeeded();
-    this.emit("change");
-    this.emit("history");
+    NodeOps.addNode(this, node, opts);
   }
 
   addNodes(nodes: SpatialNode[]): void {
-    if (this.readOnly) return;
-    if (nodes.length === 0) return;
-    if (this._agentActionDepth === 0) {
-      this._historyCoalesceKey = null;
-      this.history.pushSnapshot(this.nodes, this.groupParent);
-    }
-    for (const node of nodes) {
-      this.nodes.set(node.id, node);
-      this.quadTree.insert(node);
-
-      if (node.type === "edge") {
-        const edge = node as import("./types").EdgeNode;
-        const { fromId, toId } = edge.data;
-        if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
-        if (!this.adjacency.has(toId)) this.adjacency.set(toId, new Set());
-        this.adjacency.get(fromId)!.add(node.id);
-        this.adjacency.get(toId)!.add(node.id);
-      }
-    }
-    // Auto-add non-edge nodes to frames if created inside them
-    const nonEdgeIds = nodes
-      .filter((n) => n.type !== "edge")
-      .map((n) => n.id);
-    if (nonEdgeIds.length > 0) this.updateFrameMembership(nonEdgeIds);
-
-    this.refreshSearchIfNeeded();
-    this.emit("change");
-    this.emit("history");
+    NodeOps.addNodes(this, nodes);
   }
 
   updateNode(id: string, patch: Partial<SpatialNode>): void {
-    if (this.readOnly) return;
-    const existing = this.nodes.get(id);
-    if (!existing) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updated: any = { ...existing, ...patch };
-    if (
-      patch.data &&
-      typeof patch.data === "object" &&
-      existing.data &&
-      typeof existing.data === "object"
-    ) {
-      updated.data = {
-        ...(existing as { data: Record<string, unknown> }).data,
-        ...(patch as { data: Record<string, unknown> }).data,
-      };
-    }
-    this.nodes.set(id, updated);
-
-    // Update QuadTree if geometry changed (including rotation — AABB depends on it)
-    if (
-      existing.x !== updated.x ||
-      existing.y !== updated.y ||
-      existing.w !== updated.w ||
-      existing.h !== updated.h ||
-      (existing.rotation ?? 0) !== (updated.rotation ?? 0)
-    ) {
-      this.quadTree.remove(existing);
-      this.quadTree.insert(updated);
-
-      // Update edges connected to this node
-      this.updateConnectedEdges(id);
-    }
-
-    // Lifecycle: position change (move)
-    if (existing.x !== updated.x || existing.y !== updated.y) {
-      const dx = updated.x - existing.x;
-      const dy = updated.y - existing.y;
-      this.registry?.get(updated.type)?.onMove?.(updated, dx, dy, this);
-      this.emit("node:move", updated, dx, dy);
-    }
-
-    // Lifecycle: dimension change (resize)
-    if (existing.w !== updated.w || existing.h !== updated.h) {
-      const sx = existing.w !== 0 ? updated.w / existing.w : 1;
-      const existingH = existing.h === "auto" ? 0 : (existing.h as number);
-      const updatedH = updated.h === "auto" ? 0 : (updated.h as number);
-      const sy = existingH !== 0 ? updatedH / existingH : 1;
-      this.emit("node:resize", updated, sx, sy);
-    }
-
-    // Lifecycle: rotation change
-    if ((existing.rotation ?? 0) !== (updated.rotation ?? 0)) {
-      this.registry?.get(updated.type)?.onRotate?.(updated, updated.rotation ?? 0, this);
-      this.emit("node:rotate", updated, updated.rotation ?? 0);
-    }
-
-    // Lifecycle: data change
-    if (patch.data && existing.data !== updated.data) {
-      this.registry?.get(updated.type)?.onDataChange?.(updated, existing.data, updated.data, this);
-      this.emit("node:data", updated, existing.data, updated.data);
-      this.refreshSearchIfNeeded();
-    }
-
-    this.emit("change");
+    NodeOps.updateNode(this, id, patch);
   }
 
   /**
@@ -864,92 +734,15 @@ export class SpatialEngine {
   updateMany(
     updates: Array<{ id: string; patch: Partial<SpatialNode> }>
   ): void {
-    if (this.readOnly) return;
-    let changed = false;
-    let dataChanged = false;
-    for (const { id, patch } of updates) {
-      const existing = this.nodes.get(id);
-      if (!existing) continue;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updated: any = { ...existing, ...patch };
-      if (
-        patch.data &&
-        typeof patch.data === "object" &&
-        existing.data &&
-        typeof existing.data === "object"
-      ) {
-        updated.data = {
-          ...(existing as { data: Record<string, unknown> }).data,
-          ...(patch as { data: Record<string, unknown> }).data,
-        };
-        dataChanged = true;
-      }
-      this.nodes.set(id, updated);
-
-      // Update QuadTree if geometry changed (including rotation — AABB depends on it)
-      if (
-        existing.x !== updated.x ||
-        existing.y !== updated.y ||
-        existing.w !== updated.w ||
-        existing.h !== updated.h ||
-        (existing.rotation ?? 0) !== (updated.rotation ?? 0)
-      ) {
-        this.quadTree.remove(existing);
-        this.quadTree.insert(updated);
-
-        // Update connected edges
-        this.updateConnectedEdges(id);
-      }
-
-      changed = true;
-    }
-    if (changed && dataChanged) this.refreshSearchIfNeeded();
-    if (changed) this.emit("change");
+    NodeOps.updateMany(this, updates);
   }
 
-  private updateConnectedEdges(nodeId: string): void {
-    const edgeIds = this.adjacency.get(nodeId);
-    if (!edgeIds) return;
-
-    for (const edgeId of edgeIds) {
-      const edge = this.nodes.get(edgeId);
-      if (!edge || edge.type !== "edge") continue;
-
-      const edgeNode = edge as import("./types").EdgeNode;
-      const fromNode = this.nodes.get(edgeNode.data.fromId);
-      const toNode = this.nodes.get(edgeNode.data.toId);
-
-      if (fromNode && toNode) {
-        const pathResult = computeEdgePath(
-          fromNode,
-          toNode,
-          edgeNode.data.edgeType,
-          undefined,
-          edgeNode.data.sourceHandle,
-          edgeNode.data.targetHandle,
-          edgeNode.data.midpointOffset,
-          edgeNode.data.curveOffset,
-          undefined,
-          undefined,
-          edgeNode.data.sourceT,
-          edgeNode.data.targetT,
-          edgeNode.data.attachmentGap,
-        );
-
-        const newEdge = { ...edgeNode, ...pathResult.bounds };
-        this.nodes.set(edgeId, newEdge);
-        this.quadTree.remove(edgeNode);
-        this.quadTree.insert(newEdge);
-      }
-    }
+  /** @internal */ updateConnectedEdges(nodeId: string): void {
+    EdgeOps.updateConnectedEdges(this, nodeId);
   }
 
   updateNodeWithHistory(id: string, patch: Partial<SpatialNode>): void {
-    if (this.readOnly) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    this.updateNode(id, patch);
-    this.emit("history");
+    NodeOps.updateNodeWithHistory(this, id, patch);
   }
 
   /**
@@ -961,28 +754,12 @@ export class SpatialEngine {
     patch: Partial<SpatialNode>,
     sessionKey: string,
   ): void {
-    if (this.readOnly) return;
-    if (this._collabMode) {
-      this.updateNode(id, patch);
-      return;
-    }
-    if (this._historyCoalesceKey !== sessionKey) {
-      this.history.pushSnapshot(this.nodes, this.groupParent);
-      this._historyCoalesceKey = sessionKey;
-      this.emit("history");
-    }
-    this.updateNode(id, patch);
+    NodeOps.updateNodeWithHistoryCoalesced(this, id, patch, sessionKey);
   }
 
   /** Update multiple nodes in a single undo step. */
   batchUpdateWithHistory(updates: Array<{ id: string; patch: Partial<SpatialNode> }>): void {
-    if (updates.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    for (const { id, patch } of updates) {
-      this.updateNode(id, patch);
-    }
-    this.emit("history");
+    NodeOps.batchUpdateWithHistory(this, updates);
   }
 
   /**
@@ -992,259 +769,66 @@ export class SpatialEngine {
     updates: Array<{ id: string; patch: Partial<SpatialNode> }>,
     sessionKey: string,
   ): void {
-    if (updates.length === 0) return;
-    if (this._collabMode) {
-      for (const { id, patch } of updates) {
-        this.updateNode(id, patch);
-      }
-      return;
-    }
-    if (this._historyCoalesceKey !== sessionKey) {
-      this.history.pushSnapshot(this.nodes, this.groupParent);
-      this._historyCoalesceKey = sessionKey;
-      this.emit("history");
-    }
-    for (const { id, patch } of updates) {
-      this.updateNode(id, patch);
-    }
+    NodeOps.batchUpdateWithHistoryCoalesced(this, updates, sessionKey);
   }
 
   deleteNode(id: string, opts?: { skipHistory?: boolean }): void {
-    if (this.readOnly) return;
-    if (!this.nodes.has(id)) return;
-    if (this.nodes.get(id)?.locked) return;
-    this._historyCoalesceKey = null;
-    // `skipHistory`: mirror of addNode — removing an ephemeral host-managed node
-    // (loop Start/End frame on scope exit) must not push an undo step.
-    if (!opts?.skipHistory) this.history.pushSnapshot(this.nodes, this.groupParent);
-
-    // Remove from QuadTree before deleting from map
-    const nodeToRemove = this.nodes.get(id);
-    if (nodeToRemove) {
-      this.registry?.get(nodeToRemove.type)?.onDelete?.(nodeToRemove, this);
-      this.emit("node:delete", nodeToRemove);
-      this.quadTree.remove(nodeToRemove);
-    }
-
-    this.nodes.delete(id);
-    this.selection.delete(id);
-    this.adjacency.delete(id); // Remove node entries
-    // Clean up frame children tracking
-    this.frameChildren.delete(id); // If it was a frame
-    for (const children of this.frameChildren.values()) children.delete(id);
-
-    // Cascade: delete edges connected to this node, removing each deleted edge
-    // from the surviving endpoint's adjacency set.
-    for (const [edgeId, node] of this.nodes) {
-      if (node.type === "edge") {
-        const data = node.data as { fromId: string; toId: string };
-        if (data.fromId === id || data.toId === id) {
-          const edge = this.nodes.get(edgeId);
-          if (edge) this.quadTree.remove(edge);
-          this.nodes.delete(edgeId);
-          this.selection.delete(edgeId);
-
-          // Clean up adjacency from the OTHER node
-          const otherId = data.fromId === id ? data.toId : data.fromId;
-          this.adjacency.get(otherId)?.delete(edgeId);
-        }
-      }
-    }
-    this.refreshSearchIfNeeded();
-    this.emit("change");
-    this.emit("selection");
-    this.emit("history");
+    NodeOps.deleteNode(this, id, opts);
   }
 
   getNode(id: string): SpatialNode | undefined {
-    return this.nodes.get(id);
+    return NodeOps.getNode(this, id);
   }
 
   getAllNodes(): SpatialNode[] {
-    return Array.from(this.nodes.values());
+    return NodeOps.getAllNodes(this);
   }
 
   /** Returns a read-only iterable of all nodes (no copy). */
   iterNodes(): IterableIterator<SpatialNode> {
-    return this.nodes.values();
+    return NodeOps.iterNodes(this);
   }
 
   getNodesByType(type: NodeType): SpatialNode[] {
-    const result: SpatialNode[] = [];
-    for (const n of this.nodes.values()) {
-      if (n.type === type) result.push(n);
-    }
-    return result;
+    return NodeOps.getNodesByType(this, type);
   }
 
   /** Returns all non-edge nodes fully contained within a frame's bounds (including nested frames). */
   getNodesInsideFrame(frameId: string): SpatialNode[] {
-    const frame = this.nodes.get(frameId);
-    if (!frame || !this._containerTypes.has(frame.type)) return [];
-    const fh = this.resolveHeight(frame);
-    const results: SpatialNode[] = [];
-    for (const node of this.nodes.values()) {
-      if (node.id === frameId || node.type === "edge") continue;
-      const nh = this.resolveHeight(node);
-      if (
-        node.x >= frame.x &&
-        node.y >= frame.y &&
-        node.x + node.w <= frame.x + frame.w &&
-        node.y + nh <= frame.y + fh
-      ) {
-        results.push(node);
-      }
-    }
-    return results;
+    return FrameOps.getNodesInsideFrame(this, frameId);
   }
 
   /** Returns tracked frame children (nodes explicitly added to the frame). */
   getFrameChildren(frameId: string): SpatialNode[] {
-    const childIds = this.frameChildren.get(frameId);
-    if (!childIds) return [];
-    const results: SpatialNode[] = [];
-    for (const id of childIds) {
-      const node = this.nodes.get(id);
-      if (node) results.push(node);
-    }
-    return results;
+    return FrameOps.getFrameChildren(this, frameId);
   }
 
   /** Returns IDs of all descendants of a frame (children, grandchildren, etc.). */
   getFrameDescendantIds(frameId: string): Set<string> {
-    const result = new Set<string>();
-    const visit = (fid: string) => {
-      const childIds = this.frameChildren.get(fid);
-      if (!childIds) return;
-      for (const id of childIds) {
-        if (result.has(id)) continue; // prevent infinite loops
-        result.add(id);
-        // If this child is also a frame, recurse into it
-        const node = this.nodes.get(id);
-        if (node && this._containerTypes.has(node.type)) visit(id);
-      }
-    };
-    visit(frameId);
-    return result;
+    return FrameOps.getFrameDescendantIds(this, frameId);
   }
 
   /** Rebuild frameChildren from spatial containment. Called on load/undo/redo.
    *  Each node is assigned only to its smallest containing frame. */
   rebuildFrameChildren(): void {
-    this.frameChildren.clear();
-
-    // Collect all frames sorted by area (smallest first)
-    const frames: { node: SpatialNode; area: number }[] = [];
-    for (const node of this.nodes.values()) {
-      if (!this._containerTypes.has(node.type)) continue;
-      const fh = this.resolveHeight(node);
-      frames.push({ node, area: node.w * fh });
-    }
-    frames.sort((a, b) => a.area - b.area);
-
-    // Track which nodes are already assigned to a frame
-    const assigned = new Set<string>();
-
-    // Process smallest frames first — their children won't be claimed by larger frames
-    for (const { node: frame } of frames) {
-      const inside = this.getNodesInsideFrame(frame.id);
-      const directChildren = inside.filter((n) => !assigned.has(n.id));
-      if (directChildren.length > 0) {
-        const set = new Set<string>();
-        for (const child of directChildren) {
-          set.add(child.id);
-          assigned.add(child.id);
-        }
-        this.frameChildren.set(frame.id, set);
-      }
-    }
+    FrameOps.rebuildFrameChildren(this);
   }
 
   /** After nodes are moved, update which frames they belong to.
    *  Each node is assigned only to its smallest containing frame.
    *  Frames can be nested inside other frames (but not inside themselves or their descendants). */
   updateFrameMembership(nodeIds: string[]): void {
-    if (this.readOnly) return;
-    for (const nodeId of nodeIds) {
-      const node = this.nodes.get(nodeId);
-      if (!node || node.type === "edge") continue;
-      const nh = this.resolveHeight(node);
-
-      // Remove from any frame it's no longer inside
-      for (const [frameId, children] of this.frameChildren) {
-        if (!children.has(nodeId)) continue;
-        const frame = this.nodes.get(frameId);
-        if (!frame) { children.delete(nodeId); continue; }
-        const fh = this.resolveHeight(frame);
-        const inside =
-          node.x >= frame.x &&
-          node.y >= frame.y &&
-          node.x + node.w <= frame.x + frame.w &&
-          node.y + nh <= frame.y + fh;
-        if (!inside) children.delete(nodeId);
-      }
-
-      // For frames, collect their descendants to prevent circular nesting
-      let descendantIds: Set<string> | undefined;
-      if (this._containerTypes.has(node.type)) {
-        descendantIds = this.getFrameDescendantIds(nodeId);
-      }
-
-      // Find the smallest containing frame via QuadTree spatial query
-      let bestFrame: SpatialNode | null = null;
-      let bestArea = Infinity;
-      const frameCandidates = this.quadTree.retrieve([], { x: node.x, y: node.y, w: node.w, h: nh });
-      for (const frame of frameCandidates) {
-        if (!this._containerTypes.has(frame.type) || frame.id === nodeId) continue;
-        // Prevent circular nesting: don't nest a frame inside its own descendant
-        if (descendantIds?.has(frame.id)) continue;
-        const fh = this.resolveHeight(frame);
-        const inside =
-          node.x >= frame.x &&
-          node.y >= frame.y &&
-          node.x + node.w <= frame.x + frame.w &&
-          node.y + nh <= frame.y + fh;
-        if (inside) {
-          const area = frame.w * fh;
-          if (area < bestArea) {
-            bestArea = area;
-            bestFrame = frame;
-          }
-        }
-      }
-
-      // Remove from all frames first, then add only to the smallest
-      for (const [, children] of this.frameChildren) {
-        children.delete(nodeId);
-      }
-      if (bestFrame) {
-        if (!this.frameChildren.has(bestFrame.id)) this.frameChildren.set(bestFrame.id, new Set());
-        this.frameChildren.get(bestFrame.id)!.add(nodeId);
-      }
-    }
+    FrameOps.updateFrameMembership(this, nodeIds);
   }
 
   /** Sync frame children after resize: remove nodes no longer inside, add newly contained nodes. */
   syncFrameChildrenAfterResize(frameId: string): void {
-    const frame = this.nodes.get(frameId);
-    if (!frame || !this._containerTypes.has(frame.type)) return;
-    // Rebuild from spatial containment for this frame
-    const inside = this.getNodesInsideFrame(frameId);
-    if (inside.length > 0) {
-      this.frameChildren.set(frameId, new Set(inside.map((n) => n.id)));
-    } else {
-      this.frameChildren.delete(frameId);
-    }
+    FrameOps.syncFrameChildrenAfterResize(this, frameId);
   }
 
   /** Adopt all existing nodes that are spatially inside a newly created frame. */
   adoptNodesIntoNewFrame(frameId: string): void {
-    const children = this.getNodesInsideFrame(frameId);
-    if (children.length > 0) {
-      const set = new Set<string>();
-      for (const child of children) set.add(child.id);
-      this.frameChildren.set(frameId, set);
-    }
+    FrameOps.adoptNodesIntoNewFrame(this, frameId);
   }
 
   nextZ(): number {
@@ -1430,111 +1014,24 @@ export class SpatialEngine {
 
   /** Expand selection to include all group siblings, walking up the group
    *  hierarchy until the active group (or root) is reached. */
-  private expandSelectionToGroups(): void {
-    // For each selected node, walk up to the outermost group (stopping at activeGroupId)
-    const targetGroupIds = new Set<string>();
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (!node?.groupId) continue;
-      if (this.activeGroupId && node.groupId === this.activeGroupId) continue;
-
-      let gid = node.groupId;
-      while (true) {
-        const parent = this.groupParent.get(gid);
-        if (!parent) break;
-        if (this.activeGroupId && parent === this.activeGroupId) break;
-        gid = parent;
-      }
-      targetGroupIds.add(gid);
-    }
-    if (targetGroupIds.size === 0) return;
-
-    // Collect all descendant groupIds of each target via recursive descent
-    const allGroupIds = new Set<string>(targetGroupIds);
-    const collectDescendantGroups = (gid: string) => {
-      const children = this.groupChildren.get(gid);
-      if (!children) return;
-      for (const child of children) {
-        if (!allGroupIds.has(child)) {
-          allGroupIds.add(child);
-          collectDescendantGroups(child);
-        }
-      }
-    };
-    for (const gid of targetGroupIds) {
-      collectDescendantGroups(gid);
-    }
-
-    // Select all nodes in any of these groups
-    for (const node of this.nodes.values()) {
-      if (node.groupId && allGroupIds.has(node.groupId)) {
-        this.selection.add(node.id);
-      }
-    }
+  /** @internal */ expandSelectionToGroups(): void {
+    SelectionOps.expandSelectionToGroups(this);
   }
 
   select(id: string): void {
-    // Emit deselect for previously selected nodes
-    for (const prevId of this.selection) {
-      const prevNode = this.nodes.get(prevId);
-      if (prevNode) {
-        this.registry?.get(prevNode.type)?.onDeselect?.(prevNode, this);
-        this.emit("node:deselect", prevNode);
-      }
-    }
-    this.selection.clear();
-    this.selection.add(id);
-    this.expandSelectionToGroups();
-    // Emit select for newly selected nodes
-    for (const selId of this.selection) {
-      const node = this.nodes.get(selId);
-      if (node) {
-        this.registry?.get(node.type)?.onSelect?.(node, this);
-        this.emit("node:select", node);
-      }
-    }
-    this.emit("selection");
+    SelectionOps.select(this, id);
   }
 
   toggleSelect(id: string): void {
-    const node = this.nodes.get(id);
-    if (this.selection.has(id)) {
-      // Remove entire group when toggling off
-      if (node?.groupId) {
-        for (const n of this.nodes.values()) {
-          if (n.groupId === node.groupId) this.selection.delete(n.id);
-        }
-      } else {
-        this.selection.delete(id);
-      }
-    } else {
-      this.selection.add(id);
-      this.expandSelectionToGroups();
-    }
-    this.emit("selection");
+    SelectionOps.toggleSelect(this, id);
   }
 
   selectMultiple(ids: string[]): void {
-    this.selection = new Set(ids);
-    this.expandSelectionToGroups();
-    this.emit("selection");
+    SelectionOps.selectMultiple(this, ids);
   }
 
   deselectAll(): void {
-    if (this.selection.size === 0 && !this.activeGroupId) return;
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (node) {
-        this.registry?.get(node.type)?.onDeselect?.(node, this);
-        this.emit("node:deselect", node);
-      }
-    }
-    this.selection.clear();
-    if (this.activeGroupId) {
-      this.activeGroupId = null;
-      this.emit('group:exit');
-    }
-    this.emit("selection");
+    SelectionOps.deselectAll(this);
   }
 
   deleteSelected(): void {
@@ -1608,35 +1105,16 @@ export class SpatialEngine {
   /** Set a groupParent entry and keep groupChildren in sync. */
   /** @internal */
   linkGroupParent(childId: string, parentId: string): void {
-    // Remove old parent link if any
-    const oldParent = this.groupParent.get(childId);
-    if (oldParent) {
-      this.groupChildren.get(oldParent)?.delete(childId);
-    }
-    this.groupParent.set(childId, parentId);
-    let children = this.groupChildren.get(parentId);
-    if (!children) {
-      children = new Set();
-      this.groupChildren.set(parentId, children);
-    }
-    children.add(childId);
+    GroupOps.linkGroupParent(this, childId, parentId);
   }
 
   /** Remove a groupParent entry and keep groupChildren in sync. */
-  private unlinkGroupParent(childId: string): void {
-    const parentId = this.groupParent.get(childId);
-    if (parentId) {
-      const children = this.groupChildren.get(parentId);
-      if (children) {
-        children.delete(childId);
-        if (children.size === 0) this.groupChildren.delete(parentId);
-      }
-    }
-    this.groupParent.delete(childId);
+  /** @internal */ unlinkGroupParent(childId: string): void {
+    GroupOps.unlinkGroupParent(this, childId);
   }
 
   /** Rebuild the groupChildren reverse index from groupParent. */
-  private rebuildGroupChildren(): void {
+  /** @internal */ rebuildGroupChildren(): void {
     this.groupChildren.clear();
     for (const [child, parent] of this.groupParent) {
       let children = this.groupChildren.get(parent);
@@ -1649,41 +1127,7 @@ export class SpatialEngine {
   }
 
   deleteNodes(ids: string[]): void {
-    if (this.readOnly) return;
-    // Skip protected nodes (user-gesture batch paths, e.g. the eraser tool).
-    ids = ids.filter((id) => this.nodes.get(id)?.deletable !== false);
-    if (ids.length === 0) return;
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    const deletedSet = new Set(ids);
-
-    for (const id of ids) {
-      const node = this.nodes.get(id);
-      if (!node) continue;
-      this.registry?.get(node.type)?.onDelete?.(node, this);
-      this.emit("node:delete", node);
-      this.quadTree.remove(node);
-      this.nodes.delete(id);
-      this.frameChildren.delete(id);
-      for (const children of this.frameChildren.values()) children.delete(id);
-    }
-
-    // Cascade: delete edges referencing deleted nodes
-    for (const [edgeId, node] of this.nodes) {
-      if (node.type === "edge") {
-        const data = node.data as { fromId: string; toId: string };
-        if (deletedSet.has(data.fromId) || deletedSet.has(data.toId)) {
-          const edge = this.nodes.get(edgeId);
-          if (edge) this.quadTree.remove(edge);
-          this.nodes.delete(edgeId);
-        }
-      }
-    }
-    this.selection.clear();
-    this.refreshSearchIfNeeded();
-    this.emit("change");
-    this.emit("selection");
-    this.emit("history");
+    NodeOps.deleteNodes(this, ids);
   }
 
   // ── Flip / arrange / align / distribute ─────────────────────
@@ -1745,253 +1189,59 @@ export class SpatialEngine {
   // --- Grouping ---
 
   groupSelected(): void {
-    if (this.readOnly) return;
-    if (this.selection.size < 2) return;
-    if (this.activeGroupId) return; // Can't nest groups while inside one
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    const gid = nanoid(10);
-
-    // Collect existing top-level groupIds of selected nodes
-    const existingGroups = new Set<string>();
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (node?.groupId) {
-        // Walk up to the outermost group (the one with no parent)
-        let topGid = node.groupId;
-        while (this.groupParent.has(topGid)) topGid = this.groupParent.get(topGid)!;
-        existingGroups.add(topGid);
-      }
-    }
-
-    if (existingGroups.size > 0) {
-      // Map existing top-level groups as children of the new parent group
-      for (const childGroup of existingGroups) {
-        this.linkGroupParent(childGroup, gid);
-      }
-      // Only assign groupId on nodes that don't already belong to a group
-      for (const id of this.selection) {
-        const node = this.nodes.get(id);
-        if (node && !node.groupId) {
-          this.nodes.set(id, { ...node, groupId: gid });
-        }
-      }
-    } else {
-      // Simple case: no existing groups
-      for (const id of this.selection) {
-        const node = this.nodes.get(id);
-        if (node) this.nodes.set(id, { ...node, groupId: gid });
-      }
-    }
-
-    this.emit("change");
-    this.emit("history");
+    GroupOps.groupSelected(this);
   }
 
   ungroupSelected(): void {
-    if (this.readOnly) return;
-    if (this.selection.size === 0) return;
-
-    // Find the outermost group(s) of the selection to ungroup
-    const groupIds = new Set<string>();
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (node?.groupId) {
-        // Walk up to the outermost group (or stop at activeGroupId's parent scope)
-        let topGid = node.groupId;
-        while (this.groupParent.has(topGid)) {
-          const parent = this.groupParent.get(topGid)!;
-          if (parent === this.activeGroupId) break;
-          topGid = parent;
-        }
-        groupIds.add(topGid);
-      }
-    }
-    if (groupIds.size === 0) return;
-
-    // Exit active group if we're ungrouping it
-    if (this.activeGroupId && groupIds.has(this.activeGroupId)) {
-      this.activeGroupId = null;
-      this.emit('group:exit');
-    }
-
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-
-    for (const gid of groupIds) {
-      const parentGid = this.groupParent.get(gid);
-
-      // Ungroup direct members of this group
-      for (const node of this.nodes.values()) {
-        if (node.groupId === gid) {
-          if (parentGid) {
-            // Promote to parent group
-            this.nodes.set(node.id, { ...node, groupId: parentGid });
-          } else {
-            // No parent — fully ungroup
-            const { groupId: _, ...rest } = node;
-            this.nodes.set(node.id, rest as SpatialNode);
-          }
-        }
-      }
-
-      // Promote child groups of this group to its parent (or make them top-level)
-      const childGroupIds = this.groupChildren.get(gid);
-      if (childGroupIds) {
-        for (const child of [...childGroupIds]) {
-          if (parentGid) {
-            this.linkGroupParent(child, parentGid);
-          } else {
-            this.unlinkGroupParent(child);
-          }
-        }
-      }
-
-      // Remove this group from the hierarchy
-      this.unlinkGroupParent(gid);
-      this.groupChildren.delete(gid);
-      this.groupRotations.delete(gid);
-    }
-
-    this.emit("change");
-    this.emit("history");
+    GroupOps.ungroupSelected(this);
   }
 
   selectionHasGroup(): boolean {
-    for (const id of this.selection) {
-      if (this.nodes.get(id)?.groupId) return true;
-    }
-    return false;
+    return GroupOps.selectionHasGroup(this);
   }
 
   /** Returns the outermost groupId if all selected nodes belong to the same group tree, else undefined. */
   selectionGroupId(): string | undefined {
-    if (this.selection.size < 2) return undefined;
-    let topGid: string | undefined;
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (!node?.groupId) return undefined;
-      let gid = node.groupId;
-      while (this.groupParent.has(gid)) gid = this.groupParent.get(gid)!;
-      if (!topGid) topGid = gid;
-      else if (gid !== topGid) return undefined;
-    }
-    return topGid;
+    return GroupOps.selectionGroupId(this);
   }
 
   /** True if all selected nodes belong to exactly one group (possibly nested). */
   selectionIsSingleGroup(): boolean {
-    if (this.selection.size < 2) return false;
-    let topGid: string | undefined;
-    for (const id of this.selection) {
-      const node = this.nodes.get(id);
-      if (!node?.groupId) return false;
-      // Walk up to outermost group
-      let gid = node.groupId;
-      while (this.groupParent.has(gid)) gid = this.groupParent.get(gid)!;
-      if (!topGid) topGid = gid;
-      else if (gid !== topGid) return false;
-    }
-    return true;
+    return GroupOps.selectionIsSingleGroup(this);
   }
 
   getGroupMembers(groupId: string): SpatialNode[] {
-    const members: SpatialNode[] = [];
-    for (const node of this.nodes.values()) {
-      if (node.groupId === groupId) members.push(node);
-    }
-    return members;
+    return GroupOps.getGroupMembers(this, groupId);
   }
 
   /** Enter a group for drill-down selection of individual children. */
   enterGroup(groupId: string): void {
-    if (this.activeGroupId === groupId) return;
-    this.activeGroupId = groupId;
-    this.emit('group:enter', groupId);
+    GroupOps.enterGroup(this, groupId);
   }
 
   /** Fully exit all group levels and deselect. */
   exitAllGroups(): void {
-    if (!this.activeGroupId) return;
-    this.activeGroupId = null;
-    this.emit('group:exit');
+    GroupOps.exitAllGroups(this);
   }
 
   /** Exit the active group — go up one level for nested groups, or exit entirely. */
   exitGroup(): void {
-    if (!this.activeGroupId) return;
-    const exitingGid = this.activeGroupId;
-    const parentGid = this.groupParent.get(exitingGid);
-
-    if (parentGid) {
-      // Go up one level — enter the parent group
-      this.activeGroupId = parentGid;
-      this.emit('group:enter', parentGid);
-    } else {
-      // Exit to top level
-      this.activeGroupId = null;
-      this.emit('group:exit');
-    }
-
-    // Re-select: pick any member of the exiting group, then expansion handles the rest
-    const members = this.getGroupMembers(exitingGid);
-    if (members.length > 0) {
-      this.selection = new Set([members[0].id]);
-      this.expandSelectionToGroups();
-      this.emit("selection");
-    }
+    GroupOps.exitGroup(this);
   }
 
   /** Check if a node belongs to the currently active (entered) group or any of its descendants. */
   isNodeInActiveGroup(nodeId: string): boolean {
-    if (!this.activeGroupId) return false;
-    const node = this.nodes.get(nodeId);
-    if (!node?.groupId) return false;
-    // Walk up from node's group to see if activeGroupId is an ancestor
-    let gid: string | undefined = node.groupId;
-    while (gid) {
-      if (gid === this.activeGroupId) return true;
-      gid = this.groupParent.get(gid);
-    }
-    return false;
+    return GroupOps.isNodeInActiveGroup(this, nodeId);
   }
 
   /** Get the outermost group of a node (stopping at activeGroupId boundary). */
   getNodeOutermostGroup(nodeId: string): string | undefined {
-    const node = this.nodes.get(nodeId);
-    if (!node?.groupId) return undefined;
-    let gid = node.groupId;
-    while (true) {
-      const parent = this.groupParent.get(gid);
-      if (!parent) break;
-      if (this.activeGroupId && parent === this.activeGroupId) break;
-      gid = parent;
-    }
-    return gid;
+    return GroupOps.getNodeOutermostGroup(this, nodeId);
   }
 
   /** Get all nodes that are descendants of a group (direct + nested sub-groups). */
   getAllGroupDescendantNodes(groupId: string): SpatialNode[] {
-    const allGroupIds = new Set<string>([groupId]);
-    const collectDescendantGroups = (gid: string) => {
-      const children = this.groupChildren.get(gid);
-      if (!children) return;
-      for (const child of children) {
-        if (!allGroupIds.has(child)) {
-          allGroupIds.add(child);
-          collectDescendantGroups(child);
-        }
-      }
-    };
-    collectDescendantGroups(groupId);
-
-    const result: SpatialNode[] = [];
-    for (const node of this.nodes.values()) {
-      if (node.groupId && allGroupIds.has(node.groupId)) {
-        result.push(node);
-      }
-    }
-    return result;
+    return GroupOps.getAllGroupDescendantNodes(this, groupId);
   }
 
   // ── Duplicate / clipboard / templates ───────────────────────
@@ -2053,13 +1303,11 @@ export class SpatialEngine {
 
   /** End a coalesced inspector/gesture history session (see `updateNodeWithHistoryCoalesced`). */
   endHistoryCoalesce(): void {
-    this._historyCoalesceKey = null;
+    HistoryOps.endHistoryCoalesce(this);
   }
 
   pushHistorySnapshot(): void {
-    this._historyCoalesceKey = null;
-    this.history.pushSnapshot(this.nodes, this.groupParent);
-    this.emit("history");
+    HistoryOps.pushHistorySnapshot(this);
   }
 
   /*private*/ rebuildQuadTree(): void {
@@ -2085,47 +1333,19 @@ export class SpatialEngine {
   }
 
   undo(): void {
-    if (this.readOnly) return;
-    const restored = this.history.undo(this.nodes, this.groupParent);
-    if (restored) {
-      this._historyCoalesceKey = null;
-      this.nodes = restored.nodes;
-      this.groupParent = restored.groupParent;
-      this.rebuildGroupChildren();
-      this.rebuildQuadTree();
-      this.rebuildFrameChildren();
-      this.selection.clear();
-      this.refreshSearchIfNeeded();
-      this.emit("change");
-      this.emit("selection");
-      this.emit("history");
-    }
+    HistoryOps.undo(this);
   }
 
   redo(): void {
-    if (this.readOnly) return;
-    const restored = this.history.redo(this.nodes, this.groupParent);
-    if (restored) {
-      this._historyCoalesceKey = null;
-      this.nodes = restored.nodes;
-      this.groupParent = restored.groupParent;
-      this.rebuildGroupChildren();
-      this.rebuildQuadTree();
-      this.rebuildFrameChildren();
-      this.selection.clear();
-      this.refreshSearchIfNeeded();
-      this.emit("change");
-      this.emit("selection");
-      this.emit("history");
-    }
+    HistoryOps.redo(this);
   }
 
   canUndo(): boolean {
-    return this.history.canUndo();
+    return HistoryOps.canUndo(this);
   }
 
   canRedo(): boolean {
-    return this.history.canRedo();
+    return HistoryOps.canRedo(this);
   }
 
   // --- Remote Collaboration ---
