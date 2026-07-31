@@ -364,7 +364,7 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
 
   // Vector tool: clean polygon rendering (no perfect-freehand)
   if (d.tool === "vector") {
-    return renderVectorPath(absolutePoints, d, node);
+    return renderVectorPath(absolutePoints, d, node, ox, oy);
   }
 
   const dashArray = strokeStyleToDash(d.strokeStyle);
@@ -414,15 +414,19 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
     }
   }
 
-  return d.opacity !== undefined && d.opacity !== 1
-    ? `<g opacity="${d.opacity}">${inner}</g>`
-    : inner;
+  // Rotation + opacity: wrapG's rotate origin must be in the SAME offset
+  // coordinate space as the path data (node.x - ox), or rotated nodes pivot
+  // around a point (ox, oy) away and land outside the viewBox.
+  const h = node.h === "auto" ? 0 : (node.h as number);
+  return wrapG(inner, node.x - ox, node.y - oy, node.w, h, node.rotation, d.opacity);
 }
 
 function renderVectorPath(
   absolutePoints: Array<[number, number, number]>,
   d: DrawNode["data"],
   node: DrawNode,
+  ox: number,
+  oy: number,
 ): string {
   const pathD = absolutePoints
     .map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(2)},${p[1].toFixed(2)}`)
@@ -438,7 +442,8 @@ function renderVectorPath(
     `stroke-width="${d.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${dash}/>`;
 
   const h = node.h === "auto" ? 0 : (node.h as number);
-  return wrapG(inner, node.x, node.y, node.w, h, node.rotation, d.opacity);
+  // Rotate origin must be in the offset SVG space the path uses (see above).
+  return wrapG(inner, node.x - ox, node.y - oy, node.w, h, node.rotation, d.opacity);
 }
 
 function renderShapeNode(

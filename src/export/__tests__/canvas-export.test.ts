@@ -191,4 +191,23 @@ describe("buildBoardSVG", () => {
     expect(await buildBoardSVG(engine, { format: "svg", frameId: "in1" })).toBeNull();
     expect(await buildBoardSVG(engine, { format: "svg", frameId: "nope" })).toBeNull();
   });
+
+  it("rotates draw nodes around an offset-space origin (rotated library items stay in view)", async () => {
+    const engine = new SpatialEngine();
+    // Vector node far from the origin so ox is large — the historical bug
+    // rotated around canvas-space coords, flinging the node out of the viewBox.
+    engine.addNode({
+      id: "rotv", type: "draw", x: 900, y: 700, w: 100, h: 80, z: 1,
+      data: {
+        tool: "vector", color: "#0aa", strokeWidth: 2, fill: "#a0a",
+        points: [[0, 0, 0.5], [100, 0, 0.5], [100, 80, 0.5], [0, 80, 0.5]],
+      },
+      rotation: 45,
+    } as never);
+    const out = await buildBoardSVG(engine, { format: "svg" });
+    const svg = out!.svg;
+    // pad 40, single node ⇒ ox = 860, oy = 660 ⇒ offset center = (90, 80)
+    expect(svg).toContain("rotate(45, 90, 80)");
+    expect(svg).not.toContain("rotate(45, 950, 740)"); // the canvas-space (broken) origin
+  });
 });
