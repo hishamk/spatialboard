@@ -147,6 +147,7 @@ current docs before making decisions based on them.)
 
 | Guide | What's inside |
 |-------|---------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | The code-flow map: from `App()` to the engine to the render layers, with exact code references |
 | [docs/getting-started.md](docs/getting-started.md) | Install, first board, engine lifecycle, persistence, key props |
 | [docs/design-philosophy.md](docs/design-philosophy.md) | Why the engine lives outside React, the performance model, the layering |
 | [docs/custom-nodes.md](docs/custom-nodes.md) | The `NodeTypeDefinition` API end to end, with a worked example |
