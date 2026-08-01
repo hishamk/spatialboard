@@ -312,6 +312,12 @@ export function usePointerGestures({
         emitCanvasInteraction(true);
       }
 
+      // Right-click: the contextmenu handler owns this press. Without this
+      // gate the press falls through to the select-mode branch, deselecting
+      // and starting a marquee — so the menu could never target a selected
+      // node/edge.
+      if (e.button === 2) return;
+
       // Two-finger gesture: second touch OR any touch while Apple Pencil is active
       const isSecondTouch =
         e.pointerType === "touch" &&

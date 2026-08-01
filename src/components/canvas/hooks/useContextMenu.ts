@@ -4,6 +4,7 @@ import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { SpatialNode } from "../../../engine/types";
 import type { ContextMenuSection } from "../../overlays/ContextMenu";
 import { SB_ALIGN_MENU_ICONS } from "../../overlays/context-menu-align-icons";
+import { getClosestEdgeHit } from "../../../engine/edge-geometry";
 import { pasteFromSystemClipboard, copyToSystemClipboard } from "../canvas-clipboard";
 import { exportBoard } from "../../../export/canvas-export";
 import type { SpatialBoardLocalization } from "../../contexts/LocalizationContext";
@@ -63,6 +64,18 @@ export function useContextMenu({
       } else {
         // Check if right-click is within any already-selected node's bounds
         let clickedSelected = false;
+        // Edges have zero stored bounds, so the AABB loop below can never
+        // match a selected edge — walk the edge paths (engine.hitTest skips
+        // edges by design) and check whether the press landed on one that is
+        // already selected.
+        const edgePick = getClosestEdgeHit(
+          engine.nodes,
+          cx,
+          cy,
+          engine.viewport.zoom,
+          measuredHeights,
+        );
+        if (edgePick && engine.selection.has(edgePick.node.id)) clickedSelected = true;
         for (const id of engine.selection) {
           const n = engine.getNode(id);
           if (!n) continue;
@@ -99,6 +112,9 @@ export function useContextMenu({
           const hit = engine.hitTest(cx, cy, measuredHeights);
           if (hit) {
             engine.select(hit.id);
+          } else if (edgePick) {
+            // Right-clicking an unselected edge targets the menu at it.
+            engine.select(edgePick.node.id);
           } else {
             engine.deselectAll();
           }
