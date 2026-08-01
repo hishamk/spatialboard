@@ -18,6 +18,8 @@ import {
   computeSingleBorderPoint,
   arrowHeadPath,
   filledArrowHeadPath,
+  markerPathInset,
+  insetEdgePathEnds,
   getNodeHandlePositions,
   getPortPosition,
   getPortOuterLocal,
@@ -522,6 +524,13 @@ const EdgeRenderer = memo(function EdgeRenderer({
   const tailDotR = tailSize * 0.25;
   const tailDotCx = tailAtPortRim ? x1 + Math.cos(tailAngle) * (tailSize / 2) : x1 - Math.cos(tailAngle) * tailDotR;
   const tailDotCy = tailAtPortRim ? y1 + Math.sin(tailAngle) * (tailSize / 2) : y1 - Math.sin(tailAngle) * tailDotR;
+  // The DRAWN path stops short of the endpoints so the stroke (round cap
+  // included) never seeps out from under a marker. Port-rim markers already
+  // sit a full marker-length beyond the shortened path end — no inset there.
+  // Hit-testing keeps the untrimmed `path`.
+  const headInset = hasHead && !headAtPortRim ? markerPathInset(edge.data.arrowHead, headSize, sw) : 0;
+  const tailInset = hasTail && !tailAtPortRim ? markerPathInset(edge.data.arrowTail, tailSize, sw) : 0;
+  const drawnPath = headInset > 0 || tailInset > 0 ? insetEdgePathEnds(pathResult, tailInset, headInset) : path;
 
   const isSelected = selection.has(edge.id);
   const isReconnecting = edgeReconnect?.edgeId === edge.id;
@@ -574,7 +583,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
   let roughHeadPaths: RoughPathData[] | null = null;
   let roughTailPaths: RoughPathData[] | null = null;
   if (roughOpts) {
-    roughEdgePaths = getRoughPathPaths(path, roughOpts);
+    roughEdgePaths = getRoughPathPaths(drawnPath, roughOpts);
     if (edge.data.arrowHead === "arrow") {
       roughHeadPaths = getRoughPathPaths(arrowHeadPath(headCx, headCy, arrowAngle, headSize), { ...roughOpts, strokeLineDash: undefined });
     }
@@ -691,7 +700,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
       {/* Cycle edge glow underlay */}
       {isCycleEdge && (
         <path
-          d={path}
+          d={drawnPath}
           stroke="#ef4444"
           strokeWidth={sw + 6 / viewport.zoom}
           strokeLinecap="round"
@@ -702,7 +711,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {isSelected && (
         <path
-          d={path}
+          d={drawnPath}
           stroke="#3b82f6"
           strokeWidth={sw + 6 / viewport.zoom}
           strokeLinecap="round"
@@ -726,7 +735,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
         ))
       ) : (
         <path
-          d={path}
+          d={drawnPath}
           stroke={edgeColor}
           strokeWidth={sw}
           strokeDasharray={isAnimated ? "12,8" : (isCycleEdge ? `${6 * sw},${4 * sw}` : dashArray)}
@@ -1723,19 +1732,24 @@ export default function SVGLayer({
 
           const showSourceDot = !sourcePortPos;
           const showTargetDot = Boolean(snapTargetNode && !targetPortPos);
-          const headCenteredOnTip = !!targetPortPos;
-          const headCx = headCenteredOnTip
-            ? previewPath.x2 + Math.cos(previewPath.arrowAngle) * (headSize / 2)
+          // Tip-anchored head: ports place the tip a full headSize past the
+          // shortened end (the port rim); otherwise the tip is the endpoint.
+          const headAtRim = !!targetPortPos;
+          const headCx = headAtRim
+            ? previewPath.x2 + Math.cos(previewPath.arrowAngle) * headSize
             : previewPath.x2;
-          const headCy = headCenteredOnTip
-            ? previewPath.y2 + Math.sin(previewPath.arrowAngle) * (headSize / 2)
+          const headCy = headAtRim
+            ? previewPath.y2 + Math.sin(previewPath.arrowAngle) * headSize
             : previewPath.y2;
+          const previewDrawn = headAtRim
+            ? previewPath.path
+            : insetEdgePathEnds(previewPath, 0, markerPathInset("filled", headSize, sw));
 
           return (
             <g>
               {ghostEl}
               <path
-                d={previewPath.path}
+                d={previewDrawn}
                 stroke={color}
                 strokeWidth={sw}
                 strokeDasharray={dashArr}

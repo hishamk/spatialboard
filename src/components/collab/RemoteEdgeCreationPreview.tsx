@@ -3,6 +3,8 @@ import type { SpatialNode } from "../../engine/types";
 import type { PortDirection } from "../../engine/data-flow-types";
 import {
   arrowHeadPath,
+  markerPathInset,
+  insetEdgePathEnds,
   computeEdgePath,
   getPortPosition,
   nearestPerimeterPoint,
@@ -203,7 +205,7 @@ export function RemoteEdgeCreationPreview({
   return (
     <g>
       <path
-        d={previewPath.path}
+        d={insetEdgePathEnds(previewPath, 0, markerPathInset("arrow", headSize, sw))}
         stroke={color}
         strokeWidth={sw}
         strokeDasharray={dashArr}

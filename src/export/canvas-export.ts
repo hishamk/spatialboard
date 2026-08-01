@@ -30,6 +30,8 @@ import {
   computeEdgePath,
   arrowHeadPath,
   filledArrowHeadPath,
+  markerPathInset,
+  insetEdgePathEnds,
 } from "../engine/edge-geometry";
 import { getPaperType } from "../components/paper-types";
 import { contrastingTextColor } from "../components/blocks/VectorNodeBlock";
@@ -712,14 +714,19 @@ function renderEdgeNode(
   const dashArray = d.style === "dashed" ? "8 4" : d.style === "dotted" ? "2 3" : undefined;
   const sw = d.strokeWidth;
 
-  let inner =
-    `<path d="${result.path}" fill="none" stroke="${safeColor(d.color)}" stroke-width="${sw}"` +
-    (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
-    ` stroke-linecap="round" stroke-linejoin="round"/>`;
-
-  // Arrow heads
   const headSize = d.arrowHeadSize ?? Math.max(8, sw * 3);
   const tailSize = d.arrowTailSize ?? Math.max(8, sw * 3);
+  // Canvas parity: the drawn path stops short of the endpoints so the stroke's
+  // round cap never seeps out from under a marker (markers stay tip-anchored
+  // at the true endpoints).
+  const headInset = d.arrowHead && d.arrowHead !== "none" ? markerPathInset(d.arrowHead, headSize, sw) : 0;
+  const tailInset = d.arrowTail && d.arrowTail !== "none" ? markerPathInset(d.arrowTail, tailSize, sw) : 0;
+  const drawnPath = headInset > 0 || tailInset > 0 ? insetEdgePathEnds(result, tailInset, headInset) : result.path;
+
+  let inner =
+    `<path d="${drawnPath}" fill="none" stroke="${safeColor(d.color)}" stroke-width="${sw}"` +
+    (dashArray ? ` stroke-dasharray="${dashArray}"` : "") +
+    ` stroke-linecap="round" stroke-linejoin="round"/>`;
 
   if (d.arrowHead && d.arrowHead !== "none") {
     if (d.arrowHead === "arrow") {
