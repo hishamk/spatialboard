@@ -890,9 +890,12 @@ export function useNodeTransforms({
         // Prevent self-loops
         if (newFromId === newToId) return;
 
-        // No-op if dropped on the same node it was on
+        // Dropping on the SAME node repositions the endpoint along it (free:
+        // new perimeter T; fixed: nearest handle). Without this, a placed
+        // endpoint could never be moved at all — e.g. after a fixed→free
+        // round-trip parks it at a cardinal position.
         const originalEndNodeId = endpoint === "source" ? fromId : toId;
-        if (targetNode.id === originalEndNodeId) return;
+        const repositionOnSameNode = targetNode.id === originalEndNodeId;
 
         // Determine if this is a free-form edge
         const isFreeFormEdge = edgeNode.data.sourceT !== undefined || edgeNode.data.targetT !== undefined;
@@ -901,30 +904,40 @@ export function useNodeTransforms({
         const newHandle = isFreeFormEdge ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
         const newT = isFreeFormEdge ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
 
-        const candidate = endpoint === "source"
-          ? {
-            fromId: newFromId,
-            toId: newToId,
-            sourceHandle: newHandle ?? sourceHandle,
-            targetHandle: targetHandle,
-            sourcePort: edgeNode.data.sourcePort,
-            targetPort: edgeNode.data.targetPort,
-          }
-          : {
-            fromId: newFromId,
-            toId: newToId,
-            sourceHandle,
-            targetHandle: newHandle ?? targetHandle,
-            sourcePort: edgeNode.data.sourcePort,
-            targetPort: edgeNode.data.targetPort,
-          };
+        // Same-node fixed-handle drop that resolves to the SAME handle is a
+        // true no-op — skip the history entry.
+        if (repositionOnSameNode && !isFreeFormEdge) {
+          const currentHandle = endpoint === "source" ? sourceHandle : targetHandle;
+          if (newHandle === currentHandle) return;
+        }
 
-        // Allow parallel edges, but block reconnecting into an exact duplicate.
-        const wouldDuplicate = engine.getAllNodes().some((n) => {
-          if (n.type !== "edge" || n.id === edgeId) return false;
-          return isExactEdgeConnectionDuplicate((n as EdgeNode).data, candidate);
-        });
-        if (wouldDuplicate) return;
+        // Reconnecting to a DIFFERENT node: allow parallel edges, but block an
+        // exact duplicate. Same-node repositioning keeps the topology, so the
+        // check doesn't apply.
+        if (!repositionOnSameNode) {
+          const candidate = endpoint === "source"
+            ? {
+              fromId: newFromId,
+              toId: newToId,
+              sourceHandle: newHandle ?? sourceHandle,
+              targetHandle: targetHandle,
+              sourcePort: edgeNode.data.sourcePort,
+              targetPort: edgeNode.data.targetPort,
+            }
+            : {
+              fromId: newFromId,
+              toId: newToId,
+              sourceHandle,
+              targetHandle: newHandle ?? targetHandle,
+              sourcePort: edgeNode.data.sourcePort,
+              targetPort: edgeNode.data.targetPort,
+            };
+          const wouldDuplicate = engine.getAllNodes().some((n) => {
+            if (n.type !== "edge" || n.id === edgeId) return false;
+            return isExactEdgeConnectionDuplicate((n as EdgeNode).data, candidate);
+          });
+          if (wouldDuplicate) return;
+        }
 
         // Apply with history (Ctrl+Z undoes reconnection)
         let dataPatch: Partial<EdgeNode["data"]>;
