@@ -92,7 +92,7 @@ describe("buildBoardSVG", () => {
     expect(out!.svg).toContain("&#39;Excalifont&#39;, sans-serif");
   });
 
-  it("renders every edge above every non-edge node regardless of z", async () => {
+  it("interleaves edges with nodes by z (unified stack)", async () => {
     const engine = new SpatialEngine();
     engine.addNode(shape("a", 0, 0, 5, "#aa0000"));
     engine.addNode(shape("b", 200, 0, 4, "#aa0000"));
@@ -101,12 +101,12 @@ describe("buildBoardSVG", () => {
     const out = await buildBoardSVG(engine, { format: "svg" });
     expect(out).not.toBeNull();
     const svg = out!.svg;
-    const lastShapeIdx = svg.lastIndexOf('"#aa0000"');
+    const firstShapeIdx = svg.indexOf('"#aa0000"');
     const edgeIdx = svg.indexOf('"#0000ee"');
-    expect(lastShapeIdx).toBeGreaterThan(-1);
+    expect(firstShapeIdx).toBeGreaterThan(-1);
     expect(edgeIdx).toBeGreaterThan(-1);
-    // Edge markup must come after ALL shape markup (canvas: DOM layer under SVG layer)
-    expect(edgeIdx).toBeGreaterThan(lastShapeIdx);
+    // Unified z-order: the z=0 edge paints BELOW the z=4/5 shapes.
+    expect(edgeIdx).toBeLessThan(firstShapeIdx);
   });
 
   it("open draw path with fill set gets NO fill; closed loop gets fill", async () => {
@@ -190,6 +190,20 @@ describe("buildBoardSVG", () => {
     // Unknown / non-frame ids export nothing
     expect(await buildBoardSVG(engine, { format: "svg", frameId: "in1" })).toBeNull();
     expect(await buildBoardSVG(engine, { format: "svg", frameId: "nope" })).toBeNull();
+  });
+
+  it("paints one unified z-order (send-to-back edge under nodes, newest edge on top)", async () => {
+    const engine = new SpatialEngine();
+    const a = engine.createShape("rect", 0, 0, 100, 80, { stroke: "#111111" });
+    const b = engine.createShape("rect", 300, 0, 100, 80, { stroke: "#111111" });
+    const under = engine.createEdge(a, b, { color: "#00bbbb" });
+    const over = engine.createEdge(a, b, { color: "#bb00bb" });
+    engine.sendToBack([under]);
+    const svg = (await buildBoardSVG(engine, { format: "svg" }))!.svg;
+    const shapeIdx = svg.indexOf("#111111");
+    const lastShapeIdx = svg.lastIndexOf("#111111");
+    expect(svg.indexOf("#00bbbb")).toBeLessThan(shapeIdx);      // demoted edge under all nodes
+    expect(svg.indexOf("#bb00bb")).toBeGreaterThan(lastShapeIdx); // default edge above all nodes
   });
 
   it("rotates draw nodes around an offset-space origin (rotated library items stay in view)", async () => {

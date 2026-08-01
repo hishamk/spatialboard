@@ -218,12 +218,9 @@ async function buildElements(
   const nodeMap = new Map<string, SpatialNode>();
   for (const n of engine.getAllNodes()) nodeMap.set(n.id, n);
   for (const n of nodes) nodeMap.set(n.id, n);
-  // Canvas layering rule: the DOM node layer renders BELOW the SVG edge layer,
-  // so every edge paints above every non-edge node (each layer z-sorted internally).
-  const sorted = [
-    ...nodes.filter((n) => n.type !== "edge").sort((a, b) => a.z - b.z),
-    ...nodes.filter((n) => n.type === "edge").sort((a, b) => a.z - b.z),
-  ];
+  // Canvas layering rule: ONE unified z-order — nodes and edges share the
+  // same stack (committed edges render inside the DOM layer at zIndex = z).
+  const sorted = [...nodes].sort((a, b) => a.z - b.z);
   const elements: string[] = [];
 
   for (const n of sorted) {

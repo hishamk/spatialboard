@@ -46,6 +46,11 @@ import { useNodeCreation } from "./hooks/useNodeCreation";
 import { useEngineMirror } from "./hooks/useEngineMirror";
 import { usePointerGestures } from "./hooks/usePointerGestures";
 
+// Stable sentinels for the per-edge SVG hosts (no chrome renders there;
+// the DOM container already applies the viewport transform).
+const EMPTY_SELECTION: Set<string> = new Set();
+const IDENTITY_VIEWPORT = { x: 0, y: 0, zoom: 1 };
+
 export default function SpatialCanvas({
   engine,
   registry,
@@ -263,6 +268,44 @@ export default function SpatialCanvas({
     singleFrameId,
     overlayNodes,
   });
+
+  // UNIFIED Z-ORDER: every committed edge renders as a per-edge SVG host
+  // INSIDE the DOM layer's stacking context at zIndex = edge.z, so nodes and
+  // edges share one stack and ordering is steerable from both sides — "bring
+  // the circle above the connector" is just a z move (see spatialengine_zorder).
+  // The top SVG overlay keeps only live chrome: previews, marquee/lasso,
+  // trails, snap guides, port dots, and selection boxes for non-edge nodes.
+  //
+  // SVGLayer resolves edge geometry from its own node list, so each host also
+  // carries the edge's ENDPOINT nodes. They are render-inert there (endpoint
+  // shapes are never in the host's selection, no registry ⇒ no chrome, no
+  // port dots) — membership only; the host re-reads live nodes each tick.
+  // Ephemeral host-overlay endpoints (not in the engine) resolve from the
+  // overlayNodes prop.
+  const edgeHosts = useMemo(
+    () =>
+      svgLayerNodes
+        .filter((n) => n.type === "edge")
+        .map((edge) => {
+          const d = edge.data as { fromId?: string; toId?: string };
+          const members: SpatialNode[] = [edge];
+          for (const endId of [d.fromId, d.toId]) {
+            const end =
+              (endId ? engine.getNode(endId) : undefined) ??
+              (endId ? overlayNodes?.find((o) => o.id === endId) : undefined);
+            if (end) members.push(end);
+          }
+          const hostSelection = selection.has(edge.id)
+            ? new Set([edge.id])
+            : EMPTY_SELECTION;
+          return { edge, members, hostSelection };
+        }),
+    [svgLayerNodes, engine, selection, overlayNodes],
+  );
+  const overlaySvgNodes = useMemo(
+    () => svgLayerNodes.filter((n) => n.type !== "edge"),
+    [svgLayerNodes],
+  );
 
   // Alt+click deep-select: track which z-layer index we last selected
   const altClickRef = useRef<{ x: number; y: number; index: number }>({
@@ -599,11 +642,51 @@ export default function SpatialCanvas({
           );
         })()}
 
+        {/* Committed edges — one SVG host per edge, interleaved with the node
+            blocks by zIndex = edge.z (unified z-order). The parent container
+            already applies the viewport transform, so these hosts render with
+            an identity viewport in raw canvas coordinates (0×0 svg + visible
+            overflow, like VectorNodeBlock). A selected edge's host receives
+            the selection + endpoint/kink handle callbacks (handle elements
+            re-enable pointer events themselves). */}
+        {edgeHosts.map(({ edge, members, hostSelection }) => (
+          <div
+            key={edge.id}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: edge.z,
+              pointerEvents: "none",
+            }}
+          >
+            <LiveSVGLayerHost
+              engine={engine}
+              baseNodes={members}
+              viewport={IDENTITY_VIEWPORT}
+              selection={hostSelection}
+              measuredHeights={measuredHeights}
+              activeStroke={null}
+              shapePreview={null}
+              shapePreviewStyle={null}
+              mode={mode}
+              freeFormEdges={engine.freeFormEdges}
+              containerTypes={engine.containerTypes}
+              onEdgeEndpointDown={handleEdgeEndpointDown}
+              onKinkHandleDown={handleKinkHandleDown}
+              hoveredNodeId={hoveredNodeId}
+              eraserMarkedIds={eraserMarkedIds.size > 0 ? eraserMarkedIds : undefined}
+              cycleNodeIds={dataFlow && dataFlowVersion >= 0 ? dataFlow.cycleNodeIds : undefined}
+              dataFlowEdgeOverlay={dataFlow ? dataFlowEdgeOverlay : "off"}
+              getLastComputeMs={dataFlow ? getLastComputeMs : undefined}
+              getDataFlowPortValue={dataFlow ? getDataFlowPortValue : undefined}
+            />
+          </div>
+        ))}
       </UnifiedDomViewportLayer>
 
       <LiveSVGLayerHost
         engine={engine}
-        baseNodes={svgLayerNodes}
+        baseNodes={overlaySvgNodes}
         viewport={viewport}
         selection={selection}
         measuredHeights={measuredHeights}

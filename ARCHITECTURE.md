@@ -4,7 +4,7 @@ A guided walk through the code — from `App()` to a rendered, interactive board
 
 ## The 30-second picture
 
-SpatialBoard is **an engine with a React face**. All board state — nodes, viewport, selection, history — lives in `SpatialEngine`, a plain TypeScript class with no React dependency. React *mirrors* the engine through a small set of subscriptions and renders it in two layers: a DOM layer for content blocks and an SVG layer for vector work (edges, draw strokes, selection chrome). Everything else — tools, panels, persistence, collab, data-flow — talks to the engine, never to React state.
+SpatialBoard is **an engine with a React face**. All board state — nodes, viewport, selection, history — lives in `SpatialEngine`, a plain TypeScript class with no React dependency. React *mirrors* the engine through a small set of subscriptions and renders it as ONE unified z-stack — content blocks and per-edge SVG hosts interleaved by z inside the DOM layer — plus a top SVG overlay for live chrome (previews, guides, selection). Everything else — tools, panels, persistence, collab, data-flow — talks to the engine, never to React state.
 
 ```
 host app ──> <SpatialBoard>  (composition root: engine + registry + providers + layout)
@@ -16,7 +16,7 @@ host app ──> <SpatialBoard>  (composition root: engine + registry + provider
  (tools, UI) │  React mirror  (useEngineMirror + per-node useSyncExternalStore)
                    │
                    ▼
-       DOM layer (blocks)  +  SVG layer (edges, draw, chrome)
+   DOM layer (blocks + edges, one z-stack)  +  SVG overlay (chrome)
 ```
 
 ## Package entries
@@ -89,12 +89,13 @@ Reading top to bottom, the component:
 
 Inside `SpatialCanvas`'s return:
 
-- **`GridBackground`** (`SpatialCanvas.tsx:535`) — paper/grid, a single memoized SVG.
-- **DOM layer — `UnifiedDomViewportLayer`** (`SpatialCanvas.tsx:538`) — one `transform: translate(…) scale(…)` container holding a `NodeItem` per visible node (`SpatialCanvas.tsx:546`). Each `NodeItem` renders its type's registered React `component` (sticky, image, YouTube, rich-text, custom nodes) from `src/components/blocks/`. Draw strokes and shapes render here too, as positioned per-node SVGs (`blocks/VectorNodeBlock.tsx`) so they participate in DOM z-ordering with content blocks.
-- **SVG layer — `LiveSVGLayerHost` → `SVGLayer`** (`SpatialCanvas.tsx:604`, `canvas/SVGLayer.tsx`) — the full-canvas vector overlay: edges with arrowheads and ports, in-progress previews (edge drags, marquee, lasso, eraser trail), snap guides.
-- **`SelectionChromeOverlay`** (`SpatialCanvas.tsx:657`) — selection rectangles and resize/rotate handles, live during gestures.
+- **`GridBackground`** (`SpatialCanvas.tsx:578`) — paper/grid, a single memoized SVG.
+- **DOM layer — `UnifiedDomViewportLayer`** (`SpatialCanvas.tsx:581`) — one `transform: translate(…) scale(…)` container holding a `NodeItem` per visible node (`SpatialCanvas.tsx:589`). Each `NodeItem` renders its type's registered React `component` (sticky, image, YouTube, rich-text, custom nodes) from `src/components/blocks/`. Draw strokes and shapes render here too, as positioned per-node SVGs (`blocks/VectorNodeBlock.tsx`) so they participate in DOM z-ordering with content blocks.
+- **Edges — per-edge SVG hosts inside the DOM layer** (`SpatialCanvas.tsx`, the `edgeHosts` map): every committed edge renders as its own chrome-less `SVGLayer` instance at `zIndex = edge.z`, so nodes and edges share ONE z-order — "bring the circle above the connector" is just a z move, steerable from either side (`spatialengine_zorder.ts`; edge overlap tests use the routed path bounds).
+- **SVG overlay — `LiveSVGLayerHost` → `SVGLayer`** (`canvas/SVGLayer.tsx`): the full-canvas top layer for live chrome — in-progress previews (edge drags, marquee, lasso, eraser trail), snap guides, port dots, and selection boxes.
+- **`SelectionChromeOverlay`** (`SpatialCanvas.tsx:740`) — selection rectangles and resize/rotate handles, live during gestures.
 
-A node type declares which world it lives in: types marked `isSVGOnly` (edges) render exclusively in the SVG layer.
+A node type declares its rendering route: types marked `isSVGOnly` (edges) render through the per-edge SVG hosts rather than as DOM blocks.
 
 ## 5. Input: tools, pointers, keyboard
 

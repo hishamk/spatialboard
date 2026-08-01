@@ -309,3 +309,4 @@ export interface AgentStateOptions {
   /** Restrict to nodes overlapping this canvas-coordinate rect. */
   region?: { x: number; y: number; w: number; h: number };
 }
+
