@@ -239,7 +239,9 @@ function segmentsIntersect(
 export function edgePickTolerance(edge: EdgeNode, zoom: number): number {
   const z = Math.max(0.01, zoom);
   const sw = edge.data.strokeWidth ?? 2;
-  return Math.max(sw / 2 + 8 / z, 10 / z);
+  // ~12px of screen-space slack beyond the stroke (14px floor for thin edges) —
+  // connectors are thin targets; a tight tolerance makes them fiddly to click.
+  return Math.max(sw / 2 + 12 / z, 14 / z);
 }
 
 export type ClosestEdgeHit = { node: SpatialNode; distance: number };

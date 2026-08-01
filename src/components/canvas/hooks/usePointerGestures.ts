@@ -529,6 +529,11 @@ export function usePointerGestures({
             if (edgePick && hitEligible(edgePick.node)) {
               if (!hit) {
                 hit = edgePick.node;
+              } else if (edgePick.node.z > hit.z) {
+                // Unified z-order: the edge paints ABOVE the hit node here, so
+                // it is what the user sees under the cursor — it wins the pick.
+                // (Alt+click still cycles to what lies underneath.)
+                hit = edgePick.node;
               } else if (
                 hit.type !== "draw" &&
                 hit.type !== "shape" &&
