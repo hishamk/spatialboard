@@ -303,6 +303,9 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
 
   return (
     <div
+      // Search highlighting scans the DOM under [data-node-id] — own-layout
+      // types must carry it themselves so shape LABELS get match rects.
+      data-node-id={node.id}
       style={{
         position: "absolute",
         left: node.x,

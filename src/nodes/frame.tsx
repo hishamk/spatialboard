@@ -31,6 +31,9 @@ function FrameNodeRenderer(props: NodeRendererProps<FrameNodeData>) {
 
   return (
     <div
+      // Search highlighting scans the DOM under [data-node-id] — own-layout
+      // types must carry it themselves (RegistryNodeWrapper isn't used here).
+      data-node-id={node.id}
       style={{
         position: "absolute",
         left: node.x,
