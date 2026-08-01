@@ -731,8 +731,12 @@ function renderEdgeNode(
         `<path d="${filledArrowHeadPath(result.x2, result.y2, result.arrowAngle, headSize)}" ` +
         `fill="${safeColor(d.color)}" stroke="none"/>`;
     } else if (d.arrowHead === "dot") {
-      const r = headSize / 3;
-      inner += `<circle cx="${result.x2}" cy="${result.y2}" r="${r}" fill="${safeColor(d.color)}"/>`;
+      // Canvas parity: r = headSize * 0.25, center pulled back by r so the
+      // dot rim (not its middle) touches the border.
+      const r = headSize * 0.25;
+      const dcx = result.x2 - Math.cos(result.arrowAngle) * r;
+      const dcy = result.y2 - Math.sin(result.arrowAngle) * r;
+      inner += `<circle cx="${dcx}" cy="${dcy}" r="${r}" fill="${safeColor(d.color)}"/>`;
     }
   }
 
@@ -746,8 +750,10 @@ function renderEdgeNode(
         `<path d="${filledArrowHeadPath(result.x1, result.y1, result.tailAngle, tailSize)}" ` +
         `fill="${safeColor(d.color)}" stroke="none"/>`;
     } else if (d.arrowTail === "dot") {
-      const r = tailSize / 3;
-      inner += `<circle cx="${result.x1}" cy="${result.y1}" r="${r}" fill="${safeColor(d.color)}"/>`;
+      const r = tailSize * 0.25;
+      const dcx = result.x1 - Math.cos(result.tailAngle) * r;
+      const dcy = result.y1 - Math.sin(result.tailAngle) * r;
+      inner += `<circle cx="${dcx}" cy="${dcy}" r="${r}" fill="${safeColor(d.color)}"/>`;
     }
   }
 

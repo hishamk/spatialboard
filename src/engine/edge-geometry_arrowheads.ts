@@ -13,11 +13,13 @@ export function arrowHeadPath(
   const px = -uy;
   const py = ux;
 
-  const half = size / 2;
-  const tipX = cx + ux * half;
-  const tipY = cy + uy * half;
-  const baseX = cx - ux * half;
-  const baseY = cy - uy * half;
+  // TIP-ANCHORED: (cx, cy) IS the tip — callers pass the path endpoint (the
+  // node border point), so the arrow touches the border it points at instead
+  // of piercing it. The base trails `size` behind along the travel direction.
+  const tipX = cx;
+  const tipY = cy;
+  const baseX = cx - ux * size;
+  const baseY = cy - uy * size;
   const halfW = size * 0.4;
 
   // Open polyline — two lines forming a chevron (no fill, stroke only)
@@ -39,11 +41,12 @@ export function filledArrowHeadPath(
   const px = -uy;
   const py = ux;
 
-  const half = size / 2;
-  const tipX = cx + ux * half;
-  const tipY = cy + uy * half;
-  const baseX = cx - ux * half;
-  const baseY = cy - uy * half;
+  // TIP-ANCHORED: (cx, cy) IS the tip (see arrowHeadPath) — the triangle's
+  // base trails `size` behind along the travel direction.
+  const tipX = cx;
+  const tipY = cy;
+  const baseX = cx - ux * size;
+  const baseY = cy - uy * size;
   const halfW = size * 0.4;
 
   // Closed triangle path

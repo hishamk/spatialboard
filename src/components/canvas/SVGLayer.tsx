@@ -503,15 +503,25 @@ const EdgeRenderer = memo(function EdgeRenderer({
   );
   const { path, x1, y1, x2, y2, labelX, labelY, arrowAngle, tailAngle, kinkHandle } = pathResult;
 
-  // Arrow tip sits one headSize along the tangent from the (shortened) path end,
+  // Head/tail markers are TIP-ANCHORED (arrowHeadPath treats its anchor as the
+  // tip), so non-port edges pass the path endpoint — the border point — and
+  // the tip touches the border exactly. Port edges keep their tuned placement:
+  // the tip sits one headSize along the tangent from the (shortened) path end,
   // which is the near rim of the port when pathTargetPos was adjusted above.
-  // Non-port edges keep the legacy "centered on endpoint" placement.
-  const headCenteredOnTip = !!(targetPortPos && hasHead);
-  const headCx = headCenteredOnTip ? x2 + Math.cos(arrowAngle) * (headSize / 2) : x2;
-  const headCy = headCenteredOnTip ? y2 + Math.sin(arrowAngle) * (headSize / 2) : y2;
-  const tailCenteredOnTip = !!(sourcePortPos && hasTail);
-  const tailCx = tailCenteredOnTip ? x1 + Math.cos(tailAngle) * (tailSize / 2) : x1;
-  const tailCy = tailCenteredOnTip ? y1 + Math.sin(tailAngle) * (tailSize / 2) : y1;
+  const headAtPortRim = !!(targetPortPos && hasHead);
+  const headCx = headAtPortRim ? x2 + Math.cos(arrowAngle) * headSize : x2;
+  const headCy = headAtPortRim ? y2 + Math.sin(arrowAngle) * headSize : y2;
+  const tailAtPortRim = !!(sourcePortPos && hasTail);
+  const tailCx = tailAtPortRim ? x1 + Math.cos(tailAngle) * tailSize : x1;
+  const tailCy = tailAtPortRim ? y1 + Math.sin(tailAngle) * tailSize : y1;
+  // Dot markers are circles: pull the CENTER back by the radius so the dot's
+  // rim (not its middle) touches the border; port edges keep the old center.
+  const headDotR = headSize * 0.25;
+  const headDotCx = headAtPortRim ? x2 + Math.cos(arrowAngle) * (headSize / 2) : x2 - Math.cos(arrowAngle) * headDotR;
+  const headDotCy = headAtPortRim ? y2 + Math.sin(arrowAngle) * (headSize / 2) : y2 - Math.sin(arrowAngle) * headDotR;
+  const tailDotR = tailSize * 0.25;
+  const tailDotCx = tailAtPortRim ? x1 + Math.cos(tailAngle) * (tailSize / 2) : x1 - Math.cos(tailAngle) * tailDotR;
+  const tailDotCy = tailAtPortRim ? y1 + Math.sin(tailAngle) * (tailSize / 2) : y1 - Math.sin(tailAngle) * tailDotR;
 
   const isSelected = selection.has(edge.id);
   const isReconnecting = edgeReconnect?.edgeId === edge.id;
@@ -763,8 +773,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {edge.data.arrowHead === "dot" && (
         <circle
-          cx={headCx} cy={headCy}
-          r={headSize * 0.25}
+          cx={headDotCx} cy={headDotCy}
+          r={headDotR}
           fill={edgeColor}
         />
       )}
@@ -802,8 +812,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {edge.data.arrowTail === "dot" && (
         <circle
-          cx={tailCx} cy={tailCy}
-          r={tailSize * 0.25}
+          cx={tailDotCx} cy={tailDotCy}
+          r={tailDotR}
           fill={edgeColor}
         />
       )}
