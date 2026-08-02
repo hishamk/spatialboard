@@ -45,6 +45,7 @@ import { useInlineEditing } from "./hooks/useInlineEditing";
 import { useNodeCreation } from "./hooks/useNodeCreation";
 import { useEngineMirror } from "./hooks/useEngineMirror";
 import { usePointerGestures } from "./hooks/usePointerGestures";
+import { useTouchDoubleTap } from "./hooks/useTouchDoubleTap";
 
 // Stable sentinels for the per-edge SVG hosts (no chrome renders there;
 // the DOM container already applies the viewport transform).
@@ -450,6 +451,10 @@ export default function SpatialCanvas({
     longPressTimerRef,
     longPressOriginRef,
   });
+
+  // Touch/pen double-taps → synthetic dblclick so text/sticky/label editing,
+  // group drill-down, and image crop work on phones and iPads.
+  useTouchDoubleTap(containerRef);
 
   // Node transform / handle interaction handlers (resize, rotate, connect,
   // port-connect, kink, edge-endpoint reconnect, unified multi-selection

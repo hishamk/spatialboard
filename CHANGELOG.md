@@ -30,6 +30,11 @@ Versioning.
   resize/rotate handles, edge endpoint/kink handles, and connection dots now
   carry invisible enlarged hit areas (28px touch / 14px mouse) while keeping
   the drawn 8px visuals.
+- Double-tap works on touch and pencil input: browsers stop synthesizing
+  `dblclick` once the canvas opts out of native gestures, so double-taps are
+  detected at the pointer level and re-dispatched as real `dblclick` events —
+  text/sticky/label editing, group drill-down, and image crop now open on
+  phones and iPads exactly as they do with a mouse.
 
 ### Fixed
 
