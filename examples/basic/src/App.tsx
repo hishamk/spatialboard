@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { SpatialBoard, type SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { usePersistentBoard } from "./usePersistentBoard";
 import { BoardShell } from "./BoardShell";
+import { AboutPage } from "./AboutPage";
 
 /**
  * Example 1 — the slim core board.
@@ -45,11 +47,19 @@ export default function App() {
     storageKey: "sb-example-basic",
     seed,
   });
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   return (
-    <BoardShell title="Basic Board" subtitle="core nodes · no @blocknote" saveState={saveState} onReset={reset}>
+    <BoardShell
+      title="Basic Board"
+      subtitle="core nodes · no @blocknote"
+      saveState={saveState}
+      onReset={reset}
+      onAbout={() => setAboutOpen(true)}
+    >
       {/* No `nodeTypes` prop → the slim default preset (coreBoardNodes). */}
       <SpatialBoard engine={engine} />
+      {aboutOpen && <AboutPage onClose={() => setAboutOpen(false)} />}
     </BoardShell>
   );
 }

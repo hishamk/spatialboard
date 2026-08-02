@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SpatialEngine } from "spatialboard";
 
-export type SaveState = "loading" | "saving" | "saved";
+export type SaveState = "loading" | "saving" | "saved" | "error";
 
 function readViewport(key: string): { x: number; y: number; zoom: number } | null {
   try {
@@ -80,7 +80,10 @@ export function usePersistentBoard(opts: {
           localStorage.setItem(storageKey, await engine.toSBD());
           setSaveState("saved");
         } catch {
-          /* storage full/unavailable — keep the session editable anyway */
+          // Storage full/unavailable — the session stays editable, but the
+          // user must know the board is NOT persisting (a silently-stuck
+          // "Saving…" reads as success and edits vanish on reload).
+          setSaveState("error");
         }
       }, 400);
     };
