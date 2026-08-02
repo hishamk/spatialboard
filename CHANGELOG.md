@@ -56,8 +56,53 @@ Versioning.
   engine. Drag them, draw over them, or press play to watch the about page as
   slides (each section is a frame). Closing discards the board.
 
+### Performance (browser memory)
+
+- Undo history now uses structural sharing: each snapshot is a shallow map
+  copy whose node objects are shared with the live board (safe because the
+  engine is uniformly copy-on-write), instead of a full `JSON.stringify` of
+  every node per step ×50 steps ×2 stacks. On an image-heavy board this
+  shrinks history from potentially hundreds of MB to map-entry overhead, and
+  removes a multi-MB stringify from the critical path of every edit.
+- Copy/paste/duplicate (and the personal library) clone nodes with a
+  reference-preserving deep clone: containers are fresh, strings are shared —
+  so any number of pasted copies of an image hold ONE base64 string on the
+  heap instead of one per copy.
+- The SVG layer renders the virtualized node set when idle too: per-edge
+  `<svg>` hosts now mount only for edges that are visible or whose path
+  crosses the viewport (the crossing-edge pass already guaranteed
+  correctness), instead of every edge on the board.
+- Rich-text nodes swap to a lightweight skeleton preview below 35% zoom —
+  at overview zooms a wall of notes no longer mounts one full
+  BlockNote/ProseMirror editor per visible node; double-click zooms in and
+  the real editor mounts.
+- The frames/slides panel unmounts when closed (it used to stay mounted
+  off-screen holding one rendered SVG thumbnail per frame).
+- Rough edge path data is memoized per edge (it was regenerated on every
+  pan/zoom frame), text and rich-text blocks share one ResizeObserver per
+  document instead of one per node, and the freehand tool builds one point
+  snapshot per pointermove instead of two.
+- PNG export: the default scale now matches the documented 2× (the code
+  hardcoded 4×, quadrupling raster memory — ~192 MB transient for a
+  2000×1500 board), the raster is capped at 8192px on the long side (with a
+  warning when clamped), the canvas backing store is released eagerly after
+  encode, and the embedded-source chunk is assembled as Blob parts instead
+  of concatenating full PNG copies in JS heap.
+- Dropping a PNG probes for embedded board source in the first 64 KB
+  (the chunk sits right after IHDR) instead of reading the whole file twice.
+- The GIF picker caps accumulated scroll results and clears them on close.
+- The bundled hand font ships as woff2 (index.js ~779 KB, from 817 KB).
+
 ### Fixed
 
+- Per-id bookkeeping now actually leaves the board with its node: measured
+  heights (engine + spatial index), group rotation state of dissolved
+  groups, and data-flow generation counters were never pruned on delete and
+  grew for the whole session.
+- Edge bounding boxes are recomputed on board load. SBD carries no edge
+  AABBs, so every loaded edge sat at a zero-rect at the origin in the
+  spatial index — breaking edge culling and (during node drags) letting
+  long crossing edges vanish until an endpoint was moved.
 - PNG/SVG export fidelity — a full audit against the live canvas renderers:
   - Images: `contain` letterboxing instead of cover-crop (a rotated or
     aspect-mismatched image no longer exports zoomed/cropped), plus crop,
@@ -142,6 +187,16 @@ Versioning.
 
 ### Changed
 
+- The selection frame is a solid line (was dashed) — the dashes read as a
+  marquee/frame border rather than a selection. Applies to the SVG selection
+  box and the image/rich-text blocks' own selected borders (the crop-region
+  marquee stays dashed by convention).
+- The selection frame now contains the node's INK, not just its nominal
+  geometry: strokes are centered on the geometry (±width/2) and RoughJS
+  sloppiness wobbles further out, so artist/cartoonist shapes and freehand
+  strokes seeped outside the box. Selection chrome (single and multi-select)
+  now pads by the ink envelope — stroke half-width plus ~3px per roughness
+  level — and the resize/rotate handles sit on the padded frame.
 - Canvas settings (grid, grid size, smart guides, free-form edges, paper)
   moved out of the node inspector into a gear popover on the tool rail
   (desktop) and a "Canvas" section in the ⋯ menu (compact layout) — board
