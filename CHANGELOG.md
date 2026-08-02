@@ -36,6 +36,26 @@ Versioning.
   text/sticky/label editing, group drill-down, and image crop now open on
   phones and iPads exactly as they do with a mouse.
 
+### Added (editable exports)
+
+- Exported PNGs and SVGs now carry the board's SBD source as metadata — the
+  draw.io / Excalidraw pattern: anyone can view the file as an image, and
+  dropping it back onto a board restores real editable nodes at the drop
+  point (fresh ids, edges and groups rewired). PNG embeds an `iTXt` chunk;
+  SVG embeds a base64 `<metadata>` element; frame exports carry just that
+  frame's subset. On by default (`ExportOptions.embedSource: false` opts
+  out); `embedSBDInPNG` / `extractSBDFromPNG` / `embedSBDInSVG` /
+  `extractSBDFromSVG` and `engine.insertNodesAt` are exported for hosts
+  wiring their own open-file flows.
+
+- "Download image" in the context menu of an image node — saves the source
+  to disk with the right extension (data URIs directly, remote URLs fetched
+  to a blob; a blocked cross-origin fetch opens the image in a new tab).
+- Basic example: an About page (top-bar button) that IS a live spatialboard —
+  the wordmark, squiggle, and feature stickies are real nodes on a throwaway
+  engine. Drag them, draw over them, or press play to watch the about page as
+  slides (each section is a frame). Closing discards the board.
+
 ### Fixed
 
 - PNG/SVG export fidelity — a full audit against the live canvas renderers:
@@ -65,9 +85,54 @@ Versioning.
   literal string `"undefined"` (which produced a font named "undefined"),
   the parser heals boards already saved that way, and image crop/flip are
   now persisted (they were silently lost on save/load).
+- Freehand strokes survive save/reload pixel-faithfully: serialization ran
+  strokes through geometric (RDP) simplification, but the variable-width ink
+  is a function of point DENSITY — reloaded strokes came back with thin runs
+  and sharp kinks. Serialization now only drops consecutive near-duplicate
+  points, which leaves the rendered stroke visually identical.
+- Dropped and pasted images no longer vanish on reload: a full-resolution
+  photo arrived as a data URI of tens of MB, which silently blew the
+  localStorage quota in storage-backed hosts — the board simply stopped
+  persisting. Oversized imported raster images are now capped at a 2048px
+  long edge and re-encoded as WebP (alpha preserved; animated GIFs pass
+  through untouched), typically shrinking a photo 50–100×. The basic
+  example also reports "Not saved — device storage is full" instead of a
+  silently stuck "Saving…" when a save genuinely fails.
+- Styling a node now sets the defaults for the NEXT node of its type (the
+  "current item defaults" behavior): change a text node's font, size, color,
+  or alignment — or a draw stroke's color/width, a shape's fill, a sticky's
+  color, an edge's arrowheads — and every new node of that type is created
+  with those values instead of resetting to stock.
+- The selection frame (bounds, resize/rotate handles) no longer renders on
+  the node being inline-edited — text, sticky, and label editing show only
+  the caret; the frame belongs to selection, and returns when editing ends.
+- Text nodes the user never typed into don't persist: committing an empty
+  brand-new text node deletes it (outside undo history), so stray text-tool
+  clicks stop accumulating invisible phantom nodes.
+- New text nodes are reliably editable the moment they're created:
+  - With the text (or note/sticky) tool active, clicking OVER an existing
+    node now reaches the canvas and creates there — sticky notes, content
+    cards, and images were swallowing the click to select/drag themselves
+    instead, so nothing was created at all.
+  - A focus watchdog guards the fresh edit session: one-shot side effects
+    of a first selection (inspector mount, font loads) could steal focus —
+    and the caret with it — leaving a focused-looking editor that ignored
+    typing. Focus AND caret are now re-asserted, and passive blurs in the
+    session's first moments reclaim the editor instead of committing.
+- Presentation keyboard controls work when entered from the bottom bar:
+  entering presentation unmounted the Present button that held focus,
+  dropping focus to `<body>` and deafening the board-scoped keyboard handler
+  (Esc / arrows) — the board now refocuses itself on enter. The presentation
+  overlay also resolves its canvas within its own board's subtree, so cube
+  transitions target the right canvas when several boards are mounted.
 
 ### Changed
 
+- Canvas settings (grid, grid size, smart guides, free-form edges, paper)
+  moved out of the node inspector into a gear popover on the tool rail
+  (desktop) and a "Canvas" section in the ⋯ menu (compact layout) — board
+  settings no longer crowd every selection. Hosts using the `tools`
+  allowlist opt in with the new `"settings"` key.
 - The minimap auto-hides when the board first enters the compact layout (it
   can be re-enabled from the compact ⋯ menu) and repositions above the
   compact bottom chrome.
