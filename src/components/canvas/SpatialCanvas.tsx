@@ -711,7 +711,8 @@ export default function SpatialCanvas({
               fillStyle: engine.mode === "frame" ? undefined : engine.activeTool.fillStyle,
               strokeStyle: engine.mode === "frame" ? undefined : engine.activeTool.strokeStyle,
               opacity: engine.mode === "frame" ? undefined : engine.activeTool.opacity,
-              edgeStyle: undefined,
+              edgeStyle: engine.mode === "frame" ? undefined : engine.activeTool.edgeStyle,
+              seed: shapePreview.nodeId,
             }
             : null
         }

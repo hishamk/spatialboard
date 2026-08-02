@@ -250,6 +250,8 @@ export interface ActiveTool {
   fillColor?: string;
   fillStyle?: FillStyle;
   strokeStyle?: StrokeStyle;
+  /** Corner sharpness for shape creation (rect/diamond rounding). */
+  edgeStyle?: StrokeSharpness;
   roughness?: number;
   opacity?: number;
   fontSize?: number;

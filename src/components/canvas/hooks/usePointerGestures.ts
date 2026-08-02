@@ -195,6 +195,9 @@ export function usePointerGestures({
     startY: number;
     endX: number;
     endY: number;
+    /** Future node id, minted at drag start — seeds the rough preview so the
+     * committed node renders the exact same strokes (RoughJS seeds by id). */
+    nodeId?: string;
   } | null>(null);
 
   const prevFrameRectDragRef = useRef(shapePreview);
@@ -994,6 +997,7 @@ export function usePointerGestures({
           startY: cy,
           endX: cx,
           endY: cy,
+          nodeId: nanoid(10),
         };
         setShapePreview(preview);
 
@@ -1013,6 +1017,8 @@ export function usePointerGestures({
             fillStyle: engine.activeTool.fillStyle,
             strokeStyle: engine.activeTool.strokeStyle,
             opacity: engine.activeTool.opacity ?? 1,
+            edgeStyle: engine.activeTool.edgeStyle,
+            seed: preview.nodeId,
           });
         };
         const onUp = () => {
@@ -1058,7 +1064,9 @@ export function usePointerGestures({
             ];
           }
 
-          const nodeId = nanoid(10);
+          // Reuse the id the rough preview was seeded with — the committed
+          // node then renders stroke-identical to what the drag showed.
+          const nodeId = preview.nodeId;
           engine.addNode({
             id: nodeId,
             type: "shape",
@@ -1074,6 +1082,7 @@ export function usePointerGestures({
               fillStyle: engine.activeTool.fillStyle,
               strokeWidth: engine.activeTool.width,
               strokeStyle: engine.activeTool.strokeStyle,
+              edgeStyle: engine.activeTool.edgeStyle,
               roughness: engine.activeTool.roughness ?? 1,
               opacity: engine.activeTool.opacity ?? 1,
               ...lineData,

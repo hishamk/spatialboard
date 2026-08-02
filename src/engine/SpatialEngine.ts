@@ -164,6 +164,8 @@ type EventMap = {
     fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
     edgeStyle?: StrokeSharpness;
+    /** Rough seed (the future node id) so peers preview the exact strokes. */
+    seed?: string;
   }) => void;
   'shape:end': () => void;
   'edge:progress': (preview: EdgeCreationAwareness) => void;
@@ -1317,6 +1319,7 @@ export class SpatialEngine {
     fillStyle?: FillStyle;
     strokeStyle?: StrokeStyle;
     edgeStyle?: StrokeSharpness;
+    seed?: string;
   }): void {
     this.emit("shape:progress", preview);
   }

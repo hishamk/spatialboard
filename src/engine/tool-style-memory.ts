@@ -35,6 +35,7 @@ const STYLE_MAPS: Record<string, Record<string, keyof ActiveTool>> = {
     roughness: "roughness",
     opacity: "opacity",
     shape: "shapeType",
+    edgeStyle: "edgeStyle",
   },
   sticky: {
     color: "stickyColor",

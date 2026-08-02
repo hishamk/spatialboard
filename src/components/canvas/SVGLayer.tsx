@@ -129,6 +129,9 @@ interface SVGLayerProps {
     strokeStyle?: StrokeStyle;
     opacity?: number;
     edgeStyle?: StrokeSharpness;
+    /** Rough seed — the future node id, so the preview strokes match the
+     * committed node exactly instead of re-randomizing on mouse-up. */
+    seed?: string;
   } | null;
   onResizeHandleDown?: (
     nodeId: string,
@@ -1982,7 +1985,7 @@ export default function SVGLayer({
             roughness: st.roughness,
             strokeWidth: st.strokeWidth,
             strokeLineDash: dashArray,
-            seed: "__preview__",
+            seed: st.seed ?? "__preview__",
           };
 
           let paths: RoughPathData[] | null = null;
