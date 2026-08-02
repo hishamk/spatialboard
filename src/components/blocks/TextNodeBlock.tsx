@@ -21,6 +21,8 @@ function TextNodeBlock({
   const divRef = useRef<HTMLDivElement>(null);
   const [localText, setLocalText] = useState(node.data.text);
   const committedRef = useRef(false);
+  /** When this edit session began — guards against one-shot focus steals. */
+  const editStartedAtRef = useRef(0);
   const latestTextRef = useRef(node.data.text);
   // Debounced sync timer for real-time collab text updates
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,6 +80,7 @@ function TextNodeBlock({
       latestTextRef.current = node.data.text;
       committedRef.current = false;
       historyBaselinePushedRef.current = false;
+      editStartedAtRef.current = performance.now();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
@@ -161,9 +164,41 @@ function TextNodeBlock({
     [commitText]
   );
 
-  const handleBlur = useCallback(() => {
-    commitText();
-  }, [commitText]);
+  const handleBlur = useCallback(
+    (e: React.FocusEvent) => {
+      // A focus steal in the first moments of a session (e.g. the inspector's
+      // heavy FIRST mount yanking focus to <body>) must not end a brand-new
+      // edit: when focus fell to NOWHERE right after editing began, reclaim it
+      // instead of committing. Real dismissals (Escape commits first; clicking
+      // anything focusable sets relatedTarget) still end the session normally.
+      if (
+        !committedRef.current &&
+        !e.relatedTarget &&
+        performance.now() - editStartedAtRef.current < 600 &&
+        divRef.current?.isConnected
+      ) {
+        const el = divRef.current;
+        requestAnimationFrame(() => {
+          if (!el?.isConnected) return;
+          el.focus();
+          // The steal drags the CARET out with the focus — typing inserts at
+          // the document selection, so focus alone leaves a dead editor.
+          const doc = el.ownerDocument;
+          const sel = doc.getSelection();
+          if (sel && (sel.rangeCount === 0 || !el.contains(sel.anchorNode))) {
+            const range = doc.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        });
+        return;
+      }
+      commitText();
+    },
+    [commitText],
+  );
 
   const handleInput = useCallback(() => {
     if (divRef.current) {

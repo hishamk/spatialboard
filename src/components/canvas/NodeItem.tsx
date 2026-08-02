@@ -98,8 +98,13 @@ const NodeItem = memo(function NodeItem({
               if (node.type === "text") {
                 ctx.setEditingTextId((cur) => {
                   if (cur !== node.id) return cur;
-                  const lock = ctx.textEditLockRef.current;
-                  if (lock && lock.id === cur && performance.now() < lock.until) return cur;
+                  // A stop that reaches here is a REAL commit — TextNodeBlock
+                  // self-heals passive focus steals without calling onStopEdit.
+                  // End the session and release the creation lock so the
+                  // focus watchdog stands down immediately.
+                  if (ctx.textEditLockRef.current?.id === cur) {
+                    ctx.textEditLockRef.current = null;
+                  }
                   return null;
                 });
               } else if (node.type === "sticky") {

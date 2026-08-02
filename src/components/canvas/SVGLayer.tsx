@@ -219,7 +219,10 @@ interface SVGLayerProps {
     start: number;
     end: number;
   }>;
-  /** When set, suppress connection/port affordances for this node (image crop UI must receive pointers). */
+  /** When set, suppress this node's overlay chrome — selection frame, handles,
+   *  and connection/port affordances. Used for the node being inline-edited
+   *  (text/sticky/label editing, image crop): the bounds frame only belongs on
+   *  a SELECTED node, not one being typed into. */
   suppressNodeOverlayId?: string | null;
 }
 
@@ -1892,7 +1895,7 @@ export default function SVGLayer({
 
         {/* Selection boxes for SVG nodes (single selection only — multi uses unified bounding box) */}
         {selection.size === 1 && mode !== "edge" && !edgePreview && !edgeReconnect && svgNodes
-          .filter((n) => selection.has(n.id))
+          .filter((n) => selection.has(n.id) && n.id !== suppressNodeOverlayId)
           .map((node) => {
             const def = registry?.get(node.type);
             // Node-owned selection chrome lives in the DOM wrapper (z-order safe).

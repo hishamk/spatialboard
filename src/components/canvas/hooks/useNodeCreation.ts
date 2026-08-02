@@ -104,23 +104,52 @@ export function useNodeCreation({
       textEditLockRef.current = { id, until: performance.now() + 1500 };
       setEditingTextId(id);
 
-      // Force-focus the freshly mounted contentEditable. In some render/orderings,
-      // React state + canvas pointer lifecycle can leave the new text node not focused
-      // on first click; retry for a few frames until the editable exists.
+      // Force-focus the freshly mounted contentEditable, then WATCH it for the
+      // lock window: one-shot side effects of a first selection (the inspector's
+      // initial mount, font loads) can steal focus right after it lands —
+      // re-assert until the lock expires so the brand-new edit session survives.
+      // CRUCIAL: focus alone is not enough for a contentEditable — typing
+      // inserts at the document SELECTION, and a focus steal drags the caret
+      // out with it. Re-place the caret whenever it has left the editable.
       const focusEditable = (attempt = 0) => {
         const root = containerRef.current;
         if (!root) return;
+        const lock = textEditLockRef.current;
+        const lockActive = lock?.id === id && performance.now() < lock.until;
         const editable = root.querySelector(
           `[data-node-id="${id}"] [contenteditable="true"]`
         ) as HTMLElement | null;
         if (editable) {
-          // Re-run external blur right before focus in case another panel reclaimed focus.
-          blurExternalEditables();
-          editable.focus();
-          textEditLockRef.current = null;
+          const doc = root.ownerDocument;
+          const ae = doc.activeElement;
+          if (ae !== editable) {
+            // Only reclaim focus that fell to NOWHERE (body) — that's the
+            // signature of a passive steal. Focus on any real element means
+            // the user moved on deliberately: stop watching, let editing end.
+            if (ae && ae !== doc.body && ae !== root) {
+              if (lock?.id === id) textEditLockRef.current = null;
+              return;
+            }
+            // Re-run external blur right before focus in case another panel reclaimed focus.
+            blurExternalEditables();
+            editable.focus();
+          }
+          const sel = doc.getSelection();
+          if (sel && (sel.rangeCount === 0 || !editable.contains(sel.anchorNode))) {
+            const range = doc.createRange();
+            range.selectNodeContents(editable);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          if (lockActive) {
+            requestAnimationFrame(() => focusEditable(attempt + 1));
+          } else if (lock?.id === id) {
+            textEditLockRef.current = null;
+          }
           return;
         }
-        if (attempt < 12) {
+        if (attempt < 12 || lockActive) {
           requestAnimationFrame(() => focusEditable(attempt + 1));
         }
       };

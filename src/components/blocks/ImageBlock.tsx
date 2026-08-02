@@ -313,6 +313,10 @@ function ImageBlock({
       }
       const ownerDoc = (e.currentTarget as HTMLElement).ownerDocument;
       if (e.altKey) return;
+      // Creation tools own clicks over existing nodes — with the text/note/
+      // sticky tool active, a click here must reach the CANVAS and create
+      // there, not select/drag this node underneath it.
+      if (engine.mode !== "select") return;
       if (!engine.selection.has(node.id) && engine.selection.size > 0) {
         const { x: cx, y: cy } = engine.screenToCanvas(
           e.clientX,

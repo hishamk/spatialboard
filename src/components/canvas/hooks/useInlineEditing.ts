@@ -53,6 +53,24 @@ export function useInlineEditing(
 
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);
+
+  // A text node created by a tool click that the user never typed into does
+  // NOT persist — otherwise every stray click leaves an invisible empty node.
+  // Runs when the edit session for the tracked node ends (the block's commit
+  // effects have already written the final text by then). skipHistory keeps
+  // the phantom out of undo — undoing lands back before the creation.
+  const prevEditingTextIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevEditingTextIdRef.current;
+    prevEditingTextIdRef.current = editingTextId;
+    if (!prev || prev === editingTextId) return;
+    if (newlyCreatedTextRef.current !== prev) return;
+    newlyCreatedTextRef.current = null;
+    const n = engine.getNode(prev);
+    if (n && n.type === "text" && !(n.data as { text: string }).text.trim()) {
+      engine.deleteNode(prev, { skipHistory: true });
+    }
+  }, [editingTextId, engine]);
   // Guard newly created text editing against immediate selection churn.
   const textEditLockRef = useRef<{ id: string; until: number } | null>(null);
   // Track the last content block created locally so only the creator auto-enters edit mode

@@ -737,7 +737,7 @@ export default function SpatialCanvas({
         getLastComputeMs={dataFlow ? getLastComputeMs : undefined}
         getDataFlowPortValue={dataFlow ? getDataFlowPortValue : undefined}
         containerTypes={engine.containerTypes}
-        suppressNodeOverlayId={croppingImageId}
+        suppressNodeOverlayId={editingNodeId}
       />
 
       {/* Unified multi-selection bounding box (resize / rotate / connection
