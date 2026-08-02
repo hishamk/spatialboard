@@ -116,7 +116,10 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
       <svg
         width={w + pad * 2}
         height={h + pad * 2}
-        style={{ overflow: "visible" }}
+        // display:block — an inline svg sits on the div's TEXT BASELINE, and
+        // when the node is shorter than the font strut (flat lines/arrows,
+        // hairline strokes) the strut pushes it ~3px down vs the drag preview.
+        style={{ display: "block", overflow: "visible" }}
       >
         <g transform={`translate(${pad}, ${pad})`} opacity={node.data.opacity ?? 1}>
           {/* Fill rendered first, behind the stroke */}
@@ -219,7 +222,10 @@ const VectorBlock = memo(function VectorBlock({ node }: { node: DrawNode }) {
       <svg
         width={w + pad * 2}
         height={h + pad * 2}
-        style={{ overflow: "visible" }}
+        // display:block — an inline svg sits on the div's TEXT BASELINE, and
+        // when the node is shorter than the font strut (flat lines/arrows,
+        // hairline strokes) the strut pushes it ~3px down vs the drag preview.
+        style={{ display: "block", overflow: "visible" }}
       >
         <g transform={`translate(${pad}, ${pad})`} opacity={node.data.opacity ?? 1}>
           <path
@@ -322,7 +328,8 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
       <svg
         width={w + pad * 2}
         height={h + pad * 2}
-        style={{ overflow: "visible", marginLeft: -pad, marginTop: -pad }}
+        // display:block — see the draw-svg note above (baseline push on short nodes).
+        style={{ display: "block", overflow: "visible", marginLeft: -pad, marginTop: -pad }}
       >
         <g transform={`translate(${pad}, ${pad})`} opacity={opacity}>
           {solidFillBehind && (
