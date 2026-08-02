@@ -85,6 +85,20 @@ Versioning.
   literal string `"undefined"` (which produced a font named "undefined"),
   the parser heals boards already saved that way, and image crop/flip are
   now persisted (they were silently lost on save/load).
+- Rough shapes (artist/cartoonist sloppiness) no longer change their strokes
+  on mouse-up: the drag preview seeded RoughJS with a fixed placeholder while
+  the committed node seeds from its id, so the ink visibly re-randomized the
+  moment the shape was created. The node id is now minted at drag start and
+  seeds the preview, making the preview and the committed node
+  stroke-identical (the seed also rides the collab preview payload so remote
+  peers match). Corner sharpness (round/sharp) is now also part of the
+  shape tool's remembered defaults and is applied at creation.
+- Short draw/shape nodes no longer sit a few pixels below their true
+  position: the node's `<svg>` rendered inline, so a node shorter than the
+  font strut (a near-flat line/arrow, a hairline stroke) was pushed down to
+  the text baseline — visible as a ~3px vertical nudge the moment a flat
+  line was committed, and as selection chrome floating slightly above the
+  ink. The svg is now `display: block`.
 - Freehand strokes survive save/reload pixel-faithfully: serialization ran
   strokes through geometric (RDP) simplification, but the variable-width ink
   is a function of point DENSITY — reloaded strokes came back with thin runs
