@@ -77,12 +77,13 @@ export default function PropertySection({
           background: "transparent",
           border: "none",
           color: isGroup ? theme.textMuted : theme.textSecondary,
-          fontSize: 10,
+          fontSize: "var(--sbp-sec-fs, 10px)",
           fontWeight: 700,
           letterSpacing: "0.03em",
           textTransform: "uppercase",
-          padding: "8px 10px",
+          padding: "var(--sbp-sec-pad, 8px 10px)",
           cursor: "pointer",
+          touchAction: "manipulation",
         }}
       >
         <span>{title}</span>
@@ -110,11 +111,11 @@ export default function PropertySection({
         <div
           ref={contentRef}
           style={{
-            padding: "8px 10px 10px",
+            padding: "var(--sbp-sec-content-pad, 8px 10px 10px)",
             borderTop: `1px solid ${theme.border}`,
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: "var(--sbp-row-gap, 8px)",
             background: isGroup ? "transparent" : theme.controlBg,
           }}
         >

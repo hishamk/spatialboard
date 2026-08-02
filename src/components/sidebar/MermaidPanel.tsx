@@ -93,6 +93,7 @@ export default function MermaidPanel({
         borderRadius: theme.panelBorderRadius,
         boxShadow: theme.panelShadow,
         width: 340,
+        maxWidth: "calc(100vw - 16px)",
         maxHeight: "min(520px, calc(100dvh - 16px))",
         overflow: "hidden",
         display: "flex",

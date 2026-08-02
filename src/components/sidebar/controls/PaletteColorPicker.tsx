@@ -107,8 +107,8 @@ export default function PaletteColorPicker({
               title={labels.inspectorNone}
               style={{
                 ...btnBase,
-                width: 20,
-                height: 20,
+                width: "var(--sbp-swatch, 20px)",
+                height: "var(--sbp-swatch, 20px)",
                 background: "transparent",
                 border:
                   !mixed && safeValue == null
@@ -142,8 +142,8 @@ export default function PaletteColorPicker({
                 onClick={() => onChange(c)}
                 style={{
                   ...btnBase,
-                  width: 20,
-                  height: 20,
+                  width: "var(--sbp-swatch, 20px)",
+                  height: "var(--sbp-swatch, 20px)",
                   background: c,
                   border: isActive
                     ? `2px solid ${theme.swatchBorderActive}`
@@ -158,8 +158,8 @@ export default function PaletteColorPicker({
           {safeValue && !inPalette && !mixed && (
             <div
               style={{
-                width: 20,
-                height: 20,
+                width: "var(--sbp-swatch, 20px)",
+                height: "var(--sbp-swatch, 20px)",
                 borderRadius: "50%",
                 background: safeValue,
                 border: `2px solid ${theme.swatchBorderActive}`,
@@ -185,7 +185,7 @@ export default function PaletteColorPicker({
                 title={labels.inspectorSwitchPalette}
                 style={{
                   ...btnBase,
-                  height: 24,
+                  height: "var(--sbp-ctl-h, 24px)",
                   padding: "0 8px",
                   background: theme.controlBg,
                   color: theme.textMuted,
@@ -284,12 +284,12 @@ export default function PaletteColorPicker({
             placeholder={safeValue ?? "#000000"}
             style={{
               width: 84,
-              height: 28,
+              height: "var(--sbp-ctl-h, 28px)",
               background: theme.controlBg,
               border: `1px solid ${theme.border}`,
               borderRadius: theme.controlBorderRadius,
               color: theme.text,
-              fontSize: 10,
+              fontSize: "var(--sbp-label-fs, 10px)",
               fontFamily: "monospace",
               padding: "0 8px",
               outline: "none",

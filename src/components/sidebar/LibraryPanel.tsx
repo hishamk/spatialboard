@@ -515,6 +515,7 @@ export default function LibraryPanel({
         zIndex: 99999,
         boxShadow: theme.panelShadow,
         width: 280,
+        maxWidth: "calc(100vw - 16px)",
         maxHeight: "min(480px, calc(100dvh - 16px))",
         display: "flex",
         flexDirection: "column",

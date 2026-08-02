@@ -23,6 +23,7 @@ const btnBase: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: 0,
+  touchAction: "manipulation",
 };
 
 const sp = {
@@ -32,7 +33,7 @@ const sp = {
   strokeLinejoin: "round" as const,
 };
 
-function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; size?: number; textGlyph?: string }) {
+export function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; size?: number; textGlyph?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {name === "select" && (

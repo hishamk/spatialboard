@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#1e1e2e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -17,8 +17,17 @@
         margin: 0;
         height: 100%;
         overscroll-behavior: none;
+        /* Pan only — page pinch-zoom off; the board canvas zooms itself. */
+        touch-action: pan-x pan-y;
       }
     </style>
+    <script>
+      // iOS Safari ignores the viewport meta for in-browser pinch — cancel its
+      // proprietary gesture events so only the board canvas zooms.
+      for (const t of ["gesturestart", "gesturechange", "gestureend"]) {
+        document.addEventListener(t, (e) => e.preventDefault());
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

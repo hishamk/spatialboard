@@ -5,7 +5,8 @@ import SpatialCanvas from "./canvas/SpatialCanvas";
 import type { DataFlowEdgeOverlay } from "./canvas/SVGLayer";
 import Sidebar from "./sidebar/Sidebar";
 import { ModeCluster } from "./sidebar/ToolStrip";
-import { TOOL_STRIP_WIDTH } from "./sidebar/styles";
+import MobileToolbar from "./chrome/MobileToolbar";
+import { TOOL_STRIP_WIDTH, COMPACT_BREAKPOINT } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./overlays/DebugPanel";
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
 import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
@@ -320,6 +321,56 @@ export default function SpatialBoard({
   const [minimapVisible, setMinimapVisible] = useState(!isPreview);
   const [showPerfOverlay, setShowPerfOverlay] = useState(false);
 
+  // Compact (mobile/touch) chrome: measured from the CONTAINER, not the window,
+  // so an embedded board in a narrow host panel adapts the same way a phone does.
+  const [compact, setCompact] = useState(false);
+  const minimapAutoHiddenRef = useRef(false);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      if (w > 0) setCompact(w < COMPACT_BREAKPOINT);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Entering compact for the first time: hide the minimap by default — on a
+  // phone it collides with the stacked bottom chrome. Re-enable via the ⋯ menu.
+  useEffect(() => {
+    if (compact && !minimapAutoHiddenRef.current) {
+      minimapAutoHiddenRef.current = true;
+      setMinimapVisible(false);
+    }
+  }, [compact]);
+
+  // Only the CANVAS zooms — never the page. The root's `touch-action:
+  // pan-x pan-y` (below) blocks browser pinch-zoom on the chrome for
+  // spec-compliant browsers; iOS Safari additionally needs its proprietary
+  // gesture events cancelled. Canvas pinch is pointer-event based and the
+  // canvas is `touch-action: none`, so neither is affected.
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const preventGesture = (e: Event) => e.preventDefault();
+    const preventMultiTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    el.addEventListener("gesturestart", preventGesture);
+    el.addEventListener("gesturechange", preventGesture);
+    el.addEventListener("gestureend", preventGesture);
+    el.addEventListener("touchmove", preventMultiTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("gesturestart", preventGesture);
+      el.removeEventListener("gesturechange", preventGesture);
+      el.removeEventListener("gestureend", preventGesture);
+      el.removeEventListener("touchmove", preventMultiTouchMove);
+    };
+  }, []);
+
   useEffect(() => {
     spatialPerf.setEnabled(isPreview ? false : showPerfOverlay);
   }, [isPreview, showPerfOverlay]);
@@ -341,7 +392,10 @@ export default function SpatialBoard({
   // `railVisible` also drives the canvas inset, so the two can never drift.
   const showChrome = !isPreview && !presenting;
   const showSidebarUI = showSidebar && !presenting && !readOnly;
-  const railVisible = showSidebarUI && !toolsInBottomBar;
+  // Compact chrome replaces both the side rail and the bar-seated tools with
+  // the bottom MobileToolbar, regardless of the host's toolsInBottomBar choice.
+  const railVisible = showSidebarUI && !toolsInBottomBar && !compact;
+  const mobileToolbarVisible = showSidebarUI && !isPreview && compact;
 
   return (
     <SBLocalizationContext.Provider value={localizationValue}>
@@ -372,11 +426,15 @@ export default function SpatialBoard({
         height: "100%",
         position: "relative",
         outline: "none",
+        // Pan (menu/panel scrolling) allowed, browser pinch-zoom + double-tap
+        // zoom NOT — board zoom belongs to the canvas alone. Children narrow
+        // this further (canvas: none, scrollable menus: pan-y).
+        touchAction: "pan-x pan-y",
         fontFamily: resolvedTheme.uiFontFamily ?? SB_UI_FONT,
         ...style,
       }}
     >
-      {showSidebarUI && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar} />}
+      {showSidebarUI && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar && !compact} compact={compact} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
@@ -397,6 +455,7 @@ export default function SpatialBoard({
           onPortConnectEmpty={onPortConnectEmpty}
           portConnectHold={portConnectHold}
           minimapVisible={isPreview ? false : minimapVisible}
+          minimapBottomOffset={compact ? 128 : undefined}
           singleFrameId={singleFrameId}
           hostVisibleNodeIds={visibleNodeIds ?? null}
           overlayNodes={overlayNodes ?? null}
@@ -410,14 +469,24 @@ export default function SpatialBoard({
           <BottomBar
             engine={engine}
             tools={tools}
-            leadingSlot={bottomBarLeading}
-            toolsSlot={toolsInBottomBar && !readOnly ? <ModeCluster engine={engine} tools={tools} registry={registry} /> : undefined}
+            compact={compact}
+            raised={mobileToolbarVisible}
+            leadingSlot={compact ? undefined : bottomBarLeading}
+            toolsSlot={toolsInBottomBar && !readOnly && !compact ? <ModeCluster engine={engine} tools={tools} registry={registry} /> : undefined}
             framesPanelOpen={framesPanelOpen}
             onToggleFramesPanel={() => setFramesPanelOpen((v) => !v)}
             showMinimap={minimapVisible}
             onToggleMinimap={() => setMinimapVisible((v) => !v)}
             showPerfOverlay={showPerfOverlay}
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
+          />
+        )}
+        {showChrome && mobileToolbarVisible && (
+          <MobileToolbar
+            engine={engine}
+            registry={registry}
+            tools={tools}
+            gifApiBaseUrl={gifApiBaseUrl}
           />
         )}
         {showChrome && showPerfOverlay && <PerformanceOverlay />}

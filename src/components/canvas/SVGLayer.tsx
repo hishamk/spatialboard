@@ -35,6 +35,7 @@ import { resolveNodePorts, nodeTypeHasPorts } from "../../nodes/registry";
 import type { PortDataType, PortValue, PortDirection } from "../../engine/data-flow-types";
 import { nodeShowsEdgeComputeOverlay } from "../../engine/data-flow-types";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
+import { handleHitSizePx } from "./pointer-coarse";
 import { useSBTheme } from "../sidebar/ThemeContext";
 
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -260,6 +261,10 @@ const SelectionBox = memo(function SelectionBox({
   const cy = node.y + h / 2;
   const handleSize = 8 / zoom;
   const half = handleSize / 2;
+  // Touch targets are larger than the drawn 8px squares — invisible hit
+  // shapes carry the pointer events; the visible ones are inert.
+  const hitSize = handleHitSizePx() / zoom;
+  const hitHalf = hitSize / 2;
   const rotateGap = 25 / zoom;
   const isLocked = !!node.locked;
   const rx = Math.max(0, Math.min(cornerRadius, node.w / 2, h / 2));
@@ -310,7 +315,8 @@ const SelectionBox = memo(function SelectionBox({
           </g>
         );
       })()}
-      {/* Resize handles */}
+      {/* Resize handles — visible squares are inert; invisible enlarged rects
+          carry the pointer events (midpoints first so corners win overlaps). */}
       {showHandles && showResizeHandles && !isLocked && handles.map(({ pos, cx: hx, cy: hy }) => (
         <rect
           key={pos}
@@ -321,16 +327,30 @@ const SelectionBox = memo(function SelectionBox({
           fill="white"
           stroke="#3b82f6"
           strokeWidth={1.5 / zoom}
-          style={{
-            cursor: getRotatedCursor(pos, rotation),
-            pointerEvents: "auto",
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onHandlePointerDown?.(node.id, pos, e);
-          }}
+          style={{ pointerEvents: "none" }}
         />
       ))}
+      {showHandles && showResizeHandles && !isLocked &&
+        [...handles.filter((hd) => hd.pos.length === 1), ...handles.filter((hd) => hd.pos.length === 2)].map(
+          ({ pos, cx: hx, cy: hy }) => (
+            <rect
+              key={`hit-${pos}`}
+              x={hx - hitHalf}
+              y={hy - hitHalf}
+              width={hitSize}
+              height={hitSize}
+              fill="transparent"
+              style={{
+                cursor: getRotatedCursor(pos, rotation),
+                pointerEvents: "auto",
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onHandlePointerDown?.(node.id, pos, e);
+              }}
+            />
+          ),
+        )}
       {/* Rotation handle — line from top-center + rotate icon */}
       {showHandles && showRotateHandle && !isLocked && (
         <>
@@ -352,6 +372,13 @@ const SelectionBox = memo(function SelectionBox({
             fill="white"
             stroke="#3b82f6"
             strokeWidth={1.5 / zoom}
+            style={{ pointerEvents: "none" }}
+          />
+          <circle
+            cx={node.x + node.w / 2}
+            cy={node.y - rotateGap}
+            r={hitHalf}
+            fill="transparent"
             style={{ cursor: "grab", pointerEvents: "auto" }}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -892,7 +919,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
           </>
         );
       })()}
-      {/* Edge endpoint handles — draggable to reconnect (sole freeform selection only) */}
+      {/* Edge endpoint handles — draggable to reconnect (sole freeform selection only).
+          Visible dots are inert; enlarged invisible circles take the events. */}
       {showEdgeEditHandles && (
         <>
           <circle
@@ -901,6 +929,20 @@ const EdgeRenderer = memo(function EdgeRenderer({
             fill="#3b82f6"
             stroke="white"
             strokeWidth={1.5 / viewport.zoom}
+            style={{ pointerEvents: "none" }}
+          />
+          <circle
+            cx={x2} cy={y2}
+            r={5 / viewport.zoom}
+            fill="#3b82f6"
+            stroke="white"
+            strokeWidth={1.5 / viewport.zoom}
+            style={{ pointerEvents: "none" }}
+          />
+          <circle
+            cx={x1} cy={y1}
+            r={handleHitSizePx() / 2 / viewport.zoom}
+            fill="transparent"
             style={{ cursor: "grab", pointerEvents: "auto" }}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -909,10 +951,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
           />
           <circle
             cx={x2} cy={y2}
-            r={5 / viewport.zoom}
-            fill="#3b82f6"
-            stroke="white"
-            strokeWidth={1.5 / viewport.zoom}
+            r={handleHitSizePx() / 2 / viewport.zoom}
+            fill="transparent"
             style={{ cursor: "grab", pointerEvents: "auto" }}
             onPointerDown={(e) => {
               e.stopPropagation();
@@ -923,21 +963,29 @@ const EdgeRenderer = memo(function EdgeRenderer({
       )}
       {/* Kink handle — draggable to reposition step/smoothstep bend */}
       {showEdgeEditHandles && kinkHandle && (
-        <circle
-          cx={kinkHandle.x} cy={kinkHandle.y}
-          r={5 / viewport.zoom}
-          fill="white"
-          stroke="#3b82f6"
-          strokeWidth={1.5 / viewport.zoom}
-          style={{
-            cursor: kinkHandle.axis === "xy" ? "move" : kinkHandle.axis === "x" ? "ew-resize" : "ns-resize",
-            pointerEvents: "auto",
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onKinkHandleDown?.(edge.id, kinkHandle.axis, kinkHandle.min, kinkHandle.max, e);
-          }}
-        />
+        <>
+          <circle
+            cx={kinkHandle.x} cy={kinkHandle.y}
+            r={5 / viewport.zoom}
+            fill="white"
+            stroke="#3b82f6"
+            strokeWidth={1.5 / viewport.zoom}
+            style={{ pointerEvents: "none" }}
+          />
+          <circle
+            cx={kinkHandle.x} cy={kinkHandle.y}
+            r={handleHitSizePx() / 2 / viewport.zoom}
+            fill="transparent"
+            style={{
+              cursor: kinkHandle.axis === "xy" ? "move" : kinkHandle.axis === "x" ? "ew-resize" : "ns-resize",
+              pointerEvents: "auto",
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onKinkHandleDown?.(edge.id, kinkHandle.axis, kinkHandle.min, kinkHandle.max, e);
+            }}
+          />
+        </>
       )}
     </g>
   );
@@ -1166,21 +1214,29 @@ export default function SVGLayer({
                         };
                         const [mx, my] = midpoints[side];
                         return (
-                          <circle
-                            key={`ch-${node.id}-${side}`}
-                            cx={mx}
-                            cy={my}
-                            r={handleR}
-                            fill="white"
-                            stroke="#3b82f6"
-                            strokeWidth={1.5 / viewport.zoom}
-                            opacity={0.8}
-                            style={{ cursor: "crosshair", pointerEvents: "auto" }}
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                              onConnectionHandleDown?.(node.id, side, e);
-                            }}
-                          />
+                          <g key={`ch-${node.id}-${side}`}>
+                            <circle
+                              cx={mx}
+                              cy={my}
+                              r={handleR}
+                              fill="white"
+                              stroke="#3b82f6"
+                              strokeWidth={1.5 / viewport.zoom}
+                              opacity={0.8}
+                              style={{ pointerEvents: "none" }}
+                            />
+                            <circle
+                              cx={mx}
+                              cy={my}
+                              r={handleHitSizePx() / 2 / viewport.zoom}
+                              fill="transparent"
+                              style={{ cursor: "crosshair", pointerEvents: "auto" }}
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                onConnectionHandleDown?.(node.id, side, e);
+                              }}
+                            />
+                          </g>
                         );
                       })}
                     </g>
@@ -1209,24 +1265,31 @@ export default function SVGLayer({
                       const isNearestTarget = isDragging &&
                         nearestTargetNodeId === node.id && nearestTargetSide === side;
                       return (
-                        <circle
-                          key={`ch-${node.id}-${side}`}
-                          cx={ox}
-                          cy={oy}
-                          r={isNearestTarget ? 5 / viewport.zoom : handleR}
-                          fill={isDragSource ? "#3b82f6" : isNearestTarget ? "#3b82f6" : "white"}
-                          stroke={isNearestTarget ? "white" : isDragging && !isDragSource ? "#3b82f6" : "#94a3b8"}
-                          strokeWidth={1.5 / viewport.zoom}
-                          opacity={isNearestTarget ? 1 : isDragging && !isDragSource ? 1 : 0.8}
-                          style={{
-                            cursor: isInteractive ? "crosshair" : "default",
-                            pointerEvents: isInteractive ? "auto" : "none",
-                          }}
-                          onPointerDown={isInteractive ? (e) => {
-                            e.stopPropagation();
-                            onConnectionHandleDown?.(node.id, side, e);
-                          } : undefined}
-                        />
+                        <g key={`ch-${node.id}-${side}`}>
+                          <circle
+                            cx={ox}
+                            cy={oy}
+                            r={isNearestTarget ? 5 / viewport.zoom : handleR}
+                            fill={isDragSource ? "#3b82f6" : isNearestTarget ? "#3b82f6" : "white"}
+                            stroke={isNearestTarget ? "white" : isDragging && !isDragSource ? "#3b82f6" : "#94a3b8"}
+                            strokeWidth={1.5 / viewport.zoom}
+                            opacity={isNearestTarget ? 1 : isDragging && !isDragSource ? 1 : 0.8}
+                            style={{ pointerEvents: "none" }}
+                          />
+                          {isInteractive && (
+                            <circle
+                              cx={ox}
+                              cy={oy}
+                              r={handleHitSizePx() / 2 / viewport.zoom}
+                              fill="transparent"
+                              style={{ cursor: "crosshair", pointerEvents: "auto" }}
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                onConnectionHandleDown?.(node.id, side, e);
+                              }}
+                            />
+                          )}
+                        </g>
                       );
                     })}
                   </g>

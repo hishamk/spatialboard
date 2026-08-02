@@ -29,8 +29,8 @@ export default function ColorSwatches({
             onClick={() => onChange(c)}
             style={{
               ...btnBase,
-              width: 20,
-              height: 20,
+              width: "var(--sbp-swatch, 20px)",
+              height: "var(--sbp-swatch, 20px)",
               background: c ?? "transparent",
               border: isActive
                 ? `2px solid ${theme.swatchBorderActive}`

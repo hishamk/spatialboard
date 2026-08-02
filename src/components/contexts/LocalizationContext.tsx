@@ -197,6 +197,8 @@ export interface SpatialBoardLocalization {
   toolLaser: string;
   toolLassoSelect: string;
   toolTextGlyph: string;
+  moreTools: string;
+  close: string;
   roughnessArchitect: string;
   roughnessArtist: string;
   roughnessCartoonist: string;
@@ -443,6 +445,8 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   toolLaser: "Laser",
   toolLassoSelect: "Lasso Select",
   toolTextGlyph: "T",
+  moreTools: "More tools",
+  close: "Close",
   roughnessArchitect: "Architect",
   roughnessArtist: "Artist",
   roughnessCartoonist: "Cartoonist",

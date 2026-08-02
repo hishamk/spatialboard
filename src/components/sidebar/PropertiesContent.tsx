@@ -347,19 +347,19 @@ function RotationInput({
           if (e.key === "Escape") setDraft(null);
         }}
         style={{
-          width: 52,
-          height: 24,
+          width: 56,
+          height: "var(--sbp-ctl-h, 24px)",
           border: `1px solid ${theme.border}`,
           borderRadius: theme.controlBorderRadius,
           background: theme.controlBg,
           color: theme.text,
-          fontSize: 10,
+          fontSize: "var(--sbp-label-fs, 10px)",
           textAlign: "center",
           outline: "none",
           padding: "0 2px",
         }}
       />
-      <span style={{ fontSize: 10, color: theme.textMuted }}>°</span>
+      <span style={{ fontSize: "var(--sbp-label-fs, 10px)", color: theme.textMuted }}>°</span>
     </div>
   );
 }
@@ -424,8 +424,8 @@ function ZOrderControls({
               borderRadius: theme.controlBorderRadius,
               background: theme.controlBg,
               color: theme.text,
-              width: 42,
-              height: 28,
+              width: "var(--sbp-sbtn-w, 42px)",
+              height: "var(--sbp-ctl-h, 28px)",
               fontSize: 11,
               fontWeight: 700,
               cursor: "pointer",
@@ -433,6 +433,7 @@ function ZOrderControls({
               alignItems: "center",
               justifyContent: "center",
               padding: 0,
+              touchAction: "manipulation",
             }}
           >
             {item.icon}
@@ -613,12 +614,13 @@ function TouchSelectionActionsSection({
               background: item.disabled ? theme.controlBg : theme.controlBgActive,
               color: item.danger ? "#fecaca" : theme.text,
               opacity: item.disabled ? 0.45 : 0.95,
-              padding: "5px 10px",
-              fontSize: 10,
+              padding: "var(--sbp-pill-pad, 5px 10px)",
+              fontSize: "var(--sbp-pill-fs, 10px)",
               fontWeight: 700,
               letterSpacing: "0.01em",
               cursor: item.disabled ? "default" : "pointer",
               whiteSpace: "nowrap",
+              touchAction: "manipulation",
             }}
           >
             {item.label}
@@ -692,6 +694,9 @@ interface PropertiesContentProps {
   registry?: NodeTypeRegistry;
   target: SelectionTarget;
   commonProps: MergedCommonProps;
+  /** Mobile sheet layout: style controls first, actions after, canvas
+   *  settings last; the type header is omitted (the sheet header carries it). */
+  mobileLayout?: boolean;
 }
 
 export default function PropertiesContent({
@@ -699,6 +704,7 @@ export default function PropertiesContent({
   registry,
   target,
   commonProps,
+  mobileLayout = false,
 }: PropertiesContentProps) {
   const { labels } = useSBI18n();
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
@@ -746,19 +752,20 @@ export default function PropertiesContent({
     }
   }, [target, openMultiSection]);
 
-  return (
-    <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
-      <SelectionHeader label={headerLabel} />
-      <CanvasSettingsSection
-        engine={engine}
-        open={target.kind === "multi" ? openMultiSection === "canvas" : undefined}
-        onToggle={target.kind === "multi" ? () => setOpenMultiSection((cur) => (cur === "canvas" ? "" : "canvas")) : undefined}
-      />
+  const canvasSettings = (
+    <CanvasSettingsSection
+      engine={engine}
+      open={target.kind === "multi" && !mobileLayout ? openMultiSection === "canvas" : undefined}
+      onToggle={target.kind === "multi" && !mobileLayout ? () => setOpenMultiSection((cur) => (cur === "canvas" ? "" : "canvas")) : undefined}
+    />
+  );
 
-      {isTouchDevice && (
-        <TouchSelectionActionsSection engine={engine} target={target} />
-      )}
+  const touchActions = isTouchDevice ? (
+    <TouchSelectionActionsSection engine={engine} target={target} />
+  ) : null;
 
+  const styleControls = (
+    <>
       {target.kind === "tool" && (
         <ToolModeProperties engine={engine} mode={target.mode} fontsInScene={fontsInScene} />
       )}
@@ -802,6 +809,28 @@ export default function PropertiesContent({
           ))}
         </>
       )}
+    </>
+  );
+
+  // Mobile sheet: what you came to change (style) sits under your thumb first,
+  // actions follow, board-level canvas settings park at the bottom. The type
+  // header is omitted — the sheet's own header names the selection.
+  if (mobileLayout) {
+    return (
+      <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
+        {styleControls}
+        {touchActions}
+        {canvasSettings}
+      </PropertyHistoryCoalesceContext.Provider>
+    );
+  }
+
+  return (
+    <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
+      <SelectionHeader label={headerLabel} />
+      {canvasSettings}
+      {touchActions}
+      {styleControls}
     </PropertyHistoryCoalesceContext.Provider>
   );
 }

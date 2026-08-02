@@ -72,7 +72,7 @@ export default function CanvasSearchBar({ engine }: { engine: SpatialEngine }) {
     <div
       style={{
         position: "absolute",
-        top: 12,
+        top: "calc(12px + env(safe-area-inset-top, 0px))",
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 10001,
@@ -80,6 +80,7 @@ export default function CanvasSearchBar({ engine }: { engine: SpatialEngine }) {
         alignItems: "center",
         gap: 8,
         padding: 8,
+        maxWidth: "calc(100% - 16px)",
         borderRadius: 10,
         border: `1px solid ${theme.border}`,
         background: theme.panelBg,
@@ -105,6 +106,8 @@ export default function CanvasSearchBar({ engine }: { engine: SpatialEngine }) {
         }}
         style={{
           width: 260,
+          minWidth: 0,
+          flex: "1 1 120px",
           height: 30,
           borderRadius: 8,
           border: `1px solid ${theme.border}`,

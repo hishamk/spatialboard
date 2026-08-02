@@ -181,6 +181,7 @@ export default function GifSearchPanel({
         zIndex: 99999,
         boxShadow: theme.panelShadow,
         width: 300,
+        maxWidth: "calc(100vw - 16px)",
         maxHeight: "min(420px, calc(100dvh - 16px))",
         display: "flex",
         flexDirection: "column",

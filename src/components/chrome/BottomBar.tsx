@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { ToolKey } from "../../engine/types";
 import { useSBTheme } from "../sidebar/ThemeContext";
 import { useSBI18n } from "../contexts/LocalizationContext";
+import { MOBILE_TOOLBAR_CLEARANCE } from "../sidebar/styles";
 
 const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
@@ -34,6 +35,7 @@ const btn: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: 0,
+  touchAction: "manipulation",
 };
 
 const sp = {
@@ -130,6 +132,13 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <path d="M6.5 10v5.5H14" {...sp} />
         </>
       )}
+      {name === "more" && (
+        <>
+          <circle cx="5" cy="12" r="1.8" fill="currentColor" />
+          <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+          <circle cx="19" cy="12" r="1.8" fill="currentColor" />
+        </>
+      )}
     </svg>
   );
 }
@@ -140,6 +149,12 @@ interface BottomBarProps {
    *  `frame` the present + slides-panel controls are hidden (a graph has no
    *  slides); zoom, fit, minimap, and undo/redo always stay. */
   tools?: ToolKey[];
+  /** Compact (mobile/narrow-embed) layout: zoom + undo/redo pills and a ⋯
+   *  menu holding the rest, stacked above the MobileToolbar tool row. */
+  compact?: boolean;
+  /** Compact only: true when the MobileToolbar renders below this bar (the
+   *  bar raises to clear it). False e.g. for read-only viewers (no tool row). */
+  raised?: boolean;
   framesPanelOpen?: boolean;
   onToggleFramesPanel?: () => void;
   showMinimap?: boolean;
@@ -158,6 +173,8 @@ interface BottomBarProps {
 export default function BottomBar({
   engine,
   tools,
+  compact = false,
+  raised = false,
   framesPanelOpen,
   onToggleFramesPanel,
   showMinimap,
@@ -168,7 +185,7 @@ export default function BottomBar({
   toolsSlot,
 }: BottomBarProps) {
   const theme = useSBTheme();
-  const { labels } = useSBI18n();
+  const { labels, isRTL } = useSBI18n();
   // Slides/present are canvas-only chrome; hidden when `frame` is not allowed.
   const showSlides = !tools || tools.includes("frame");
   const [zoom, setZoom] = useState(engine.viewport.zoom);
@@ -179,6 +196,25 @@ export default function BottomBar({
   const [frameCount, setFrameCount] = useState(
     () => engine.getAllNodes().filter((n) => n.type === "frame").length,
   );
+  // Compact ⋯ menu (fit / search / origin / present / slides / minimap / …)
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const doc = menuRef.current?.ownerDocument ?? document;
+    const handle = (e: PointerEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    doc.addEventListener("pointerdown", handle, true);
+    return () => doc.removeEventListener("pointerdown", handle, true);
+  }, [menuOpen]);
 
   useEffect(() => {
     const handleViewport = () => setZoom(engine.viewport.zoom);
@@ -221,6 +257,224 @@ export default function BottomBar({
     background: theme.separator,
     flexShrink: 0,
   };
+
+  if (compact) {
+    const barBottom = raised
+      ? `calc(${MOBILE_TOOLBAR_CLEARANCE}px + env(safe-area-inset-bottom, 0px))`
+      : "calc(12px + env(safe-area-inset-bottom, 0px))";
+    const menuRow: React.CSSProperties = {
+      ...btn,
+      width: "100%",
+      minHeight: 44,
+      justifyContent: "flex-start",
+      gap: 12,
+      padding: "0 12px",
+      borderRadius: theme.controlBorderRadius,
+      color: theme.text,
+      fontSize: 13,
+      fontFamily: "inherit",
+      textAlign: "start",
+    };
+    const closeAnd = (fn: () => void) => () => {
+      setMenuOpen(false);
+      fn();
+    };
+    return (
+      <>
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            data-sb-bar-menu
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              bottom: `calc(${barBottom} + 48px)`,
+              [isRTL ? "left" : "right"]: 8,
+              width: 232,
+              maxWidth: "calc(100% - 16px)",
+              maxHeight: "min(55dvh, 430px)",
+              overflowY: "auto",
+              touchAction: "pan-y",
+              overscrollBehavior: "contain",
+              background: pillBg,
+              border,
+              borderRadius: theme.panelBorderRadius,
+              boxShadow: theme.panelShadow,
+              padding: 6,
+              zIndex: 10020,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <button style={menuRow} onClick={closeAnd(() => engine.fitToContent())}>
+              <Icon name="fit" /> {labels.fitToContent}
+            </button>
+            <button
+              style={menuRow}
+              onClick={closeAnd(() => document.dispatchEvent(new CustomEvent("sb:search-open")))}
+            >
+              <Icon name="search" /> {labels.canvasSearchOpen}
+            </button>
+            <button
+              style={{ ...menuRow, color: hasOriginView ? theme.accentColor : theme.text }}
+              onClick={() => {
+                if (hasOriginView) {
+                  engine.clearOriginView();
+                  setHasOriginView(false);
+                } else {
+                  engine.setOriginView();
+                  setHasOriginView(true);
+                }
+              }}
+            >
+              <Icon name={hasOriginView ? "bookmark-fill" : "bookmark"} />
+              {hasOriginView ? labels.clearOriginView : labels.saveOriginView}
+            </button>
+            {hasOriginView && (
+              <button style={menuRow} onClick={closeAnd(() => engine.goToOriginView())}>
+                <Icon name="home" /> {labels.goToOriginView}
+              </button>
+            )}
+            {showSlides && (
+              <button style={menuRow} onClick={closeAnd(() => engine.enterPresentation())}>
+                <Icon name="play" /> {labels.presentSlides}
+              </button>
+            )}
+            {showSlides && onToggleFramesPanel && (
+              <button
+                style={{ ...menuRow, background: framesPanelOpen ? theme.controlBgActive : "transparent" }}
+                onClick={closeAnd(onToggleFramesPanel)}
+              >
+                <Icon name="slides" />
+                <span style={{ flex: 1 }}>{labels.toggleSlidesPanel}</span>
+                {frameCount > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor }}>{frameCount}</span>
+                )}
+              </button>
+            )}
+            {onToggleMinimap && (
+              <button
+                style={{ ...menuRow, color: showMinimap ? theme.accentColor : theme.text }}
+                onClick={onToggleMinimap}
+              >
+                <Icon name="minimap" /> {labels.toggleMinimap}
+              </button>
+            )}
+            {canArrangeBoard && (
+              <button
+                style={menuRow}
+                onClick={closeAnd(() =>
+                  engine.arrangeAllNodes(engine.measuredHeights, engine.viewport.zoom),
+                )}
+              >
+                <Icon name="arrange" /> {labels.actionArrangeBoard}
+              </button>
+            )}
+            {onTogglePerfOverlay && (
+              <button
+                style={{ ...menuRow, color: showPerfOverlay ? theme.accentColor : theme.text }}
+                onClick={onTogglePerfOverlay}
+              >
+                <Icon name="gauge" /> {labels.togglePerformanceOverlay}
+              </button>
+            )}
+          </div>
+        )}
+        <div
+          data-sb-bottombar
+          style={{
+            position: "absolute",
+            bottom: barBottom,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: 6,
+            zIndex: 10000,
+            pointerEvents: "auto",
+            maxWidth: "calc(100% - 12px)",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div data-sb-bar-zoom style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+            <button
+              title={labels.zoomOut}
+              onClick={() => zoomOut(engine)}
+              style={{ ...btn, width: 40, height: 40, color: theme.text }}
+            >
+              <Icon name="minus" />
+            </button>
+            <div style={sep} />
+            <button
+              title={labels.resetZoom}
+              onClick={() => {
+                engine.viewport.zoom = 1;
+                engine.pan(0, 0);
+              }}
+              style={{
+                ...btn,
+                minWidth: 46,
+                height: 40,
+                color: theme.text,
+                fontSize: 11,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                padding: "0 4px",
+              }}
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <div style={sep} />
+            <button
+              title={labels.zoomIn}
+              onClick={() => zoomIn(engine)}
+              style={{ ...btn, width: 40, height: 40, color: theme.text }}
+            >
+              <Icon name="plus" />
+            </button>
+          </div>
+
+          <div data-sb-bar-history style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+            <button
+              title={labels.undo}
+              onClick={() => engine.undo()}
+              disabled={!canUndo}
+              style={{ ...btn, width: 40, height: 40, color: canUndo ? theme.text : theme.textFaint }}
+            >
+              <Icon name="undo" />
+            </button>
+            <div style={sep} />
+            <button
+              title={labels.redo}
+              onClick={() => engine.redo()}
+              disabled={!canRedo}
+              style={{ ...btn, width: 40, height: 40, color: canRedo ? theme.text : theme.textFaint }}
+            >
+              <Icon name="redo" />
+            </button>
+          </div>
+
+          <div data-sb-bar-more style={{ ...pill, background: pillBg, border, boxShadow: theme.panelShadow }}>
+            <button
+              ref={menuBtnRef}
+              title={labels.moreTools}
+              aria-label={labels.moreTools}
+              onClick={() => setMenuOpen((v) => !v)}
+              style={{
+                ...btn,
+                width: 40,
+                height: 40,
+                color: theme.text,
+                background: menuOpen ? theme.controlBgActive : "transparent",
+              }}
+            >
+              <Icon name="more" />
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div

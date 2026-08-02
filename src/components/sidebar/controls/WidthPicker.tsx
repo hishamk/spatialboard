@@ -28,8 +28,8 @@ export default function WidthPicker({
             onClick={() => onChange(w)}
             style={{
               ...btnBase,
-              width: 30,
-              height: 24,
+              width: "var(--sbp-wbtn-w, 30px)",
+              height: "var(--sbp-ctl-h, 24px)",
               background: !mixed && value === w ? theme.controlBgActive : theme.controlBg,
               borderRadius: theme.controlBorderRadius,
             }}

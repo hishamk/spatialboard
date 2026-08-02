@@ -21,9 +21,12 @@ interface SidebarProps {
    *  tools in the BottomBar instead (SpatialBoard `toolsInBottomBar`) — the
    *  floating inspector still renders per `nodeInspector`. */
   toolStrip?: boolean;
+  /** Compact layout (board container < COMPACT_BREAKPOINT) — the inspector
+   *  renders as a bottom sheet. */
+  compact?: boolean;
 }
 
-export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, tools, nodeInspector = true, toolStrip = true }: SidebarProps) {
+export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, tools, nodeInspector = true, toolStrip = true, compact }: SidebarProps) {
   const { isRTL } = useSBI18n();
   return (
     <>
@@ -44,7 +47,7 @@ export default function Sidebar({ engine, registry, gifApiBaseUrl, hostActive, t
           <ToolStrip engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} tools={tools} />
         </div>
       )}
-      {nodeInspector && <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} />}
+      {nodeInspector && <FloatingProperties engine={engine} registry={registry} hostActive={hostActive} compact={compact} />}
     </>
   );
 }

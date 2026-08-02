@@ -5,6 +5,7 @@ import type { NodeTypeRegistry } from "../../nodes/registry";
 import { nodeTypeHasPorts } from "../../nodes/registry";
 import type { HandlePosition } from "./SVGLayer";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
+import { handleHitSizePx } from "./pointer-coarse";
 import { SEL_PAD } from "./node-item-context";
 
 /* ------------------------------------------------------------------ */
@@ -133,6 +134,10 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
 
   const handleSize = 8 / viewport.zoom;
   const half = handleSize / 2;
+  // Touch targets exceed the drawn 8px squares — invisible hit shapes carry
+  // the pointer events; the visible ones are inert.
+  const hitSize = handleHitSizePx() / viewport.zoom;
+  const hitHalf = hitSize / 2;
   const selectionAllowsResize = Array.from(engine.selection).every((id) => {
     const n = engine.getNode(id);
     if (!n || n.type === "edge") return true;
@@ -182,13 +187,28 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
               fill="white"
               stroke="#3b82f6"
               strokeWidth={1.5 / viewport.zoom}
-              style={{ cursor: getRotatedCursor(pos, rotAngle), pointerEvents: "auto" }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onResizeDown(pos, e);
-              }}
+              style={{ pointerEvents: "none" }}
             />
           ))}
+          {/* Enlarged invisible touch targets (midpoints first — corners win overlaps) */}
+          {rotAngle === 0 && selectionAllowsResize &&
+            [...handles.filter((hd) => hd.pos.length === 1), ...handles.filter((hd) => hd.pos.length === 2)].map(
+              ({ pos, cx, cy }) => (
+                <rect
+                  key={`hit-${pos}`}
+                  x={cx - hitHalf}
+                  y={cy - hitHalf}
+                  width={hitSize}
+                  height={hitSize}
+                  fill="transparent"
+                  style={{ cursor: getRotatedCursor(pos, rotAngle), pointerEvents: "auto" }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    onResizeDown(pos, e);
+                  }}
+                />
+              ),
+            )}
           {/* Rotation handle */}
           {selectionAllowsRotate && (() => {
             const rotateGap = 25 / viewport.zoom;
@@ -209,19 +229,28 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
                   const rotateSize = 8 / viewport.zoom;
                   const rotateHalf = rotateSize / 2;
                   return (
-                    <rect
-                      x={topCx - rotateHalf}
-                      y={topCy - rotateGap - rotateHalf}
-                      width={rotateSize}
-                      height={rotateSize}
-                      rx={1.5 / viewport.zoom}
-                      transform={`rotate(45, ${topCx}, ${topCy - rotateGap})`}
-                      fill="white"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5 / viewport.zoom}
-                      style={{ cursor: "grab", pointerEvents: "auto" }}
-                      onPointerDown={(e) => onRotateDown(e)}
-                    />
+                    <>
+                      <rect
+                        x={topCx - rotateHalf}
+                        y={topCy - rotateGap - rotateHalf}
+                        width={rotateSize}
+                        height={rotateSize}
+                        rx={1.5 / viewport.zoom}
+                        transform={`rotate(45, ${topCx}, ${topCy - rotateGap})`}
+                        fill="white"
+                        stroke="#3b82f6"
+                        strokeWidth={1.5 / viewport.zoom}
+                        style={{ pointerEvents: "none" }}
+                      />
+                      <circle
+                        cx={topCx}
+                        cy={topCy - rotateGap}
+                        r={hitHalf}
+                        fill="transparent"
+                        style={{ cursor: "grab", pointerEvents: "auto" }}
+                        onPointerDown={(e) => onRotateDown(e)}
+                      />
+                    </>
                   );
                 })()}
               </>
@@ -248,24 +277,32 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
               { side: "left", cx: b.x - connOffset, cy: b.y + b.h / 2 },
             ];
             return sides.map(({ side, cx, cy }) => (
-              <circle
-                key={`conn-${side}`}
-                cx={cx}
-                cy={cy}
-                r={connR}
-                fill="white"
-                stroke="#94a3b8"
-                strokeWidth={1.5 / viewport.zoom}
-                opacity={0.8}
-                style={{ cursor: "crosshair", pointerEvents: "auto" }}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  const nodeId = findNearestNodeForSide(side);
-                  if (nodeId) {
-                    onConnectionDown(nodeId, side, e as unknown as React.PointerEvent<SVGCircleElement>);
-                  }
-                }}
-              />
+              <g key={`conn-${side}`}>
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={connR}
+                  fill="white"
+                  stroke="#94a3b8"
+                  strokeWidth={1.5 / viewport.zoom}
+                  opacity={0.8}
+                  style={{ pointerEvents: "none" }}
+                />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={hitHalf}
+                  fill="transparent"
+                  style={{ cursor: "crosshair", pointerEvents: "auto" }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    const nodeId = findNearestNodeForSide(side);
+                    if (nodeId) {
+                      onConnectionDown(nodeId, side, e as unknown as React.PointerEvent<SVGCircleElement>);
+                    }
+                  }}
+                />
+              </g>
             ));
           })()}
         </g>

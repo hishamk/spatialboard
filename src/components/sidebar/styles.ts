@@ -3,6 +3,13 @@ import type { StrokeStyle, FillStyle, TextAlign } from "../../engine/types";
 export const TOOL_STRIP_WIDTH = 52;
 export const PROPERTIES_WIDTH = 300;
 export const SIDEBAR_WIDTH = TOOL_STRIP_WIDTH + PROPERTIES_WIDTH;
+/** Board container widths below this get the compact (mobile/touch) chrome:
+ *  bottom tool row + overflow menus instead of the side rail + full bottom bar. */
+export const COMPACT_BREAKPOINT = 640;
+/** Space (px, excluding safe-area inset) the compact tool row occupies at the
+ *  bottom of the board — the compact BottomBar, overflow menus, and the
+ *  inspector bottom sheet all stack above this so the tools stay reachable. */
+export const MOBILE_TOOLBAR_CLEARANCE = 70;
 
 export const STROKE_COLORS = [
   "#1e1e2e",
@@ -96,17 +103,37 @@ export const STICKY_PALETTES: ColorPalette[] = [
   { name: "Cool",     colors: ["#BFDBFE", "#A5F3FC", "#C7D2FE", "#DDD6FE", "#BAE6FD", "#E0E7FF"] },
 ];
 
+// Inspector control metrics reference density variables with the historical
+// desktop value as the fallback — desktop renders byte-identical, while the
+// mobile sheet sets `--sbp-*` on its container to get thumb-sized controls
+// through every shared primitive without threading props.
 export const rowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 6,
+  gap: "var(--sbp-row-gap, 6px)",
 };
 
 export const labelStyle: React.CSSProperties = {
-  width: 64,
-  fontSize: 10,
+  width: "var(--sbp-label-w, 64px)",
+  fontSize: "var(--sbp-label-fs, 10px)",
   flexShrink: 0,
 };
+
+/** Density overrides the mobile properties sheet sets on its container. */
+export const TOUCH_PROPS_VARS = {
+  "--sbp-row-gap": "8px",
+  "--sbp-label-w": "72px",
+  "--sbp-label-fs": "12px",
+  "--sbp-swatch": "30px",
+  "--sbp-ctl-h": "38px",
+  "--sbp-wbtn-w": "40px",
+  "--sbp-sbtn-w": "46px",
+  "--sbp-sec-fs": "11px",
+  "--sbp-sec-pad": "10px 12px",
+  "--sbp-sec-content-pad": "10px 12px 12px",
+  "--sbp-pill-fs": "12px",
+  "--sbp-pill-pad": "9px 14px",
+} as React.CSSProperties;
 
 export const btnBase: React.CSSProperties = {
   border: "none",

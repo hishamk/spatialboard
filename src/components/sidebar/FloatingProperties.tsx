@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { useMultiSelection } from "./useMultiSelection";
-import { PROPERTIES_WIDTH, TOOL_STRIP_WIDTH } from "./styles";
+import { PROPERTIES_WIDTH, TOOL_STRIP_WIDTH, COMPACT_BREAKPOINT, MOBILE_TOOLBAR_CLEARANCE, TOUCH_PROPS_VARS } from "./styles";
 import { useSBTheme, SB_UI_FONT } from "./ThemeContext";
-import PropertiesContent from "./PropertiesContent";
+import PropertiesContent, { getHeaderLabel } from "./PropertiesContent";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
 interface FloatingPropertiesProps {
@@ -13,15 +13,34 @@ interface FloatingPropertiesProps {
   registry?: NodeTypeRegistry;
   /** When false, a popped-out inspector hides (its host panel is backgrounded). */
   hostActive?: boolean;
+  /** Compact layout (board container < COMPACT_BREAKPOINT) — renders the
+   *  bottom-sheet variant. When omitted, falls back to self-measuring. */
+  compact?: boolean;
 }
 
-export default function FloatingProperties({ engine, registry, hostActive }: FloatingPropertiesProps) {
+export default function FloatingProperties({ engine, registry, hostActive, compact }: FloatingPropertiesProps) {
   const theme = useSBTheme();
   const { isRTL, labels } = useSBI18n();
   const { target, commonProps } = useMultiSelection(engine);
   const visible = target.kind !== "none";
 
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileMeasured, setIsMobileMeasured] = useState(false);
+  const isMobile = compact ?? isMobileMeasured;
+  // Mobile: the sheet is ON-DEMAND (opened from the sliders trigger) — it
+  // never auto-opens on selection. Deselecting closes it again.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    if (!visible) setSheetOpen(false);
+  }, [visible]);
+
+  // With the host-provided `compact` prop the measuring observer (below) may
+  // never see a mounted panel — seed the auto-hide default from it directly.
+  useEffect(() => {
+    if (compact && !autoHideInitializedRef.current) {
+      autoHideInitializedRef.current = true;
+      setAutoHideEnabled(true);
+    }
+  }, [compact]);
   const [canvasInteracting, setCanvasInteracting] = useState(false);
   const [autoHideEnabled, setAutoHideEnabled] = useState(false);
   const interactionClearTimerRef = useRef<number | null>(null);
@@ -97,22 +116,24 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
     if (!container) return;
     const ro = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? container.clientWidth;
-      setIsMobile(width < 600);
-      const compact = computeCompactScreen(width);
+      setIsMobileMeasured(width < COMPACT_BREAKPOINT);
+      const compactScreen = computeCompactScreen(width);
       if (!autoHideInitializedRef.current) {
-        setAutoHideEnabled(compact);
+        setAutoHideEnabled(compactScreen);
         autoHideInitializedRef.current = true;
       }
     });
     ro.observe(container);
-    setIsMobile(container.clientWidth < 600);
+    setIsMobileMeasured(container.clientWidth < COMPACT_BREAKPOINT);
     const initialCompact = computeCompactScreen(container.clientWidth);
     if (!autoHideInitializedRef.current) {
       setAutoHideEnabled(initialCompact);
       autoHideInitializedRef.current = true;
     }
     return () => ro.disconnect();
-  }, [computeCompactScreen, poppedOut]);
+    // `visible` re-attaches the observer once the panel actually mounts —
+    // before the first selection panelRef.current is null (fallback path only).
+  }, [computeCompactScreen, poppedOut, visible]);
 
   // On compact screens (iPad + smaller), auto-hide inspector while user is actively
   // interacting with the canvas (draw/select/drag/edit), then restore shortly after.
@@ -268,91 +289,180 @@ export default function FloatingProperties({ engine, registry, hostActive }: Flo
 
   if (!visible) return null;
 
-  // On narrow screens (mobile/tablet), render a bottom sheet
+  // On narrow screens: ON-DEMAND properties (the Excalidraw pattern). Nothing
+  // auto-opens while working with a node — a small sliders trigger sits above
+  // the tool row whenever there IS a target (selection or active tool), and
+  // the sheet only opens when tapped. Deselecting unmounts everything.
   if (isMobile) {
+    const chromeBottom = `calc(${MOBILE_TOOLBAR_CLEARANCE}px + env(safe-area-inset-bottom, 0px))`;
     return (
-      <div
-        ref={panelRef}
-        data-sb-props-panel
-        onPointerDown={(e) => e.stopPropagation()}
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "45vh",
-          minHeight: 200,
-          background: panelBg,
-          borderRadius: "12px 12px 0 0",
-          boxShadow: "0 -4px 24px rgba(0,0,0,0.25)",
-          zIndex: 200,
-          display: "flex",
-          flexDirection: "column",
-          color: theme.text,
-          fontSize: 12,
-          backdropFilter: "blur(8px) saturate(120%)",
-          WebkitBackdropFilter: "blur(8px) saturate(120%)",
-          opacity: shouldHideForInteraction ? 0 : 1,
-          transform: shouldHideForInteraction ? "translateY(8px)" : "translateY(0)",
-          transition: "opacity 140ms ease, transform 160ms ease",
-          pointerEvents: shouldHideForInteraction ? "none" : "auto",
-        }}
-      >
-        {/* Drag pill */}
-        <div
+      <>
+        {sheetOpen && (
+          <div
+            ref={panelRef}
+            data-sb-props-panel
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              // Floats ABOVE the mobile tool row (not over it) so switching
+              // tools stays possible while the sheet is open.
+              position: "absolute",
+              bottom: chromeBottom,
+              left: 6,
+              right: 6,
+              maxHeight: "min(52vh, 460px)",
+              background: panelBg,
+              borderRadius: 12,
+              boxShadow: "0 -4px 24px rgba(0,0,0,0.25)",
+              // Above the compact BottomBar pills (10000) — menus open above this.
+              zIndex: 10010,
+              display: "flex",
+              flexDirection: "column",
+              color: theme.text,
+              fontSize: 12,
+              backdropFilter: "blur(8px) saturate(120%)",
+              WebkitBackdropFilter: "blur(8px) saturate(120%)",
+              opacity: shouldHideForInteraction ? 0 : 1,
+              transform: shouldHideForInteraction ? "translateY(8px)" : "translateY(0)",
+              transition: "opacity 140ms ease, transform 160ms ease",
+              pointerEvents: shouldHideForInteraction ? "none" : "auto",
+            }}
+          >
+            <div
+              style={{
+                height: 40,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexShrink: 0,
+                padding: "0 6px 0 12px",
+                borderBottom: `1px solid ${theme.border}`,
+              }}
+            >
+              <span
+                style={{
+                  fontWeight: 600,
+                  fontSize: 12,
+                  color: theme.text,
+                  letterSpacing: "0.02em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {getHeaderLabel(target, labels)}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: theme.textMuted,
+                    fontSize: 11,
+                    userSelect: "none",
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <span>{labels.autoHide}</span>
+                  <input
+                    type="checkbox"
+                    checked={autoHideEnabled}
+                    onChange={(e) => setAutoHideEnabled(e.target.checked)}
+                    style={{ accentColor: theme.accentColor }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-label={labels.close ?? "Close"}
+                  onClick={() => setSheetOpen(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 34,
+                    height: 34,
+                    padding: 0,
+                    border: "none",
+                    borderRadius: 8,
+                    background: "transparent",
+                    color: theme.textMuted,
+                    cursor: "pointer",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </span>
+            </div>
+            <div
+              style={{
+                overflowY: "auto",
+                padding: "12px 14px 14px",
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                fontSize: 13,
+                touchAction: "pan-y",
+                overscrollBehavior: "contain",
+                ...TOUCH_PROPS_VARS,
+              }}
+            >
+              <PropertiesContent
+                engine={engine}
+                registry={registry}
+                target={target}
+                commonProps={commonProps}
+                mobileLayout
+              />
+            </div>
+          </div>
+        )}
+        {/* Sliders trigger — start-aligned beside the compact BottomBar */}
+        <button
+          type="button"
+          data-sb-props-trigger
+          title={labels.inspectorTitle}
+          aria-label={labels.inspectorTitle}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setSheetOpen((v) => !v)}
           style={{
-            height: 36,
+            position: "absolute",
+            bottom: chromeBottom,
+            [isRTL ? "right" : "left"]: 4,
+            width: 42,
+            height: 42,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            padding: "0 12px",
+            justifyContent: "center",
+            padding: 0,
+            border: `1px solid ${theme.border}`,
+            borderRadius: theme.panelBorderRadius,
+            background: sheetOpen ? theme.controlBgActive : panelBg,
+            color: theme.text,
+            boxShadow: theme.panelShadow,
+            cursor: "pointer",
+            touchAction: "manipulation",
+            zIndex: 10000,
+            opacity: shouldHideForInteraction ? 0 : 1,
+            transition: "opacity 140ms ease",
+            pointerEvents: shouldHideForInteraction ? "none" : "auto",
           }}
         >
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              color: theme.textMuted,
-              fontSize: 11,
-              userSelect: "none",
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <span>{labels.autoHide}</span>
-            <input
-              type="checkbox"
-              checked={autoHideEnabled}
-              onChange={(e) => setAutoHideEnabled(e.target.checked)}
-              style={{ accentColor: theme.accentColor }}
-            />
-          </label>
-          <div
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              background: theme.border,
-            }}
-          />
-        </div>
-        <div
-          style={{
-            overflowY: "auto",
-            padding: "0 16px 24px",
-            flex: 1,
-            touchAction: "pan-y",
-          }}
-        >
-          <PropertiesContent
-            engine={engine}
-            registry={registry}
-            target={target}
-            commonProps={commonProps}
-          />
-        </div>
-      </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h16" />
+            <circle cx="9" cy="7" r="2.2" fill={panelBg} />
+            <circle cx="15" cy="12" r="2.2" fill={panelBg} />
+            <circle cx="7" cy="17" r="2.2" fill={panelBg} />
+          </svg>
+        </button>
+      </>
     );
   }
 

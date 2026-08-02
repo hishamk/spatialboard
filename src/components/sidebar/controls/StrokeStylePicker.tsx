@@ -26,8 +26,8 @@ export default function StrokeStylePicker({
           onClick={() => onChange(s.key)}
           style={{
             ...btnBase,
-            width: 36,
-            height: 28,
+            width: "var(--sbp-sbtn-w, 36px)",
+            height: "var(--sbp-ctl-h, 28px)",
             background: !mixed && value === s.key ? theme.controlBgActive : theme.controlBg,
             borderRadius: theme.controlBorderRadius,
           }}
