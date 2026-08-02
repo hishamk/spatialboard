@@ -6,6 +6,7 @@ import type { BlockNoteNode } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { SBDSchema } from "../../schema";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
+import { observeResize } from "../../utils/shared-resize-observer";
 import { applyCornerAspectLock } from "../../interactions/resize-aspect";
 
 // ---------------------------------------------------------------------------
@@ -327,9 +328,7 @@ function BlockNoteBlock({
       if (h > 0) onMeasuredHeight(node.id, h);
     };
     report();
-    const ro = new ResizeObserver(report);
-    ro.observe(el);
-    return () => ro.disconnect();
+    return observeResize(el, report);
   }, [node.id, node.h, onMeasuredHeight]);
 
   /**
@@ -747,7 +746,7 @@ function BlockNoteBlock({
           : "none",
         boxSizing: node.data.borderColor ? "border-box" : undefined,
         outline: isSelected
-          ? `${1.5 / zoom}px dashed #3b82f6`
+          ? `${1.5 / zoom}px solid #3b82f6`
           : "none",
         outlineOffset: node.data.borderColor ? 2 / zoom : 0,
         borderRadius: node.data.edgeStyle === "round" ? 12 : 0,

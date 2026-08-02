@@ -7,6 +7,7 @@ import type { HandlePosition } from "./SVGLayer";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
 import { SEL_PAD } from "./node-item-context";
+import { selectionInkPad } from "./selection-pad";
 
 /* ------------------------------------------------------------------ */
 /*  SelectionChromeOverlay — multi-select bounding box + handles.      */
@@ -66,10 +67,13 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
     if (!n || n.type === "edge") continue;
     const h = n.h === "auto" ? (measuredHeights[n.id] ?? 100) : (n.h as number);
     const aabb = getNodeAABB(n, h);
-    minX = Math.min(minX, aabb.minX);
-    minY = Math.min(minY, aabb.minY);
-    maxX = Math.max(maxX, aabb.maxX);
-    maxY = Math.max(maxY, aabb.maxY);
+    // Ink envelope (centered strokes + RoughJS wobble) — uniform pre-rotation
+    // padding grows the rotated AABB by exactly `pad` per axis.
+    const pad = selectionInkPad(n);
+    minX = Math.min(minX, aabb.minX - pad);
+    minY = Math.min(minY, aabb.minY - pad);
+    maxX = Math.max(maxX, aabb.maxX + pad);
+    maxY = Math.max(maxY, aabb.maxY + pad);
   }
   if (minX === Infinity) return null;
   const selBounds = {

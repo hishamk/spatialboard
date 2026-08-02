@@ -36,6 +36,7 @@ import type { PortDataType, PortValue, PortDirection } from "../../engine/data-f
 import { nodeShowsEdgeComputeOverlay } from "../../engine/data-flow-types";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
+import { selectionInkPad } from "./selection-pad";
 import { useSBTheme } from "../sidebar/ThemeContext";
 
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -273,39 +274,46 @@ const SelectionBox = memo(function SelectionBox({
   const hitHalf = hitSize / 2;
   const rotateGap = 25 / zoom;
   const isLocked = !!node.locked;
-  const rx = Math.max(0, Math.min(cornerRadius, node.w / 2, h / 2));
+  // Padded bounds so the node's ink (centered strokes, RoughJS wobble) sits
+  // INSIDE the box instead of seeping past it. Padding is symmetric, so the
+  // rotation center is unchanged.
+  const pad = selectionInkPad(node);
+  const bx = node.x - pad;
+  const by = node.y - pad;
+  const bw = node.w + pad * 2;
+  const bh = h + pad * 2;
+  const rx = cornerRadius > 0 ? Math.max(0, Math.min(cornerRadius + pad, bw / 2, bh / 2)) : 0;
 
   const handles: { pos: HandlePosition; cx: number; cy: number }[] = [
-    { pos: "nw", cx: node.x, cy: node.y },
-    { pos: "n", cx: node.x + node.w / 2, cy: node.y },
-    { pos: "ne", cx: node.x + node.w, cy: node.y },
-    { pos: "e", cx: node.x + node.w, cy: node.y + h / 2 },
-    { pos: "se", cx: node.x + node.w, cy: node.y + h },
-    { pos: "s", cx: node.x + node.w / 2, cy: node.y + h },
-    { pos: "sw", cx: node.x, cy: node.y + h },
-    { pos: "w", cx: node.x, cy: node.y + h / 2 },
+    { pos: "nw", cx: bx, cy: by },
+    { pos: "n", cx: bx + bw / 2, cy: by },
+    { pos: "ne", cx: bx + bw, cy: by },
+    { pos: "e", cx: bx + bw, cy: by + bh / 2 },
+    { pos: "se", cx: bx + bw, cy: by + bh },
+    { pos: "s", cx: bx + bw / 2, cy: by + bh },
+    { pos: "sw", cx: bx, cy: by + bh },
+    { pos: "w", cx: bx, cy: by + bh / 2 },
   ];
 
   return (
     <g transform={`rotate(${rotation}, ${cx}, ${cy})`}>
       {/* Selection border — dotted line */}
       <rect
-        x={node.x}
-        y={node.y}
-        width={node.w}
-        height={h}
+        x={bx}
+        y={by}
+        width={bw}
+        height={bh}
         rx={rx}
         ry={rx}
         fill="none"
         stroke={isLocked ? "#f59e0b" : "#3b82f6"}
         strokeWidth={1.5 / zoom}
-        strokeDasharray={`${4 / zoom} ${3 / zoom}`}
       />
       {/* Lock icon */}
       {isLocked && (() => {
         const iconSize = 16 / zoom;
-        const ix = node.x + node.w - iconSize - 4 / zoom;
-        const iy = node.y - iconSize - 4 / zoom;
+        const ix = bx + bw - iconSize - 4 / zoom;
+        const iy = by - iconSize - 4 / zoom;
         return (
           <g transform={`translate(${ix}, ${iy})`}>
             <rect
@@ -361,28 +369,28 @@ const SelectionBox = memo(function SelectionBox({
       {showHandles && showRotateHandle && !isLocked && (
         <>
           <line
-            x1={node.x + node.w / 2}
-            y1={node.y}
-            x2={node.x + node.w / 2}
-            y2={node.y - rotateGap}
+            x1={bx + bw / 2}
+            y1={by}
+            x2={bx + bw / 2}
+            y2={by - rotateGap}
             stroke="#3b82f6"
             strokeWidth={1.5 / zoom}
           />
           <rect
-            x={node.x + node.w / 2 - half}
-            y={node.y - rotateGap - half}
+            x={bx + bw / 2 - half}
+            y={by - rotateGap - half}
             width={handleSize}
             height={handleSize}
             rx={1.5 / zoom}
-            transform={`rotate(45, ${node.x + node.w / 2}, ${node.y - rotateGap})`}
+            transform={`rotate(45, ${bx + bw / 2}, ${by - rotateGap})`}
             fill="white"
             stroke="#3b82f6"
             strokeWidth={1.5 / zoom}
             style={{ pointerEvents: "none" }}
           />
           <circle
-            cx={node.x + node.w / 2}
-            cy={node.y - rotateGap}
+            cx={bx + bw / 2}
+            cy={by - rotateGap}
             r={hitHalf}
             fill="transparent"
             style={{ cursor: "grab", pointerEvents: "auto" }}
@@ -611,19 +619,36 @@ const EdgeRenderer = memo(function EdgeRenderer({
     };
   }, [edgeColor, edgeRoughness, sw, edge.data.style, edge.id]);
 
-  // Pre-compute rough paths when roughness > 0
-  let roughEdgePaths: RoughPathData[] | null = null;
-  let roughHeadPaths: RoughPathData[] | null = null;
-  let roughTailPaths: RoughPathData[] | null = null;
-  if (roughOpts) {
-    roughEdgePaths = getRoughPathPaths(drawnPath, roughOpts);
-    if (edge.data.arrowHead === "arrow") {
-      roughHeadPaths = getRoughPathPaths(arrowHeadPath(headCx, headCy, arrowAngle, headSize), { ...roughOpts, strokeLineDash: undefined });
+  // Pre-compute rough paths when roughness > 0. Memoized: EdgeRenderer
+  // re-renders every pan/zoom frame (viewport is a prop), and regenerating
+  // RoughJS path strings per edge per frame was pure alloc churn.
+  const { roughEdgePaths, roughHeadPaths, roughTailPaths } = useMemo(() => {
+    if (!roughOpts) {
+      return {
+        roughEdgePaths: null as RoughPathData[] | null,
+        roughHeadPaths: null as RoughPathData[] | null,
+        roughTailPaths: null as RoughPathData[] | null,
+      };
     }
-    if (edge.data.arrowTail === "arrow") {
-      roughTailPaths = getRoughPathPaths(arrowHeadPath(tailCx, tailCy, tailAngle, tailSize), { ...roughOpts, strokeLineDash: undefined });
-    }
-  }
+    return {
+      roughEdgePaths: getRoughPathPaths(drawnPath, roughOpts),
+      roughHeadPaths:
+        edge.data.arrowHead === "arrow"
+          ? getRoughPathPaths(arrowHeadPath(headCx, headCy, arrowAngle, headSize), { ...roughOpts, strokeLineDash: undefined })
+          : null,
+      roughTailPaths:
+        edge.data.arrowTail === "arrow"
+          ? getRoughPathPaths(arrowHeadPath(tailCx, tailCy, tailAngle, tailSize), { ...roughOpts, strokeLineDash: undefined })
+          : null,
+    };
+  }, [
+    roughOpts,
+    drawnPath,
+    edge.data.arrowHead,
+    edge.data.arrowTail,
+    headCx, headCy, arrowAngle, headSize,
+    tailCx, tailCy, tailAngle, tailSize,
+  ]);
 
   // Memoize animation style objects
   const cycleAnimStyle = useMemo(

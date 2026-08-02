@@ -542,7 +542,7 @@ function ImageBlock({
         marginLeft: -node.w / 2,
         marginTop: -h / 2,
         zIndex: node.z,
-        border: isSelected && !cropping ? `2px dashed #3b82f6` : "none",
+        border: isSelected && !cropping ? `2px solid #3b82f6` : "none",
         borderRadius: 6,
         overflow: "visible",
         pointerEvents: interactive || cropping ? "auto" : "none",

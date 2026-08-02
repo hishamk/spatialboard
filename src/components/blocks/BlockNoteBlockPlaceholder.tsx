@@ -176,6 +176,9 @@ function BlockNoteBlockPlaceholder({
 
   return (
     <div
+      // Own-layout blocks must carry the node id (search highlighting and
+      // DOM probes scan [data-node-id]).
+      data-node-id={node.id}
       onPointerDown={handlePointerDown}
       onDoubleClick={handleDoubleClick}
       style={{
