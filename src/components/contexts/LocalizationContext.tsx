@@ -199,6 +199,7 @@ export interface SpatialBoardLocalization {
   toolTextGlyph: string;
   moreTools: string;
   close: string;
+  actionDownloadImage: string;
   roughnessArchitect: string;
   roughnessArtist: string;
   roughnessCartoonist: string;
@@ -447,6 +448,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   toolTextGlyph: "T",
   moreTools: "More tools",
   close: "Close",
+  actionDownloadImage: "Download image",
   roughnessArchitect: "Architect",
   roughnessArtist: "Artist",
   roughnessCartoonist: "Cartoonist",

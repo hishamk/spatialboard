@@ -1,11 +1,55 @@
 import { useState, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
-import type { SpatialNode } from "../../../engine/types";
+import type { ImageNode, SpatialNode } from "../../../engine/types";
 import type { ContextMenuSection } from "../../overlays/ContextMenu";
 import { SB_ALIGN_MENU_ICONS } from "../../overlays/context-menu-align-icons";
 import { getClosestEdgeHit } from "../../../engine/edge-geometry";
 import { pasteFromSystemClipboard, copyToSystemClipboard } from "../canvas-clipboard";
+
+const MIME_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "image/avif": "avif",
+};
+
+/** Save an image node's source to disk. Data URIs download directly; remote
+ *  URLs are fetched to a blob first (cross-origin failures fall back to
+ *  opening the image in a new tab, where the browser can save it). */
+async function downloadImageNode(node: ImageNode): Promise<void> {
+  const src = node.data.src;
+  const baseName =
+    node.data.alt?.trim().replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "image";
+  let href = src;
+  let objectUrl: string | null = null;
+  let ext = "png";
+  try {
+    if (src.startsWith("data:")) {
+      ext = MIME_EXT[src.slice(5, src.indexOf(";"))] ?? "png";
+    } else {
+      const blob = await (await fetch(src)).blob();
+      ext =
+        MIME_EXT[blob.type] ??
+        src.match(/\.(png|jpe?g|webp|gif|svg|avif)(\?|#|$)/i)?.[1]?.toLowerCase() ??
+        "png";
+      objectUrl = URL.createObjectURL(blob);
+      href = objectUrl;
+    }
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${baseName}.${ext === "jpeg" ? "jpg" : ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch {
+    window.open(src, "_blank", "noopener");
+  } finally {
+    if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl!), 1000);
+  }
+}
 import { exportBoard } from "../../../export/canvas-export";
 import type { SpatialBoardLocalization } from "../../contexts/LocalizationContext";
 
@@ -389,6 +433,26 @@ export function useContextMenu({
               shortcut: "Delete",
               danger: true,
               action: () => engine.deleteSelected(),
+            },
+          ],
+        });
+      }
+
+      // Image section — download the right-clicked / selected image
+      let imageNode: SpatialNode | null = null;
+      if (engine.selection.size === 1) {
+        const sel = engine.getNode(selIds[0]);
+        if (sel && sel.type === "image") imageNode = sel;
+      }
+      if (imageNode) {
+        const target = imageNode;
+        sections.push({
+          items: [
+            {
+              label: labels.actionDownloadImage,
+              action: () => {
+                void downloadImageNode(target as ImageNode);
+              },
             },
           ],
         });
