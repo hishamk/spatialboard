@@ -1,6 +1,7 @@
 import { createContext, useContext, useCallback } from "react";
 import type { SpatialNode } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
+import { rememberToolStyle } from "../../engine/tool-style-memory";
 import { PropertyHistoryCoalesceContext } from "./PropertyHistoryCoalesceContext";
 
 /**
@@ -23,6 +24,9 @@ export function useBatchUpdate<TData>(
   const getCoalesceKey = useContext(PropertyHistoryCoalesceContext);
   return useCallback(
     (patch: Partial<TData>) => {
+      // Styling a node becomes the default for the NEXT node of its type
+      // (the Excalidraw "current item defaults" behavior).
+      rememberToolStyle(engine.activeTool, node.type, patch as Record<string, unknown>);
       const key = getCoalesceKey?.();
       const dataPatch = {
         ...(node.data as Record<string, unknown>),

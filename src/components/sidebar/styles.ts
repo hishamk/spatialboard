@@ -133,6 +133,7 @@ export const TOUCH_PROPS_VARS = {
   "--sbp-sec-content-pad": "10px 12px 12px",
   "--sbp-pill-fs": "12px",
   "--sbp-pill-pad": "9px 14px",
+  "--sbp-toggle-pad": "9px 14px",
 } as React.CSSProperties;
 
 export const btnBase: React.CSSProperties = {

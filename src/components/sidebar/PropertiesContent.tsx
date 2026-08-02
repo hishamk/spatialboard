@@ -35,7 +35,6 @@ import StickyProperties from "./sections/StickyProperties";
 import YouTubeProperties from "./sections/YouTubeProperties";
 import ToolModeProperties from "./sections/ToolModeProperties";
 import CustomNodeProperties from "./sections/CustomNodeProperties";
-import { PAPER_TYPES } from "../paper-types";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
 const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky", "youtube"]);
@@ -88,160 +87,6 @@ function SelectionHeader({ label }: { label: string }) {
     >
       {label}
     </div>
-  );
-}
-
-function CanvasSettingsSection({
-  engine,
-  open,
-  onToggle,
-}: {
-  engine: SpatialEngine;
-  open?: boolean;
-  onToggle?: () => void;
-}) {
-  const theme = useSBTheme();
-  const { labels } = useSBI18n();
-  const [gridOn, setGridOn] = useState(engine.snapToGrid);
-  const [gridSize, setGridSize] = useState(engine.gridSize);
-  const [smartGuides, setSmartGuides] = useState(engine.smartGuides);
-  const [freeFormEdges, setFreeFormEdges] = useState(engine.freeFormEdges);
-  const [paper, setPaper] = useState(engine.boardBackground);
-  const paperLabelByKey: Record<string, string> = {
-    "plain-white": labels.paperWhite,
-    "dot-grid": labels.paperCream,
-    engineering: labels.paperWarm,
-    blueprint: labels.paperBlueprint,
-    "dark-grid": labels.paperNight,
-    "japanese-stationery": labels.paperJapaneseStationery,
-    kraft: labels.paperKraftPaper,
-  };
-
-  useEffect(() => {
-    const syncGuides = () => {
-      setGridOn(engine.snapToGrid);
-      setGridSize(engine.gridSize);
-      setSmartGuides(engine.smartGuides);
-      setFreeFormEdges(engine.freeFormEdges);
-    };
-    const syncChange = () => setFreeFormEdges(engine.freeFormEdges);
-    engine.on("change", syncChange);
-    const syncBackground = () => setPaper(engine.boardBackground);
-    engine.on("guides", syncGuides);
-    engine.on("background", syncBackground);
-    return () => {
-      engine.off("guides", syncGuides);
-      engine.off("background", syncBackground);
-      engine.off("change", syncChange);
-    };
-  }, [engine]);
-
-  const gridSizes = [10, 20, 40, 80];
-
-  return (
-    <PropertySection title={labels.inspectorCanvas} defaultOpen={false} variant="group" open={open} onToggle={onToggle}>
-      <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGrid}</span>
-        <button
-          onClick={() => engine.toggleSnapToGrid()}
-          style={{
-            border: "none",
-            borderRadius: theme.controlBorderRadius,
-            background: gridOn ? theme.controlBgActive : theme.controlBg,
-            color: theme.text,
-            fontSize: 10,
-            padding: "4px 10px",
-            cursor: "pointer",
-          }}
-        >
-          {gridOn ? labels.inspectorOn : labels.inspectorOff}
-        </button>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGridSize}</span>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
-          {gridSizes.map((s) => (
-            <button
-              key={s}
-              onClick={() => engine.setGridSize(s)}
-              style={{
-                border: "none",
-                borderRadius: theme.controlBorderRadius,
-                background: gridSize === s ? theme.controlBgActive : theme.controlBg,
-                color: theme.text,
-                fontSize: 10,
-                padding: "4px 8px",
-                cursor: "pointer",
-              }}
-            >
-              {s}px
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorGuides}</span>
-        <button
-          onClick={() => engine.toggleSmartGuides()}
-          style={{
-            border: "none",
-            borderRadius: theme.controlBorderRadius,
-            background: smartGuides ? theme.controlBgActive : theme.controlBg,
-            color: theme.text,
-            fontSize: 10,
-            padding: "4px 10px",
-            cursor: "pointer",
-          }}
-        >
-          {smartGuides ? labels.inspectorOn : labels.inspectorOff}
-        </button>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>Free edges</span>
-        <button
-          onClick={() => engine.toggleFreeFormEdges()}
-          style={{
-            border: "none",
-            borderRadius: theme.controlBorderRadius,
-            background: freeFormEdges ? theme.controlBgActive : theme.controlBg,
-            color: theme.text,
-            fontSize: 10,
-            padding: "4px 10px",
-            cursor: "pointer",
-          }}
-        >
-          {freeFormEdges ? labels.inspectorOn : labels.inspectorOff}
-        </button>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorPaper}</span>
-        <select
-          value={paper}
-          onChange={(e) => engine.setBoardBackground(e.target.value as typeof paper)}
-          style={{
-            flex: 1,
-            height: 28,
-            border: `1px solid ${theme.border}`,
-            borderRadius: theme.controlBorderRadius,
-            background: theme.controlBg,
-            color: theme.text,
-            fontSize: 11,
-            padding: "0 8px",
-            outline: "none",
-          }}
-        >
-          {PAPER_TYPES.map((p) => (
-            <option key={p.key} value={p.key}>
-              {paperLabelByKey[p.key] ?? p.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    </PropertySection>
   );
 }
 
@@ -694,8 +539,8 @@ interface PropertiesContentProps {
   registry?: NodeTypeRegistry;
   target: SelectionTarget;
   commonProps: MergedCommonProps;
-  /** Mobile sheet layout: style controls first, actions after, canvas
-   *  settings last; the type header is omitted (the sheet header carries it). */
+  /** Mobile sheet layout: style controls first, actions after; the type
+   *  header is omitted (the sheet header carries it). */
   mobileLayout?: boolean;
 }
 
@@ -746,19 +591,11 @@ export default function PropertiesContent({
       return;
     }
     // Keep current selection section if it still exists, otherwise reset to shared.
-    const keys = new Set(["canvas", "shared", ...target.typeGroups.map((g) => g.type)]);
+    const keys = new Set(["shared", ...target.typeGroups.map((g) => g.type)]);
     if (!keys.has(openMultiSection)) {
       setOpenMultiSection("shared");
     }
   }, [target, openMultiSection]);
-
-  const canvasSettings = (
-    <CanvasSettingsSection
-      engine={engine}
-      open={target.kind === "multi" && !mobileLayout ? openMultiSection === "canvas" : undefined}
-      onToggle={target.kind === "multi" && !mobileLayout ? () => setOpenMultiSection((cur) => (cur === "canvas" ? "" : "canvas")) : undefined}
-    />
-  );
 
   const touchActions = isTouchDevice ? (
     <TouchSelectionActionsSection engine={engine} target={target} />
@@ -812,15 +649,15 @@ export default function PropertiesContent({
     </>
   );
 
-  // Mobile sheet: what you came to change (style) sits under your thumb first,
-  // actions follow, board-level canvas settings park at the bottom. The type
-  // header is omitted — the sheet's own header names the selection.
+  // Mobile sheet: what you came to change (style) sits under your thumb
+  // first, actions follow. The type header is omitted — the sheet's own
+  // header names the selection. (Board-level canvas settings live in the
+  // rail gear / mobile ⋯ menu, not the inspector.)
   if (mobileLayout) {
     return (
       <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
         {styleControls}
         {touchActions}
-        {canvasSettings}
       </PropertyHistoryCoalesceContext.Provider>
     );
   }
@@ -828,7 +665,6 @@ export default function PropertiesContent({
   return (
     <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
       <SelectionHeader label={headerLabel} />
-      {canvasSettings}
       {touchActions}
       {styleControls}
     </PropertyHistoryCoalesceContext.Provider>

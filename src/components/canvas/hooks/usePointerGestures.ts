@@ -898,7 +898,12 @@ export function usePointerGestures({
             w,
             h: stickyH,
             z: engine.nextZ(),
-            data: { text: "", color: "#FEF3C7" },
+            data: {
+              text: "",
+              // Remembered tool defaults (last styled sticky) win over stock
+              color: engine.activeTool.stickyColor ?? "#FEF3C7",
+              fontSize: engine.activeTool.stickyFontSize,
+            },
           } as StickyNoteNode);
           engine.select(id);
           setEditingStickyId(id);

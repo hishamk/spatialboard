@@ -3,8 +3,9 @@ import type { SpatialEngine, BoardBackground } from "../../engine/SpatialEngine"
 import type { Mode, ToolKey } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import { TOOLS, modeAvailable } from "../../tools";
-import { MOBILE_TOOLBAR_CLEARANCE } from "../sidebar/styles";
+import { MOBILE_TOOLBAR_CLEARANCE, TOUCH_PROPS_VARS } from "../sidebar/styles";
 import { ToolIcon } from "../sidebar/ToolStrip";
+import CanvasSettings from "../sidebar/CanvasSettings";
 import { useSBTheme } from "../sidebar/ThemeContext";
 import { useSBI18n } from "../contexts/LocalizationContext";
 import { PAPER_TYPES, type PaperGroup } from "../paper-types";
@@ -79,7 +80,7 @@ export default function MobileToolbar({
   const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
   const [background, setBackground] = useState<BoardBackground>(engine.boardBackground);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [expanded, setExpanded] = useState<"paper" | "template" | null>(null);
+  const [expanded, setExpanded] = useState<"paper" | "template" | "settings" | null>(null);
   const [panel, setPanel] = useState<"library" | "mermaid" | "gif" | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
@@ -372,6 +373,36 @@ export default function MobileToolbar({
               <ToolIcon name="gif" />
               {labels.gifSearchTitle}
             </button>
+          )}
+
+          {/* Canvas settings — inline accordion at touch density */}
+          {show("settings") && (
+            <>
+              <button
+                style={menuRow}
+                onClick={() => {
+                  setExpanded((v) => {
+                    const next = v === "settings" ? null : "settings";
+                    if (next) {
+                      // The settings sit at the menu's end — bring them on-screen
+                      requestAnimationFrame(() => {
+                        menuRef.current?.scrollTo({ top: menuRef.current.scrollHeight, behavior: "smooth" });
+                      });
+                    }
+                    return next;
+                  });
+                }}
+              >
+                <ToolIcon name="settings" />
+                <span style={{ flex: 1 }}>{labels.inspectorCanvas}</span>
+                <Chevron open={expanded === "settings"} />
+              </button>
+              {expanded === "settings" && (
+                <div style={{ padding: "4px 12px 10px", ...TOUCH_PROPS_VARS }}>
+                  <CanvasSettings engine={engine} />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

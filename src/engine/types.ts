@@ -15,7 +15,7 @@ export type Mode = "select" | "draw" | "shape" | "text" | "note" | "sticky" | "e
  * controls. This is an allowlist of what the HOST wants surfaced — the engine
  * itself is unchanged.
  */
-export type ToolKey = Mode | "lasso" | "paper" | "template" | "library" | "mermaid" | "gif";
+export type ToolKey = Mode | "lasso" | "paper" | "template" | "library" | "mermaid" | "gif" | "settings";
 
 export interface SpatialNode {
   id: string;
@@ -255,6 +255,9 @@ export interface ActiveTool {
   fontSize?: number;
   fontFamily?: string;
   textAlign?: TextAlign;
+  // Sticky tool settings
+  stickyColor?: string;
+  stickyFontSize?: number;
   // Edge tool settings
   edgeType?: EdgeType;
   arrowHead?: ArrowMarker;

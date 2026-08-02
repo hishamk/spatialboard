@@ -14,6 +14,7 @@ import LibraryPanel from "./LibraryPanel";
 import LibraryDirectory from "./LibraryDirectory";
 import GifSearchPanel from "./GifSearchPanel";
 import MermaidPanel from "./MermaidPanel";
+import CanvasSettings from "./CanvasSettings";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
 const btnBase: React.CSSProperties = {
@@ -169,7 +170,112 @@ export function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; s
           <circle cx="18" cy="13" r="1.1" fill="currentColor" stroke="none" />
         </>
       )}
+      {name === "settings" && (
+        <>
+          <circle cx="12" cy="12" r="3.2" {...sp} />
+          <path
+            d="M12 2.8l1.2 2.6a6.8 6.8 0 0 1 2.4 1l2.8-.8 1.6 2.8-2 2a6.9 6.9 0 0 1 0 2.7l2 2-1.6 2.8-2.8-.8a6.8 6.8 0 0 1-2.4 1L12 21.2l-1.2-2.6a6.8 6.8 0 0 1-2.4-1l-2.8.8L4 15.6l2-2a6.9 6.9 0 0 1 0-2.7l-2-2 1.6-2.8 2.8.8a6.8 6.8 0 0 1 2.4-1z"
+            {...sp}
+          />
+        </>
+      )}
     </svg>
+  );
+}
+
+/** Gear popover with the board-level canvas settings (grid, guides, free
+ *  edges, paper) — moved out of the node inspector, where board settings
+ *  crowded every selection. */
+function SettingsPicker({ engine }: { engine: SpatialEngine }) {
+  const theme = useSBTheme();
+  const { labels } = useSBI18n();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useFitSidePopoverPosition(open, triggerRef, popoverRef, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handle);
+    return () => document.removeEventListener("pointerdown", handle);
+  }, [open]);
+
+  const popoverContent =
+    open && triggerRef.current
+      ? (() => {
+          const rect = triggerRef.current.getBoundingClientRect();
+          return createPortal(
+            <div
+              ref={popoverRef}
+              style={{
+                position: "fixed",
+                left: rect.right + 8,
+                top: rect.top,
+                background: theme.panelBg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: theme.panelBorderRadius,
+                padding: 12,
+                zIndex: 99999,
+                boxShadow: theme.panelShadow,
+                width: 248,
+                maxWidth: "calc(100vw - 16px)",
+                maxHeight: "min(480px, calc(100dvh - 16px))",
+                overflowY: "auto",
+                color: theme.text,
+                fontSize: 11,
+                fontFamily: theme.uiFontFamily ?? SB_UI_FONT,
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: theme.textMuted,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  paddingBottom: 8,
+                }}
+              >
+                {labels.inspectorCanvas}
+              </div>
+              <CanvasSettings engine={engine} />
+            </div>,
+            document.body
+          );
+        })()
+      : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        title={labels.inspectorCanvas}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          ...btnBase,
+          width: 40,
+          height: 40,
+          borderRadius: theme.controlBorderRadius,
+          background: open ? theme.controlBgActive : "transparent",
+          color: theme.text,
+        }}
+      >
+        <ToolIcon name="settings" />
+      </button>
+      {popoverContent}
+    </>
   );
 }
 
@@ -629,7 +735,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools, registry }: { 
   // Toolbar visibility: the host `tools` allowlist (undefined ⇒ all) AND, for
   // node-creating tools, whether that node type is registered.
   const show = (key: ToolKey) => (!tools || tools.includes(key)) && modeAvailable(key, registry);
-  const anyPicker = show("paper") || show("template") || show("library") || show("mermaid") || (!!gifApiBaseUrl && show("gif"));
+  const anyPicker = show("paper") || show("template") || show("library") || show("mermaid") || (!!gifApiBaseUrl && show("gif")) || show("settings");
   const [mode, setMode] = useState<Mode>(engine.mode);
   const [background, setBackground] = useState<BoardBackground>(engine.boardBackground);
   const [lassoActive, setLassoActive] = useState(engine.lassoSelect);
@@ -779,6 +885,9 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools, registry }: { 
 
       {/* GIF search */}
       {gifApiBaseUrl && show("gif") && <GifPicker engine={engine} baseUrl={gifApiBaseUrl} />}
+
+      {/* Canvas settings (grid, guides, free edges, paper) */}
+      {show("settings") && <SettingsPicker engine={engine} />}
     </div>
   );
 }
