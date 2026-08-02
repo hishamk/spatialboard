@@ -119,9 +119,15 @@ export default function PresentationOverlay({ engine }: { engine: SpatialEngine 
   const [overlay, setOverlay] = useState(engine.transitionOverlay);
   const canvasElRef = useRef<HTMLElement | null>(null);
   const parentElRef = useRef<HTMLElement | null>(null);
+  // Anchor for finding THIS board's canvas — a document-wide query would grab
+  // the first board on the page (wrong when several boards are mounted, e.g.
+  // a board rendered inside an overlay above another board).
+  const anchorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const canvasEl = document.querySelector("[data-sb-canvas]") as HTMLElement | null;
+    const canvasEl =
+      (anchorRef.current?.parentElement?.querySelector("[data-sb-canvas]") as HTMLElement | null) ??
+      (document.querySelector("[data-sb-canvas]") as HTMLElement | null);
     canvasElRef.current = canvasEl;
     parentElRef.current = canvasEl?.parentElement ?? null;
 
@@ -160,7 +166,9 @@ export default function PresentationOverlay({ engine }: { engine: SpatialEngine 
     };
   }, [engine]);
 
-  if (!active || total === 0) return null;
+  // Keep the (hidden) anchor mounted so the canvas lookup above can resolve
+  // this board's own subtree even before the first presentation starts.
+  if (!active || total === 0) return <div ref={anchorRef} style={{ display: "none" }} />;
 
   // Compute cube dimming from timeline t
   const cubeDim = overlay && overlay.type === "cube" && overlay.t != null

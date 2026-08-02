@@ -376,9 +376,19 @@ export default function SpatialBoard({
   }, [isPreview, showPerfOverlay]);
 
   useEffect(() => {
+    let wasPresenting = engine.presentationMode;
     const handlePresentation = () => {
       const isPresenting = engine.presentationMode;
       setPresenting(isPresenting);
+      // Entering presentation unmounts the chrome — including the Present
+      // button that likely holds focus — dropping focus to <body>, which
+      // deafens the focus-scoped keyboard handler (Esc / arrow keys). Pull
+      // focus back onto the board. (Presentation events also fire per slide
+      // change; only refocus on the enter transition.)
+      if (isPresenting && !wasPresenting) {
+        boardRef.current?.focus({ preventScroll: true });
+      }
+      wasPresenting = isPresenting;
       onPresentationChange?.(isPresenting);
     };
     engine.on("presentation", handlePresentation);
