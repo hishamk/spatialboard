@@ -210,6 +210,10 @@ export class DataFlowEngine {
           // Mark any downstream nodes dirty
           this.markDownstream(node.id);
         }
+        // Per-id bookkeeping outlives the node otherwise (until dispose()).
+        this.generations.delete(node.id);
+        this.dirty.delete(node.id);
+        this.lastComputeMs.delete(node.id);
       }
     };
 

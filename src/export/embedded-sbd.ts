@@ -56,7 +56,26 @@ function hasPngSignature(png: Uint8Array): boolean {
  * (inserted after IHDR). An existing spatialboard chunk is replaced.
  */
 export function embedSBDInPNG(png: Uint8Array, sbd: string): Uint8Array {
-  if (!hasPngSignature(png)) return png;
+  const parts = embedSBDInPNGParts(png, sbd);
+  if (!parts) return png;
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+
+/**
+ * Same embedding as {@link embedSBDInPNG}, but returned as Blob-ready parts
+ * (subarray views + the new chunk) so callers building a `Blob` skip the
+ * full-PNG concatenation in JS heap — the Blob copies once into non-heap
+ * storage. Returns null when `png` is not a PNG.
+ */
+export function embedSBDInPNGParts(png: Uint8Array, sbd: string): Uint8Array[] | null {
+  if (!hasPngSignature(png)) return null;
 
   const stripped = stripSpatialboardChunks(png);
 
@@ -83,11 +102,43 @@ export function embedSBDInPNG(png: Uint8Array, sbd: string): Uint8Array {
 
   // IHDR is mandatory-first: signature(8) + length(4) + type(4) + 13 + crc(4)
   const insertAt = 8 + 4 + 4 + 13 + 4;
-  const out = new Uint8Array(stripped.length + chunk.length);
-  out.set(stripped.subarray(0, insertAt), 0);
-  out.set(chunk, insertAt);
-  out.set(stripped.subarray(insertAt), insertAt + chunk.length);
-  return out;
+  return [stripped.subarray(0, insertAt), chunk, stripped.subarray(insertAt)];
+}
+
+/**
+ * Cheap header-window probe: does this PNG carry a spatialboard iTXt chunk
+ * near the start? Exports write the chunk immediately after IHDR, so a small
+ * head slice (e.g. 64 KB) suffices — drop/paste handlers can avoid reading a
+ * whole multi-MB photo into memory just to check. Scanning stops at the first
+ * IDAT (image data): a spatialboard chunk never sits past it in our exports.
+ */
+export function pngHeadHasSBD(head: Uint8Array): boolean {
+  if (!hasPngSignature(head)) return false;
+  const keyword = new TextEncoder().encode(PNG_KEYWORD);
+  const view = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  let offset = 8;
+  while (offset + 12 <= head.length) {
+    const length = view.getUint32(offset);
+    const type = String.fromCharCode(
+      head[offset + 4],
+      head[offset + 5],
+      head[offset + 6],
+      head[offset + 7],
+    );
+    if (type === "iTXt") {
+      const data = head.subarray(offset + 8, Math.min(offset + 8 + length, head.length));
+      if (data.length > keyword.length && data[keyword.length] === 0) {
+        let match = true;
+        for (let i = 0; i < keyword.length; i++) {
+          if (data[i] !== keyword[i]) { match = false; break; }
+        }
+        if (match) return true;
+      }
+    }
+    if (type === "IDAT" || type === "IEND") return false;
+    offset += 12 + length;
+  }
+  return false;
 }
 
 /** Extract the embedded SBD source from a PNG, or null when absent. */

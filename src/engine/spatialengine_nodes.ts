@@ -282,6 +282,7 @@ export function deleteNode(engine: SpatialEngine, id: string, opts?: { skipHisto
   engine.nodes.delete(id);
   engine.selection.delete(id);
   engine.adjacency.delete(id); // Remove node entries
+  engine.pruneNodeResidue(id);
   // Clean up frame children tracking
   engine.frameChildren.delete(id); // If it was a frame
   for (const children of engine.frameChildren.values()) children.delete(id);
@@ -296,6 +297,7 @@ export function deleteNode(engine: SpatialEngine, id: string, opts?: { skipHisto
         if (edge) engine.quadTree.remove(edge);
         engine.nodes.delete(edgeId);
         engine.selection.delete(edgeId);
+        engine.pruneNodeResidue(edgeId);
 
         // Clean up adjacency from the OTHER node
         const otherId = data.fromId === id ? data.toId : data.fromId;
@@ -346,6 +348,7 @@ export function deleteNodes(engine: SpatialEngine, ids: string[]): void {
     engine.emit("node:delete", node);
     engine.quadTree.remove(node);
     engine.nodes.delete(id);
+    engine.pruneNodeResidue(id);
     engine.frameChildren.delete(id);
     for (const children of engine.frameChildren.values()) children.delete(id);
   }
@@ -358,6 +361,7 @@ export function deleteNodes(engine: SpatialEngine, ids: string[]): void {
         const edge = engine.nodes.get(edgeId);
         if (edge) engine.quadTree.remove(edge);
         engine.nodes.delete(edgeId);
+        engine.pruneNodeResidue(edgeId);
       }
     }
   }

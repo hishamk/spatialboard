@@ -71,7 +71,7 @@ export function useEngineMirror(
       changeRafId = requestAnimationFrame(() => {
         changeRafId = null;
         if (engine.gestureActive) return; // gesture began after scheduling
-        setNodes([...engine.getAllNodes()]);
+        setNodes(engine.getAllNodes());
       });
     };
     // Safety net: if a gesture loop dies without calling endNodeGesture
@@ -93,7 +93,7 @@ export function useEngineMirror(
       win.removeEventListener("pointerup", forceEndGesture, { capture: true });
       win.removeEventListener("pointercancel", forceEndGesture, { capture: true });
       setIsNodeDragging(false);
-      setNodes([...engine.getAllNodes()]);
+      setNodes(engine.getAllNodes());
     };
     let viewportRafId: number | null = null;
     const handleViewport = () => {

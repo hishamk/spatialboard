@@ -46,6 +46,9 @@ export async function fromSBD(engine: SpatialEngine, sbd: string): Promise<void>
     if (node.z < minZ) minZ = node.z;
   }
   engine.rebuildQuadTree();
+  // SBD carries no edge AABBs (derived data) — recompute so culling works
+  // from the first frame instead of every edge sitting at a zero-rect origin.
+  engine.syncAllEdgeBounds();
   engine.rebuildFrameChildren();
   engine.nextZValue = maxZ + 1;
   engine._minZ = minZ;
@@ -98,6 +101,7 @@ export function fromJSON(
   engine.groupParent = sanitizeGroupParent(json.groupParent ?? []);
   engine.rebuildGroupChildren();
   engine.rebuildQuadTree();
+  engine.syncAllEdgeBounds();
   engine.rebuildFrameChildren();
   if (json.viewport) engine.viewport = json.viewport;
   engine.selection.clear();

@@ -65,6 +65,24 @@ export default function GifSearchPanel({
   const [hasNext, setHasNext] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Infinite scroll must not accumulate result metadata without bound; cap
+  // the window to the most recent items (older thumbnails scroll away).
+  const MAX_GIF_ITEMS = 300;
+  const appendCapped = (prev: KlipyItem[], next: KlipyItem[]) => {
+    const merged = [...prev, ...next];
+    return merged.length > MAX_GIF_ITEMS ? merged.slice(merged.length - MAX_GIF_ITEMS) : merged;
+  };
+
+  // Drop accumulated results when the panel closes — the component instance
+  // stays mounted across open/close, so state survives otherwise.
+  useEffect(() => {
+    if (open) return;
+    setItems([]);
+    setPage(1);
+    setHasNext(false);
+    setQuery("");
+  }, [open]);
+
   useFitSidePopoverPositionFromRect(open && !!triggerRect, triggerRect, panelRef, [
     items.length,
     loading,
@@ -108,7 +126,7 @@ export default function GifSearchPanel({
       searchGifs(baseUrl, q, pg, 30, controller.signal)
         .then((res) => {
           const filtered = res.data.data.filter((d) => d.type !== "ad");
-          setItems((prev) => (append ? [...prev, ...filtered] : filtered));
+          setItems((prev) => (append ? appendCapped(prev, filtered) : filtered));
           setPage(pg);
           setHasNext(res.data.has_next);
         })
@@ -148,7 +166,7 @@ export default function GifSearchPanel({
         trendingGifs(baseUrl, page + 1, 30)
           .then((res) => {
             const filtered = res.data.data.filter((d) => d.type !== "ad");
-            setItems((prev) => [...prev, ...filtered]);
+            setItems((prev) => appendCapped(prev, filtered));
             setPage(page + 1);
             setHasNext(res.data.has_next);
           })

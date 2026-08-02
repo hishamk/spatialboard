@@ -5,6 +5,7 @@
 
 import { nanoid } from "nanoid";
 import type { SpatialNode } from "./types";
+import { deepCloneNode } from "./deep-clone";
 import { TEMPLATES } from "../templates/index";
 import { screenToCanvas } from "./viewport";
 import type { SpatialEngine } from "./SpatialEngine";
@@ -23,7 +24,7 @@ export function duplicateSelected(engine: SpatialEngine): void {
     const newId = nanoid();
     idMap.set(orig.id, newId);
     newNodes.push({
-      ...JSON.parse(JSON.stringify(orig)),
+      ...deepCloneNode(orig),
       id: newId,
       x: orig.x + offset,
       y: orig.y + offset,
@@ -73,7 +74,7 @@ export function copySelected(engine: SpatialEngine): void {
   if (copyable.length === 0) return;
   engine.clipboard = copyable.map((id) => {
     const node = engine.nodes.get(id)!;
-    return JSON.parse(JSON.stringify(node));
+    return deepCloneNode(node);
   });
   engine.pasteCount = 0;
 }
@@ -124,7 +125,7 @@ export function pasteClipboard(engine: SpatialEngine, canvasX?: number, canvasY?
   const newNodes: SpatialNode[] = engine.clipboard.map((orig) => {
     const newId = nanoid();
     idMap.set(orig.id, newId);
-    const copied = structuredClone(orig) as SpatialNode;
+    const copied = deepCloneNode(orig);
     return {
       ...copied,
       id: newId,
@@ -174,7 +175,7 @@ export function applyTemplate(engine: SpatialEngine, templateId: string, cx: num
 export function insertNodesAt(engine: SpatialEngine, nodes: SpatialNode[], cx: number, cy: number): void {
   if (nodes.length === 0) return;
 
-  const cloned: SpatialNode[] = structuredClone(nodes);
+  const cloned: SpatialNode[] = deepCloneNode(nodes);
   const idMap = new Map<string, string>();
 
   // Remap all node IDs

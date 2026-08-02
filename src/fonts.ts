@@ -1,5 +1,5 @@
 import excalifontUrl from "./assets/fonts/Excalifont-Regular.woff2";
-import hishamHandUrl from "./assets/fonts/HishamHand-Regular.ttf";
+import hishamHandUrl from "./assets/fonts/HishamHand-Regular.woff2";
 import { FONT_FAMILIES, NON_GOOGLE_FONTS } from "./font-constants";
 
 // Re-export the asset-free font constants/helpers so existing React-layer imports
@@ -19,7 +19,7 @@ export const BUNDLED_FONT_SOURCES: Record<
   { url: string; format: "woff2" | "truetype" }
 > = {
   Excalifont: { url: excalifontUrl, format: "woff2" },
-  HishamHand: { url: hishamHandUrl, format: "truetype" },
+  HishamHand: { url: hishamHandUrl, format: "woff2" },
 };
 
 let _fontsLoaded = false;

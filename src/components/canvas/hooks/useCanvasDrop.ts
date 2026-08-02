@@ -9,7 +9,7 @@ import { GIF_ITEM_MIME, placeGif } from "../../sidebar/GifSearchPanel";
 import { getPersonalItems } from "../../../store/personal-library";
 import { extractSvgMarkup, placeSvgOnCanvas } from "../../../utils/svg-import";
 import { normalizeImportedImage } from "../../../utils/image-import";
-import { extractSBDFromPNG, extractSBDFromSVG } from "../../../export/embedded-sbd";
+import { extractSBDFromPNG, extractSBDFromSVG, pngHeadHasSBD } from "../../../export/embedded-sbd";
 import { parseSBD } from "../../../serialization/sbd-parser";
 
 /**
@@ -156,13 +156,16 @@ export function useCanvasDrop(engine: SpatialEngine) {
 
       if (!file.type.startsWith("image/")) return;
       const { x, y } = engine.screenToCanvas(e.clientX, e.clientY);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const buffer = reader.result as ArrayBuffer;
+      void (async () => {
         // Editable export? A PNG carrying embedded SBD restores real nodes.
+        // Probe only the header window — the chunk sits right after IHDR, so
+        // a multi-MB photo is never read twice just to check.
         if (file.type === "image/png") {
-          const sbd = extractSBDFromPNG(new Uint8Array(buffer));
-          if (sbd && (await insertEmbeddedSBD(sbd, e.clientX, e.clientY))) return;
+          const head = new Uint8Array(await file.slice(0, 65536).arrayBuffer());
+          if (pngHeadHasSBD(head)) {
+            const sbd = extractSBDFromPNG(new Uint8Array(await file.arrayBuffer()));
+            if (sbd && (await insertEmbeddedSBD(sbd, e.clientX, e.clientY))) return;
+          }
         }
         const dataUrl = await new Promise<string>((resolve) => {
           const r2 = new FileReader();
@@ -188,8 +191,7 @@ export function useCanvasDrop(engine: SpatialEngine) {
           z: engine.nextZ(),
           data: { src },
         } as ImageNode);
-      };
-      reader.readAsArrayBuffer(file);
+      })();
     },
     [engine]
   );

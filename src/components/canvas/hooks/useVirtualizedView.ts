@@ -219,8 +219,12 @@ export function useVirtualizedView({
     };
   }, [viewport, containerSize, nodes, selection, engine, registry, measuredHeights, edgePreview, edgeReconnect, isNodeDragging]);
 
-  // Keep edges fully reliable by default; while actively dragging nodes, use
-  // virtualized SVG set for smoother interaction on very large boards.
+  // The SVG layer always consumes the virtualized set: when idle the memo runs
+  // the crossing-edge path-bounds pass (above), so edges whose endpoints are
+  // offscreen but whose path crosses the view are included — mounting one
+  // <svg> host per edge for EVERY edge on the board was pure memory/DOM waste.
+  // During drag the crossing pass is skipped (interaction FPS trade-off,
+  // unchanged from before).
   // When singleFrameId is set, pre-compute visible node IDs for SVG layer filtering
   const _singleFrameIds = useMemo(() => {
     if (!singleFrameId) return null;
@@ -232,7 +236,7 @@ export function useVirtualizedView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [singleFrameId, engine, nodes]);
 
-  const svgLayerNodesRaw = isNodeDragging ? (virtualizedView?.svgNodes ?? nodes) : nodes;
+  const svgLayerNodesRaw = virtualizedView ? virtualizedView.svgNodes : nodes;
   // Apply single-frame filter to SVG layer too
   const svgLayerNodesFramed = _singleFrameIds
     ? svgLayerNodesRaw.filter(n => _singleFrameIds.has(n.id))

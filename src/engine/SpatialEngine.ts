@@ -40,6 +40,7 @@ import type {
   ShapeType,
 } from "./types";
 import { History } from "./history";
+import { deepCloneNode } from "./deep-clone";
 import { hitTest, hitTestAll } from "./spatial-index";
 import { QuadTree } from "./QuadTree";
 import { screenToCanvas, canvasToScreen } from "./viewport";
@@ -356,6 +357,14 @@ export class SpatialEngine {
   /** Update the measured height for an auto-height node. */
   setMeasuredHeight(nodeId: string, height: number): void {
     this._measuredHeights[nodeId] = height;
+  }
+
+  /** Drop per-id residue (measured heights here and in the QuadTree) when a
+   * node truly leaves the board. Without this the entries outlive their nodes
+   * for the whole session. */
+  /** @internal */ pruneNodeResidue(id: string): void {
+    delete this._measuredHeights[id];
+    this.quadTree.removeMeasuredHeight(id);
   }
 
   /** Get the resolved height for a node (measured or explicit). */
@@ -744,6 +753,11 @@ export class SpatialEngine {
     EdgeOps.updateConnectedEdges(this, nodeId);
   }
 
+  /** Recompute every edge's AABB (full-board loads — see spatialengine_edges). */
+  /** @internal */ syncAllEdgeBounds(): void {
+    EdgeOps.syncAllEdgeBounds(this);
+  }
+
   updateNodeWithHistory(id: string, patch: Partial<SpatialNode>): void {
     NodeOps.updateNodeWithHistory(this, id, patch);
   }
@@ -976,6 +990,7 @@ export class SpatialEngine {
       this.emit("node:delete", node);
       this.quadTree.remove(node);
       this.nodes.delete(id);
+      this.pruneNodeResidue(id);
     }
 
     // Cascade: delete edges referencing deleted nodes
@@ -986,6 +1001,7 @@ export class SpatialEngine {
           const edge = this.nodes.get(edgeId);
           if (edge) this.quadTree.remove(edge);
           this.nodes.delete(edgeId);
+          this.pruneNodeResidue(edgeId);
         }
       }
     }
@@ -1009,6 +1025,12 @@ export class SpatialEngine {
       if (!usedGroupIds.has(child)) {
         this.unlinkGroupParent(child);
       }
+    }
+    // Rotation state of a dissolved group is residue — without this sweep the
+    // entries survive deleting the group's members (only explicit ungroup
+    // cleaned them before).
+    for (const gid of this.groupRotations.keys()) {
+      if (!usedGroupIds.has(gid)) this.groupRotations.delete(gid);
     }
   }
 
@@ -1196,11 +1218,13 @@ export class SpatialEngine {
   }
 
   getClipboardNodes(): SpatialNode[] {
-    return this.clipboard.map((n) => structuredClone(n));
+    // deepCloneNode shares strings (image base64 stays single-copy on the
+    // heap) while detaching all containers.
+    return this.clipboard.map((n) => deepCloneNode(n));
   }
 
   setClipboard(nodes: SpatialNode[]): void {
-    this.clipboard = nodes.map((n) => structuredClone(n));
+    this.clipboard = nodes.map((n) => deepCloneNode(n));
     this.pasteCount = 0;
   }
 
@@ -1229,6 +1253,13 @@ export class SpatialEngine {
 
   /*private*/ rebuildQuadTree(): void {
     this.quadTree.clear();
+    // The height map survives clear() by design (heights must persist across
+    // rebuilds); sweep it against live ids so deleted/replaced boards don't
+    // accumulate entries forever.
+    this.quadTree.pruneMeasuredHeights(this.nodes);
+    for (const id of Object.keys(this._measuredHeights)) {
+      if (!this.nodes.has(id)) delete this._measuredHeights[id];
+    }
     this.adjacency.clear();
     let minZ = 0;
     let maxZ = 0;

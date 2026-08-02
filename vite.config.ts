@@ -32,6 +32,9 @@ export default defineConfig({
       },
     },
     cssCodeSplit: false,
-    assetsInlineLimit: 100_000, // inline bundled fonts (Excalifont ~52KB) as base64
+    // Vite lib mode inlines assets regardless of this limit (verified: fonts
+    // stay base64 even at the 4096 default). Kept explicit so the intent —
+    // bundled fonts ride inside index.js — survives a Vite behavior change.
+    assetsInlineLimit: 100_000,
   },
 });

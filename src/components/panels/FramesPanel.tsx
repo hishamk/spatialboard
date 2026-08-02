@@ -379,7 +379,31 @@ interface FramesPanelProps {
   onClose: () => void;
 }
 
-export default function FramesPanel({ engine, open, onClose }: FramesPanelProps) {
+/**
+ * Delayed-unmount shell: the panel used to stay mounted forever once shown,
+ * holding one rendered SVG thumbnail per frame while hidden offscreen. Now it
+ * unmounts 250ms after close (letting the slide-out transition finish) and
+ * re-mounts one frame "closed" on open so the slide-in still animates.
+ */
+export default function FramesPanel(props: FramesPanelProps) {
+  const { open } = props;
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const timer = setTimeout(() => setMounted(false), 250);
+    return () => clearTimeout(timer);
+  }, [open]);
+  if (!mounted) return null;
+  return <FramesPanelInner {...props} open={visible} />;
+}
+
+function FramesPanelInner({ engine, open, onClose }: FramesPanelProps) {
   const theme = useSBTheme();
   const { isRTL, labels } = useSBI18n();
   // viewer mode: hide TransitionPicker, drop drag-reorder,

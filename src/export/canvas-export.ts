@@ -39,7 +39,7 @@ import {
 } from "../engine/edge-geometry";
 import { resolveNodePorts, type NodeTypeRegistry } from "../nodes/registry";
 import { serializeToSBD } from "../serialization/sbd-serializer";
-import { embedSBDInPNG, embedSBDInSVG } from "./embedded-sbd";
+import { embedSBDInPNGParts, embedSBDInSVG } from "./embedded-sbd";
 import { getPaperType } from "../components/paper-types";
 import { contrastingTextColor, cleanRoundedDiamondPath } from "../components/blocks/VectorNodeBlock";
 import {
@@ -160,12 +160,30 @@ export async function exportBoard(
     const svg = sourceSBD ? embedSBDInSVG(built.svg, sourceSBD) : built.svg;
     downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${baseName}.svg`);
   } else {
-    const scale = options.scale ?? 4;
+    // Default 2× (the documented contract). The old hardcoded 4× quadrupled
+    // the raster: a 2000×1500 board allocated a ~192 MB transient canvas.
+    let scale = options.scale ?? 2;
+    // Hard cap on the rasterized dimensions — huge boards at high explicit
+    // scales otherwise allocate canvases that OOM mobile tabs.
+    const MAX_RASTER_DIM = 8192;
+    const maxSide = Math.max(built.width, built.height);
+    if (maxSide * scale > MAX_RASTER_DIM) {
+      const clamped = MAX_RASTER_DIM / maxSide;
+      console.warn(
+        `[spatialboard] export scale ${scale} clamped to ${clamped.toFixed(2)} ` +
+        `(raster capped at ${MAX_RASTER_DIM}px on the long side)`,
+      );
+      scale = clamped;
+    }
     const blob = await svgToPng(built.svg, built.width, built.height, scale);
     if (sourceSBD) {
-      const bytes = embedSBDInPNG(new Uint8Array(await blob.arrayBuffer()), sourceSBD);
-      // Both embed paths return full-view arrays, so the backing buffer is exact.
-      downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: "image/png" }), `${baseName}.png`);
+      // Blob-part assembly: the PNG bytes are never re-concatenated in JS
+      // heap — the Blob copies the parts once into non-heap storage.
+      const parts = embedSBDInPNGParts(new Uint8Array(await blob.arrayBuffer()), sourceSBD);
+      downloadBlob(
+        parts ? new Blob(parts as BlobPart[], { type: "image/png" }) : blob,
+        `${baseName}.png`,
+      );
     } else {
       downloadBlob(blob, `${baseName}.png`);
     }
@@ -1425,6 +1443,10 @@ function svgToPng(
         ctx.drawImage(img, 0, 0, width, height);
         URL.revokeObjectURL(url);
         canvas.toBlob((blob) => {
+          // Release the raster backing store eagerly — Safari in particular
+          // retains canvas memory until GC otherwise.
+          canvas.width = 0;
+          canvas.height = 0;
           if (blob) resolve(blob);
           else reject(new Error("Canvas toBlob failed"));
         }, "image/png");

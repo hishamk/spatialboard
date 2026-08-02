@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { deepCloneNode } from "../engine/deep-clone";
 import type { SpatialNode } from "../engine/types";
 
 // ============================================================================
@@ -45,7 +46,7 @@ export function addPersonalItem(
   nodes: SpatialNode[],
   groupParent: Map<string, string>,
 ): PersonalLibraryItem {
-  const cloned = structuredClone(nodes);
+  const cloned = deepCloneNode(nodes);
 
   // Normalize positions to (0, 0) origin
   if (cloned.length > 0) {

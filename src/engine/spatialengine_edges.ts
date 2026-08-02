@@ -28,6 +28,42 @@ export function getAllEdges(engine: SpatialEngine): SpatialNode[] {
   return result;
 }
 
+/**
+ * Recompute AABBs for ALL edges. SBD does not carry edge bounds (they are
+ * derived data), so every loaded edge starts at a zero-rect — which parks all
+ * edges at the origin in the QuadTree and breaks spatial culling until an
+ * endpoint happens to move. Full-board load paths call this after rebuilding
+ * the tree.
+ */
+export function syncAllEdgeBounds(engine: SpatialEngine): void {
+  for (const node of Array.from(engine.nodes.values())) {
+    if (node.type !== "edge") continue;
+    const edgeNode = node as import("./types").EdgeNode;
+    const fromNode = engine.nodes.get(edgeNode.data.fromId);
+    const toNode = engine.nodes.get(edgeNode.data.toId);
+    if (!fromNode || !toNode) continue;
+    const pathResult = computeEdgePath(
+      fromNode,
+      toNode,
+      edgeNode.data.edgeType,
+      undefined,
+      edgeNode.data.sourceHandle,
+      edgeNode.data.targetHandle,
+      edgeNode.data.midpointOffset,
+      edgeNode.data.curveOffset,
+      undefined,
+      undefined,
+      edgeNode.data.sourceT,
+      edgeNode.data.targetT,
+      edgeNode.data.attachmentGap,
+    );
+    const newEdge = { ...edgeNode, ...pathResult.bounds };
+    engine.nodes.set(node.id, newEdge);
+    engine.quadTree.remove(edgeNode);
+    engine.quadTree.insert(newEdge);
+  }
+}
+
 export function updateConnectedEdges(engine: SpatialEngine, nodeId: string): void {
   const edgeIds = engine.adjacency.get(nodeId);
   if (!edgeIds) return;

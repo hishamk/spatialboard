@@ -39,6 +39,7 @@ export function deleteRemoteNode(engine: SpatialEngine, id: string): void {
     engine.nodes.delete(id);
     engine.selection.delete(id);
     engine.adjacency.delete(id);
+    engine.pruneNodeResidue(id);
     engine.frameChildren.delete(id);
     for (const children of engine.frameChildren.values()) children.delete(id);
 
@@ -51,6 +52,7 @@ export function deleteRemoteNode(engine: SpatialEngine, id: string): void {
           if (edge) engine.quadTree.remove(edge);
           engine.nodes.delete(edgeId);
           engine.selection.delete(edgeId);
+          engine.pruneNodeResidue(edgeId);
           const otherId = data.fromId === id ? data.toId : data.fromId;
           engine.adjacency.get(otherId)?.delete(edgeId);
         }

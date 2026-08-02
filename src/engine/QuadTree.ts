@@ -62,6 +62,22 @@ export class QuadTree {
         this.heightMap.set(nodeId, height);
     }
 
+    /** Drop the measured height of a deleted node. NOT called from `remove()`:
+     * geometry updates go remove+insert, and the interim resolve must still
+     * see the height. Callers prune only on true node deletion. */
+    removeMeasuredHeight(nodeId: string): void {
+        this.heightMap.delete(nodeId);
+    }
+
+    /** Drop measured heights for ids no longer on the board. The map is shared
+     * across all levels and deliberately survives `clear()` (rebuilds must keep
+     * heights for still-live nodes), so rebuilds sweep it against live ids. */
+    pruneMeasuredHeights(liveIds: { has(id: string): boolean }): void {
+        for (const id of this.heightMap.keys()) {
+            if (!liveIds.has(id)) this.heightMap.delete(id);
+        }
+    }
+
     // Clear the quadtree
     clear(): void {
         this.objects = [];

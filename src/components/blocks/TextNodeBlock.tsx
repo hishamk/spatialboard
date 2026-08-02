@@ -2,6 +2,7 @@ import { memo, useRef, useEffect, useLayoutEffect, useCallback, useState } from 
 import type { TextNode } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import { getFontFamilyCSS } from "../../fonts";
+import { observeResize } from "../../utils/shared-resize-observer";
 
 function TextNodeBlock({
   node,
@@ -116,12 +117,10 @@ function TextNodeBlock({
   // Measure height (re-observe when editing toggles since the div element changes)
   useEffect(() => {
     if (!divRef.current || !onMeasuredHeight) return;
-    const ro = new ResizeObserver(() => {
+    return observeResize(divRef.current, () => {
       const h = divRef.current?.offsetHeight ?? 0;
       if (h > 0) onMeasuredHeight(node.id, h);
     });
-    ro.observe(divRef.current);
-    return () => ro.disconnect();
   }, [node.id, onMeasuredHeight, editing]);
 
   const commitText = useCallback(() => {

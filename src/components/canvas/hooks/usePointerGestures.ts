@@ -930,8 +930,11 @@ export function usePointerGestures({
           const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
           const p = me.pressure || 0.5;
           stroke.points.push([x, y, p]);
-          setActiveStroke({ ...stroke, points: [...stroke.points] });
-          engine.notifyDrawProgress({ ...stroke, points: [...stroke.points] });
+          // One shared snapshot per move — both consumers are read-only, and a
+          // second full copy of the growing array doubled per-stroke GC churn.
+          const snapshot = { ...stroke, points: [...stroke.points] };
+          setActiveStroke(snapshot);
+          engine.notifyDrawProgress(snapshot);
         };
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
