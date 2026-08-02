@@ -162,8 +162,19 @@ export function pasteClipboard(engine: SpatialEngine, canvasX?: number, canvasY?
 export function applyTemplate(engine: SpatialEngine, templateId: string, cx: number, cy: number): void {
   const template = TEMPLATES.find((t) => t.id === templateId);
   if (!template) return;
+  insertNodesAt(engine, template.nodes, cx, cy);
+}
 
-  const cloned: SpatialNode[] = structuredClone(template.nodes);
+/**
+ * Insert a CLONE of `nodes` centered at (cx, cy): fresh ids with edge
+ * endpoints and group ids remapped, z-order appended on top, selection set to
+ * the inserted nodes. Shared by templates and editable-export drops (PNG/SVG
+ * files carrying embedded board source).
+ */
+export function insertNodesAt(engine: SpatialEngine, nodes: SpatialNode[], cx: number, cy: number): void {
+  if (nodes.length === 0) return;
+
+  const cloned: SpatialNode[] = structuredClone(nodes);
   const idMap = new Map<string, string>();
 
   // Remap all node IDs

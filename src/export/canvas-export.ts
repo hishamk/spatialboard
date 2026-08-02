@@ -38,6 +38,8 @@ import {
   PORT_DOT_RADIUS_PX,
 } from "../engine/edge-geometry";
 import { resolveNodePorts, type NodeTypeRegistry } from "../nodes/registry";
+import { serializeToSBD } from "../serialization/sbd-serializer";
+import { embedSBDInPNG, embedSBDInSVG } from "./embedded-sbd";
 import { getPaperType } from "../components/paper-types";
 import { contrastingTextColor, cleanRoundedDiamondPath } from "../components/blocks/VectorNodeBlock";
 import {
@@ -59,6 +61,13 @@ export interface ExportOptions {
   scale?: number; // PNG resolution multiplier (default 2)
   /** Export only this frame: nodes inside it + edges fully within, cropped to the frame rect. */
   frameId?: string;
+  /**
+   * Embed the board's SBD source in the exported file (PNG `iTXt` chunk /
+   * SVG `<metadata>`) so dropping the image back onto a board restores
+   * editable nodes — the draw.io / Excalidraw "editable export" pattern.
+   * Default true.
+   */
+  embedSource?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,12 +142,33 @@ export async function exportBoard(
     ? frameExportBaseName(engine, options.frameId)
     : "board";
 
+  // Editable export: carry the SBD source inside the image file so the export
+  // doubles as the document (frame exports embed only the frame's subset).
+  let sourceSBD: string | null = null;
+  if (options.embedSource !== false) {
+    if (options.frameId) {
+      const frameNodes = collectFrameNodes(engine, options.frameId);
+      sourceSBD = frameNodes
+        ? await serializeToSBD(frameNodes, { background: engine.boardBackground })
+        : null;
+    } else {
+      sourceSBD = await engine.toSBD();
+    }
+  }
+
   if (options.format === "svg") {
-    downloadBlob(new Blob([built.svg], { type: "image/svg+xml" }), `${baseName}.svg`);
+    const svg = sourceSBD ? embedSBDInSVG(built.svg, sourceSBD) : built.svg;
+    downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${baseName}.svg`);
   } else {
     const scale = options.scale ?? 4;
     const blob = await svgToPng(built.svg, built.width, built.height, scale);
-    downloadBlob(blob, `${baseName}.png`);
+    if (sourceSBD) {
+      const bytes = embedSBDInPNG(new Uint8Array(await blob.arrayBuffer()), sourceSBD);
+      // Both embed paths return full-view arrays, so the backing buffer is exact.
+      downloadBlob(new Blob([bytes.buffer as ArrayBuffer], { type: "image/png" }), `${baseName}.png`);
+    } else {
+      downloadBlob(blob, `${baseName}.png`);
+    }
   }
 }
 

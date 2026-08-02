@@ -105,6 +105,17 @@ export { serializeToSBD } from "./serialization/sbd-serializer";
 export type { SerializeOptions } from "./serialization/sbd-serializer";
 export { parseSBD } from "./serialization/sbd-parser";
 export type { SBDParseResult } from "./serialization/sbd-parser";
+// Editable exports — PNG/SVG files that carry the board source as metadata
+// (draw.io / Excalidraw pattern). Hosts use the extract helpers to open such
+// files from their own file pickers; `exportBoard` embeds by default.
+export { exportBoard, buildBoardSVG } from "./export/canvas-export";
+export type { ExportOptions } from "./export/canvas-export";
+export {
+  embedSBDInPNG,
+  extractSBDFromPNG,
+  embedSBDInSVG,
+  extractSBDFromSVG,
+} from "./export/embedded-sbd";
 // `markdownToBlocks` (and the rest of the BlockNote markdown codec) is exported
 // from the `spatialboard/blocknote` subpath — it carries the @blocknote edge.
 

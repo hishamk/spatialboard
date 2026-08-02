@@ -1178,6 +1178,13 @@ export class SpatialEngine {
   /**
    * Insert a pre-built template centered at (cx, cy) in canvas coordinates.
    */
+  /** Insert a clone of `nodes` centered at (cx, cy) — fresh ids, edges/groups
+   *  remapped, selection set to the inserted set. Powers template placement and
+   *  editable-export drops (PNG/SVG files carrying embedded board source). */
+  insertNodesAt(nodes: SpatialNode[], cx: number, cy: number): void {
+    ClipboardOps.insertNodesAt(this, nodes, cx, cy);
+  }
+
   applyTemplate(templateId: string, cx: number, cy: number): void {
     ClipboardOps.applyTemplate(this, templateId, cx, cy);
   }

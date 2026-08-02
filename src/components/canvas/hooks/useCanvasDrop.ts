@@ -8,6 +8,9 @@ import { placeLibraryItem, placePersonalItem, LIBRARY_ITEM_MIME, PERSONAL_ITEM_M
 import { GIF_ITEM_MIME, placeGif } from "../../sidebar/GifSearchPanel";
 import { getPersonalItems } from "../../../store/personal-library";
 import { extractSvgMarkup, placeSvgOnCanvas } from "../../../utils/svg-import";
+import { normalizeImportedImage } from "../../../utils/image-import";
+import { extractSBDFromPNG, extractSBDFromSVG } from "../../../export/embedded-sbd";
+import { parseSBD } from "../../../serialization/sbd-parser";
 
 /**
  * External drag-and-drop handlers for the canvas root: GIF / personal-library /
@@ -17,6 +20,24 @@ import { extractSvgMarkup, placeSvgOnCanvas } from "../../../utils/svg-import";
 export function useCanvasDrop(engine: SpatialEngine) {
   /** Some browsers / host apps deliver two `drop` events for one OS file drop — coalesce by file + position. */
   const lastOsFileDropRef = useRef<{ sig: string; at: number } | null>(null);
+
+  /** Editable-export drop: an exported PNG/SVG carrying embedded SBD source
+   *  restores real editable nodes at the drop point instead of a flat image. */
+  const insertEmbeddedSBD = useCallback(
+    async (sbd: string, clientX: number, clientY: number): Promise<boolean> => {
+      try {
+        const parsed = await parseSBD(sbd);
+        if (parsed.nodes.length === 0) return false;
+        const { x, y } = engine.screenToCanvas(clientX, clientY);
+        engine.insertNodesAt(parsed.nodes, x, y);
+        return true;
+      } catch (err) {
+        console.error("Failed to restore embedded board source:", err);
+        return false;
+      }
+    },
+    [engine],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (
@@ -119,8 +140,11 @@ export function useCanvasDrop(engine: SpatialEngine) {
       // Handle SVG files — read as text to preserve viewBox dimensions
       if (file.type === "image/svg+xml" || file.name.endsWith(".svg")) {
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           const text = reader.result as string;
+          // Editable export? Restore the embedded board source as real nodes.
+          const sbd = extractSBDFromSVG(text);
+          if (sbd && (await insertEmbeddedSBD(sbd, e.clientX, e.clientY))) return;
           const svg = extractSvgMarkup(text);
           if (svg) {
             placeSvgOnCanvas(engine, svg, e.clientX, e.clientY);
@@ -133,29 +157,39 @@ export function useCanvasDrop(engine: SpatialEngine) {
       if (!file.type.startsWith("image/")) return;
       const { x, y } = engine.screenToCanvas(e.clientX, e.clientY);
       const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const img = new Image();
-        img.onload = () => {
-          const w = Math.min(img.naturalWidth, 400);
-          const h = Math.min(img.naturalHeight, 300);
-          const aspect = img.naturalWidth / img.naturalHeight;
-          const finalW = aspect >= 1 ? w : h * aspect;
-          const finalH = aspect >= 1 ? w / aspect : h;
-          engine.addNode({
-            id: nanoid(10),
-            type: "image",
-            x,
-            y,
-            w: finalW,
-            h: finalH,
-            z: engine.nextZ(),
-            data: { src: dataUrl },
-          } as ImageNode);
-        };
-        img.src = dataUrl;
+      reader.onload = async () => {
+        const buffer = reader.result as ArrayBuffer;
+        // Editable export? A PNG carrying embedded SBD restores real nodes.
+        if (file.type === "image/png") {
+          const sbd = extractSBDFromPNG(new Uint8Array(buffer));
+          if (sbd && (await insertEmbeddedSBD(sbd, e.clientX, e.clientY))) return;
+        }
+        const dataUrl = await new Promise<string>((resolve) => {
+          const r2 = new FileReader();
+          r2.onload = () => resolve(r2.result as string);
+          r2.readAsDataURL(file);
+        });
+        // Cap huge photos (dimension + payload) so boards stay persistable —
+        // a full-res camera image as a raw data URI breaks storage quotas.
+        const { src, width, height } = await normalizeImportedImage(dataUrl, file.type);
+        if (width === 0 || height === 0) return;
+        const w = Math.min(width, 400);
+        const h = Math.min(height, 300);
+        const aspect = width / height;
+        const finalW = aspect >= 1 ? w : h * aspect;
+        const finalH = aspect >= 1 ? w / aspect : h;
+        engine.addNode({
+          id: nanoid(10),
+          type: "image",
+          x,
+          y,
+          w: finalW,
+          h: finalH,
+          z: engine.nextZ(),
+          data: { src },
+        } as ImageNode);
       };
-      reader.readAsDataURL(file);
+      reader.readAsArrayBuffer(file);
     },
     [engine]
   );
