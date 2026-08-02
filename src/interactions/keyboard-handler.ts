@@ -4,6 +4,7 @@ import type { BlockNoteNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, T
 import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
 import { TOOLS, modeAvailable } from "../tools";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
+import { normalizeImportedImage } from "../utils/image-import";
 import { isYouTubeUrl, extractYouTubeVideoId } from "../utils/youtube";
 
 /**
@@ -256,22 +257,25 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
           const file = item.getAsFile();
           if (!file) continue;
           consumePasteEvent(e);
+          const mimeType = item.type;
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
-            const img = new Image();
-            img.onload = () => {
+            // Cap huge pasted images (screenshots, copied photos) so boards
+            // stay persistable — see normalizeImportedImage.
+            void normalizeImportedImage(dataUrl, mimeType).then(({ src: normalized, width, height }) => {
+              if (width === 0 || height === 0) return;
               const pos = engine.screenToCanvas(lastClientX, lastClientY);
               const maxW = 400;
               const maxH = 300;
-              const aspect = img.naturalWidth / img.naturalHeight;
-              const w = Math.min(img.naturalWidth, maxW);
-              const h = Math.min(img.naturalHeight, maxH);
+              const aspect = width / height;
+              const w = Math.min(width, maxW);
+              const h = Math.min(height, maxH);
               const finalW = aspect >= 1 ? w : h * aspect;
               const finalH = aspect >= 1 ? w / aspect : h;
               // Prefer the original URL for animated images (GIF, APNG, animated WebP)
               // since the clipboard blob is often a static PNG screenshot
-              let src = dataUrl;
+              let src = normalized;
               if (html) {
                 const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
                 if (m && /\.(gif|webp|apng)(\?|#|$)/i.test(m[1])) {
@@ -290,8 +294,7 @@ export function setupKeyboardHandler(engine: SpatialEngine, container?: HTMLElem
               };
               engine.addNode(node);
               engine.select(node.id);
-            };
-            img.src = dataUrl;
+            });
           };
           reader.readAsDataURL(file);
           return;

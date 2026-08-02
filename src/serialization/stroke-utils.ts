@@ -37,6 +37,31 @@ function perpendicularDistance(
  * @param points - Array of [x, y, pressure]
  * @param tolerance - Max perpendicular distance (squared) to keep a point. Use 1–4 for typical strokes.
  */
+/**
+ * Density-preserving cleanup for serialization: drops only consecutive
+ * near-duplicate points (sub-`minDist` steps from high-frequency pointermove).
+ *
+ * This is deliberately NOT geometric simplification — perfect-freehand's
+ * variable-width ink is a function of point density and spacing, so an
+ * RDP-thinned stroke re-renders with a different envelope (thin runs, sharp
+ * kinks) even when the polyline is geometrically faithful. Deduping keeps the
+ * rendered stroke byte-identical for all practical purposes.
+ */
+export function dedupeStrokePoints(points: Point3[], minDist = 0.25): Point3[] {
+  if (points.length <= 2) return points;
+  const minDistSq = minDist * minDist;
+  const out: Point3[] = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = out[out.length - 1];
+    const [px, py] = points[i];
+    const dx = px - prev[0];
+    const dy = py - prev[1];
+    if (dx * dx + dy * dy >= minDistSq) out.push(points[i]);
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
 export function simplifyStroke(
   points: Point3[],
   toleranceSq: number = 1

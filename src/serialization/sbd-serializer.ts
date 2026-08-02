@@ -10,7 +10,7 @@ import type {
   FrameNode,
 } from "../engine/types";
 import type { BoardBackground } from "../engine/SpatialEngine";
-import { simplifyStroke } from "./stroke-utils";
+import { dedupeStrokePoints } from "./stroke-utils";
 import { getSbdMarkdownCodec } from "./markdown-codec";
 
 /* ---------------------------------------------------------------------------
@@ -171,8 +171,10 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
         a.pushIf(n.locked, "locked", () => "true");
         a.pushIf(n.groupId, "group", () => n.groupId!);
         lines.push(`<!--@draw ${a} -->`);
-        // Simplify points (RDP) before serializing to reduce SBD size
-        const simplified = simplifyStroke([...n.data.points], 1);
+        // Drop only near-duplicate consecutive points — geometric (RDP)
+        // simplification changed point DENSITY, which perfect-freehand turns
+        // into a visibly different stroke after reload (thin runs, kinks).
+        const simplified = dedupeStrokePoints([...n.data.points]);
         lines.push(
           simplified
             .map(([px, py, pressure]) => `${(px + n.x).toFixed(1)},${(py + n.y).toFixed(1)},${pressure.toFixed(2)}`)
