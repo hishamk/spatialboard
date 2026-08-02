@@ -220,8 +220,13 @@ describe("buildBoardSVG", () => {
     } as never);
     const out = await buildBoardSVG(engine, { format: "svg" });
     const svg = out!.svg;
-    // pad 40, single node ⇒ ox = 860, oy = 660 ⇒ offset center = (90, 80)
-    expect(svg).toContain("rotate(45, 90, 80)");
+    // Bounds are rotation-aware: a 100×80 node at 45° spans (100+80)/√2 ≈
+    // 127.28 per axis, so with pad 40 the offset-space center sits at
+    // 40 + 127.28/2 ≈ 103.64 — and the whole rotated node stays in view.
+    expect(svg).toMatch(/rotate\(45, 103\.6\d+, 103\.6\d+\)/);
     expect(svg).not.toContain("rotate(45, 950, 740)"); // the canvas-space (broken) origin
+    // viewBox includes the rotated corners (127.28 + 2×40 padding per axis)
+    expect(out!.width).toBeCloseTo(207.28, 1);
+    expect(out!.height).toBeCloseTo(207.28, 1);
   });
 });

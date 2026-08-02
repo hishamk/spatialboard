@@ -31,6 +31,36 @@ Versioning.
   carry invisible enlarged hit areas (28px touch / 14px mouse) while keeping
   the drawn 8px visuals.
 
+### Fixed
+
+- PNG/SVG export fidelity — a full audit against the live canvas renderers:
+  - Images: `contain` letterboxing instead of cover-crop (a rotated or
+    aspect-mismatched image no longer exports zoomed/cropped), plus crop,
+    flipH/flipV, rounded-corner clipping, the 1px default border, and
+    opacity no longer dimming the border.
+  - Rotated nodes no longer clip at the export edges (content bounds now
+    include rotated corners).
+  - Frames: dashed default border, `#ccc` default color, 8px corner radius,
+    and the label tinted to the border color at weight 500.
+  - Text: first-baseline offset corrected (~0.2em), and wrapping now uses
+    real font measurement so exported line breaks match the canvas.
+  - Sticky notes: rounded-corner style and 1.5 line-height.
+  - Content cards: transparent background (canvas parity), default border
+    width, and markdown-fallback text metrics.
+  - Shapes: `roughness: 0` exports crisp geometry primitives, and solid
+    fills behind rough strokes use clean geometry (no wobbling fill edge);
+    omitted line/arrow endpoints default to the horizontal center line.
+  - Freehand: dashed/dotted strokes export the same smooth curve as canvas.
+  - Edges: port-connected edges anchor at the port dots, dash patterns scale
+    with stroke width, rough edges render rough, and labels get their white
+    pill background.
+  - Background: textured papers (Japanese stationery, kraft) and the
+    dot-grid overlay now export; PNG rasterization waits for embedded fonts.
+- SBD serialization: missing optional fields no longer round-trip as the
+  literal string `"undefined"` (which produced a font named "undefined"),
+  the parser heals boards already saved that way, and image crop/flip are
+  now persisted (they were silently lost on save/load).
+
 ### Changed
 
 - The minimap auto-hides when the board first enters the compact layout (it

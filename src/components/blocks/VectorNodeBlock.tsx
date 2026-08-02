@@ -418,7 +418,8 @@ const ShapeBlock = memo(function ShapeBlock({ node, editingLabel }: { node: Shap
 });
 
 /** Build a rounded diamond SVG path for clean rendering (roughness=0). */
-function cleanRoundedDiamondPath(w: number, h: number): string {
+/** Shared with the SVG exporter so clean (roughness 0) diamonds match. */
+export function cleanRoundedDiamondPath(w: number, h: number): string {
   const r = roundedRectRadius(w, h);
   const cx = w / 2;
   const cy = h / 2;

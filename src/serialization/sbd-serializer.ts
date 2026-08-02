@@ -55,7 +55,11 @@ function escapeBody(text: string): string {
 
 class AttrList {
   private parts: string[] = [];
-  push(name: string, value: string | number): this {
+  push(name: string, value: string | number | undefined): this {
+    // Skipping undefined keeps optional fields out of the file — interpolating
+    // would write the literal string "undefined", which round-trips as a real
+    // value (a font named "undefined", an align of "undefined", …).
+    if (value === undefined || value === null) return this;
     this.parts.push(`${name}="${typeof value === "string" ? encodeAttrValue(value) : value}"`);
     return this;
   }
@@ -226,6 +230,14 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
         a.pushIf(n.data.borderColor, "borderColor", () => n.data.borderColor!);
         a.pushIf(n.data.borderWidth != null, "borderWidth", () => n.data.borderWidth!);
         a.pushIf(n.data.borderStyle && n.data.borderStyle !== "solid", "borderStyle", () => n.data.borderStyle!);
+        // Non-destructive edits — dropping these silently loses the user's
+        // crop/mirror on every save/load round-trip.
+        a.pushIf(n.data.crop, "crop", () => {
+          const c = n.data.crop!;
+          return `${c.x},${c.y},${c.w},${c.h}`;
+        });
+        a.pushIf(n.data.flipH, "flipH", () => "true");
+        a.pushIf(n.data.flipV, "flipV", () => "true");
         lines.push(`<!--@image ${a} -->`);
         lines.push("");
         break;

@@ -42,12 +42,29 @@ function decodeAttrValue(v: string): string {
   return v.replace(/--&gt;/g, "-->").replace(/&quot;/g, '"');
 }
 
+/** "x,y,w,h" (fractions of the source image) → crop rect, or undefined. */
+function parseImageCrop(
+  raw: string | undefined,
+): { x: number; y: number; w: number; h: number } | undefined {
+  if (!raw) return undefined;
+  const parts = raw.split(",").map(Number);
+  if (parts.length !== 4 || parts.some((p) => !Number.isFinite(p))) return undefined;
+  const [x, y, w, h] = parts;
+  if (w <= 0 || h <= 0) return undefined;
+  return { x, y, w, h };
+}
+
 function parseAttributes(text: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const regex = /(\w+)="([^"]*)"/g;
   let match;
   while ((match = regex.exec(text)) !== null) {
-    attrs[match[1]] = decodeAttrValue(match[2]);
+    const value = decodeAttrValue(match[2]);
+    // Heal boards written by the old serializer, which stringified missing
+    // optional fields into the literal word "undefined" (font "undefined",
+    // align "undefined", …). Dropping the attr restores the field's default.
+    if (value === "undefined") continue;
+    attrs[match[1]] = value;
   }
   return attrs;
 }
@@ -384,6 +401,9 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             borderColor: attrs.borderColor || undefined,
             borderWidth: attrs.borderWidth ? parseFloat(attrs.borderWidth) : undefined,
             borderStyle: (attrs.borderStyle as StrokeStyle) || undefined,
+            crop: parseImageCrop(attrs.crop),
+            flipH: attrs.flipH === "true" || undefined,
+            flipV: attrs.flipV === "true" || undefined,
           },
         } as ImageNode);
         recordParent(attrs, base.id);
