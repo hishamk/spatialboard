@@ -249,7 +249,7 @@ export default function BottomBar({
   const border = `1px solid ${theme.border}`;
   const pill: React.CSSProperties = {
     ...pillBase,
-    borderRadius: theme.panelBorderRadius,
+    borderRadius: theme.panelBorderRadius + 2,
   };
   const sep: React.CSSProperties = {
     width: 1,
@@ -507,7 +507,7 @@ export default function BottomBar({
         <button
           title={labels.zoomOut}
           onClick={() => zoomOut(engine)}
-          style={{ ...btn, width: 32, height: 32, color: theme.text }}
+          style={{ ...btn, width: 40, height: 40, color: theme.text }}
         >
           <Icon name="minus" />
         </button>
@@ -521,7 +521,7 @@ export default function BottomBar({
           style={{
             ...btn,
             minWidth: 48,
-            height: 32,
+            height: 40,
             color: theme.text,
             fontSize: 11,
             fontWeight: 600,
@@ -535,7 +535,7 @@ export default function BottomBar({
         <button
           title={labels.zoomIn}
           onClick={() => zoomIn(engine)}
-          style={{ ...btn, width: 32, height: 32, color: theme.text }}
+          style={{ ...btn, width: 40, height: 40, color: theme.text }}
         >
           <Icon name="plus" />
         </button>
@@ -546,7 +546,7 @@ export default function BottomBar({
         <button
           title={labels.fitToContent}
           onClick={() => engine.fitToContent()}
-          style={{ ...btn, width: 32, height: 32, color: theme.text }}
+          style={{ ...btn, width: 40, height: 40, color: theme.text }}
         >
           <Icon name="fit" />
         </button>
@@ -559,7 +559,7 @@ export default function BottomBar({
           style={{
             ...btn,
             width: 32,
-            height: 32,
+            height: 40,
             color: theme.textMuted,
           }}
         >
@@ -577,7 +577,7 @@ export default function BottomBar({
               setHasOriginView(true);
             }
           }}
-          style={{ ...btn, width: 32, height: 32, color: hasOriginView ? theme.accentColor : theme.textFaint }}
+          style={{ ...btn, width: 40, height: 40, color: hasOriginView ? theme.accentColor : theme.textFaint }}
         >
           <Icon name={hasOriginView ? "bookmark-fill" : "bookmark"} />
         </button>
@@ -586,7 +586,7 @@ export default function BottomBar({
           title={labels.goToOriginView}
           onClick={() => { if (hasOriginView) engine.goToOriginView(); }}
           disabled={!hasOriginView}
-          style={{ ...btn, width: 32, height: 32, color: hasOriginView ? theme.text : theme.textFaint }}
+          style={{ ...btn, width: 40, height: 40, color: hasOriginView ? theme.text : theme.textFaint }}
         >
           <Icon name="home" />
         </button>
@@ -598,7 +598,7 @@ export default function BottomBar({
         <button
           title={labels.presentSlides}
           onClick={() => engine.enterPresentation()}
-          style={{ ...btn, width: 32, height: 32, color: theme.text }}
+          style={{ ...btn, width: 40, height: 40, color: theme.text }}
         >
           <Icon name="play" />
         </button>
@@ -612,7 +612,7 @@ export default function BottomBar({
               style={{
                 ...btn,
                 width: 32,
-                height: 32,
+                height: 40,
                 color: framesPanelOpen ? theme.text : theme.textMuted,
                 position: "relative",
               }}
@@ -652,7 +652,7 @@ export default function BottomBar({
               style={{
                 ...btn,
                 width: 32,
-                height: 32,
+                height: 40,
                 color: showMinimap ? theme.accentColor : theme.textMuted,
               }}
             >
@@ -671,7 +671,7 @@ export default function BottomBar({
             style={{
               ...btn,
               width: 32,
-              height: 32,
+              height: 40,
               color: canArrangeBoard ? theme.textMuted : theme.textFaint,
               cursor: canArrangeBoard ? "pointer" : "default",
             }}
@@ -688,7 +688,7 @@ export default function BottomBar({
               style={{
                 ...btn,
                 width: 32,
-                height: 32,
+                height: 40,
                 color: showPerfOverlay ? theme.accentColor : theme.textMuted,
               }}
             >
@@ -704,7 +704,7 @@ export default function BottomBar({
           title={labels.undo}
           onClick={() => engine.undo()}
           disabled={!canUndo}
-          style={{ ...btn, width: 32, height: 32, color: canUndo ? theme.text : theme.textFaint }}
+          style={{ ...btn, width: 40, height: 40, color: canUndo ? theme.text : theme.textFaint }}
         >
           <Icon name="undo" />
         </button>
@@ -713,7 +713,7 @@ export default function BottomBar({
           title={labels.redo}
           onClick={() => engine.redo()}
           disabled={!canRedo}
-          style={{ ...btn, width: 32, height: 32, color: canRedo ? theme.text : theme.textFaint }}
+          style={{ ...btn, width: 40, height: 40, color: canRedo ? theme.text : theme.textFaint }}
         >
           <Icon name="redo" />
         </button>
