@@ -26,19 +26,19 @@ export function BoardShell({
           gap: 10,
           padding: "8px 12px",
           paddingTop: "calc(8px + env(safe-area-inset-top))",
-          background: "#1e1e2e",
-          color: "#f8f7f4",
+          background: "#ffffff",
+          color: "#1e1e2e",
+          borderBottom: "1px solid #e5e7eb",
           fontFamily: "system-ui, sans-serif",
           fontSize: 14,
           flexWrap: "wrap",
         }}
       >
         <strong>{title}</strong>
-        <span style={{ opacity: 0.55, fontSize: 12 }}>{subtitle}</span>
+        <span style={{ color: "#9ca3af", fontSize: 12 }}>{subtitle}</span>
         <span
           style={{
-            opacity: saveState === "error" ? 1 : 0.7,
-            color: saveState === "error" ? "#fca5a5" : "inherit",
+            color: saveState === "error" ? "#dc2626" : "#6b7280",
             flex: 1,
             minWidth: 90,
             textAlign: "right",
@@ -57,9 +57,9 @@ export function BoardShell({
           <button
             onClick={onAbout}
             style={{
-              background: "transparent",
+              background: "#ffffff",
               color: "inherit",
-              border: "1px solid rgba(248,247,244,0.4)",
+              border: "1px solid #e5e7eb",
               borderRadius: 6,
               padding: "4px 10px",
               cursor: "pointer",
@@ -72,9 +72,9 @@ export function BoardShell({
         <button
           onClick={onReset}
           style={{
-            background: "transparent",
+            background: "#ffffff",
             color: "inherit",
-            border: "1px solid rgba(248,247,244,0.4)",
+            border: "1px solid #e5e7eb",
             borderRadius: 6,
             padding: "4px 10px",
             cursor: "pointer",

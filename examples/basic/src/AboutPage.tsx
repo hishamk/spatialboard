@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { SpatialBoard, SpatialEngine } from "spatialboard";
+import { SpatialBoard, LIGHT_SB_THEME, SpatialEngine } from "spatialboard";
 
 /**
  * The about page IS a spatialboard: every headline, squiggle, and feature
@@ -261,7 +261,7 @@ export function AboutPage({ onClose }: { onClose: () => void }) {
       aria-label="About Spatialboard"
       style={{ position: "fixed", inset: 0, zIndex: 100000, background: "#f8f7f4" }}
     >
-      <SpatialBoard engine={engine} />
+      <SpatialBoard engine={engine} theme={LIGHT_SB_THEME} />
       <button
         onClick={onClose}
         aria-label="Close"

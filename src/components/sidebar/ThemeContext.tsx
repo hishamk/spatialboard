@@ -62,6 +62,31 @@ export const DEFAULT_SB_THEME: SpatialBoardTheme = {
   accentColor: "#3b82f6",
 };
 
+/**
+ * Light chrome preset — white floating panels over the canvas, in the spirit
+ * of Excalidraw/Canva. Active controls use a soft accent TINT (not the full
+ * accent color) so the dark text/glyphs stay readable on them.
+ */
+export const LIGHT_SB_THEME: SpatialBoardTheme = {
+  toolbarBg: "#ffffff",
+  panelBg: "#ffffff",
+  panelShadow: "0 4px 24px rgba(0,0,0,0.12)",
+  panelBorderRadius: 12,
+  controlBg: "#f4f4f6",
+  controlBgActive: "#dbeafe",
+  controlBorderRadius: 6,
+  text: "#1e1e2e",
+  textMuted: "#6b7280",
+  textSecondary: "#6b7280",
+  textFaint: "#9ca3af",
+  textDisabled: "#c0c4cc",
+  border: "#e5e7eb",
+  separator: "#e5e7eb",
+  swatchBorderActive: "#1e1e2e",
+  error: "#dc2626",
+  accentColor: "#3b82f6",
+};
+
 export const SBThemeContext = createContext<SpatialBoardTheme>(DEFAULT_SB_THEME);
 
 export function useSBTheme(): SpatialBoardTheme {

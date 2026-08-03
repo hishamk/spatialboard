@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SpatialBoard, type SpatialEngine } from "spatialboard";
+import { SpatialBoard, LIGHT_SB_THEME, type SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { usePersistentBoard } from "./usePersistentBoard";
 import { BoardShell } from "./BoardShell";
@@ -58,7 +58,7 @@ export default function App() {
       onAbout={() => setAboutOpen(true)}
     >
       {/* No `nodeTypes` prop → the slim default preset (coreBoardNodes). */}
-      <SpatialBoard engine={engine} />
+      <SpatialBoard engine={engine} theme={LIGHT_SB_THEME} />
       {aboutOpen && <AboutPage onClose={() => setAboutOpen(false)} />}
     </BoardShell>
   );

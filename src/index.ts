@@ -69,7 +69,7 @@ export { default as Toolbar } from "./components/chrome/Toolbar";
 export { default as PropertiesPanel } from "./components/panels/PropertiesPanel";
 export type { DebugBoardEntry } from "./components/overlays/DebugPanel";
 export type { SpatialBoardTheme } from "./components/sidebar/ThemeContext";
-export { DEFAULT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext";
+export { DEFAULT_SB_THEME, LIGHT_SB_THEME, useSBTheme } from "./components/sidebar/ThemeContext";
 // read-only context for node renderers and host UI.
 export {
   SpatialBoardReadOnlyContext,
