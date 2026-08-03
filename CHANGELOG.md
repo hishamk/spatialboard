@@ -185,8 +185,18 @@ Versioning.
   overlay also resolves its canvas within its own board's subtree, so cube
   transitions target the right canvas when several boards are mounted.
 
+### Added
+
+- `LIGHT_SB_THEME` — a light chrome preset (white floating panels, soft
+  shadows, dark text, accent-tint active controls) alongside the dark
+  default; the whole chrome is token-driven, so `theme={LIGHT_SB_THEME}`
+  restyles the toolbar, bars, inspector, menus, and panels together. The
+  basic example now uses it (including its shell header and About board).
+
 ### Changed
 
+- Bottom-bar pills are taller (40px controls, up from 32) with slightly
+  rounder corners, matching the compact layout's touch metrics.
 - The selection frame is a solid line (was dashed) — the dashes read as a
   marquee/frame border rather than a selection. Applies to the SVG selection
   box and the image/rich-text blocks' own selected borders (the crop-region
