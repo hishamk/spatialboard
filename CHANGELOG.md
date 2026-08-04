@@ -95,6 +95,24 @@ Versioning.
 
 ### Fixed
 
+- Freehand ink no longer nudges on mouse-up. Three stacked causes, three
+  fixes:
+  - In-progress pen/airbrush strokes now render as a real `DrawNode` in the
+    DOM node layer — the same component and raster context the committed node
+    uses — instead of an overlay-SVG preview, so committing cannot change
+    pixels by construction (the node enters the engine under the id the
+    mounted item already has). Live collab strokes are unaffected: peers
+    still receive them over awareness.
+  - Viewport transform strings snap their translate to whole CSS pixels at
+    render time (`viewport-quantize.ts`); with a fractional pan the
+    composited DOM layer and the inline SVG overlays resolved the same
+    translate to different device pixels. Engine camera state stays exact —
+    the snap is presentation-only (hit-testing offset ≤ half a CSS pixel).
+  - `UnifiedDomViewportLayer` hints `will-change: transform` while the
+    viewport moves and drops it ~120ms after it settles, forcing the
+    compositor to re-rasterize at pan/zoom end. Previously the stale GPU
+    texture persisted until the next paint invalidation — typically a stroke
+    commit — making the whole board visibly settle at that unrelated moment.
 - Selecting an image (or video) no longer insets its content: the selection
   ring was a `border` on a border-box container, which shrank the `inset: 0`
   content by the border width every time. The ring is an `outline` now —

@@ -21,6 +21,7 @@ import {
   usePropertyHistorySession,
 } from "../sidebar/PropertyHistoryCoalesceContext";
 import { prefersSafariWebKitViewportWorkaround } from "../../utils/safari-viewport-raster";
+import { quantizeViewportForRender } from "./viewport-quantize";
 import { serializeEdgeCreationAwareness } from "../../collab/edge-creation-awareness";
 import ContextMenu from "../overlays/ContextMenu";
 import { useSBI18n } from "../contexts/LocalizationContext";
@@ -338,42 +339,6 @@ export default function SpatialCanvas({
       longPressOriginRef,
     });
 
-  const domLayerNodes = useMemo(() => {
-    let base =
-      virtualizedView?.domNodes ??
-      nodes.filter((n) => {
-        // Single-frame filter: only render descendants (hide the frame border itself)
-        if (_singleFrameIds) {
-          if (n.id === singleFrameId) return false; // hide the frame itself
-          if (!_singleFrameIds.has(n.id)) return false;
-        }
-        if (registry) {
-          const def = registry.get(n.type);
-          return !!def && !def.isSVGOnly;
-        }
-        return (
-          n.type === "blocknote" ||
-          n.type === "draw" ||
-          n.type === "shape" ||
-          n.type === "image" ||
-          n.type === "text" ||
-          n.type === "frame" ||
-          n.type === "sticky"
-        );
-      });
-    // Host render-scope filter (loop sub-canvas). DOM nodes are non-edge, so a
-    // plain id-membership test suffices. null = render all (default).
-    if (hostVisibleNodeIds) base = base.filter((n) => hostVisibleNodeIds.has(n.id));
-    // Append ephemeral overlay CARDS (non-edge) — always rendered (the frame).
-    if (overlayNodes && overlayNodes.length) {
-      const cards = overlayNodes.filter((n) => n.type !== "edge");
-      if (cards.length) base = [...base, ...cards];
-    }
-    if (!croppingImageId || base.some((n) => n.id === croppingImageId)) return base;
-    const pinned = nodes.find((n) => n.id === croppingImageId);
-    return pinned ? [...base, pinned] : base;
-  }, [virtualizedView, nodes, registry, croppingImageId, _singleFrameIds, hostVisibleNodeIds, overlayNodes]);
-
   const [personalLibPrompt, setPersonalLibPrompt] = useState<{
     nodes: SpatialNode[];
     groupParent: Map<string, string>;
@@ -422,7 +387,7 @@ export default function SpatialCanvas({
     handlePointerDown,
     selectionRect,
     lassoPoints,
-    activeStroke,
+    activeStrokeNode,
     shapePreview,
     textPreview,
     eraserTrail,
@@ -453,6 +418,52 @@ export default function SpatialCanvas({
     longPressTimerRef,
     longPressOriginRef,
   });
+
+  // (Below usePointerGestures because it renders activeStrokeNode — the
+  // in-progress freehand stroke that shares this DOM-layer pipeline.)
+  const domLayerNodes = useMemo(() => {
+    let base =
+      virtualizedView?.domNodes ??
+      nodes.filter((n) => {
+        // Single-frame filter: only render descendants (hide the frame border itself)
+        if (_singleFrameIds) {
+          if (n.id === singleFrameId) return false; // hide the frame itself
+          if (!_singleFrameIds.has(n.id)) return false;
+        }
+        if (registry) {
+          const def = registry.get(n.type);
+          return !!def && !def.isSVGOnly;
+        }
+        return (
+          n.type === "blocknote" ||
+          n.type === "draw" ||
+          n.type === "shape" ||
+          n.type === "image" ||
+          n.type === "text" ||
+          n.type === "frame" ||
+          n.type === "sticky"
+        );
+      });
+    // Host render-scope filter (loop sub-canvas). DOM nodes are non-edge, so a
+    // plain id-membership test suffices. null = render all (default).
+    if (hostVisibleNodeIds) base = base.filter((n) => hostVisibleNodeIds.has(n.id));
+    // Append ephemeral overlay CARDS (non-edge) — always rendered (the frame).
+    if (overlayNodes && overlayNodes.length) {
+      const cards = overlayNodes.filter((n) => n.type !== "edge");
+      if (cards.length) base = [...base, ...cards];
+    }
+    // In-progress freehand stroke — a real DrawNode rendered by this same
+    // DOM-layer pipeline as the committed ink will be (one raster context, so
+    // the stroke cannot shift on mouse-up). Id-deduped: once the engine
+    // mirror delivers the committed node (the frame after pointer-up) the
+    // local copy yields, and React keeps the NodeItem instance via the key.
+    if (activeStrokeNode && !base.some((n) => n.id === activeStrokeNode.id)) {
+      base = [...base, activeStrokeNode];
+    }
+    if (!croppingImageId || base.some((n) => n.id === croppingImageId)) return base;
+    const pinned = nodes.find((n) => n.id === croppingImageId);
+    return pinned ? [...base, pinned] : base;
+  }, [virtualizedView, nodes, registry, croppingImageId, _singleFrameIds, hostVisibleNodeIds, overlayNodes, activeStrokeNode]);
 
   // Touch/pen double-taps → synthetic dblclick so text/sticky/label editing,
   // group drill-down, and image crop work on phones and iPads.
@@ -494,7 +505,11 @@ export default function SpatialCanvas({
 
   const { handleDragOver, handleDrop } = useCanvasDrop(engine);
 
-  const viewportTransform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
+  // All viewport transform strings are built from the device-pixel-snapped
+  // translate (see viewport-quantize.ts) so the composited DOM layer and the
+  // overlay SVGs rasterize on the same grid; `viewport` itself stays exact.
+  const renderVp = quantizeViewportForRender(viewport);
+  const viewportTransform = `translate(${renderVp.x}px, ${renderVp.y}px) scale(${renderVp.zoom})`;
   const { searchHighlightNodeIds, searchTextRects, activeSearchNodeId } = useSearchHighlights({
     searchState,
     nodes,
@@ -700,7 +715,9 @@ export default function SpatialCanvas({
         viewport={viewport}
         selection={selection}
         measuredHeights={measuredHeights}
-        activeStroke={activeStroke}
+        // Local freehand strokes render in the DOM node layer (activeStrokeNode
+        // in domLayerNodes); this overlay slot stays for host-driven strokes.
+        activeStroke={null}
         shapePreview={shapePreview}
         shapePreviewStyle={
           shapePreview
@@ -768,7 +785,7 @@ export default function SpatialCanvas({
           data-sb-overlay
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
         >
-          <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+          <g transform={`translate(${renderVp.x}, ${renderVp.y}) scale(${renderVp.zoom})`}>
             <rect
               x={activeGroupBounds.x}
               y={activeGroupBounds.y}
@@ -845,7 +862,7 @@ export default function SpatialCanvas({
             data-sb-overlay
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
           >
-            <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+            <g transform={`translate(${renderVp.x}, ${renderVp.y}) scale(${renderVp.zoom})`}>
               <rect
                 x={x}
                 y={y}

@@ -4,6 +4,7 @@ import type { Viewport } from "../../engine/types";
 import type { BoardBackground } from "../../engine/SpatialEngine";
 import { getPaperType } from "../paper-types";
 import { getBackgroundRenderer } from "./background-renderers";
+import { quantizeViewportForRender } from "./viewport-quantize";
 
 const SVG_STYLE: CSSProperties = {
   position: "absolute",
@@ -57,9 +58,12 @@ export default function GridBackground({
   background?: BoardBackground;
   gridVisible?: boolean;
 }) {
-  const scaledGrid = gridSize * viewport.zoom;
-  const patternX = viewport.x % scaledGrid;
-  const patternY = viewport.y % scaledGrid;
+  // Snapped translate keeps grid dots on the same device-pixel grid as the
+  // content layers (see viewport-quantize.ts).
+  const renderVp = quantizeViewportForRender(viewport);
+  const scaledGrid = gridSize * renderVp.zoom;
+  const patternX = renderVp.x % scaledGrid;
+  const patternY = renderVp.y % scaledGrid;
 
   const paper = getPaperType(background);
   const dotColor = paper.group === "dark"

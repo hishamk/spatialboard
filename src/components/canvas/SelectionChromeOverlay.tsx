@@ -8,6 +8,7 @@ import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
 import { SEL_PAD } from "./node-item-context";
 import { selectionInkPad } from "./selection-pad";
+import { quantizeViewportForRender } from "./viewport-quantize";
 
 /* ------------------------------------------------------------------ */
 /*  SelectionChromeOverlay — multi-select bounding box + handles.      */
@@ -174,12 +175,15 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
   const rotateTransform = rotAngle !== 0
     ? ` rotate(${rotAngle}, ${rotCx}, ${rotCy})`
     : "";
+  // Device-pixel-snapped translate — keeps this chrome on the same raster
+  // grid as the node layer it outlines (see viewport-quantize.ts).
+  const renderVp = quantizeViewportForRender(viewport);
   return (
     <svg
       data-sb-overlay
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
     >
-      <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+      <g transform={`translate(${renderVp.x}, ${renderVp.y}) scale(${renderVp.zoom})`}>
         <g transform={rotateTransform}>
           <rect
             x={b.x}

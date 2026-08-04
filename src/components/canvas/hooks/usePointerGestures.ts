@@ -180,16 +180,12 @@ export function usePointerGestures({
     };
   }, [emitCanvasInteraction]);
 
-  // Drawing state
-  const [activeStroke, setActiveStroke] = useState<{
-    points: Array<[number, number, number]>;
-    color: string;
-    width: number;
-    strokeStyle?: StrokeStyle;
-    opacity?: number;
-    tool?: "pen" | "airbrush";
-    seed?: string;
-  } | null>(null);
+  // Drawing state — the in-progress freehand stroke is a REAL DrawNode
+  // rendered by the same DOM-layer pipeline as committed ink (one raster
+  // context, so the stroke cannot shift on mouse-up). It stays OUT of the
+  // engine until pointer-up: history, serialization, and the collab doc never
+  // see it; peers get the live stroke via notifyDrawProgress (awareness).
+  const [activeStrokeNode, setActiveStrokeNode] = useState<DrawNode | null>(null);
 
   // Shape preview state
   const [shapePreview, setShapePreview] = useState<{
@@ -926,33 +922,17 @@ export function usePointerGestures({
           opacity: engine.activeTool.opacity,
           // Brush variant + future node id: the airbrush spray is seeded by
           // the node id, so the id is minted at gesture start and the live
-          // preview renders the exact grains the committed node will have.
+          // stroke renders the exact grains the committed node will have.
           tool: (engine.activeTool.tool === "airbrush" ? "airbrush" : "pen") as "pen" | "airbrush",
           seed: nanoid(10),
         };
-        setActiveStroke(stroke);
-        engine.notifyDrawProgress(stroke);
-
-        const onMove = (me: PointerEvent) => {
-          const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
-          const p = me.pressure || 0.5;
-          stroke.points.push([x, y, p]);
-          // One shared snapshot per move — both consumers are read-only, and a
-          // second full copy of the growing array doubled per-stroke GC churn.
-          const snapshot = { ...stroke, points: [...stroke.points] };
-          setActiveStroke(snapshot);
-          engine.notifyDrawProgress(snapshot);
-        };
-        const onUp = () => {
-          ownerDoc().removeEventListener("pointermove", onMove);
-          ownerDoc().removeEventListener("pointerup", onUp);
-
-          if (stroke.points.length < 2) {
-            engine.notifyDrawEnd();
-            setActiveStroke(null);
-            return;
-          }
-
+        // Minted once: the committed node keeps the z the live stroke drew at.
+        const z = engine.nextZ();
+        const fill = engine.activeTool.fillColor || undefined;
+        const fillStyle = engine.activeTool.fillStyle || undefined;
+        // The live stroke and the committed node come from ONE builder, so
+        // pointer-up cannot change what's on screen by construction.
+        const buildNode = (): DrawNode => {
           let minX = Infinity,
             minY = Infinity,
             maxX = -Infinity,
@@ -963,37 +943,63 @@ export function usePointerGestures({
             if (px > maxX) maxX = px;
             if (py > maxY) maxY = py;
           }
-
-          // Store points relative to bounding box origin
-          const relativePoints = stroke.points.map(
-            ([px, py, p]) =>
-              [px - minX, py - minY, p] as [number, number, number]
-          );
-
-          engine.addNode({
+          return {
             id: stroke.seed,
             type: "draw",
             x: minX,
             y: minY,
             w: maxX - minX,
             h: maxY - minY,
-            z: engine.nextZ(),
+            z,
             data: {
               tool: stroke.tool,
-              points: relativePoints,
+              // Points stored relative to bounding box origin
+              points: stroke.points.map(
+                ([px, py, p]) =>
+                  [px - minX, py - minY, p] as [number, number, number]
+              ),
               color: stroke.color,
               strokeWidth: stroke.width,
-              opacity: engine.activeTool.opacity,
-              fill: engine.activeTool.fillColor || undefined,
-              fillStyle: engine.activeTool.fillStyle || undefined,
-              strokeStyle: engine.activeTool.strokeStyle || undefined,
+              opacity: stroke.opacity,
+              fill,
+              fillStyle,
+              strokeStyle: stroke.strokeStyle || undefined,
             },
-          } as DrawNode);
-          // Clear local preview on the next frame (matches engine node paint), then
-          // end collab live-stroke one frame later so peers keep the overlay until
-          // Yjs has a chance to apply the new draw node (avoids a one-frame gap).
+          } as DrawNode;
+        };
+        engine.notifyDrawProgress(stroke);
+
+        const onMove = (me: PointerEvent) => {
+          const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
+          const p = me.pressure || 0.5;
+          stroke.points.push([x, y, p]);
+          setActiveStrokeNode(buildNode());
+          // Fresh snapshot for the awareness channel (consumers hold the ref).
+          engine.notifyDrawProgress({ ...stroke, points: [...stroke.points] });
+        };
+        const onUp = () => {
+          ownerDoc().removeEventListener("pointermove", onMove);
+          ownerDoc().removeEventListener("pointerup", onUp);
+
+          if (stroke.points.length < 2) {
+            engine.notifyDrawEnd();
+            setActiveStrokeNode(null);
+            return;
+          }
+
+          // Committing is a no-op on screen: the engine node enters under the
+          // SAME id the DOM-layer NodeItem is already mounted with, so React
+          // keeps the instance and the pixels don't change. The local copy is
+          // id-deduped out once the engine mirror delivers the node (next
+          // frame), then cleared here — guarded so a fast follow-up stroke is
+          // never clobbered.
+          const node = buildNode();
+          engine.addNode(node);
           requestAnimationFrame(() => {
-            setActiveStroke(null);
+            setActiveStrokeNode((cur) => (cur?.id === node.id ? null : cur));
+            // End the collab live-stroke one frame later so peers keep the
+            // awareness overlay until the doc write reaches them (their
+            // holdover logic bridges any remaining gap).
             requestAnimationFrame(() => {
               engine.notifyDrawEnd();
             });
@@ -1507,7 +1513,7 @@ export function usePointerGestures({
     handlePointerDown,
     selectionRect,
     lassoPoints,
-    activeStroke,
+    activeStrokeNode,
     shapePreview,
     textPreview,
     eraserTrail,

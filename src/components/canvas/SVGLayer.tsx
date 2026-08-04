@@ -38,6 +38,7 @@ import { nodeShowsEdgeComputeOverlay } from "../../engine/data-flow-types";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
 import { selectionInkPad } from "./selection-pad";
+import { quantizeViewportForRender } from "./viewport-quantize";
 import { useSBTheme } from "../sidebar/ThemeContext";
 
 export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -1077,7 +1078,10 @@ export default function SVGLayer({
 }: SVGLayerProps) {
   const theme = useSBTheme();
   const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null);
-  const svgTransform = `translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`;
+  // Device-pixel-snapped translate so this overlay rasterizes on the same
+  // grid as the CSS-transformed DOM node layer (see viewport-quantize.ts).
+  const renderVp = quantizeViewportForRender(viewport);
+  const svgTransform = `translate(${renderVp.x}, ${renderVp.y}) scale(${renderVp.zoom})`;
 
   // Nodes that need selection boxes (everything except edges, content, and image
   // which render their own selection UI)
