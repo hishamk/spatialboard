@@ -142,7 +142,7 @@ const NodeItem = memo(function NodeItem({
             key={node.id}
             node={node}
             isInteractive={isInteractive}
-            isSelected={isSelected && ctx.selection.size === 1}
+            isSelected={isSelected && ctx.selection.size === 1 && engine.gestureKind !== "move"}
             selectionInNode={!!def.selectionInNode}
             selectionRadius={def.selectionRadius}
             zoom={ctx.zoom}

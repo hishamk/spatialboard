@@ -90,6 +90,30 @@ export interface SpatialBoardLocalization {
   inspectorSize: string;
   inspectorAlign: string;
   inspectorRoughness: string;
+  inspectorBrush: string;
+  brushPen: string;
+  brushAirbrush: string;
+  consoleTools: string;
+  consoleSelection: string;
+  consoleObjects: string;
+  consoleObject: string;
+  consoleAll: string;
+  consoleFilterHint: string;
+  consoleGroup: string;
+  consoleMore: string;
+  consoleProperties: string;
+  consoleUndo: string;
+  consoleStack: string;
+  consoleRedo: string;
+  consoleEmptyHint: string;
+  consoleView: string;
+  consoleSlides: string;
+  consoleFit: string;
+  consolePlay: string;
+  consolePrevSlide: string;
+  consoleNextSlide: string;
+  consoleCollapse: string;
+  consoleExpand: string;
   inspectorCrop: string;
   inspectorReset: string;
   inspectorBackground: string;
@@ -339,6 +363,30 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   inspectorSize: "Size",
   inspectorAlign: "Align",
   inspectorRoughness: "Roughness",
+  inspectorBrush: "Brush",
+  brushPen: "Pen",
+  brushAirbrush: "Airbrush",
+  consoleTools: "Tools",
+  consoleSelection: "Selection",
+  consoleObjects: "objects",
+  consoleObject: "object",
+  consoleAll: "All",
+  consoleFilterHint: "Keep only this type selected",
+  consoleGroup: "Group",
+  consoleMore: "More…",
+  consoleProperties: "Properties",
+  consoleUndo: "Undo",
+  consoleStack: "Stack",
+  consoleRedo: "Redo",
+  consoleEmptyHint: "Select objects to edit them here",
+  consoleView: "View",
+  consoleSlides: "Slides",
+  consoleFit: "FIT",
+  consolePlay: "PLAY",
+  consolePrevSlide: "Previous frame",
+  consoleNextSlide: "Next frame",
+  consoleCollapse: "Collapse panel",
+  consoleExpand: "Expand panel",
   inspectorCrop: "Crop",
   inspectorReset: "Reset",
   inspectorBackground: "Background",

@@ -16,6 +16,8 @@ import { loadGoogleFonts } from "../fonts";
 import { SBThemeContext, DEFAULT_SB_THEME, SB_UI_FONT } from "./sidebar/ThemeContext";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./chrome/BottomBar";
+import ConsolePanel, { CONSOLE_COLLAPSED_CLEARANCE } from "./chrome/ConsolePanel";
+import SelectionActionBar from "./chrome/SelectionActionBar";
 import CanvasSearchBar from "./overlays/CanvasSearchBar";
 import FramesPanel from "./panels/FramesPanel";
 import PresentationOverlay from "./overlays/PresentationOverlay";
@@ -179,6 +181,15 @@ export interface SpatialBoardProps {
    *  Keyboard shortcuts and the floating inspector are unaffected. Default
    *  false (canvas byte-identical). */
   toolsInBottomBar?: boolean;
+  /** Chrome layout. "floating" (default) = side rail + floating inspector +
+   *  floating bottom pills. "console" = one full-width collapsible bottom
+   *  panel holding tools, selection controls, and view controls — the
+   *  Amiga-paint-deck pattern. Console applies on desktop only; the compact
+   *  (mobile) chrome and readOnly viewing keep their own layouts. */
+  chrome?: "floating" | "console";
+  /** Inline-end offset (px) for the floating minimap — hosts with their own
+   *  bottom-corner UI (e.g. FABs) shift the map clear of it. */
+  minimapEndOffset?: number;
 }
 
 export default function SpatialBoard({
@@ -210,6 +221,8 @@ export default function SpatialBoard({
   overlayNodes,
   bottomBarLeading,
   toolsInBottomBar = false,
+  chrome = "floating",
+  minimapEndOffset,
 }: SpatialBoardProps) {
   const engine = useMemo(
     () => externalEngine ?? new SpatialEngine(),
@@ -404,7 +417,11 @@ export default function SpatialBoard({
   const showSidebarUI = showSidebar && !presenting && !readOnly;
   // Compact chrome replaces both the side rail and the bar-seated tools with
   // the bottom MobileToolbar, regardless of the host's toolsInBottomBar choice.
-  const railVisible = showSidebarUI && !toolsInBottomBar && !compact;
+  const consoleChrome = chrome === "console" && !compact && !readOnly;
+  // The minimap docks inside the console deck when it has room; otherwise
+  // (collapsed deck or narrow window) the floating map shows.
+  const [consoleMapDocked, setConsoleMapDocked] = useState(false);
+  const railVisible = showSidebarUI && !toolsInBottomBar && !compact && !consoleChrome;
   const mobileToolbarVisible = showSidebarUI && !isPreview && compact;
 
   return (
@@ -444,7 +461,7 @@ export default function SpatialBoard({
         ...style,
       }}
     >
-      {showSidebarUI && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar && !compact} compact={compact} />}
+      {showSidebarUI && !consoleChrome && <Sidebar engine={engine} registry={registry} gifApiBaseUrl={gifApiBaseUrl} hostActive={hostActive} tools={tools} nodeInspector={nodeInspector} toolStrip={!toolsInBottomBar && !compact} compact={compact} />}
       {showDebugPanel && <Suspense fallback={null}><DebugPanel engine={engine} extraBoards={debugBoards} /></Suspense>}
       <div
         style={{
@@ -464,8 +481,9 @@ export default function SpatialBoard({
           showPortLabels={showPortLabels}
           onPortConnectEmpty={onPortConnectEmpty}
           portConnectHold={portConnectHold}
-          minimapVisible={isPreview ? false : minimapVisible}
-          minimapBottomOffset={compact ? 128 : undefined}
+          minimapVisible={isPreview ? false : consoleChrome ? minimapVisible && !consoleMapDocked : minimapVisible}
+          minimapBottomOffset={compact ? 128 : consoleChrome ? CONSOLE_COLLAPSED_CLEARANCE : undefined}
+          minimapEndOffset={minimapEndOffset}
           singleFrameId={singleFrameId}
           hostVisibleNodeIds={visibleNodeIds ?? null}
           overlayNodes={overlayNodes ?? null}
@@ -475,7 +493,7 @@ export default function SpatialBoard({
             viewers can launch presentation mode and browse the slides
             list. Edit affordances inside FramesPanel (rename, reorder)
             silently no-op via the engine's readOnly guard. */}
-        {showChrome && (
+        {showChrome && !consoleChrome && (
           <BottomBar
             engine={engine}
             tools={tools}
@@ -490,6 +508,21 @@ export default function SpatialBoard({
             showPerfOverlay={showPerfOverlay}
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
+        )}
+        {showChrome && consoleChrome && (
+          <>
+            <SelectionActionBar engine={engine} />
+            <ConsolePanel
+              engine={engine}
+              registry={registry}
+              tools={tools}
+              framesPanelOpen={framesPanelOpen}
+              onToggleFramesPanel={showSlides ? () => setFramesPanelOpen((v) => !v) : undefined}
+              minimapVisible={minimapVisible}
+              onToggleMinimap={() => setMinimapVisible((v) => !v)}
+              onMinimapDockedChange={setConsoleMapDocked}
+            />
+          </>
         )}
         {showChrome && mobileToolbarVisible && (
           <MobileToolbar

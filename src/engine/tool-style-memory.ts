@@ -19,6 +19,7 @@ const STYLE_MAPS: Record<string, Record<string, keyof ActiveTool>> = {
     opacity: "opacity",
   },
   draw: {
+    tool: "tool",
     color: "color",
     strokeWidth: "width",
     strokeStyle: "strokeStyle",

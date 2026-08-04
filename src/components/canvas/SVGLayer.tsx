@@ -11,6 +11,7 @@ import type {
   StrokeSharpness,
 } from "../../engine/types";
 import { getStrokePath } from "../../rendering/freehand";
+import { getAirbrushRender } from "../../rendering/airbrush";
 import { strokeStyleToDash, getRoughPathPaths, getRoughLinePaths, getRoughRectPaths, getRoughEllipsePaths, getRoughDiamondPaths, getRoughArrowPaths, roundedRectRadius } from "../../rendering/rough-shapes";
 import type { RoughPathData } from "../../rendering/rough-shapes";
 import {
@@ -106,6 +107,9 @@ interface SVGLayerProps {
   nodes: SpatialNode[];
   viewport: Viewport;
   selection: Set<string>;
+  /** True while a MOVE drag is in flight — selection frames/handles hide
+   *  (transform gestures keep them; they're the thing being dragged). */
+  hideSelectionChrome?: boolean;
   measuredHeights?: Record<string, number>;
   activeStroke: {
     points: Array<[number, number, number]>;
@@ -113,6 +117,9 @@ interface SVGLayerProps {
     width: number;
     strokeStyle?: StrokeStyle;
     opacity?: number;
+    tool?: "pen" | "airbrush";
+    /** Spray seed (the future node id) — preview grains match the commit. */
+    seed?: string;
   } | null;
   shapePreview: {
     startX: number;
@@ -445,6 +452,8 @@ interface EdgeRendererProps {
   getDataFlowPortValue?: (nodeId: string, portId: string) => PortValue;
   /** Cursor over the wide hit stroke; select uses move (matches nodes), other tools inherit container. */
   interactionMode?: Mode;
+  /** Hide endpoint/kink edit handles (move drag in flight). */
+  hideSelectionChrome?: boolean;
 }
 
 const EdgeRenderer = memo(function EdgeRenderer({
@@ -460,6 +469,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
   edgeReconnect,
   eraserMarkedIds,
   cycleNodeIds,
+  hideSelectionChrome,
   dataFlowEdgeOverlay = "off",
   getLastComputeMs,
   getDataFlowPortValue,
@@ -581,6 +591,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
   const showEdgeEditHandles =
     isSelected &&
     !isReconnecting &&
+    !hideSelectionChrome &&
     selection.size === 1 &&
     !edge.data.sourcePort &&
     !edge.data.targetPort;
@@ -1034,6 +1045,7 @@ export default function SVGLayer({
   nodes,
   viewport,
   selection,
+  hideSelectionChrome,
   measuredHeights,
   activeStroke,
   shapePreview,
@@ -1112,6 +1124,7 @@ export default function SVGLayer({
               edgeReconnect={edgeReconnect}
               eraserMarkedIds={eraserMarkedIds}
               cycleNodeIds={cycleNodeIds}
+              hideSelectionChrome={hideSelectionChrome}
               dataFlowEdgeOverlay={dataFlowEdgeOverlay}
               getLastComputeMs={getLastComputeMs}
               getDataFlowPortValue={getDataFlowPortValue}
@@ -1215,7 +1228,9 @@ export default function SVGLayer({
               if (nodeTypeHasPorts(registry?.get(n.type))) return false;
               // Free-form edges use perimeter hit-testing; DOM images have no SVG frame — skip fixed anchors.
               if (freeFormEdges && n.type === "image") return false;
-              return (selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
+              // Selection-driven anchors hide during move drags with the rest
+              // of the chrome; edge-drag targets (isDragging) stay visible.
+              return (!hideSelectionChrome && selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
             })
             .forEach((node) => {
               const handles = getNodeHandlePositions(node, measuredHeights);
@@ -1922,7 +1937,7 @@ export default function SVGLayer({
         })()}
 
         {/* Selection boxes for SVG nodes (single selection only — multi uses unified bounding box) */}
-        {selection.size === 1 && mode !== "edge" && !edgePreview && !edgeReconnect && svgNodes
+        {selection.size === 1 && !hideSelectionChrome && mode !== "edge" && !edgePreview && !edgeReconnect && svgNodes
           .filter((n) => selection.has(n.id) && n.id !== suppressNodeOverlayId)
           .map((node) => {
             const def = registry?.get(node.type);
@@ -1948,6 +1963,21 @@ export default function SVGLayer({
         {activeStroke && activeStroke.points.length > 1 && (() => {
           const isDashed = activeStroke.strokeStyle === "dashed" || activeStroke.strokeStyle === "dotted";
           const strokeOpacity = activeStroke.opacity ?? 1;
+          if (activeStroke.tool === "airbrush") {
+            const spray = getAirbrushRender(activeStroke.points, activeStroke.width, activeStroke.seed ?? "preview");
+            if (!spray) return null;
+            return (
+              <path
+                d={spray.d}
+                fill="none"
+                stroke={activeStroke.color}
+                strokeWidth={spray.dotStrokeWidth}
+                strokeOpacity={spray.strokeOpacity}
+                strokeLinecap="round"
+                opacity={strokeOpacity}
+              />
+            );
+          }
           if (isDashed) {
             const pts = activeStroke.points;
             const d: (string | number)[] = ["M", pts[0][0], pts[0][1]];

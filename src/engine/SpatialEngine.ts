@@ -149,6 +149,9 @@ type EventMap = {
     width: number;
     strokeStyle?: string;
     opacity?: number;
+    tool?: "pen" | "airbrush";
+    /** Spray seed (the future node id) so peers preview identical grains. */
+    seed?: string;
   }) => void;
   'draw:end': () => void;
   'shape:progress': (preview: {
@@ -267,6 +270,7 @@ export class SpatialEngine {
   /** @internal */ pasteCount = 0;
   /** Node ids captured by the active pointer gesture; null when idle. */
   /** @internal */ _gestureIds: ReadonlySet<string> | null = null;
+  /** @internal */ _gestureKind: SelectionOps.NodeGestureKind | null = null;
   /** Monotonic counters bumped whenever the matching event reaches listeners.
    *  Used as `useSyncExternalStore` snapshots by canvas overlays. */
   private _changeTick = 0;
@@ -433,6 +437,13 @@ export class SpatialEngine {
     return this._gestureIds;
   }
 
+  /** Kind of the active gesture ("move" | "transform"); null when idle.
+   *  Selection chrome hides during "move" (the frame would just chase
+   *  the nodes) and stays for "transform" (it's being used). */
+  get gestureKind(): SelectionOps.NodeGestureKind | null {
+    return this._gestureKind;
+  }
+
   /** Monotonic tick bumped on every `change` reaching listeners. */
   get changeTick(): number {
     return this._changeTick;
@@ -449,8 +460,8 @@ export class SpatialEngine {
    * (collab sync depends on that); only the canvas's whole-board React
    * mirror pauses. Idempotent: beginning while active replaces the id set.
    */
-  beginNodeGesture(ids: Iterable<string>): void {
-    SelectionOps.beginNodeGesture(this, ids);
+  beginNodeGesture(ids: Iterable<string>, kind?: SelectionOps.NodeGestureKind): void {
+    SelectionOps.beginNodeGesture(this, ids, kind);
   }
 
   /** End the active pointer gesture (no-op when idle). */
@@ -639,6 +650,11 @@ export class SpatialEngine {
   /** Zoom and pan to center a node for editing (e.g. after double-click on placeholder) */
   zoomToNode(nodeId: string, targetZoom = 1): void {
     CameraOps.zoomToNode(this, nodeId, targetZoom);
+  }
+
+  /** Fit a frame to the screen (presentation-style fit, smooth pan). */
+  zoomToFrame(frameId: string): void {
+    PresentOps.zoomToFrame(this, frameId);
   }
 
   fitToContent(): void {
@@ -1326,6 +1342,8 @@ export class SpatialEngine {
     width: number;
     strokeStyle?: string;
     opacity?: number;
+    tool?: "pen" | "airbrush";
+    seed?: string;
   }): void {
     this.emit("draw:progress", stroke);
   }

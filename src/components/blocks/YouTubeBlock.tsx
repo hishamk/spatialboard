@@ -78,7 +78,10 @@ function YouTubeBlock({
         marginLeft: -node.w / 2,
         marginTop: -h / 2,
         zIndex: node.z,
-        border: isSelected ? "2px dashed #3b82f6" : "none",
+        // Outline, not border — a border-box border insets the inset:0
+        // inner container and visibly shrinks the video on select (same
+        // fix as ImageBlock). Hidden during move drags like all chrome.
+        outline: isSelected && engine.gestureKind !== "move" ? "2px dashed #3b82f6" : "none",
         borderRadius: 6,
         overflow: "visible",
         pointerEvents: interactive ? "auto" : "none",
@@ -130,6 +133,7 @@ function YouTubeBlock({
       {isSelected &&
         interactive &&
         !editing &&
+        engine.gestureKind !== "move" &&
         handles.map((hdl) => (
           <div
             key={hdl.key}

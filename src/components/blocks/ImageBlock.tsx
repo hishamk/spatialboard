@@ -431,7 +431,11 @@ function ImageBlock({
   const handleSize = 8 / zoom;
   const half = handleSize / 2;
   const rotateGap = 25 / zoom;
-  const showHandles = isSelected && onResizeHandleDown && !cropping;
+  // Move drags hide all selection chrome (frame + handles) — the box would
+  // just chase the image. Transform gestures keep it (it's being used).
+  const movingSelection = engine.gestureKind === "move";
+  const showChrome = isSelected && !cropping && !movingSelection;
+  const showHandles = showChrome && !!onResizeHandleDown;
 
   const handleRotatePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -542,7 +546,12 @@ function ImageBlock({
         marginLeft: -node.w / 2,
         marginTop: -h / 2,
         zIndex: node.z,
-        border: isSelected && !cropping ? `2px solid #3b82f6` : "none",
+        // Selection ring as an OUTLINE, not a border: with border-box
+        // sizing a border shrinks the padding box, which insets the
+        // absolutely-positioned (inset: 0) image by the border width —
+        // the image visibly resized on select. Outlines paint outside
+        // the box and never affect layout.
+        outline: showChrome ? `2px solid #3b82f6` : "none",
         borderRadius: 6,
         overflow: "visible",
         pointerEvents: interactive || cropping ? "auto" : "none",
@@ -618,8 +627,8 @@ function ImageBlock({
           />
         ))}
 
-      {/* Rotation line + handle (hide during crop) */}
-      {isSelected && !cropping && (
+      {/* Rotation line + handle (hide during crop + move drags) */}
+      {showChrome && (
         <>
           <div
             style={{

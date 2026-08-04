@@ -11,7 +11,7 @@ import { useSpatialBoardReadOnly } from "../contexts/SpatialBoardReadOnlyContext
 const PANEL_WIDTH = 240;
 const CARD_GAP = 6;
 
-interface FrameEntry {
+export interface FrameEntry {
   id: string;
   label: string;
   order: number;
@@ -21,7 +21,7 @@ interface FrameEntry {
   transitionDuration?: number;
 }
 
-function buildOrderedFrames(engine: SpatialEngine): FrameEntry[] {
+export function buildOrderedFrames(engine: SpatialEngine): FrameEntry[] {
   const allNodes = engine.getAllNodes();
   const frames = allNodes.filter((n) => n.type === "frame") as FrameNode[];
   if (frames.length === 0) return [];
@@ -500,7 +500,7 @@ function FramesPanelInner({ engine, open, onClose }: FramesPanelProps) {
   const handleFrameDoubleClick = useCallback(
     (frameId: string) => {
       engine.select(frameId);
-      engine.zoomToNode(frameId, 0.8);
+      engine.zoomToFrame(frameId);
     },
     [engine],
   );
@@ -775,7 +775,7 @@ function FramesPanelInner({ engine, open, onClose }: FramesPanelProps) {
               <div
                 data-frame-card
                 // Drag-reorder is editing → disabled in readOnly. Double-click
-                // is navigate-to-frame (engine.select + zoomToNode, both
+                // is navigate-to-frame (engine.select + zoomToFrame, both
                 // view-state) → kept so viewers can still jump between slides.
                 onPointerDown={readOnly ? undefined : (e) => handlePointerDown(e, index)}
                 onDoubleClick={() => handleFrameDoubleClick(frame.id)}

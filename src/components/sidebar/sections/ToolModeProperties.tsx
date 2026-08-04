@@ -347,6 +347,37 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
         </div>
       )}
 
+      {/* Brush (draw mode): pen ink vs airbrush spray */}
+      {!isShapeMode && (
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorBrush}</span>
+          {([
+            { key: "pen" as const, label: labels.brushPen },
+            { key: "airbrush" as const, label: labels.brushAirbrush },
+          ]).map((b) => (
+            <button
+              key={b.key}
+              title={b.label}
+              onClick={() => {
+                tool.tool = b.key;
+                refresh();
+              }}
+              style={{
+                ...btnBase,
+                height: 28,
+                padding: "0 10px",
+                background: (tool.tool === "airbrush" ? "airbrush" : "pen") === b.key ? theme.controlBgActive : theme.controlBg,
+                color: theme.text,
+                fontSize: 10,
+                borderRadius: theme.controlBorderRadius,
+              }}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Stroke color */}
       <PaletteColorPicker
         label={labels.inspectorStroke}
@@ -358,7 +389,8 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
         }}
       />
 
-      {/* Fill color */}
+      {/* Fill color — airbrush is spray-only: no fill, no dash */}
+      {!(!isShapeMode && tool.tool === "airbrush") && (
       <PaletteColorPicker
         label={labels.inspectorFill}
         palettes={FILL_PALETTES}
@@ -369,9 +401,10 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
         }}
         allowNull
       />
+      )}
 
       {/* Fill style */}
-      {fillColor && (
+      {!(!isShapeMode && tool.tool === "airbrush") && fillColor && (
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFillPattern}</span>
           {FILL_STYLES.map((f) => (
@@ -399,6 +432,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
       )}
 
       {/* Stroke style */}
+      {!(!isShapeMode && tool.tool === "airbrush") && (
       <StrokeStylePicker
         label={labels.inspectorStrokeStyle}
         value={strokeStyle}
@@ -407,6 +441,7 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
           refresh();
         }}
       />
+      )}
 
       {/* Stroke width */}
       <WidthPicker

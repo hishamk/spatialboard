@@ -58,7 +58,7 @@ export default function App() {
       onAbout={() => setAboutOpen(true)}
     >
       {/* No `nodeTypes` prop → the slim default preset (coreBoardNodes). */}
-      <SpatialBoard engine={engine} theme={LIGHT_SB_THEME} />
+      <SpatialBoard engine={engine} theme={LIGHT_SB_THEME} chrome="console" />
       {aboutOpen && <AboutPage onClose={() => setAboutOpen(false)} />}
     </BoardShell>
   );

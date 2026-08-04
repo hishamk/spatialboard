@@ -37,7 +37,17 @@ const LiveSVGLayerHost = function LiveSVGLayerHost({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tick drives live re-reads
     [engine, baseNodes, tick],
   );
-  return <SVGLayer nodes={nodes} alignGuides={engine.alignGuides} {...rest} />;
+  return (
+    <SVGLayer
+      nodes={nodes}
+      alignGuides={engine.alignGuides}
+      // Selection chrome hides while a MOVE drag is in flight — the frame
+      // would just chase the nodes. Transform gestures (resize / rotate)
+      // keep it: the chrome is the thing being dragged.
+      hideSelectionChrome={engine.gestureKind === "move"}
+      {...rest}
+    />
+  );
 };
 
 export default LiveSVGLayerHost;

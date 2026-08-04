@@ -18,8 +18,10 @@ const MIME_EXT: Record<string, string> = {
 
 /** Save an image node's source to disk. Data URIs download directly; remote
  *  URLs are fetched to a blob first (cross-origin failures fall back to
- *  opening the image in a new tab, where the browser can save it). */
-async function downloadImageNode(node: ImageNode): Promise<void> {
+ *  opening the image in a new tab, where the browser can save it).
+ *  Exported so the console chrome's SelectionActionBar offers the same
+ *  action as this context menu. */
+export async function downloadImageNode(node: ImageNode): Promise<void> {
   const src = node.data.src;
   const baseName =
     node.data.alt?.trim().replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "image";

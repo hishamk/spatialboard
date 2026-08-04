@@ -113,6 +113,18 @@ export function presentationGoTo(engine: SpatialEngine, index: number): void {
   }
 }
 
+/**
+ * Fit a frame to the screen — the same fit presentation slides use (small
+ * padding, centered, clamped zoom) — with a smooth pan. Used by slide
+ * navigation OUTSIDE presentation mode (frames panel clicks, the console
+ * deck's VCR controls).
+ */
+export function zoomToFrame(engine: SpatialEngine, frameId: string): void {
+  const frame = engine.nodes.get(frameId);
+  if (!frame || frame.type !== "frame") return;
+  _transitionPan(engine, _computeSlideViewport(engine, frame));
+}
+
 function _computeSlideViewport(engine: SpatialEngine, frame: SpatialNode): { x: number; y: number; zoom: number } {
   const fh = engine.resolveHeight(frame);
   const padding = 40;

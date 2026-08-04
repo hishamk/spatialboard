@@ -16,6 +16,7 @@ import type {
 import { getYouTubeThumbnailUrl } from "../utils/youtube";
 import { getStrokePath } from "../rendering/freehand";
 import { computeDrawFillData } from "../rendering/draw-fill";
+import { getAirbrushRender } from "../rendering/airbrush";
 import {
   getRoughRectPaths,
   getRoughEllipsePaths,
@@ -544,6 +545,19 @@ function renderDrawNode(node: DrawNode, ox: number, oy: number): string {
   // Vector tool: clean polygon rendering (no perfect-freehand)
   if (d.tool === "vector") {
     return renderVectorPath(absolutePoints, d, node, ox, oy);
+  }
+
+  // Airbrush: same seeded grain spray as the canvas renderer (DrawBlock) —
+  // seed is the node id, offsets are point-relative, so absolute-vs-relative
+  // point spaces render identical grain patterns.
+  if (d.tool === "airbrush") {
+    const spray = getAirbrushRender(absolutePoints, d.strokeWidth, node.id);
+    if (!spray) return "";
+    const inner =
+      `<path d="${spray.d}" fill="none" stroke="${safeColor(d.color)}" ` +
+      `stroke-width="${spray.dotStrokeWidth}" stroke-opacity="${spray.strokeOpacity}" stroke-linecap="round"/>`;
+    const hh = node.h === "auto" ? 0 : (node.h as number);
+    return wrapG(inner, node.x - ox, node.y - oy, node.w, hh, node.rotation, d.opacity);
   }
 
   const dashArray = strokeStyleToDash(d.strokeStyle);

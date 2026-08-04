@@ -49,8 +49,41 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
   const mixedStrokeWidth = isMixed(allNodes, (n) => n.data.strokeWidth);
   const mixedOpacity     = isMixed(allNodes, (n) => n.data.opacity ?? 1);
 
+  const brush = data.tool === "airbrush" ? "airbrush" : "pen";
+  const mixedBrush = isMixed(allNodes, (n) => (n.data.tool === "airbrush" ? "airbrush" : "pen"));
+  // Spray has no fill and no dash — hide those controls when the whole
+  // selection is airbrush (mixed selections keep them for the pen strokes).
+  const allAirbrush = !mixedBrush && brush === "airbrush";
+
   return (
     <>
+      {/* Brush: pen ink vs airbrush spray (points are stored raw, so
+          existing strokes convert freely) */}
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorBrush}</span>
+        {([
+          { key: "pen" as const, label: labels.brushPen },
+          { key: "airbrush" as const, label: labels.brushAirbrush },
+        ]).map((b) => (
+          <button
+            key={b.key}
+            title={b.label}
+            onClick={() => update({ tool: b.key })}
+            style={{
+              ...btnBase,
+              height: 28,
+              padding: "0 10px",
+              background: !mixedBrush && brush === b.key ? theme.controlBgActive : theme.controlBg,
+              color: theme.text,
+              fontSize: 10,
+              borderRadius: theme.controlBorderRadius,
+            }}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
       {/* Stroke color */}
       <PaletteColorPicker
         label={labels.inspectorStroke}
@@ -61,6 +94,7 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       />
 
       {/* Fill color */}
+      {!allAirbrush && (
       <PaletteColorPicker
         label={labels.inspectorFill}
         palettes={FILL_PALETTES}
@@ -69,9 +103,10 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
         onChange={(c) => update({ fill: c ?? undefined })}
         allowNull
       />
+      )}
 
       {/* Fill style (only when fill is set and not mixed) */}
-      {fillColor && !mixedFill && (
+      {!allAirbrush && fillColor && !mixedFill && (
         <div style={rowStyle}>
           <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorFillPattern}</span>
           {FILL_STYLES.map((f) => (
@@ -96,12 +131,14 @@ export default function DrawProperties({ engine, node }: DrawPropertiesProps) {
       )}
 
       {/* Stroke style */}
+      {!allAirbrush && (
       <StrokeStylePicker
         label={labels.inspectorStrokeStyle}
         value={strokeStyle}
         mixed={mixedStrokeStyle}
         onChange={(s) => update({ strokeStyle: s })}
       />
+      )}
 
       {/* Stroke width */}
       <WidthPicker

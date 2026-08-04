@@ -119,15 +119,28 @@ export function deselectAll(engine: SpatialEngine): void {
  * gesture is active the engine still mutates and emits per frame
  * (collab sync depends on that); only the canvas's whole-board React
  * mirror pauses. Idempotent: beginning while active replaces the id set.
+ *
+ * `kind` distinguishes MOVE drags (selection chrome hides — the frame
+ * would just chase the nodes) from TRANSFORM gestures (resize / rotate /
+ * edge-endpoint drags, where the chrome is the very thing being used and
+ * must stay visible).
  */
-export function beginNodeGesture(engine: SpatialEngine, ids: Iterable<string>): void {
+export function beginNodeGesture(
+  engine: SpatialEngine,
+  ids: Iterable<string>,
+  kind: NodeGestureKind = "move",
+): void {
   engine._gestureIds = new Set(ids);
+  engine._gestureKind = kind;
   engine.emit("gesture:start");
 }
+
+export type NodeGestureKind = "move" | "transform";
 
 /** End the active pointer gesture (no-op when idle). */
 export function endNodeGesture(engine: SpatialEngine): void {
   if (engine._gestureIds === null) return;
   engine._gestureIds = null;
+  engine._gestureKind = null;
   engine.emit("gesture:end");
 }

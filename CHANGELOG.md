@@ -95,6 +95,15 @@ Versioning.
 
 ### Fixed
 
+- Selecting an image (or video) no longer insets its content: the selection
+  ring was a `border` on a border-box container, which shrank the `inset: 0`
+  content by the border width every time. The ring is an `outline` now —
+  painted outside, zero layout impact.
+- The floating selection pill positions off the full CHROME envelope
+  (ink-padded frame + handle hit targets + the rotation stem) instead of the
+  raw node box, so it can no longer occlude the rotation knob, corner
+  handles, or an edge's endpoint grips — in the above placement and the
+  flipped-below one alike.
 - Per-id bookkeeping now actually leaves the board with its node: measured
   heights (engine + spatial index), group rotation state of dissolved
   groups, and data-flow generation counters were never pruned on delete and
@@ -187,6 +196,44 @@ Versioning.
 
 ### Added
 
+- Airbrush brush for the draw tool — a seeded grain spray along the pointer
+  path (the classic paint-deck spray can). The whole spray is a pure
+  function of (points, width, node id): grains never shimmer while drawing,
+  the live preview shows exactly what commits, reloads render the identical
+  spray, and exports mirror the canvas. A "Brush" row on the draw tool (and
+  on existing strokes — points are stored raw, so strokes convert freely)
+  switches Pen ↔ Airbrush; the choice participates in per-type style memory.
+- Console chrome (`<SpatialBoard chrome="console">`): the whole control
+  surface as ONE full-width collapsible bottom panel — TOOLS · SELECTION ·
+  VIEW zones — instead of the side rail + floating inspector + floating
+  pills. With nothing selected it collapses to a 44px strip (tools + zoom);
+  selecting expands it to the full deck: selection-breakdown chips that
+  filter the selection by type, quick color swatches, an opacity slider,
+  group, and the FULL inspector docked as its own zone — multi-type
+  selections switch via a tab strip (Shared + one tab per type), and
+  content flows into side-by-side columns so wide screens replace
+  scrolling with width. With a creation tool active the properties zone
+  shows that TOOL's options instead. Selection ACTIONS live on a floating
+  pill above the selection itself (the Canva pattern): group/ungroup,
+  duplicate, delete, and stack-order icons — keeping the
+  deck pure properties. The view zone carries zoom/fit, VCR-style slide
+  controls (prev / n-of-m / next navigating the canvas between frames in
+  presentation order, PLAY, and a slides-panel toggle), undo/redo seated
+  with the tools, and the minimap DOCKED into the deck's spare space with
+  its own show/hide toggle (the floating map yields in console mode).
+  Opt-in;
+  floating chrome stays the default, and the compact mobile layout and
+  read-only viewing keep their own chrome. The basic example now uses it.
+- The selection pill offers "Download image" for a single selected image —
+  the same action as the context menu (data URIs save directly; remote URLs
+  fetch to a blob, with a new-tab fallback for cross-origin sources).
+- Selection chrome hides while a selection is being MOVED — frame, resize
+  handles, rotation stem, connection anchor points, edge endpoint grips,
+  and the floating pill all get out of the way of the drag, then return on
+  release. Resize/rotate gestures keep their chrome (it's the thing being
+  dragged). Engine API: `beginNodeGesture(ids, kind)` now takes a
+  `"move" | "transform"` kind (default `"move"`), exposed as
+  `engine.gestureKind`.
 - `LIGHT_SB_THEME` — a light chrome preset (white floating panels, soft
   shadows, dark text, accent-tint active controls) alongside the dark
   default; the whole chrome is token-driven, so `theme={LIGHT_SB_THEME}`

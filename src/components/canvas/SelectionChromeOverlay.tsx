@@ -44,9 +44,15 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
     (cb: () => void) => {
       engine.on("change", cb);
       engine.on("selection", cb);
+      // Gesture boundaries flip the move-hides-chrome state below even
+      // when no change event has fired yet (drag start / end).
+      engine.on("gesture:start", cb);
+      engine.on("gesture:end", cb);
       return () => {
         engine.off("change", cb);
         engine.off("selection", cb);
+        engine.off("gesture:start", cb);
+        engine.off("gesture:end", cb);
       };
     },
     [engine],
@@ -56,6 +62,9 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
   useSyncExternalStore(subscribe, () => engine.overlayTick);
 
   if (hidden || engine.readOnly) return null;
+  // Move drags hide the bounding box — it would just chase the nodes.
+  // Transform gestures (resize/rotate) keep it: it's being used.
+  if (engine.gestureKind === "move") return null;
   const selection = engine.selection;
   if (selection.size < 2) return null;
 

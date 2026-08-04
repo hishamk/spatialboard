@@ -45,7 +45,7 @@ const sp = {
   strokeLinejoin: "round" as const,
 };
 
-function Icon({ name, size = 16 }: { name: string; size?: number }) {
+export function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {name === "minus" && <path d="M5 12h14" {...sp} />}

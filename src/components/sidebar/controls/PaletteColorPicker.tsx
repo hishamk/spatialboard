@@ -26,7 +26,6 @@ export default function PaletteColorPicker({
 }: PaletteColorPickerProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
-  const [hexInput, setHexInput] = useState("");
   const [activePalette, setActivePalette] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -79,16 +78,6 @@ export default function PaletteColorPicker({
       window.removeEventListener("scroll", updatePos, true);
     };
   }, [dropdownOpen]);
-
-  const commitHex = () => {
-    const trimmed = hexInput.trim();
-    if (!trimmed) return;
-    const hex = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
-    if (HEX_RE.test(hex)) {
-      onChange(hex);
-      setHexInput("");
-    }
-  };
 
   // Check if current value is a custom color (not in any palette)
   const inPalette = palettes.some((p) =>
@@ -271,31 +260,6 @@ export default function PaletteColorPicker({
           </div>
         )}
 
-        {/* Hex input row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <input
-            type="text"
-            value={hexInput}
-            onChange={(e) => setHexInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitHex();
-            }}
-            onBlur={commitHex}
-            placeholder={safeValue ?? "#000000"}
-            style={{
-              width: 84,
-              height: "var(--sbp-ctl-h, 28px)",
-              background: theme.controlBg,
-              border: `1px solid ${theme.border}`,
-              borderRadius: theme.controlBorderRadius,
-              color: theme.text,
-              fontSize: "var(--sbp-label-fs, 10px)",
-              fontFamily: "monospace",
-              padding: "0 8px",
-              outline: "none",
-            }}
-          />
-        </div>
       </div>
     </div>
   );

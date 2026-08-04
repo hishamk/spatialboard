@@ -55,7 +55,7 @@ export interface BlockNoteNode extends SpatialNode {
 export interface DrawNode extends SpatialNode {
   type: "draw";
   data: {
-    tool: "pen" | "pencil" | "highlighter" | "eraser" | "vector";
+    tool: "pen" | "pencil" | "highlighter" | "eraser" | "vector" | "airbrush";
     points: Array<[number, number, number]>;
     color: string;
     strokeWidth: number;

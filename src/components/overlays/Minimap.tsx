@@ -27,6 +27,9 @@ export interface MinimapProps {
   /** Distance (px) from the container's bottom edge — raised in compact
    *  layouts so the map clears the stacked bottom chrome. Default 56. */
   bottomOffset?: number;
+  /** Distance (px) from the container's inline-end edge — hosts with their
+   *  own bottom-corner UI (FABs) shift the map clear of it. Default 12. */
+  endOffset?: number;
 }
 
 function nodeHeight(n: SpatialNode, measured: Record<string, number>): number {
@@ -89,6 +92,7 @@ export default function Minimap({
   containerSize,
   measuredHeights,
   bottomOffset = 56,
+  endOffset = 12,
 }: MinimapProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
@@ -250,7 +254,7 @@ export default function Minimap({
       data-sb-minimap
       style={{
         position: "absolute",
-        insetInlineEnd: 12,
+        insetInlineEnd: endOffset,
         bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))`,
         width: MAP_W,
         height: MAP_H,

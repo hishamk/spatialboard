@@ -542,6 +542,16 @@ interface PropertiesContentProps {
   /** Mobile sheet layout: style controls first, actions after; the type
    *  header is omitted (the sheet header carries it). */
   mobileLayout?: boolean;
+  /** Multi-selection layout: the default vertical accordion, or a TAB strip
+   *  (Shared + one tab per node type) for wide horizontal hosts like the
+   *  console chrome, where stacked collapsibles force scrolling. */
+  multiLayout?: "accordion" | "tabs";
+  /** Omit the selection header (hosts whose zone label already names the
+   *  target, e.g. the console chrome). */
+  hideHeader?: boolean;
+  /** Omit rotation + stack rows (hosts that surface them elsewhere, e.g. the
+   *  console chrome's floating selection action bar). */
+  hideArrangeControls?: boolean;
 }
 
 export default function PropertiesContent({
@@ -550,8 +560,12 @@ export default function PropertiesContent({
   target,
   commonProps,
   mobileLayout = false,
+  multiLayout = "accordion",
+  hideHeader = false,
+  hideArrangeControls = false,
 }: PropertiesContentProps) {
   const { labels } = useSBI18n();
+  const theme = useSBTheme();
   const fontsInScene = useMemo(() => getFontsInScene(engine), [engine, target]);
   const headerLabel = getHeaderLabel(target, labels);
   const [openMultiSection, setOpenMultiSection] = useState<string>("shared");
@@ -615,12 +629,12 @@ export default function PropertiesContent({
             registry={registry}
             fontsInScene={fontsInScene}
           />
-          <RotationInput engine={engine} nodes={[target.node]} />
-          <ZOrderControls engine={engine} nodes={[target.node]} />
+          {!hideArrangeControls && <RotationInput engine={engine} nodes={[target.node]} />}
+          {!hideArrangeControls && <ZOrderControls engine={engine} nodes={[target.node]} />}
         </>
       )}
 
-      {target.kind === "multi" && (
+      {target.kind === "multi" && multiLayout === "accordion" && (
         <>
           <PropertySection
             title={labels.inspectorShared}
@@ -646,6 +660,60 @@ export default function PropertiesContent({
           ))}
         </>
       )}
+
+      {target.kind === "multi" && multiLayout === "tabs" && (() => {
+        const typeLabels = buildTypeLabels(labels);
+        const activeGroup = target.typeGroups.find((g) => g.type === openMultiSection);
+        const tabBtn = (active: boolean): React.CSSProperties => ({
+          border: "none",
+          cursor: "pointer",
+          borderRadius: 999,
+          padding: "3px 10px",
+          fontSize: 11,
+          fontFamily: "inherit",
+          background: active ? theme.controlBgActive : theme.controlBg,
+          color: theme.text,
+          whiteSpace: "nowrap",
+        });
+        return (
+          <>
+            {/* Tab strip takes the full line in wrap-flow hosts. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, columnSpan: "all", flexBasis: "100%" }}>
+              <button
+                style={tabBtn(openMultiSection === "shared")}
+                onClick={() => setOpenMultiSection("shared")}
+              >
+                {labels.inspectorShared}
+              </button>
+              {target.typeGroups.map((group) => (
+                <button
+                  key={group.type}
+                  style={tabBtn(openMultiSection === group.type)}
+                  onClick={() => setOpenMultiSection(group.type)}
+                >
+                  {typeLabels[group.type] ?? group.type} ({group.nodes.length})
+                </button>
+              ))}
+            </div>
+            {openMultiSection === "shared" || !activeGroup ? (
+              <>
+                <CommonProperties engine={engine} nodes={target.nodes} commonProps={commonProps} />
+                {!hideArrangeControls && <RotationInput engine={engine} nodes={target.nodes} />}
+                {!hideArrangeControls && <ZOrderControls engine={engine} nodes={target.nodes} />}
+              </>
+            ) : (
+              <MultiNodeContext.Provider value={activeGroup.nodes}>
+                <SingleNodeProperties
+                  engine={engine}
+                  node={activeGroup.nodes[0]}
+                  registry={registry}
+                  fontsInScene={fontsInScene}
+                />
+              </MultiNodeContext.Provider>
+            )}
+          </>
+        );
+      })()}
     </>
   );
 
@@ -664,7 +732,7 @@ export default function PropertiesContent({
 
   return (
     <PropertyHistoryCoalesceContext.Provider value={getCoalesceKey}>
-      <SelectionHeader label={headerLabel} />
+      {!hideHeader && <SelectionHeader label={headerLabel} />}
       {touchActions}
       {styleControls}
     </PropertyHistoryCoalesceContext.Provider>

@@ -896,7 +896,7 @@ export default function ToolStrip({ engine, gifApiBaseUrl, tools, registry }: { 
  *  BottomBar instead of the side rail (SpatialBoard `toolsInBottomBar`).
  *  Same MODE_KEYS / icons / active semantics as the rail, rendered as one
  *  row of BottomBar-sized (32px) buttons. The bar provides the pill chrome. */
-export function ModeCluster({ engine, tools, registry }: { engine: SpatialEngine; tools?: ToolKey[]; registry?: NodeTypeRegistry }) {
+export function ModeCluster({ engine, tools, registry, size = 32 }: { engine: SpatialEngine; tools?: ToolKey[]; registry?: NodeTypeRegistry; size?: number }) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
   const show = (key: ToolKey) => (!tools || tools.includes(key)) && modeAvailable(key, registry);
@@ -936,8 +936,8 @@ export function ModeCluster({ engine, tools, registry }: { engine: SpatialEngine
             }}
             style={{
               ...btnBase,
-              width: 32,
-              height: 32,
+              width: size,
+              height: size,
               borderRadius: theme.controlBorderRadius,
               background: isActive ? theme.controlBgActive : "transparent",
               color: theme.text,
@@ -946,7 +946,7 @@ export function ModeCluster({ engine, tools, registry }: { engine: SpatialEngine
           >
             {/* No shortcut letter badge here — at bar size it reads cramped;
                 the tooltip carries the shortcut, like the bar's other buttons. */}
-            <ToolIcon name={m.mode} size={16} textGlyph={labels.toolTextGlyph} />
+            <ToolIcon name={m.mode} size={Math.round(size / 2)} textGlyph={labels.toolTextGlyph} />
           </button>
         );
       })}

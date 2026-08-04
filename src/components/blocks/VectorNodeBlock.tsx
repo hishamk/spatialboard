@@ -3,6 +3,7 @@ import type { DrawNode, ShapeNode } from "../../engine/types";
 import { getFontFamilyCSS, DEFAULT_FONT } from "../../fonts";
 import { getStrokePath } from "../../rendering/freehand";
 import { computeDrawFillData } from "../../rendering/draw-fill";
+import { getAirbrushRender } from "../../rendering/airbrush";
 import {
   getRoughRectPaths,
   getRoughEllipsePaths,
@@ -42,12 +43,20 @@ function VectorNodeBlock({ node, editingLabel }: { node: DrawNode | ShapeNode; e
 export default memo(VectorNodeBlock);
 
 const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
-  const isDashed = node.data.strokeStyle === "dashed" || node.data.strokeStyle === "dotted";
+  const isAirbrush = node.data.tool === "airbrush";
+  const isDashed = !isAirbrush && (node.data.strokeStyle === "dashed" || node.data.strokeStyle === "dotted");
   const dashArray = strokeStyleToDash(node.data.strokeStyle);
 
+  // Airbrush: seeded grain spray (one multi-subpath element). Seed = node id,
+  // so the spray is identical to the live preview and across reloads.
+  const spray = useMemo(
+    () => (isAirbrush ? getAirbrushRender(node.data.points, node.data.strokeWidth, node.id) : null),
+    [isAirbrush, node.data.points, node.data.strokeWidth, node.id]
+  );
+
   const pathData = useMemo(
-    () => isDashed ? null : getStrokePath(node.data.points, { size: node.data.strokeWidth }),
-    [node.data.points, node.data.strokeWidth, isDashed]
+    () => (isDashed || isAirbrush) ? null : getStrokePath(node.data.points, { size: node.data.strokeWidth }),
+    [node.data.points, node.data.strokeWidth, isDashed, isAirbrush]
   );
 
   // Simple polyline through points for the invisible hit area
@@ -83,13 +92,15 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
   // paint identically — see src/rendering/draw-fill.ts).
   const fillData = useMemo(
     () =>
-      computeDrawFillData(
-        node.data.points,
-        node.data.fill,
-        node.data.fillStyle,
-        node.data.strokeWidth,
-      ),
-    [node.data.fill, node.data.fillStyle, node.data.points, node.data.strokeWidth]
+      isAirbrush
+        ? null
+        : computeDrawFillData(
+            node.data.points,
+            node.data.fill,
+            node.data.fillStyle,
+            node.data.strokeWidth,
+          ),
+    [isAirbrush, node.data.fill, node.data.fillStyle, node.data.points, node.data.strokeWidth]
   );
 
   const rawH = node.h === "auto" ? 0 : (node.h as number);
@@ -149,7 +160,16 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
               />
             ))}
           {/* Stroke on top */}
-          {isDashed ? (
+          {spray ? (
+            <path
+              d={spray.d}
+              fill="none"
+              stroke={node.data.color}
+              strokeWidth={spray.dotStrokeWidth}
+              strokeOpacity={spray.strokeOpacity}
+              strokeLinecap="round"
+            />
+          ) : isDashed ? (
             <path
               d={centerLinePath!}
               fill="none"
@@ -171,7 +191,7 @@ const DrawBlock = memo(function DrawBlock({ node }: { node: DrawNode }) {
               d={hitAreaPath}
               fill="none"
               stroke="transparent"
-              strokeWidth={node.data.strokeWidth}
+              strokeWidth={spray ? spray.radius * 2 : node.data.strokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
               pointerEvents="stroke"

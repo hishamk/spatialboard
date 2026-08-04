@@ -187,6 +187,8 @@ export function usePointerGestures({
     width: number;
     strokeStyle?: StrokeStyle;
     opacity?: number;
+    tool?: "pen" | "airbrush";
+    seed?: string;
   } | null>(null);
 
   // Shape preview state
@@ -922,6 +924,11 @@ export function usePointerGestures({
           width: engine.activeTool.width,
           strokeStyle: engine.activeTool.strokeStyle as StrokeStyle | undefined,
           opacity: engine.activeTool.opacity,
+          // Brush variant + future node id: the airbrush spray is seeded by
+          // the node id, so the id is minted at gesture start and the live
+          // preview renders the exact grains the committed node will have.
+          tool: (engine.activeTool.tool === "airbrush" ? "airbrush" : "pen") as "pen" | "airbrush",
+          seed: nanoid(10),
         };
         setActiveStroke(stroke);
         engine.notifyDrawProgress(stroke);
@@ -964,7 +971,7 @@ export function usePointerGestures({
           );
 
           engine.addNode({
-            id: nanoid(10),
+            id: stroke.seed,
             type: "draw",
             x: minX,
             y: minY,
@@ -972,7 +979,7 @@ export function usePointerGestures({
             h: maxY - minY,
             z: engine.nextZ(),
             data: {
-              tool: "pen" as const,
+              tool: stroke.tool,
               points: relativePoints,
               color: stroke.color,
               strokeWidth: stroke.width,

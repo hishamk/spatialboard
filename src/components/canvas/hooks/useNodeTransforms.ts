@@ -171,7 +171,7 @@ export function useNodeTransforms({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture([nodeId]);
+          engine.beginNodeGesture([nodeId], "transform");
         }
 
         let newX = origX;
@@ -376,7 +376,7 @@ export function useNodeTransforms({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture([nodeId]);
+          engine.beginNodeGesture([nodeId], "transform");
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
@@ -734,7 +734,7 @@ export function useNodeTransforms({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture([edgeId]);
+          engine.beginNodeGesture([edgeId], "transform");
         }
         const canvasPos = engine.screenToCanvas(me.clientX, me.clientY);
         const fresh = engine.getNode(edgeId) as EdgeNode | undefined;
@@ -1046,7 +1046,7 @@ export function useNodeTransforms({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture(engine.selection);
+          engine.beginNodeGesture(engine.selection, "transform");
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - groupCy, cx - groupCx);
@@ -1170,7 +1170,7 @@ export function useNodeTransforms({
         if (!historyPushed && (dx !== 0 || dy !== 0)) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture(engine.selection);
+          engine.beginNodeGesture(engine.selection, "transform");
         }
 
         let newX = origBox.x, newY = origBox.y, newW = origBox.w, newH = origBox.h;

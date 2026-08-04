@@ -62,6 +62,7 @@ export default function SpatialCanvas({
   portConnectHold = false,
   minimapVisible = true,
   minimapBottomOffset,
+  minimapEndOffset,
   singleFrameId,
   hostVisibleNodeIds = null,
   overlayNodes = null,
@@ -89,6 +90,7 @@ export default function SpatialCanvas({
   minimapVisible?: boolean;
   /** Raise the minimap above compact bottom chrome (px from bottom edge). */
   minimapBottomOffset?: number;
+  minimapEndOffset?: number;
   /** When set, only render this frame and its children. */
   singleFrameId?: string;
   /** Host render scope: when non-null, render ONLY these node ids (+ edges whose
@@ -892,6 +894,7 @@ export default function SpatialCanvas({
           containerSize={containerSize}
           measuredHeights={measuredHeights}
           bottomOffset={minimapBottomOffset}
+          endOffset={minimapEndOffset}
         />
       )}
 
