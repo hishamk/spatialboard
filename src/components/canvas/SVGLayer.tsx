@@ -1224,17 +1224,19 @@ export default function SVGLayer({
             );
           }
 
-          // Render handles (fixed mode: 4 circles; free-form selected: single perimeter dot)
+          // Render connection handles — FIXED mode only (host escape hatch).
+          // Free-form boards show NO connector dots: edges anchor anywhere,
+          // so per-node border dots are meaningless; the connector tool is
+          // the creation affordance.
           nodes
             .filter((n) => {
+              if (freeFormEdges) return false;
               if (n.type === "edge") return false;
               if (suppressNodeOverlayId && n.id === suppressNodeOverlayId) return false;
               if (nodeTypeHasPorts(registry?.get(n.type))) return false;
-              // Free-form edges use perimeter hit-testing; DOM images have no SVG frame — skip fixed anchors.
-              if (freeFormEdges && n.type === "image") return false;
               // Selection-driven anchors hide during move drags with the rest
               // of the chrome; edge-drag targets (isDragging) stay visible.
-              return (!hideSelectionChrome && selection.size <= 1 && selection.has(n.id)) || (!freeFormEdges && isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
+              return (!hideSelectionChrome && selection.size <= 1 && selection.has(n.id)) || (isDragging && (n.id === dragSourceId || nearbyNodeIds.has(n.id)));
             })
             .forEach((node) => {
               const handles = getNodeHandlePositions(node, measuredHeights);
@@ -1249,50 +1251,7 @@ export default function SVGLayer({
                 (edgeReconnect && edgeReconnect.anchorNodeId === node.id);
               const isInteractive = selection.has(node.id) && !isDragging;
 
-              if (freeFormEdges) {
-                // Free-form mode: show 4 small handle dots ON the border (no offset)
-                // These serve as click targets for starting edge connections
-                if (isInteractive) {
-                  elements.push(
-                    <g key={`conn-${node.id}`} transform={rotation ? `rotate(${rotation}, ${ncx}, ${ncy})` : undefined}>
-                      {handles.map(({ side }) => {
-                        const midpoints: Record<HandleSide, [number, number]> = {
-                          top:    [node.x + node.w / 2, node.y],
-                          bottom: [node.x + node.w / 2, node.y + nh],
-                          left:   [node.x, node.y + nh / 2],
-                          right:  [node.x + node.w, node.y + nh / 2],
-                        };
-                        const [mx, my] = midpoints[side];
-                        return (
-                          <g key={`ch-${node.id}-${side}`}>
-                            <circle
-                              cx={mx}
-                              cy={my}
-                              r={handleR}
-                              fill="white"
-                              stroke="#3b82f6"
-                              strokeWidth={1.5 / viewport.zoom}
-                              opacity={0.8}
-                              style={{ pointerEvents: "none" }}
-                            />
-                            <circle
-                              cx={mx}
-                              cy={my}
-                              r={handleHitSizePx() / 2 / viewport.zoom}
-                              fill="transparent"
-                              style={{ cursor: "crosshair", pointerEvents: "auto" }}
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                                onConnectionHandleDown?.(node.id, side, e);
-                              }}
-                            />
-                          </g>
-                        );
-                      })}
-                    </g>
-                  );
-                }
-              } else {
+              {
                 // Fixed mode: original handle circles offset from the border
                 elements.push(
                   <g key={`conn-${node.id}`} transform={rotation ? `rotate(${rotation}, ${ncx}, ${ncy})` : undefined}>

@@ -2,7 +2,6 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { Viewport, SpatialNode, HandleSide } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { NodeTypeRegistry } from "../../nodes/registry";
-import { nodeTypeHasPorts } from "../../nodes/registry";
 import type { HandlePosition } from "./SVGLayer";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
@@ -246,55 +245,9 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
               </>
             );
           })()}
-          {/* Connection handles on bounding box — freeform edge starts.
-              Skip when the selection includes port-wired nodes (workflow
-              etc.): those boards connect via ports, not bbox anchors. */}
-          {(() => {
-            const hasPortNode = Array.from(engine.selection).some((id) => {
-              const n = engine.getNode(id);
-              if (!n || n.type === "edge") return false;
-              return nodeTypeHasPorts(registry?.get(n.type));
-            });
-            if (hasPortNode) return null;
-
-            const connOffset = 26 / viewport.zoom;
-            const connTopOffset = 42 / viewport.zoom; // extra clearance past rotation handle
-            const connR = 4 / viewport.zoom;
-            const sides: { side: HandleSide; cx: number; cy: number }[] = [
-              { side: "top", cx: b.x + b.w / 2, cy: b.y - connTopOffset },
-              { side: "right", cx: b.x + b.w + connOffset, cy: b.y + b.h / 2 },
-              { side: "bottom", cx: b.x + b.w / 2, cy: b.y + b.h + connOffset },
-              { side: "left", cx: b.x - connOffset, cy: b.y + b.h / 2 },
-            ];
-            return sides.map(({ side, cx, cy }) => (
-              <g key={`conn-${side}`}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={connR}
-                  fill="white"
-                  stroke="#94a3b8"
-                  strokeWidth={1.5 / viewport.zoom}
-                  opacity={0.8}
-                  style={{ pointerEvents: "none" }}
-                />
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={hitHalf}
-                  fill="transparent"
-                  style={{ cursor: "crosshair", pointerEvents: "auto" }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    const nodeId = findNearestNodeForSide(side);
-                    if (nodeId) {
-                      onConnectionDown(nodeId, side, e as unknown as React.PointerEvent<SVGCircleElement>);
-                    }
-                  }}
-                />
-              </g>
-            ));
-          })()}
+          {/* No connection dots on the selection frame — edges are free-form
+              (anchor anywhere via the connector tool), so per-box border
+              anchors are meaningless. Port-wired boards connect via ports. */}
         </g>
       </g>
     </svg>
