@@ -270,12 +270,18 @@ export function usePointerGestures({
     prevTextRectDragRef.current = textPreview;
 
     if (textPreview) {
+      // Prefer the preview's FROZEN kind (set at gesture start) so the remote
+      // look can't flip if the mode changes mid-linger; carry the creator's
+      // styling so peers render the real thing, not a placeholder outline.
+      const kind = textPreview.kind ?? activeKind;
       engine.notifyRectDragProgress({
-        kind: activeKind,
+        kind,
         startX: textPreview.startX,
         startY: textPreview.startY,
         endX: textPreview.endX,
         endY: textPreview.endY,
+        ...(kind === "sticky" ? { stickyColor: engine.activeTool.stickyColor ?? "#FEF3C7" } : {}),
+        ...(kind === "table" ? { roughness: engine.activeTool.roughness ?? 1 } : {}),
       });
     } else if (prev) {
       engine.notifyRectDragEnd();

@@ -11,4 +11,8 @@ export interface RectDragAwareness {
   startY: number;
   endX: number;
   endY: number;
+  /** Creator's sticky fill — lets remote previews render the real sticky. */
+  stickyColor?: string;
+  /** Creator's table roughness — remote previews draw the same rough grid. */
+  roughness?: number;
 }
