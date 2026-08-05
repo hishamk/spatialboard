@@ -28,8 +28,9 @@ const BAR_MARGIN = 10;
  *  in SVGLayer + SelectionChromeOverlay (screen-constant). */
 const ROTATE_STEM = 25;
 
-/** Rotation-aware node AABB in canvas units (mirror of useCanvasGeometry). */
-function nodeAABB(n: SpatialNode, h: number) {
+/** Rotation-aware node AABB in canvas units (mirror of useCanvasGeometry).
+ *  Shared with GroupFanFab, which anchors to the same chrome envelope. */
+export function nodeChromeAABB(n: SpatialNode, h: number) {
   if (!n.rotation) {
     return { minX: n.x, minY: n.y, maxX: n.x + n.w, maxY: n.y + h };
   }
@@ -178,7 +179,7 @@ export default function SelectionActionBar({ engine }: { engine: SpatialEngine }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   let hasFrame = false;
   for (const n of nodes) {
-    const aabb = nodeAABB(n, engine.resolveHeight(n));
+    const aabb = nodeChromeAABB(n, engine.resolveHeight(n));
     const pad = n.type === "edge" ? 0 : selectionInkPad(n) + SEL_PAD;
     if (n.type !== "edge") hasFrame = true;
     minX = Math.min(minX, aabb.minX - pad);

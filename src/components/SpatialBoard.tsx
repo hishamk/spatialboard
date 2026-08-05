@@ -18,6 +18,7 @@ import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./chrome/BottomBar";
 import ConsolePanel, { CONSOLE_COLLAPSED_CLEARANCE, CONSOLE_PANEL_CLEARANCE } from "./chrome/ConsolePanel";
 import SelectionActionBar from "./chrome/SelectionActionBar";
+import GroupFanFab from "./chrome/GroupFanFab";
 import CanvasSearchBar from "./overlays/CanvasSearchBar";
 import FramesPanel from "./panels/FramesPanel";
 import PresentationOverlay from "./overlays/PresentationOverlay";
@@ -538,6 +539,7 @@ export default function SpatialBoard({
         {showChrome && consoleChrome && (
           <>
             <SelectionActionBar engine={engine} />
+            {!readOnly && <GroupFanFab engine={engine} />}
             <ConsolePanel
               engine={engine}
               registry={registry}

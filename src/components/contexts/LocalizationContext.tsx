@@ -252,6 +252,8 @@ export interface SpatialBoardLocalization {
   actionAddToPersonalLibrary: string;
   actionGroupSelection: string;
   actionUngroupSelection: string;
+  /** Fan a group's members apart to pick one out (raises it in the group) */
+  actionFanOut: string;
   actionFlipHorizontal: string;
   actionFlipVertical: string;
   actionBringForward: string;
@@ -531,6 +533,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   actionAddToPersonalLibrary: "Add to Personal Library",
   actionGroupSelection: "Group selection",
   actionUngroupSelection: "Ungroup selection",
+  actionFanOut: "Fan out to pick",
   actionFlipHorizontal: "Flip horizontal",
   actionFlipVertical: "Flip vertical",
   actionBringForward: "Bring forward",
