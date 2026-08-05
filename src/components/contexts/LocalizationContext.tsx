@@ -114,6 +114,8 @@ export interface SpatialBoardLocalization {
   consoleNextSlide: string;
   consoleCollapse: string;
   consoleExpand: string;
+  consoleLock: string;
+  consoleUnlock: string;
   inspectorCrop: string;
   inspectorReset: string;
   inspectorBackground: string;
@@ -215,6 +217,7 @@ export interface SpatialBoardLocalization {
   toolText: string;
   toolNote: string;
   toolSticky: string;
+  toolTable: string;
   toolFrame: string;
   toolEdge: string;
   toolEraser: string;
@@ -273,6 +276,12 @@ export interface SpatialBoardLocalization {
   typeFrame: string;
   typeStickyNote: string;
   typeYouTube: string;
+  typeTable: string;
+  inspectorTableRows: string;
+  inspectorTableCols: string;
+  inspectorTableHeader: string;
+  inspectorTableStriped: string;
+  inspectorTableGrid: string;
   /** Expand/collapse control for custom-node inspector help (?). */
   inspectorNodeHelpShow: string;
   inspectorNodeHelpHide: string;
@@ -387,6 +396,8 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   consoleNextSlide: "Next frame",
   consoleCollapse: "Collapse panel",
   consoleExpand: "Expand panel",
+  consoleLock: "Keep panel open",
+  consoleUnlock: "Unlock panel (auto-collapse)",
   inspectorCrop: "Crop",
   inspectorReset: "Reset",
   inspectorBackground: "Background",
@@ -488,6 +499,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   toolText: "Text",
   toolNote: "Note",
   toolSticky: "Sticky",
+  toolTable: "Table",
   toolFrame: "Frame",
   toolEdge: "Connector",
   toolEraser: "Eraser",
@@ -543,6 +555,12 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   typeFrame: "Frame",
   typeStickyNote: "Sticky Note",
   typeYouTube: "YouTube",
+  typeTable: "Table",
+  inspectorTableRows: "Rows",
+  inspectorTableCols: "Columns",
+  inspectorTableHeader: "Header row",
+  inspectorTableStriped: "Striped",
+  inspectorTableGrid: "Grid",
   inspectorNodeHelpShow: "Show node help",
   inspectorNodeHelpHide: "Hide node help",
   customNodeDocs: {},

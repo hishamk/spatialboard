@@ -50,6 +50,7 @@ export interface NodeItemCtx {
   setEditingShapeLabelId: React.Dispatch<React.SetStateAction<string | null>>;
   setCroppingImageId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingYouTubeId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingTableId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /** Padding around multi-selection bounds (canvas units). */

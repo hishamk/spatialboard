@@ -8,6 +8,7 @@ export { textNodeType } from "./text";
 export { frameNodeType } from "./frame";
 export { stickyNodeType } from "./sticky";
 export { youtubeNodeType } from "./youtube";
+export { tableNodeType } from "./table";
 
 export { NodeTypeRegistry, defineReactNode } from "./registry";
 export type {
@@ -28,6 +29,7 @@ import { textNodeType } from "./text";
 import { frameNodeType } from "./frame";
 import { stickyNodeType } from "./sticky";
 import { youtubeNodeType } from "./youtube";
+import { tableNodeType } from "./table";
 
 /**
  * The default board node types — NO heavy peer dependencies (no BlockNote /
@@ -48,4 +50,5 @@ export const coreBoardNodes: NodeTypeDefinition<any>[] = [
   frameNodeType,
   stickyNodeType,
   youtubeNodeType,
+  tableNodeType,
 ];

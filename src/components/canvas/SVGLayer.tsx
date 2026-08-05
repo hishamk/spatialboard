@@ -27,6 +27,8 @@ import {
   getPortStubInnerLocal,
   type PortAnchorMode,
   nearestPerimeterPoint,
+  nearestInteriorUV,
+  INTERIOR_ANCHOR_BAND_PX,
   PORT_DOT_HIGHLIGHT_RADIUS_PX,
   PORT_EDGE_SNAP_RADIUS_PX,
   PORT_DOT_RADIUS_PX,
@@ -72,6 +74,22 @@ function getDownstreamPortErrorMessage(
     if (s) return s.length > 200 ? `${s.slice(0, 197)}\u2026` : s;
   }
   return null;
+}
+
+/** True when the cursor sits INSIDE the node deeper than the interior-anchor
+ *  band — where a drop would park an interior [u,v] anchor. Border-snap
+ *  previews suppress themselves here so the preview matches the drop. */
+function cursorDeepInsideNode(
+  n: SpatialNode,
+  cx: number,
+  cy: number,
+  zoom: number,
+  measuredHeights?: Record<string, number>,
+): boolean {
+  const pp = nearestPerimeterPoint(n, cx, cy, measuredHeights);
+  if (Math.hypot(pp.x - cx, pp.y - cy) <= INTERIOR_ANCHOR_BAND_PX / zoom) return false;
+  const uv = nearestInteriorUV(n, cx, cy, measuredHeights);
+  return uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1;
 }
 
 function measureEdgeLabelBox(
@@ -162,7 +180,8 @@ interface SVGLayerProps {
     cursorX: number;
     cursorY: number;
     sourceHandle?: HandleSide;
-    sourceT?: number;
+    /** Perimeter t (number) or interior [u,v] anchor on the source node. */
+    sourceT?: number | [number, number];
     sourcePort?: string;
     sourceDirection?: PortDirection;
     /** Edge style for realistic preview */
@@ -206,6 +225,10 @@ interface SVGLayerProps {
   cursorCanvasPos?: { x: number; y: number } | null;
   /** Node type registry — used to render port circles for nodes with ports. */
   registry?: NodeTypeRegistry;
+  /** Suppress the port-circle layer while keeping registry-driven edge port
+   *  anchoring. The per-edge SVG hosts pass this — the full-canvas overlay
+   *  layer already draws every node's dots, so theirs would be duplicates. */
+  hidePortDots?: boolean;
   /** Called when a port handle is pressed (starts port-aware edge creation). */
   onPortHandleDown?: (
     nodeId: string,
@@ -761,7 +784,7 @@ const EdgeRenderer = memo(function EdgeRenderer({
           style={cycleAnimStyle}
         />
       )}
-      {isSelected && (
+      {isSelected && !hideSelectionChrome && (
         <path
           d={drawnPath}
           stroke="#3b82f6"
@@ -986,15 +1009,16 @@ const EdgeRenderer = memo(function EdgeRenderer({
           />
         </>
       )}
-      {/* Kink handle — draggable to reposition step/smoothstep bend */}
+      {/* Kink handle — drag to bend the edge (bezier/straight: free 2D pull;
+          step/smoothstep: slide the kink along its axis) */}
       {showEdgeEditHandles && kinkHandle && (
         <>
           <circle
             cx={kinkHandle.x} cy={kinkHandle.y}
-            r={5 / viewport.zoom}
+            r={6.5 / viewport.zoom}
             fill="white"
             stroke="#3b82f6"
-            strokeWidth={1.5 / viewport.zoom}
+            strokeWidth={2.5 / viewport.zoom}
             style={{ pointerEvents: "none" }}
           />
           <circle
@@ -1048,6 +1072,7 @@ export default function SVGLayer({
   hoveredNodeId,
   cursorCanvasPos,
   registry,
+  hidePortDots,
   onPortHandleDown,
   cycleNodeIds,
   dataFlowEdgeOverlay = "off",
@@ -1119,16 +1144,8 @@ export default function SVGLayer({
           );
         })}
 
-        {/* Edge mode: hover dot showing where edge would start */}
-        {mode === "edge" && !edgePreview && hoveredNodeId && cursorCanvasPos && (() => {
-          const hNode = nodeMap.get(hoveredNodeId);
-          if (!hNode || hNode.type === "edge") return null;
-          const pp = nearestPerimeterPoint(hNode, cursorCanvasPos.x, cursorCanvasPos.y, measuredHeights);
-          const r = 4 / viewport.zoom;
-          return (
-            <circle cx={pp.x} cy={pp.y} r={r} fill="#3b82f6" stroke="white" strokeWidth={1.5 / viewport.zoom} />
-          );
-        })()}
+        {/* (No edge-mode hover dot: the edge starts wherever you press —
+            border-snapped previews would misrepresent arbitrary anchoring.) */}
 
         {/* Connection handles — shown on selected nodes, or ALL nodes during edge drag */}
         {/* Nodes with ports use port circles instead (rendered below) */}
@@ -1179,10 +1196,11 @@ export default function SVGLayer({
                 }
               }
             }
-            // In free-form mode, compute perimeter snap point on nearest target
+            // In free-form mode, compute perimeter snap point on nearest target.
+            // Deep inside the node the drop anchors interior — no border dot.
             if (freeFormEdges && nearestTargetNodeId) {
               const targetNode = nodeMap.get(nearestTargetNodeId);
-              if (targetNode) {
+              if (targetNode && !cursorDeepInsideNode(targetNode, cursorX, cursorY, viewport.zoom, measuredHeights)) {
                 const pp = nearestPerimeterPoint(targetNode, cursorX, cursorY, measuredHeights);
                 nearestTargetPerimeterPt = { x: pp.x, y: pp.y };
               }
@@ -1333,7 +1351,7 @@ export default function SVGLayer({
         })()}
 
         {/* Port circles — for nodes with port definitions */}
-        {registry && (() => {
+        {registry && !hidePortDots && (() => {
           const isDragging = !!edgePreview || !!edgeReconnect;
           const cursorX = edgePreview?.cursorX ?? edgeReconnect?.cursorX ?? 0;
           const cursorY = edgePreview?.cursorY ?? edgeReconnect?.cursorY ?? 0;
@@ -1676,6 +1694,9 @@ export default function SVGLayer({
               const padY = nh * 0.2;
               if (curX >= n.x - padX && curX <= n.x + n.w + padX &&
                   curY >= n.y - padY && curY <= n.y + nh + padY) {
+                // Deep inside → the drop will anchor at the interior point, so
+                // the preview stays glued to the cursor (no border snap).
+                if (cursorDeepInsideNode(n, curX, curY, viewport.zoom, measuredHeights)) break;
                 const pp = nearestPerimeterPoint(n, curX, curY, measuredHeights);
                 if (Math.hypot(pp.x - curX, pp.y - curY) < snapThreshold) {
                   snapTargetNode = n;

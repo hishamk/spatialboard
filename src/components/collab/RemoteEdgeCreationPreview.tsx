@@ -8,6 +8,8 @@ import {
   computeEdgePath,
   getPortPosition,
   nearestPerimeterPoint,
+  nearestInteriorUV,
+  INTERIOR_ANCHOR_BAND_PX,
   PORT_EDGE_SNAP_RADIUS_PX,
 } from "../../engine/edge-geometry";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
@@ -128,7 +130,14 @@ export function RemoteEdgeCreationPreview({
         curY <= n.y + nh + padY
       ) {
         const pp = nearestPerimeterPoint(n, curX, curY, measuredHeights);
-        if (Math.hypot(pp.x - curX, pp.y - curY) < snapThreshold) {
+        const borderDist = Math.hypot(pp.x - curX, pp.y - curY);
+        // Deep inside → the local peer's drop anchors interior; keep the remote
+        // preview glued to their cursor too (mirrors SVGLayer's gate).
+        if (borderDist > INTERIOR_ANCHOR_BAND_PX / zoom) {
+          const uv = nearestInteriorUV(n, curX, curY, measuredHeights);
+          if (uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1) break;
+        }
+        if (borderDist < snapThreshold) {
           snapTargetNode = n;
           snapTargetT = pp.t;
           break;

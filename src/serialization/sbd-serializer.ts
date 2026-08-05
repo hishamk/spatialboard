@@ -263,8 +263,9 @@ export async function serializeToSBD(nodes: SpatialNode[], options?: SerializeOp
         a.pushIf(n.data.targetHandle, "targetHandle", () => n.data.targetHandle!);
         a.pushIf(n.data.sourcePort, "sourcePort", () => n.data.sourcePort!);
         a.pushIf(n.data.targetPort, "targetPort", () => n.data.targetPort!);
-        a.pushIf(n.data.sourceT != null, "sourceT", () => n.data.sourceT!);
-        a.pushIf(n.data.targetT != null, "targetT", () => n.data.targetT!);
+        // number = perimeter t; [u,v] interior anchor encodes as "u,v" (curveOffset precedent)
+        a.pushIf(n.data.sourceT != null, "sourceT", () => Array.isArray(n.data.sourceT) ? `${n.data.sourceT[0]},${n.data.sourceT[1]}` : n.data.sourceT!);
+        a.pushIf(n.data.targetT != null, "targetT", () => Array.isArray(n.data.targetT) ? `${n.data.targetT[0]},${n.data.targetT[1]}` : n.data.targetT!);
         a.pushIf(n.data.attachmentGap != null && n.data.attachmentGap !== 0, "attachmentGap", () => n.data.attachmentGap!);
         a.pushIf(n.data.roughness != null && n.data.roughness !== 0, "roughness", () => n.data.roughness!);
         a.pushIf(n.data.midpointOffset != null && n.data.midpointOffset !== 0.5, "midpointOffset", () => n.data.midpointOffset!);

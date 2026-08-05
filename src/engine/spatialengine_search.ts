@@ -2,7 +2,8 @@
 // Shard of SpatialEngine.ts (slicing axis: engine domain — see SpatialEngine.ts header).
 // Functions take the engine as first argument; the class methods are thin delegators.
 
-import type { SpatialNode } from "./types";
+import type { SpatialNode, TableCell } from "./types";
+import { tableCellText } from "./table-cells";
 import type {
   SpatialEngine,
   SpatialSearchField,
@@ -162,6 +163,18 @@ function getNodeSearchCandidates(node: SpatialNode): Array<{ field: SpatialSearc
       const blockText = extractBlockText(data.blocks);
       push("content", blockText);
       push("content", data.markdown);
+      break;
+    }
+    case "table": {
+      const rows = data.rows;
+      if (Array.isArray(rows)) {
+        const joined = rows
+          .map((row) =>
+            Array.isArray(row) ? (row as TableCell[]).map(tableCellText).join(" ") : "",
+          )
+          .join("\n");
+        push("content", joined);
+      }
       break;
     }
     default:

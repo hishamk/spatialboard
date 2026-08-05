@@ -31,6 +31,7 @@ export const TOOLS: ToolSpec[] = [
   { mode: "text",   shortcut: "t", labelKey: "toolText",   nodeType: "text" },
   { mode: "note",   shortcut: "b", labelKey: "toolNote",   nodeType: "blocknote" },
   { mode: "sticky", shortcut: "y", labelKey: "toolSticky", nodeType: "sticky" },
+  { mode: "table",  shortcut: "a", labelKey: "toolTable",  nodeType: "table" },
   { mode: "frame",  shortcut: "f", labelKey: "toolFrame",  nodeType: "frame" },
   { mode: "edge",   shortcut: "c", labelKey: "toolEdge",   nodeType: "edge" },
   { mode: "erase",  shortcut: "e", labelKey: "toolEraser" },

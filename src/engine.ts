@@ -34,6 +34,8 @@ export type {
   TextNode,
   FrameNode,
   StickyNoteNode,
+  TableNode,
+  TableCell,
   AnySpatialNode,
   EdgeType,
   HandleSide,

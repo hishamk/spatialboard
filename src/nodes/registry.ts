@@ -276,6 +276,7 @@ const SPATIALBOARD_BUILTIN_TYPE_IDS = new Set<string>([
   "frame",
   "sticky",
   "youtube",
+  "table",
 ]);
 
 /** One port row in `SpatialNodeTypeCatalogEntry`. */

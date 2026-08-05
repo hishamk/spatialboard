@@ -64,19 +64,39 @@ export function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; s
       )}
       {name === "note" && (
         <>
-          <path d="M4 3h16v14l-4 4H4z" {...sp} />
-          <path d="M16 17v4l4-4z" fill="currentColor" opacity={0.4} />
+          <rect x="4" y="3" width="16" height="18" rx="2" {...sp} fill="none" />
+          <line x1="7.5" y1="8" x2="16.5" y2="8" {...sp} strokeWidth={2.2} />
+          <line x1="7.5" y1="12.5" x2="16.5" y2="12.5" {...sp} opacity={0.55} />
+          <line x1="7.5" y1="16.5" x2="13" y2="16.5" {...sp} opacity={0.55} />
         </>
       )}
       {name === "sticky" && (
         <>
-          <rect x="3" y="3" width="18" height="18" rx="1" fill="currentColor" opacity={0.15} {...sp} />
-          <line x1="7" y1="9" x2="17" y2="9" {...sp} opacity={0.5} />
-          <line x1="7" y1="13" x2="14" y2="13" {...sp} opacity={0.5} />
+          <path
+            d="M4 4h16v9.5L13.5 20H4z"
+            fill="currentColor"
+            fillOpacity={0.15}
+            {...sp}
+          />
+          <path d="M13.5 20v-6.5H20" {...sp} fill="none" />
+        </>
+      )}
+      {name === "table" && (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="1.5" {...sp} />
+          <line x1="3" y1="9" x2="21" y2="9" {...sp} />
+          <line x1="9.5" y1="4" x2="9.5" y2="20" {...sp} opacity={0.6} />
+          <line x1="15.5" y1="4" x2="15.5" y2="20" {...sp} opacity={0.6} />
+          <line x1="3" y1="14.5" x2="21" y2="14.5" {...sp} opacity={0.6} />
         </>
       )}
       {name === "frame" && (
-        <rect x="3" y="3" width="18" height="18" rx="2" {...sp} strokeDasharray="4,2" />
+        <>
+          {/* Artboard with its title label — mirrors how a frame renders on
+              canvas (name above the rect), unmistakable for image/video. */}
+          <line x1="3.5" y1="4" x2="10" y2="4" {...sp} strokeWidth={2} />
+          <rect x="3" y="7.5" width="18" height="13.5" rx="1.5" {...sp} fill="none" />
+        </>
       )}
       {name === "hand" && (
         <>
@@ -96,8 +116,13 @@ export function ToolIcon({ name, size = 18, textGlyph = "T" }: { name: string; s
       )}
       {name === "erase" && (
         <>
-          <path d="M20 20H9L3 14l9.5-9.5 8 8L16 17" {...sp} />
-          <path d="M12.5 4.5l8 8" {...sp} />
+          <path
+            d="m7 20.5-4.3-4.3c-1-1-1-2.5 0-3.4l8.6-8.6c1-1 2.5-1 3.4 0l5.1 5.1c1 1 1 2.5 0 3.4l-7.8 7.8"
+            {...sp}
+            fill="none"
+          />
+          <path d="M21.5 20.5H7" {...sp} />
+          <path d="m5.3 10.4 8.8 8.8" {...sp} />
         </>
       )}
       {name === "laser" && (

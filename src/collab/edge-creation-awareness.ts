@@ -9,7 +9,8 @@ export interface EdgeCreationAwareness {
   cursorX: number;
   cursorY: number;
   sourceHandle?: HandleSide;
-  sourceT?: number;
+  /** Perimeter t (number) or interior [u,v] anchor on the source node. */
+  sourceT?: number | [number, number];
   sourcePort?: string;
   sourceDirection?: PortDirection;
   edgeColor?: string;

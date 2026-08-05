@@ -28,6 +28,7 @@ import type {
   Mode,
   ActiveTool,
   NodeType,
+  TableCell,
   HandleSide,
   EdgeType,
   AgentCanvasState,
@@ -212,6 +213,12 @@ export class SpatialEngine {
   snapToGrid = false;
   smartGuides = true;
   lassoSelect = false;
+  /** Free-form connections are the ONLY user-facing mode: edges attach at any
+   *  border point (or an interior [u,v] anchor). Fixed side-handles remain a
+   *  supported WIRE format — old docs, templates, and programmatic edges with
+   *  explicit sourceHandle/targetHandle render unchanged — but no UI creates
+   *  them and endpoint drags convert them to free anchors. Hosts may set this
+   *  to false programmatically as an escape hatch (no UI toggles it). */
   freeFormEdges = true;
   /**
    * When true, every local doc-mutating method on this engine is a
@@ -293,6 +300,22 @@ export class SpatialEngine {
     activeIndex: -1,
   };
 
+  /** The table cell currently in inline edit, if any — set by the table block
+   *  so the inspector can target Font/color changes at that cell. */
+  tableEditCell: { nodeId: string; r: number; c: number } | null = null;
+
+  setTableEditCell(cell: { nodeId: string; r: number; c: number } | null): void {
+    const cur = this.tableEditCell;
+    if (
+      (cur === null && cell === null) ||
+      (cur && cell && cur.nodeId === cell.nodeId && cur.r === cell.r && cur.c === cell.c)
+    ) {
+      return;
+    }
+    this.tableEditCell = cell;
+    this.emit("change");
+  }
+
   constructor() {
     const prefs = loadCanvasPrefs();
     this.snapToGrid = prefs.snapToGrid;
@@ -301,7 +324,10 @@ export class SpatialEngine {
   }
 
   private persistCanvasPrefs(): void {
+    // Merge over the stored prefs — chrome-owned fields (consolePinned) are
+    // persisted by their own writers and must survive an engine save.
     saveCanvasPrefs({
+      ...loadCanvasPrefs(),
       snapToGrid: this.snapToGrid,
       smartGuides: this.smartGuides,
       gridSize: this.gridSize,
@@ -521,11 +547,6 @@ export class SpatialEngine {
     this.snapToGrid = !this.snapToGrid;
     this.persistCanvasPrefs();
     this.emit("guides");
-  }
-
-  toggleFreeFormEdges(): void {
-    this.freeFormEdges = !this.freeFormEdges;
-    this.emit("change");
   }
 
   toggleSmartGuides(): void {
@@ -1553,6 +1574,28 @@ export class SpatialEngine {
     },
   ): string {
     return CreateOps.createSticky(this, text, x, y, options);
+  }
+
+  /** Create a table node (row-major cell text). Returns the new node id. */
+  createTable(
+    rows: TableCell[][],
+    x: number,
+    y: number,
+    options?: {
+      w?: number;
+      headerRow?: boolean;
+      fontSize?: number;
+      fontFamily?: string;
+      align?: TextAlign;
+      textColor?: string;
+      stroke?: string;
+      strokeWidth?: number;
+      roughness?: number;
+      colWidths?: number[];
+      opacity?: number;
+    },
+  ): string {
+    return CreateOps.createTable(this, rows, x, y, options);
   }
 
   /** Create a rich-content block (BlockNote). Returns the new node id. */

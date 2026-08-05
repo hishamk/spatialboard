@@ -40,6 +40,9 @@ export function useInlineEditing(
   const [croppingImageId, setCroppingImageId] = useState<string | null>(null);
   const [editingYouTubeId, setEditingYouTubeId] = useState<string | null>(null);
 
+  // Table cell inline editing state
+  const [editingTableId, setEditingTableId] = useState<string | null>(null);
+
   // Listen for crop-start requests from the sidebar via engine event
   useEffect(() => {
     const handler = (nodeId: string) => {
@@ -49,7 +52,7 @@ export function useInlineEditing(
     return () => engine.off("image:cropRequest", handler);
   }, [engine]);
 
-  const editingNodeId = editingTextId || editingStickyId || editingFrameLabelId || editingShapeLabelId || croppingImageId || editingYouTubeId;
+  const editingNodeId = editingTextId || editingStickyId || editingFrameLabelId || editingShapeLabelId || croppingImageId || editingYouTubeId || editingTableId;
 
   // Track newly-created text nodes so we can delete them if the user commits empty text
   const newlyCreatedTextRef = useRef<string | null>(null);
@@ -184,6 +187,8 @@ export function useInlineEditing(
     setCroppingImageId,
     editingYouTubeId,
     setEditingYouTubeId,
+    editingTableId,
+    setEditingTableId,
     editingNodeId,
     editClickRef,
     newlyCreatedTextRef,

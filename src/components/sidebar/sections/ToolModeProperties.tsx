@@ -165,6 +165,70 @@ export default function ToolModeProperties({ engine, mode, fontsInScene }: ToolM
     );
   }
 
+  // Table mode — grid dimensions for the next-created table
+  if (mode === "table") {
+    const tableRows = tool.tableRows ?? 3;
+    const tableCols = tool.tableCols ?? 3;
+    const dimRow = (
+      label: string,
+      value: number,
+      set: (n: number) => void,
+      max: number,
+    ) => (
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: theme.textMuted }}>{label}</span>
+        <button
+          onClick={() => { set(Math.max(1, value - 1)); refresh(); }}
+          style={{ ...btnBase, width: 28, height: 24, background: theme.controlBg, color: theme.text, borderRadius: theme.controlBorderRadius }}
+        >
+          −
+        </button>
+        <span style={{ minWidth: 24, textAlign: "center", fontSize: 12, color: theme.text }}>{value}</span>
+        <button
+          onClick={() => { set(Math.min(max, value + 1)); refresh(); }}
+          style={{ ...btnBase, width: 28, height: 24, background: theme.controlBg, color: theme.text, borderRadius: theme.controlBorderRadius }}
+        >
+          +
+        </button>
+      </div>
+    );
+    return (
+      <>
+        {dimRow(labels.inspectorTableRows, tableRows, (n) => { tool.tableRows = n; }, 50)}
+        {dimRow(labels.inspectorTableCols, tableCols, (n) => { tool.tableCols = n; }, 12)}
+        <div style={rowStyle}>
+          <span style={{ ...labelStyle, color: theme.textMuted }}>{labels.inspectorRoughness}</span>
+          {ROUGHNESS_LEVELS.map((r) => {
+            const roughnessLabel =
+              r.value === 0
+                ? labels.roughnessArchitect
+                : r.value === 1
+                  ? labels.roughnessArtist
+                  : labels.roughnessCartoonist;
+            return (
+              <button
+                key={r.value}
+                title={roughnessLabel}
+                onClick={() => { tool.roughness = r.value; refresh(); }}
+                style={{
+                  ...btnBase,
+                  height: 28,
+                  padding: "0 8px",
+                  background: (tool.roughness ?? 1) === r.value ? theme.controlBgActive : theme.controlBg,
+                  color: theme.text,
+                  fontSize: 9,
+                  borderRadius: theme.controlBorderRadius,
+                }}
+              >
+                {roughnessLabel}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
   // Edge mode — all edge options
   if (mode === "edge") {
     const edgeRoughness = tool.roughness ?? 0;

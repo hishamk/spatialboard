@@ -16,6 +16,17 @@
   background-color: transparent;
 }
 
+/* Fill the node's explicit height: the editor (and any background a host
+   paints on it) covers the whole card, not just its content height. Both
+   rules resolve to auto for h="auto" nodes (percentage against an auto
+   parent), so content-sized cards are unaffected. */
+.sb-editor-wrap .bn-container {
+  height: 100%;
+}
+.sb-editor-wrap .bn-container .bn-editor {
+  min-height: 100%;
+}
+
 /* Force pointer-events: none on all children when content block is non-interactive.
    BlockNote's CSS sets pointer-events: auto on inner elements which overrides inheritance. */
 .sb-block-inert .sb-editor-wrap * {

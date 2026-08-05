@@ -81,6 +81,16 @@ function optNumber(raw: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Free-anchor attr: plain number = perimeter t; "u,v" = interior anchor tuple. */
+function optAnchorT(raw: string | undefined): number | [number, number] | undefined {
+  if (raw == null || raw === "") return undefined;
+  if (raw.includes(",")) {
+    const [u, v] = raw.split(",").map(parseFloat);
+    return Number.isFinite(u) && Number.isFinite(v) ? [u, v] : undefined;
+  }
+  return optNumber(raw);
+}
+
 /** parseFloat that clamps to a finite fallback — hostile SBD must never inject
  *  Infinity/NaN geometry (a single non-finite w/h poisons the whole viewport). */
 function finiteNum(raw: string | undefined, fallback: number): number {
@@ -439,8 +449,8 @@ export async function parseSBD(sbd: string): Promise<SBDParseResult> {
             targetHandle: (attrs.targetHandle as EdgeNode["data"]["targetHandle"]) || undefined,
             sourcePort: attrs.sourcePort || undefined,
             targetPort: attrs.targetPort || undefined,
-            sourceT: optNumber(attrs.sourceT),
-            targetT: optNumber(attrs.targetT),
+            sourceT: optAnchorT(attrs.sourceT),
+            targetT: optAnchorT(attrs.targetT),
             attachmentGap: optNumber(attrs.attachmentGap),
             roughness: optNumber(attrs.roughness),
             midpointOffset: optNumber(attrs.midpointOffset),

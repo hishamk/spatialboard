@@ -8,6 +8,8 @@ import type {
   ShapeNode,
   TextNode,
   StickyNoteNode,
+  TableNode,
+  TableCell,
   BlockNoteNode,
   FrameNode,
   ImageNode,
@@ -189,6 +191,50 @@ export function createSticky(
       edgeStyle: options?.edgeStyle ?? undefined,
     },
   } as StickyNoteNode);
+  return id;
+}
+
+export function createTable(
+  engine: SpatialEngine,
+  rows: TableCell[][],
+  x: number,
+  y: number,
+  options?: {
+    w?: number;
+    headerRow?: boolean;
+    fontSize?: number;
+    fontFamily?: string;
+    align?: TextAlign;
+    textColor?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    roughness?: number;
+    colWidths?: number[];
+    opacity?: number;
+  },
+): string {
+  const id = nanoid(10);
+  engine.addNode({
+    id,
+    type: "table",
+    x, y,
+    w: options?.w ?? 330,
+    h: "auto",
+    z: engine.nextZ(),
+    data: {
+      rows: rows.length ? rows : [["", "", ""], ["", "", ""], ["", "", ""]],
+      headerRow: options?.headerRow ?? true,
+      fontSize: options?.fontSize,
+      fontFamily: options?.fontFamily,
+      align: options?.align,
+      textColor: options?.textColor,
+      stroke: options?.stroke,
+      strokeWidth: options?.strokeWidth,
+      roughness: options?.roughness,
+      colWidths: options?.colWidths,
+      opacity: options?.opacity,
+    },
+  } as TableNode);
   return id;
 }
 

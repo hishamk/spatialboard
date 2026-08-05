@@ -314,3 +314,73 @@ export function nearestPerimeterPoint(
   const p = perimeterPoint(node, h, t);
   return { t, x: p.x, y: p.y };
 }
+
+// ---------------------------------------------------------------------------
+// Interior anchors: a free endpoint parked INSIDE the node (uv fractions)
+// ---------------------------------------------------------------------------
+
+/**
+ * Screen-px border band for endpoint drops: within this distance of the node's
+ * perimeter the endpoint snaps to the border; deeper inside it anchors at the
+ * interior [u,v] point under the cursor. Shared by creation, reconnect, and
+ * the drag preview so what you see is what you get.
+ */
+export const INTERIOR_ANCHOR_BAND_PX = 16;
+
+/**
+ * Canvas-space point for an interior anchor `[u, v]` — fractions of the node's
+ * unrotated box (0,0 = top-left, 1,1 = bottom-right), rotated with the node.
+ */
+export function interiorAnchorPoint(
+  node: SpatialNode,
+  h: number,
+  uv: [number, number],
+): { x: number; y: number } {
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+  const px = node.x + Math.min(1, Math.max(0, uv[0])) * node.w;
+  const py = node.y + Math.min(1, Math.max(0, uv[1])) * h;
+  if (node.rotation) {
+    const θ = (node.rotation * Math.PI) / 180;
+    const [rx, ry] = rotatePoint(px, py, cx, cy, θ);
+    return { x: rx, y: ry };
+  }
+  return { x: px, y: py };
+}
+
+/**
+ * Higher-level wrapper of `canvasPointToInteriorUV` that resolves `h:"auto"`
+ * from measured heights (mirrors `nearestPerimeterPoint`).
+ */
+export function nearestInteriorUV(
+  node: SpatialNode,
+  px: number,
+  py: number,
+  measuredHeights?: Record<string, number>,
+): [number, number] {
+  return canvasPointToInteriorUV(node, resolveH(node, measuredHeights), px, py);
+}
+
+/**
+ * Inverse of `interiorAnchorPoint`: canvas point → `[u, v]` fractions in the
+ * node's unrotated box. UNCLAMPED — values outside [0,1] mean the point lies
+ * outside the node (callers gate on that to decide interior vs perimeter).
+ */
+export function canvasPointToInteriorUV(
+  node: SpatialNode,
+  h: number,
+  px: number,
+  py: number,
+): [number, number] {
+  const cx = node.x + node.w / 2;
+  const cy = node.y + h / 2;
+  let lx = px, ly = py;
+  if (node.rotation) {
+    const θ = (-node.rotation * Math.PI) / 180;
+    [lx, ly] = rotatePoint(px, py, cx, cy, θ);
+  }
+  return [
+    node.w > 0 ? (lx - node.x) / node.w : 0.5,
+    h > 0 ? (ly - node.y) / h : 0.5,
+  ];
+}

@@ -1,6 +1,7 @@
 /**
  * Local (localhost / browser) persistence for canvas chrome prefs that aren't
- * part of the document: grid snap, smart guides, and grid size.
+ * part of the document: grid snap, smart guides, grid size, and the console
+ * deck's pin (locked-open) state.
  */
 
 const STORAGE_KEY = "sb-canvas-prefs";
@@ -10,12 +11,14 @@ export interface CanvasPrefs {
   snapToGrid: boolean;
   smartGuides: boolean;
   gridSize: number;
+  consolePinned: boolean;
 }
 
 export const DEFAULT_CANVAS_PREFS: CanvasPrefs = {
   snapToGrid: false,
   smartGuides: true,
   gridSize: 20,
+  consolePinned: false,
 };
 
 function sanitize(raw: Partial<CanvasPrefs> | null | undefined): CanvasPrefs {
@@ -27,6 +30,8 @@ function sanitize(raw: Partial<CanvasPrefs> | null | undefined): CanvasPrefs {
     snapToGrid: typeof raw?.snapToGrid === "boolean" ? raw.snapToGrid : DEFAULT_CANVAS_PREFS.snapToGrid,
     smartGuides: typeof raw?.smartGuides === "boolean" ? raw.smartGuides : DEFAULT_CANVAS_PREFS.smartGuides,
     gridSize,
+    consolePinned:
+      typeof raw?.consolePinned === "boolean" ? raw.consolePinned : DEFAULT_CANVAS_PREFS.consolePinned,
   };
 }
 

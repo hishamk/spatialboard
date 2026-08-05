@@ -54,7 +54,7 @@ const NodeItem = memo(function NodeItem({
       // gating inline edit affordances on `interactive` (Text /
       // Sticky / Image / YouTube / Content / etc.) hides them
       // for viewers automatically — no per-block change needed.
-      const isInteractive = !engine.readOnly && (ctx.mode === "select" || ctx.mode === "text" || ctx.mode === "note" || ctx.mode === "sticky");
+      const isInteractive = !engine.readOnly && (ctx.mode === "select" || ctx.mode === "text" || ctx.mode === "note" || ctx.mode === "sticky" || ctx.mode === "table");
       const componentEl = (
         <Component
           key={def.handlesOwnLayout ? node.id : undefined}
@@ -93,6 +93,7 @@ const NodeItem = memo(function NodeItem({
               else if (n.type === "shape") ctx.setEditingShapeLabelId(id);
               else if (n.type === "image") ctx.setCroppingImageId(id);
               else if (n.type === "youtube") ctx.setEditingYouTubeId(id);
+              else if (n.type === "table") ctx.setEditingTableId(id);
             },
             onEditEnd: () => {
               if (node.type === "text") {
@@ -117,6 +118,8 @@ const NodeItem = memo(function NodeItem({
                 ctx.setCroppingImageId((cur) => (cur === node.id ? null : cur));
               } else if (node.type === "youtube") {
                 ctx.setEditingYouTubeId((cur) => (cur === node.id ? null : cur));
+              } else if (node.type === "table") {
+                ctx.setEditingTableId((cur) => (cur === node.id ? null : cur));
               }
             },
           }}

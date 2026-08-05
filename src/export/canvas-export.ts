@@ -10,10 +10,12 @@ import type {
   FrameNode,
   StickyNoteNode,
   YouTubeNode,
+  TableNode,
   StrokeStyle,
   TextAlign,
 } from "../engine/types";
 import { getYouTubeThumbnailUrl } from "../utils/youtube";
+import { tableCellText, tableCellStyle } from "../engine/table-cells";
 import { getStrokePath } from "../rendering/freehand";
 import { computeDrawFillData } from "../rendering/draw-fill";
 import { getAirbrushRender } from "../rendering/airbrush";
@@ -426,6 +428,9 @@ async function buildElements(
         break;
       case "sticky":
         elements.push(renderStickyNode(n as StickyNoteNode, x, y, n.w, h));
+        break;
+      case "table":
+        elements.push(renderTableNode(n as TableNode, x, y, n.w));
         break;
       case "image":
         elements.push(await renderImageNode(n as ImageNode, x, y, n.w, h, embedImages));
@@ -929,6 +934,119 @@ function renderStickyNode(
     // Stickies always render in the default font on canvas (StickyNoteBlock)
     textBlock(d.text, x + 12, y + 12, w - 24, fontSize, 1.5, "#1e1e2e", "left", getFontFamilyCSS(DEFAULT_FONT));
   return wrapG(inner, x, y, w, h, node.rotation, d.opacity);
+}
+
+function roughPathsToSVG(paths: RoughPathData[]): string {
+  return paths
+    .map(
+      (p) =>
+        `<path d="${p.d}" stroke="${safeColor(p.stroke)}" stroke-width="${p.strokeWidth}" ` +
+        `fill="${p.fill && p.fill !== "none" ? safeColor(p.fill) : "none"}"` +
+        (p.strokeDasharray ? ` stroke-dasharray="${p.strokeDasharray}"` : "") +
+        ` stroke-linecap="round"/>`,
+    )
+    .join("");
+}
+
+function renderTableNode(node: TableNode, x: number, y: number, w: number): string {
+  const d = node.data;
+  const rows = d.rows?.length ? d.rows : [[""]];
+  let cols = 1;
+  for (const r of rows) if (r.length > cols) cols = r.length;
+  const headerRow = d.headerRow !== false;
+  const fontSize = d.fontSize ?? 14;
+  const align = d.align ?? "left";
+  const textColor = d.textColor ?? "#1e1e2e";
+  const stroke = d.stroke ?? "#1e1e2e";
+  const strokeWidth = d.strokeWidth ?? 1.5;
+  const roughness = d.roughness ?? 1;
+  const fontCSS = getFontFamilyCSS(d.fontFamily ?? DEFAULT_FONT);
+
+  // Canvas parity (TableBlock): padding "8px 10px", line-height 1.45,
+  // column x boundaries from colWidths weights, min row height 40.
+  const padX = 10;
+  const padY = 8;
+  const lineH = fontSize * 1.45;
+  const minRowH = 40;
+  const weights = Array.from({ length: cols }, (_, i) => {
+    const v = d.colWidths?.[i];
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const colXs = [0];
+  let acc = 0;
+  for (const wt of weights) {
+    acc += (wt / totalWeight) * w;
+    colXs.push(acc);
+  }
+  colXs[colXs.length - 1] = w;
+
+  const cellFontCSS = (cell: (typeof rows)[number][number]) => {
+    const ff = tableCellStyle(cell).fontFamily;
+    return ff ? getFontFamilyCSS(ff) : fontCSS;
+  };
+  const rowHeights = rows.map((row) => {
+    let rowH = minRowH;
+    for (let c = 0; c < cols; c++) {
+      const text = tableCellText(row[c]);
+      if (!text) continue;
+      const cellSize = tableCellStyle(row[c]).fontSize ?? fontSize;
+      const textW = colXs[c + 1] - colXs[c] - padX * 2;
+      const lines = wrapText(text, textW, cellSize, cellFontCSS(row[c])).length;
+      rowH = Math.max(rowH, Math.round(lines * cellSize * 1.45) + padY * 2);
+    }
+    return rowH;
+  });
+  const totalH = rowHeights.reduce((a, b) => a + b, 0);
+
+  // Hand-drawn grid — SAME seeds as TableBlock so the export squiggles are
+  // identical to the canvas.
+  const opts = { stroke, strokeWidth, roughness };
+  const rough: RoughPathData[] = [
+    ...getRoughRectPaths(x, y, w, totalH, { ...opts, seed: `${node.id}:outer` }),
+  ];
+  for (let c = 1; c < cols; c++) {
+    rough.push(
+      ...getRoughLinePaths(x + colXs[c], y, x + colXs[c], y + totalH, { ...opts, seed: `${node.id}:c${c}` }),
+    );
+  }
+  let boundaryY = y;
+  for (let r = 0; r < rows.length - 1; r++) {
+    boundaryY += rowHeights[r];
+    rough.push(
+      ...getRoughLinePaths(x, boundaryY, x + w, boundaryY, { ...opts, seed: `${node.id}:r${r + 1}` }),
+    );
+  }
+
+  const texts: string[] = [];
+  let rowY = y;
+  rows.forEach((row, r) => {
+    const rowH = rowHeights[r];
+    const isHeader = headerRow && r === 0;
+    for (let c = 0; c < cols; c++) {
+      const text = tableCellText(row[c]);
+      if (!text) continue;
+      const cs = tableCellStyle(row[c]);
+      const cellAlign = cs.align ?? align;
+      const cellSize = cs.fontSize ?? fontSize;
+      const textW = colXs[c + 1] - colXs[c] - padX * 2;
+      const tx =
+        cellAlign === "center"
+          ? x + (colXs[c] + colXs[c + 1]) / 2
+          : cellAlign === "right"
+            ? x + colXs[c + 1] - padX
+            : x + colXs[c] + padX;
+      const cell = textBlock(
+        text, tx, rowY + padY, textW, cellSize, 1.45,
+        cs.color ?? textColor, cellAlign, cellFontCSS(row[c]),
+      );
+      texts.push(isHeader ? `<g font-weight="700">${cell}</g>` : cell);
+    }
+    rowY += rowH;
+  });
+
+  const inner = roughPathsToSVG(rough) + texts.join("");
+  return wrapG(inner, x, y, w, totalH, node.rotation, d.opacity);
 }
 
 async function renderImageNode(
@@ -1498,6 +1616,15 @@ function collectFontKeys(nodes: SpatialNode[]): string[] {
       add((n as TextNode).data.fontFamily);
     } else if (n.type === "sticky") {
       add(DEFAULT_FONT);
+    } else if (n.type === "table") {
+      const d = (n as TableNode).data;
+      add(d.fontFamily ?? DEFAULT_FONT);
+      for (const row of d.rows ?? []) {
+        for (const cell of row) {
+          const ff = tableCellStyle(cell).fontFamily;
+          if (ff) add(ff);
+        }
+      }
     } else if (n.type === "shape") {
       const d = (n as ShapeNode).data;
       const isLinear = d.shape === "line" || d.shape === "arrow";

@@ -67,6 +67,8 @@ export function getCursorForMode(mode: Mode): string {
       return "text";
     case "sticky":
       return "crosshair";
+    case "table":
+      return "crosshair";
     case "draw":
       return "crosshair";
     case "shape":

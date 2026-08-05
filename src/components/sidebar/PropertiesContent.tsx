@@ -16,6 +16,7 @@ import type {
   FrameNode,
   StickyNoteNode,
   YouTubeNode,
+  TableNode,
 } from "../../engine/types";
 import type { NodeTypeRegistry } from "../../nodes/registry";
 import type { SelectionTarget, TypeGroup, MergedCommonProps } from "./useMultiSelection";
@@ -33,11 +34,12 @@ import ContentProperties from "./sections/ContentProperties";
 import FrameProperties from "./sections/FrameProperties";
 import StickyProperties from "./sections/StickyProperties";
 import YouTubeProperties from "./sections/YouTubeProperties";
+import TableProperties from "./sections/TableProperties";
 import ToolModeProperties from "./sections/ToolModeProperties";
 import CustomNodeProperties from "./sections/CustomNodeProperties";
 import { useSBI18n } from "../contexts/LocalizationContext";
 
-const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky", "youtube"]);
+const OPACITY_TYPES = new Set(["shape", "draw", "text", "image", "blocknote", "frame", "sticky", "youtube", "table"]);
 const BORDER_TYPES = new Set(["text", "image", "blocknote", "frame", "youtube"]);
 
 function buildTypeLabels(labels: ReturnType<typeof useSBI18n>["labels"]): Record<string, string> {
@@ -51,6 +53,7 @@ function buildTypeLabels(labels: ReturnType<typeof useSBI18n>["labels"]): Record
     frame: labels.typeFrame,
     sticky: labels.typeStickyNote,
     youtube: labels.typeYouTube,
+    table: labels.typeTable,
   };
 }
 
@@ -63,6 +66,8 @@ function getFontsInScene(engine: SpatialEngine): string[] {
       f = (node as TextNode).data.fontFamily;
     } else if (node.type === "shape") {
       f = (node as ShapeNode).data.labelFontFamily;
+    } else if (node.type === "table") {
+      f = (node as TableNode).data.fontFamily;
     }
     if (f && !seen.has(f)) {
       seen.add(f);
@@ -120,6 +125,8 @@ function SingleNodeProperties({
       return <StickyProperties engine={engine} node={node as StickyNoteNode} />;
     case "youtube":
       return <YouTubeProperties engine={engine} node={node as YouTubeNode} />;
+    case "table":
+      return <TableProperties engine={engine} node={node as TableNode} fontsInScene={fontsInScene} />;
     default: {
       const def = registry?.get(node.type);
       if (def?.propertiesPanel) {

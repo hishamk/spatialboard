@@ -8,7 +8,7 @@ import {
   sideDirection,
   computeStepPoints,
 } from "./edge-geometry_shared";
-import { perimeterPoint } from "./edge-geometry_perimeter";
+import { perimeterPoint, interiorAnchorPoint } from "./edge-geometry_perimeter";
 
 /**
  * Draw-node anchor for explicit side handles.
@@ -117,6 +117,11 @@ export interface EdgePathResult {
   targetSide: HandleSide;
   /** Draggable kink handle info (step/smoothstep only) */
   kinkHandle?: KinkHandleInfo;
+  /** Cubic control points (bezier only) — hit-testing MUST use these rather
+   *  than re-deriving from sides: the renderer picks tangents (radial for
+   *  free/port/interior anchors, cardinal for handles) that a re-derivation
+   *  can't reproduce, and a diverged hit-curve makes edges unclickable. */
+  controlPoints?: { cx1: number; cy1: number; cx2: number; cy2: number };
   /** Bounding box of the edge */
   bounds: { x: number; y: number; w: number; h: number };
 }
@@ -150,8 +155,8 @@ export function computeEdgePath(
   curveOffset?: [number, number],
   sourcePortPos?: { x: number; y: number },
   targetPortPos?: { x: number; y: number },
-  sourceT?: number,
-  targetT?: number,
+  sourceT?: number | [number, number],
+  targetT?: number | [number, number],
   attachmentGap?: number,
 ): EdgePathResult {
   const fh = resolveH(fromNode, measuredHeights);
@@ -165,6 +170,12 @@ export function computeEdgePath(
   // Compute endpoint + side for source
   let x1: number, y1: number, sourceSide: HandleSide;
   let sourceExitDir: { dx: number; dy: number } | undefined;
+  // Free/interior/radial-shape tangents get fold-damping in makeBezierPath —
+  // when the radial dir points AWAY from the other endpoint the curve would
+  // shoot out backward and fold over itself. Port tangents keep their full
+  // reach (the generous loop on a back-edge is the intended look there).
+  let dampSourceCurl = false;
+  let dampTargetCurl = false;
   if (sourcePortPos) {
     x1 = sourcePortPos.x; y1 = sourcePortPos.y;
     const sdx = x1 - fcx;
@@ -174,12 +185,23 @@ export function computeEdgePath(
       sourceExitDir = { dx: sdx / sLen, dy: sdy / sLen };
     }
     sourceSide = dominantSide(sdx, sdy, fromNode.w / 2, fh / 2);
+  } else if (Array.isArray(sourceT)) {
+    // Interior anchor — the endpoint sits INSIDE the node at uv fractions.
+    const p = interiorAnchorPoint(fromNode, fh, sourceT);
+    x1 = p.x; y1 = p.y;
+    const sdx = x1 - fcx;
+    const sdy = y1 - fcy;
+    sourceSide = dominantSide(sdx, sdy, fromNode.w / 2, fh / 2);
+    const len = Math.hypot(sdx, sdy);
+    if (len > 1e-6) sourceExitDir = { dx: sdx / len, dy: sdy / len };
+    dampSourceCurl = true;
   } else if (sourceT !== undefined) {
     const p = perimeterPoint(fromNode, fh, sourceT);
     x1 = p.x; y1 = p.y; sourceSide = p.side;
     // Use radial exit direction for smooth bezier tangents
     const len = Math.hypot(x1 - fcx, y1 - fcy);
     if (len > 0) sourceExitDir = { dx: (x1 - fcx) / len, dy: (y1 - fcy) / len };
+    dampSourceCurl = true;
   } else if (sourceHandle) {
     const p =
       fromNode.type === "draw"
@@ -194,6 +216,7 @@ export function computeEdgePath(
     if (isRadialShape(fromNode)) {
       const len = Math.hypot(tcx - fcx, tcy - fcy);
       if (len > 0) sourceExitDir = { dx: (tcx - fcx) / len, dy: (tcy - fcy) / len };
+      dampSourceCurl = true;
     }
   }
 
@@ -209,12 +232,23 @@ export function computeEdgePath(
       targetEntryDir = { dx: tdx / tLen, dy: tdy / tLen };
     }
     targetSide = dominantSide(tdx, tdy, toNode.w / 2, th / 2);
+  } else if (Array.isArray(targetT)) {
+    // Interior anchor — the endpoint sits INSIDE the node at uv fractions.
+    const p = interiorAnchorPoint(toNode, th, targetT);
+    x2 = p.x; y2 = p.y;
+    const tdx = x2 - tcx;
+    const tdy = y2 - tcy;
+    targetSide = dominantSide(tdx, tdy, toNode.w / 2, th / 2);
+    const len = Math.hypot(tdx, tdy);
+    if (len > 1e-6) targetEntryDir = { dx: tdx / len, dy: tdy / len };
+    dampTargetCurl = true;
   } else if (targetT !== undefined) {
     const p = perimeterPoint(toNode, th, targetT);
     x2 = p.x; y2 = p.y; targetSide = p.side;
     // Use radial entry direction for smooth bezier tangents
     const len = Math.hypot(x2 - tcx, y2 - tcy);
     if (len > 0) targetEntryDir = { dx: (x2 - tcx) / len, dy: (y2 - tcy) / len };
+    dampTargetCurl = true;
   } else if (targetHandle) {
     const p =
       toNode.type === "draw"
@@ -228,22 +262,48 @@ export function computeEdgePath(
     if (isRadialShape(toNode)) {
       const len = Math.hypot(fcx - tcx, fcy - tcy);
       if (len > 0) targetEntryDir = { dx: (fcx - tcx) / len, dy: (fcy - tcy) / len };
+      dampTargetCurl = true;
     }
   }
 
-  // Apply attachment gap — pull endpoints away from node borders
+  // Apply attachment gap — pull endpoints away from node borders. Interior
+  // anchors are exempt: the whole point is the tip landing ON the uv spot.
   if (attachmentGap && attachmentGap > 0) {
     // Source: push outward from source node center
-    const sLen = Math.hypot(x1 - fcx, y1 - fcy);
-    if (sLen > 0) {
-      x1 += ((x1 - fcx) / sLen) * attachmentGap;
-      y1 += ((y1 - fcy) / sLen) * attachmentGap;
+    if (!Array.isArray(sourceT)) {
+      const sLen = Math.hypot(x1 - fcx, y1 - fcy);
+      if (sLen > 0) {
+        x1 += ((x1 - fcx) / sLen) * attachmentGap;
+        y1 += ((y1 - fcy) / sLen) * attachmentGap;
+      }
     }
     // Target: push outward from target node center
-    const tLen = Math.hypot(x2 - tcx, y2 - tcy);
-    if (tLen > 0) {
-      x2 += ((x2 - tcx) / tLen) * attachmentGap;
-      y2 += ((y2 - tcy) / tLen) * attachmentGap;
+    if (!Array.isArray(targetT)) {
+      const tLen = Math.hypot(x2 - tcx, y2 - tcy);
+      if (tLen > 0) {
+        x2 += ((x2 - tcx) / tLen) * attachmentGap;
+        y2 += ((y2 - tcy) / tLen) * attachmentGap;
+      }
+    }
+  }
+
+  // Step/smoothstep route BY SIDE. A free/interior anchor whose dominant side
+  // faces away from the other endpoint would exit backward and fold the tail —
+  // flip the routing side to the chord-facing one (ports keep their sides).
+  if (edgeType === "step" || edgeType === "smoothstep") {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dampSourceCurl) {
+      const sdir = sideDirection(sourceSide);
+      if (sdir.dx * dx + sdir.dy * dy < 0) {
+        sourceSide = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "bottom" : "top");
+      }
+    }
+    if (dampTargetCurl) {
+      const tdir = sideDirection(targetSide);
+      if (tdir.dx * -dx + tdir.dy * -dy < 0) {
+        targetSide = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "left" : "right") : (dy > 0 ? "top" : "bottom");
+      }
     }
   }
 
@@ -251,7 +311,7 @@ export function computeEdgePath(
     case "straight":
       return makeStraightPath(x1, y1, x2, y2, sourceSide, targetSide);
     case "bezier":
-      return makeBezierPath(x1, y1, x2, y2, sourceSide, targetSide, curveOffset, sourceExitDir, targetEntryDir);
+      return makeBezierPath(x1, y1, x2, y2, sourceSide, targetSide, curveOffset, sourceExitDir, targetEntryDir, dampSourceCurl, dampTargetCurl);
     case "smoothstep":
       return makeSmoothStepPath(x1, y1, x2, y2, sourceSide, targetSide, midpointOffset);
     case "step":
@@ -276,6 +336,12 @@ function makeStraightPath(
     tailAngle: Math.atan2(y1 - y2, x1 - x2),
     sourceSide,
     targetSide,
+    // Midpoint handle: dragging it bends the line — the kink drag handler
+    // converts the edge to bezier with the pull applied as curveOffset.
+    kinkHandle: {
+      x: (x1 + x2) / 2, y: (y1 + y2) / 2,
+      axis: "xy", min: 0, max: 0,
+    },
     bounds: { x: minX, y: minY, w, h },
   };
 }
@@ -285,7 +351,9 @@ function makeBezierPath(
   sourceSide: HandleSide, targetSide: HandleSide,
   curveOffset?: [number, number],
   sourceExitDir?: { dx: number; dy: number },
-  targetEntryDir?: { dx: number; dy: number }
+  targetEntryDir?: { dx: number; dy: number },
+  dampSourceCurl?: boolean,
+  dampTargetCurl?: boolean,
 ): EdgePathResult {
   const dist = Math.hypot(x2 - x1, y2 - y1);
   const offset = Math.min(dist * 0.5, Math.max(50, dist * 0.25));
@@ -293,14 +361,33 @@ function makeBezierPath(
   const sd = sourceExitDir ?? sideDirection(sourceSide);
   const td = targetEntryDir ?? sideDirection(targetSide);
 
+  // Fold-damping (free/interior/radial anchors): when a tangent points AWAY
+  // from the chord toward the other endpoint, its full control reach makes the
+  // curve shoot out backward and fold over itself. Shrink the reach smoothly
+  // with how much the tangent opposes the chord (floor keeps a small curl).
+  let sOffset = offset;
+  let tOffset = offset;
+  if (dist > 1e-6 && (dampSourceCurl || dampTargetCurl)) {
+    const ux = (x2 - x1) / dist;
+    const uy = (y2 - y1) / dist;
+    if (dampSourceCurl && sourceExitDir) {
+      const dot = sd.dx * ux + sd.dy * uy; // 1 = exits toward target
+      if (dot < 0) sOffset = offset * Math.max(0.15, 1 + dot);
+    }
+    if (dampTargetCurl && targetEntryDir) {
+      const dot = -(td.dx * ux + td.dy * uy); // 1 = arrives along the chord
+      if (dot < 0) tOffset = offset * Math.max(0.15, 1 + dot);
+    }
+  }
+
   // Apply curveOffset: shift both control points by offset * 4/3
   const curveDx = curveOffset ? curveOffset[0] * (4 / 3) : 0;
   const curveDy = curveOffset ? curveOffset[1] * (4 / 3) : 0;
 
-  const cx1 = x1 + sd.dx * offset + curveDx;
-  const cy1 = y1 + sd.dy * offset + curveDy;
-  const cx2 = x2 + td.dx * offset + curveDx;
-  const cy2 = y2 + td.dy * offset + curveDy;
+  const cx1 = x1 + sd.dx * sOffset + curveDx;
+  const cy1 = y1 + sd.dy * sOffset + curveDy;
+  const cx2 = x2 + td.dx * tOffset + curveDx;
+  const cy2 = y2 + td.dy * tOffset + curveDy;
 
   // Midpoint of cubic bezier at t=0.5
   const labelX = 0.125 * x1 + 0.375 * cx1 + 0.375 * cx2 + 0.125 * x2;
@@ -330,6 +417,7 @@ function makeBezierPath(
     sourceSide,
     targetSide,
     kinkHandle,
+    controlPoints: { cx1, cy1, cx2, cy2 },
     bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
   };
 }

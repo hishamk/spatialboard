@@ -23,6 +23,8 @@ import {
   getPortPosition,
   PORT_EDGE_SNAP_RADIUS_PX,
   nearestPerimeterPoint,
+  nearestInteriorUV,
+  INTERIOR_ANCHOR_BAND_PX,
   computeEdgePath,
 } from "../../../engine/edge-geometry";
 import { isExactEdgeConnectionDuplicate } from "../canvas-helpers";
@@ -36,8 +38,8 @@ export type EdgePreviewState = {
   cursorX: number;
   cursorY: number;
   sourceHandle?: HandleSide;
-  /** Parametric position for free-form edge source. */
-  sourceT?: number;
+  /** Perimeter t (number) or interior [u,v] anchor on the source node. */
+  sourceT?: number | [number, number];
   /** Port ID on the source node (for port-aware edge creation). */
   sourcePort?: string;
   /** Direction of the source port. */
@@ -467,17 +469,29 @@ export function useNodeTransforms({
         )
           return;
 
+        // Drops DEEP inside the target (beyond the border band) anchor at that
+        // interior [u,v] point; near the border they snap to the perimeter.
         const targetHandle = isFreeForm ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
-        const targetT = isFreeForm ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
+        let targetT: number | [number, number] | undefined;
+        if (isFreeForm) {
+          const pp = nearestPerimeterPoint(targetNode, x, y, measuredHeights);
+          targetT = pp.t;
+          if (Math.hypot(pp.x - x, pp.y - y) > INTERIOR_ANCHOR_BAND_PX / engine.viewport.zoom) {
+            const uv = nearestInteriorUV(targetNode, x, y, measuredHeights);
+            if (uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1) targetT = uv;
+          }
+        }
         // Allow parallel edges between the same nodes, but block exact duplicates.
         const duplicate = engine.getAllNodes().some((n) => {
           if (n.type !== "edge") return false;
           const ed = (n as EdgeNode).data;
           if (isFreeForm) {
-            // For free-form, check approximate t-value match
+            // Near-match dedupe applies to perimeter Ts only — interior [u,v]
+            // drops are deliberate placements, so duplicates are allowed.
+            if (typeof targetT !== "number") return false;
             return ed.fromId === sourceNode.id && ed.toId === targetNode.id &&
-              ed.sourceT !== undefined && ed.targetT !== undefined &&
-              Math.abs(ed.sourceT - sourceT!) < 0.02 && Math.abs(ed.targetT - targetT!) < 0.02;
+              typeof ed.sourceT === "number" && typeof ed.targetT === "number" &&
+              Math.abs(ed.sourceT - sourceT!) < 0.02 && Math.abs(ed.targetT - targetT) < 0.02;
           }
           return isExactEdgeConnectionDuplicate(ed, {
             fromId: sourceNode.id,
@@ -744,10 +758,14 @@ export function useNodeTransforms({
         if (!fromNode || !toNode) return;
 
         if (axis === "xy") {
-          // Bezier: compute offset from the natural (no-offset) midpoint
+          // Bezier: compute offset from the natural (no-offset) midpoint.
+          // A STRAIGHT edge bends here too — the drag converts it to bezier
+          // with the pull applied (grab-the-middle works on every edge).
+          const wasStraight = fresh.data.edgeType === "straight";
+          const effType = wasStraight ? "bezier" : (fresh.data.edgeType || "bezier");
           const naturalPath = computeEdgePath(
             fromNode, toNode,
-            fresh.data.edgeType || "bezier",
+            effType,
             measuredHeights,
             fresh.data.sourceHandle, fresh.data.targetHandle,
             undefined, undefined, // no offsets → natural midpoint
@@ -759,7 +777,11 @@ export function useNodeTransforms({
           const dx = canvasPos.x - naturalPath.kinkHandle.x;
           const dy = canvasPos.y - naturalPath.kinkHandle.y;
           engine.updateNode(edgeId, {
-            data: { ...fresh.data, curveOffset: [dx, dy] },
+            data: {
+              ...fresh.data,
+              curveOffset: [dx, dy],
+              ...(wasStraight ? { edgeType: "bezier" as const } : {}),
+            },
           } as Partial<EdgeNode>);
         } else {
           // Step/smoothstep: single-axis ratio-based offset
@@ -897,29 +919,29 @@ export function useNodeTransforms({
         const originalEndNodeId = endpoint === "source" ? fromId : toId;
         const repositionOnSameNode = targetNode.id === originalEndNodeId;
 
-        // Determine if this is a free-form edge
-        const isFreeFormEdge = edgeNode.data.sourceT !== undefined || edgeNode.data.targetT !== undefined;
-
-        // Compute new handle/t for the reconnected endpoint
-        const newHandle = isFreeFormEdge ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
-        const newT = isFreeFormEdge ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
-
-        // Same-node fixed-handle drop that resolves to the SAME handle is a
-        // true no-op — skip the history entry.
-        if (repositionOnSameNode && !isFreeFormEdge) {
-          const currentHandle = endpoint === "source" ? sourceHandle : targetHandle;
-          if (newHandle === currentHandle) return;
+        // Endpoint drops ALWAYS produce a free anchor — legacy fixed-handle
+        // edges (old docs, templates) convert on first touch. Anywhere DEEPER
+        // inside the node than the border band anchors at that interior [u,v]
+        // point ("point at the thing, not its edge"); near the border it snaps
+        // to the perimeter. Same rule as edge creation.
+        let newUV: [number, number] | undefined;
+        const pp = nearestPerimeterPoint(targetNode, x, y, measuredHeights);
+        if (Math.hypot(pp.x - x, pp.y - y) > INTERIOR_ANCHOR_BAND_PX / engine.viewport.zoom) {
+          const uv = nearestInteriorUV(targetNode, x, y, measuredHeights);
+          if (uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1) newUV = uv;
         }
+        const newT = newUV ? undefined : pp.t;
 
         // Reconnecting to a DIFFERENT node: allow parallel edges, but block an
         // exact duplicate. Same-node repositioning keeps the topology, so the
-        // check doesn't apply.
+        // check doesn't apply. The moved endpoint's handle clears (free anchor),
+        // so the candidate carries only the unmoved endpoint's handle.
         if (!repositionOnSameNode) {
           const candidate = endpoint === "source"
             ? {
               fromId: newFromId,
               toId: newToId,
-              sourceHandle: newHandle ?? sourceHandle,
+              sourceHandle: undefined,
               targetHandle: targetHandle,
               sourcePort: edgeNode.data.sourcePort,
               targetPort: edgeNode.data.targetPort,
@@ -928,7 +950,7 @@ export function useNodeTransforms({
               fromId: newFromId,
               toId: newToId,
               sourceHandle,
-              targetHandle: newHandle ?? targetHandle,
+              targetHandle: undefined,
               sourcePort: edgeNode.data.sourcePort,
               targetPort: edgeNode.data.targetPort,
             };
@@ -940,16 +962,9 @@ export function useNodeTransforms({
         }
 
         // Apply with history (Ctrl+Z undoes reconnection)
-        let dataPatch: Partial<EdgeNode["data"]>;
-        if (isFreeFormEdge) {
-          dataPatch = endpoint === "source"
-            ? { fromId: targetNode.id, sourceT: newT, sourceHandle: undefined }
-            : { toId: targetNode.id, targetT: newT, targetHandle: undefined };
-        } else {
-          dataPatch = endpoint === "source"
-            ? { fromId: targetNode.id, sourceHandle: newHandle }
-            : { toId: targetNode.id, targetHandle: newHandle };
-        }
+        const dataPatch: Partial<EdgeNode["data"]> = endpoint === "source"
+          ? { fromId: targetNode.id, sourceT: newUV ?? newT, sourceHandle: undefined }
+          : { toId: targetNode.id, targetT: newUV ?? newT, targetHandle: undefined };
 
         engine.updateNodeWithHistory(edgeId, { data: dataPatch } as Partial<EdgeNode>);
       };

@@ -125,6 +125,19 @@ function BlockNoteBlock({
   const lastSyncedBlocksJsonRef = useRef(JSON.stringify(node.data.blocks ?? []));
   const [editing, setEditing] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
+  // Hide the in-node selection chrome (outline + handles) while a MOVE
+  // gesture is active — matching the SVG selection chrome, which hides
+  // during drags but stays for transforms (resize/rotate).
+  const [inMoveGesture, setInMoveGesture] = useState(false);
+  useEffect(() => {
+    const sync = () => setInMoveGesture(engine.gestureKind === "move");
+    engine.on("gesture:start", sync);
+    engine.on("gesture:end", sync);
+    return () => {
+      engine.off("gesture:start", sync);
+      engine.off("gesture:end", sync);
+    };
+  }, [engine]);
   // Store double-click coordinates so we can place the caret at the click position
   const dblClickPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -536,7 +549,7 @@ function BlockNoteBlock({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture([node.id]);
+          engine.beginNodeGesture([node.id], "transform");
         }
         const { x: cx, y: cy } = engine.screenToCanvas(me.clientX, me.clientY);
         const currentAngle = Math.atan2(cy - centerY, cx - centerX);
@@ -586,7 +599,7 @@ function BlockNoteBlock({
         if (!historyPushed) {
           historyPushed = true;
           engine.pushHistorySnapshot();
-          engine.beginNodeGesture([node.id]);
+          engine.beginNodeGesture([node.id], "transform");
         }
 
         let newX = origX;
@@ -727,7 +740,7 @@ function BlockNoteBlock({
     [editing, engine, node.id, node.groupId, editor]
   );
 
-  const showHandles = isSelected && !multiSelected;
+  const showHandles = isSelected && !multiSelected && !inMoveGesture;
 
   return (
     <div
@@ -746,7 +759,7 @@ function BlockNoteBlock({
           ? `${node.data.borderWidth ?? 1}px ${node.data.borderStyle ?? "solid"} ${node.data.borderColor}`
           : "none",
         boxSizing: node.data.borderColor ? "border-box" : undefined,
-        outline: isSelected
+        outline: isSelected && !inMoveGesture
           ? `${1.5 / zoom}px solid #3b82f6`
           : "none",
         outlineOffset: node.data.borderColor ? 2 / zoom : 0,

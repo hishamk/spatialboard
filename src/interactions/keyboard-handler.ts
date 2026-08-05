@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type { SpatialEngine } from "../engine/SpatialEngine";
-import type { BlockNoteNode, ImageNode, SpatialNode, StickyNoteNode, TextNode, ToolKey, YouTubeNode } from "../engine/types";
+import type { BlockNoteNode, ImageNode, SpatialNode, StickyNoteNode, TableCell, TextNode, ToolKey, YouTubeNode } from "../engine/types";
+import { tableCellText } from "../engine/table-cells";
 import { getSbdMarkdownCodec } from "../serialization/markdown-codec";
 import { TOOLS, modeAvailable } from "../tools";
 import { svgTextToImageNode, extractSvgMarkup } from "../utils/svg-import";
@@ -112,6 +113,14 @@ function nodesToPlainText(nodes: SpatialNode[]): string {
       case "sticky": {
         const d = node.data as StickyNoteNode["data"];
         if (d.text) parts.push(d.text);
+        break;
+      }
+      case "table": {
+        const d = node.data as { rows?: TableCell[][] };
+        if (d.rows?.length) {
+          const tsv = d.rows.map((r) => r.map(tableCellText).join("\t")).join("\n");
+          if (tsv.trim()) parts.push(tsv);
+        }
         break;
       }
       case "draw":

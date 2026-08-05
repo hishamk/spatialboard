@@ -1,9 +1,9 @@
 /** Built-in node types. Custom types use arbitrary strings. */
-export type BuiltinNodeType = "blocknote" | "draw" | "shape" | "edge" | "image" | "text" | "frame" | "sticky" | "youtube";
+export type BuiltinNodeType = "blocknote" | "draw" | "shape" | "edge" | "image" | "text" | "frame" | "sticky" | "youtube" | "table";
 
 /** @deprecated Use `BuiltinNodeType` for built-in types or `string` for extensible usage. */
 export type NodeType = BuiltinNodeType;
-export type Mode = "select" | "draw" | "shape" | "text" | "note" | "sticky" | "edge" | "erase" | "frame" | "hand" | "laser";
+export type Mode = "select" | "draw" | "shape" | "text" | "note" | "sticky" | "table" | "edge" | "erase" | "frame" | "hand" | "laser";
 
 /**
  * A toolbar-visibility key for the `tools` allowlist prop on `<SpatialBoard>`.
@@ -126,12 +126,14 @@ export interface EdgeNode extends SpatialNode {
     curveOffset?: [number, number];
     /** 0 = architect (clean), 1 = artist, 2 = cartoonist (hand-drawn via RoughJS) */
     roughness?: number;
-    /** Parametric position [0,1) along source node perimeter (clockwise from top-center).
-     *  When set, overrides sourceHandle for free-form edge connections. */
-    sourceT?: number;
-    /** Parametric position [0,1) along target node perimeter (clockwise from top-center).
-     *  When set, overrides targetHandle for free-form edge connections. */
-    targetT?: number;
+    /** Free-form source anchor. A NUMBER is a parametric position [0,1) along the
+     *  node perimeter (clockwise from top-center). A `[u, v]` TUPLE anchors at an
+     *  INTERIOR point of the node — fractions of its unrotated box (0,0 = top-left,
+     *  1,1 = bottom-right), rotating with the node. Overrides sourceHandle. */
+    sourceT?: number | [number, number];
+    /** Free-form target anchor — same encoding as `sourceT` (perimeter number or
+     *  interior `[u, v]` tuple). Overrides targetHandle. */
+    targetT?: number | [number, number];
     /** Gap (in canvas units) between arrow tip and node border. Default 0. */
     attachmentGap?: number;
   };
@@ -225,6 +227,46 @@ export interface YouTubeNode extends SpatialNode {
   };
 }
 
+/** One table cell: a plain string, or an object once the cell carries its own
+ *  style overrides (kept lean — unstyled cells stay strings on the wire). */
+export type TableCell =
+  | string
+  | {
+      text: string;
+      /** Overrides the table-wide fontFamily for this cell. */
+      fontFamily?: string;
+      /** Overrides the table-wide textColor for this cell. */
+      color?: string;
+      /** Overrides the table-wide fontSize for this cell. */
+      fontSize?: number;
+      /** Overrides the table-wide align for this cell. */
+      align?: TextAlign;
+    };
+
+export interface TableNode extends SpatialNode {
+  type: "table";
+  data: {
+    /** Row-major cells: rows[rowIndex][colIndex]. Ragged rows render as empty cells. */
+    rows: TableCell[][];
+    /** First row renders bold. Default: true. */
+    headerRow?: boolean;
+    fontSize?: number;
+    fontFamily?: string;
+    /** Cell text alignment. Default: "left". */
+    align?: TextAlign;
+    /** Cell text color. Default: ink. */
+    textColor?: string;
+    /** Ink color for the hand-drawn grid. */
+    stroke?: string;
+    strokeWidth?: number;
+    /** Sketch style: 0 = architect, 1 = artist, 2 = cartoonist. Default 1. */
+    roughness?: number;
+    /** Relative column weights (length = column count). Missing/short → equal. */
+    colWidths?: number[];
+    opacity?: number;
+  };
+}
+
 export type AnySpatialNode =
   | BlockNoteNode
   | DrawNode
@@ -234,7 +276,8 @@ export type AnySpatialNode =
   | TextNode
   | FrameNode
   | StickyNoteNode
-  | YouTubeNode;
+  | YouTubeNode
+  | TableNode;
 
 export interface Viewport {
   x: number;
@@ -260,6 +303,9 @@ export interface ActiveTool {
   // Sticky tool settings
   stickyColor?: string;
   stickyFontSize?: number;
+  // Table tool settings
+  tableRows?: number;
+  tableCols?: number;
   // Edge tool settings
   edgeType?: EdgeType;
   arrowHead?: ArrowMarker;

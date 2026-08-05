@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState, lazy, Suspense } from "react";
+import { useCallback, useMemo, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { SpatialEngine } from "../engine/SpatialEngine";
 import { DataFlowEngine } from "../engine/DataFlowEngine";
 import SpatialCanvas from "./canvas/SpatialCanvas";
@@ -16,7 +16,7 @@ import { loadGoogleFonts } from "../fonts";
 import { SBThemeContext, DEFAULT_SB_THEME, SB_UI_FONT } from "./sidebar/ThemeContext";
 import type { SpatialBoardTheme } from "./sidebar/ThemeContext";
 import BottomBar from "./chrome/BottomBar";
-import ConsolePanel, { CONSOLE_COLLAPSED_CLEARANCE } from "./chrome/ConsolePanel";
+import ConsolePanel, { CONSOLE_COLLAPSED_CLEARANCE, CONSOLE_PANEL_CLEARANCE } from "./chrome/ConsolePanel";
 import SelectionActionBar from "./chrome/SelectionActionBar";
 import CanvasSearchBar from "./overlays/CanvasSearchBar";
 import FramesPanel from "./panels/FramesPanel";
@@ -94,6 +94,13 @@ export interface SpatialBoardProps {
   theme?: Partial<SpatialBoardTheme>;
   /** Callback fired when presentation mode is entered or exited. */
   onPresentationChange?: (presenting: boolean) => void;
+  /**
+   * Console chrome only: fired when the bottom deck expands or collapses
+   * (selection, chevron, or pin). Hosts with their own floating bottom
+   * chrome (FABs etc.) can raise it above the deck. Reports `false` when
+   * the deck unmounts (e.g. entering presentation).
+   */
+  onConsoleExpandedChange?: (expanded: boolean) => void;
   /** Base URL for GIF search API proxy (e.g. "/api/v1/gifs"). */
   gifApiBaseUrl?: string;
   /**
@@ -205,6 +212,7 @@ export default function SpatialBoard({
   debugBoards,
   theme,
   onPresentationChange,
+  onConsoleExpandedChange,
   gifApiBaseUrl,
   hostActive,
   direction,
@@ -421,6 +429,16 @@ export default function SpatialBoard({
   // The minimap docks inside the console deck when it has room; otherwise
   // (collapsed deck or narrow window) the floating map shows.
   const [consoleMapDocked, setConsoleMapDocked] = useState(false);
+  // Console deck expanded state — floats the minimap above the tall deck and
+  // is relayed to hosts via onConsoleExpandedChange.
+  const [consoleExpanded, setConsoleExpanded] = useState(false);
+  const handleConsoleExpandedChange = useCallback(
+    (expanded: boolean) => {
+      setConsoleExpanded(expanded);
+      onConsoleExpandedChange?.(expanded);
+    },
+    [onConsoleExpandedChange],
+  );
   const railVisible = showSidebarUI && !toolsInBottomBar && !compact && !consoleChrome;
   const mobileToolbarVisible = showSidebarUI && !isPreview && compact;
 
@@ -482,7 +500,15 @@ export default function SpatialBoard({
           onPortConnectEmpty={onPortConnectEmpty}
           portConnectHold={portConnectHold}
           minimapVisible={isPreview ? false : consoleChrome ? minimapVisible && !consoleMapDocked : minimapVisible}
-          minimapBottomOffset={compact ? 128 : consoleChrome ? CONSOLE_COLLAPSED_CLEARANCE : undefined}
+          minimapBottomOffset={
+            compact
+              ? 128
+              : consoleChrome
+                ? consoleExpanded
+                  ? CONSOLE_PANEL_CLEARANCE
+                  : CONSOLE_COLLAPSED_CLEARANCE
+                : undefined
+          }
           minimapEndOffset={minimapEndOffset}
           singleFrameId={singleFrameId}
           hostVisibleNodeIds={visibleNodeIds ?? null}
@@ -521,6 +547,7 @@ export default function SpatialBoard({
               minimapVisible={minimapVisible}
               onToggleMinimap={() => setMinimapVisible((v) => !v)}
               onMinimapDockedChange={setConsoleMapDocked}
+              onExpandedChange={handleConsoleExpandedChange}
             />
           </>
         )}

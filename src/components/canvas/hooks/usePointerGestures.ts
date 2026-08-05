@@ -19,8 +19,11 @@ import {
   hitTestAllEdges,
   nearestHandle,
   nearestPerimeterPoint,
+  nearestInteriorUV,
+  INTERIOR_ANCHOR_BAND_PX,
 } from "../../../engine/edge-geometry";
 import { distancePointToBoxNodeBorder } from "../../../engine/spatial-index";
+import { TABLE_CELL_W, TABLE_CELL_H } from "../../blocks/TableBlock";
 import {
   getCursorForMode,
   pinchMetrics,
@@ -231,12 +234,15 @@ export function usePointerGestures({
   } | null>(null);
   const [lassoPoints, setLassoPoints] = useState<Array<[number, number]> | null>(null);
 
-  // Text block preview state (drag-to-create)
+  // Text block preview state (drag-to-create). `kind` freezes which preview
+  // look to render (sticky/table render the real thing) so a lingering
+  // preview stays correct after the tool flips back to select on mouse-up.
   const [textPreview, setTextPreview] = useState<{
     startX: number;
     startY: number;
     endX: number;
     endY: number;
+    kind?: "sticky" | "table" | "note";
   } | null>(null);
 
   const prevTextRectDragRef = useRef(textPreview);
@@ -249,7 +255,9 @@ export function usePointerGestures({
           ? ("note" as const)
           : engine.mode === "sticky"
             ? ("sticky" as const)
-            : null;
+            : engine.mode === "table"
+              ? ("table" as const)
+              : null;
 
     if (!activeKind) {
       if (prev && !textPreview) {
@@ -516,34 +524,36 @@ export function usePointerGestures({
         if (!engine.lassoSelect) {
           const allHits = engine.hitTestAll(cx, cy, measuredHeights).filter(hitEligible);
           hit = allHits.find((n) => engine.selection.has(n.id) && !engine.isContainerType(n.type)) ?? allHits.find((n) => !engine.isContainerType(n.type)) ?? allHits[0] ?? null;
-          if (!insideSelectionBox) {
-            const edgePick = getClosestEdgeHit(
-              engine.nodes,
-              cx,
-              cy,
-              engine.viewport.zoom,
-              measuredHeights,
-              resolvePortPositions
-            );
-            // Ignore edges that aren't in the render scope (both endpoints must be
-            // visible) so the hidden loop's edges can't be picked in scope.
-            if (edgePick && hitEligible(edgePick.node)) {
-              if (!hit) {
-                hit = edgePick.node;
-              } else if (edgePick.node.z > hit.z) {
-                // Unified z-order: the edge paints ABOVE the hit node here, so
-                // it is what the user sees under the cursor — it wins the pick.
-                // (Alt+click still cycles to what lies underneath.)
-                hit = edgePick.node;
-              } else if (
-                hit.type !== "draw" &&
-                hit.type !== "shape" &&
-                !engine.isContainerType(hit.type) &&
-                edgePick.distance <
-                  distancePointToBoxNodeBorder(hit, cx, cy, measuredHeights)
-              ) {
-                hit = edgePick.node;
-              }
+          // Edge picking runs even inside a multi-selection bounding box —
+          // node clicks re-target there, so edge clicks must too; otherwise
+          // every edge crossing the box is silently unclickable until the
+          // selection is cleared ("sometimes edges won't select").
+          const edgePick = getClosestEdgeHit(
+            engine.nodes,
+            cx,
+            cy,
+            engine.viewport.zoom,
+            measuredHeights,
+            resolvePortPositions
+          );
+          // Ignore edges that aren't in the render scope (both endpoints must be
+          // visible) so the hidden loop's edges can't be picked in scope.
+          if (edgePick && hitEligible(edgePick.node)) {
+            if (!hit) {
+              hit = edgePick.node;
+            } else if (edgePick.node.z > hit.z) {
+              // Unified z-order: the edge paints ABOVE the hit node here, so
+              // it is what the user sees under the cursor — it wins the pick.
+              // (Alt+click still cycles to what lies underneath.)
+              hit = edgePick.node;
+            } else if (
+              hit.type !== "draw" &&
+              hit.type !== "shape" &&
+              !engine.isContainerType(hit.type) &&
+              edgePick.distance <
+                distancePointToBoxNodeBorder(hit, cx, cy, measuredHeights)
+            ) {
+              hit = edgePick.node;
             }
           }
         }
@@ -832,6 +842,7 @@ export function usePointerGestures({
           startY: cy,
           endX: cx,
           endY: cy,
+          kind: "note" as const,
         };
         let dragged = false;
         setTextPreview(preview);
@@ -848,7 +859,6 @@ export function usePointerGestures({
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
           ownerDoc().removeEventListener("pointerup", onUp);
-          setTextPreview(null);
 
           const w = dragged ? Math.max(Math.abs(preview.endX - preview.startX), 100) : 300;
           const h = dragged ? Math.max(Math.abs(preview.endY - preview.startY), 40) : "auto" as const;
@@ -857,6 +867,10 @@ export function usePointerGestures({
 
           createBlockNote(x, y, w, h);
           engine.setMode("select");
+          // Hold the preview until the real card has painted (see sticky).
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            setTextPreview(null);
+          }));
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -869,6 +883,7 @@ export function usePointerGestures({
           startY: cy,
           endX: cx,
           endY: cy,
+          kind: "sticky" as const,
         };
         let dragged = false;
         setTextPreview(preview);
@@ -883,7 +898,6 @@ export function usePointerGestures({
         const onUp = () => {
           ownerDoc().removeEventListener("pointermove", onMove);
           ownerDoc().removeEventListener("pointerup", onUp);
-          setTextPreview(null);
 
           const w = dragged ? Math.max(Math.abs(preview.endX - preview.startX), 100) : 200;
           const x = dragged ? Math.min(preview.startX, preview.endX) : startCx;
@@ -909,6 +923,66 @@ export function usePointerGestures({
           engine.select(id);
           setEditingStickyId(id);
           engine.setMode("select");
+          // Keep the preview up until the real node has painted underneath —
+          // clearing immediately leaves an empty frame (visible blink). The
+          // preview matches the final rendering (its look is frozen via
+          // `kind`), so the hand-off is seamless.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            setTextPreview(null);
+          }));
+        };
+        ownerDoc().addEventListener("pointermove", onMove);
+        ownerDoc().addEventListener("pointerup", onUp);
+      } else if (engine.mode === "table") {
+        engine.deselectAll();
+        const startCx = cx;
+        const startCy = cy;
+        const preview = {
+          startX: cx,
+          startY: cy,
+          endX: cx,
+          endY: cy,
+          kind: "table" as const,
+        };
+        let dragged = false;
+        setTextPreview(preview);
+
+        const onMove = (me: PointerEvent) => {
+          const { x, y } = engine.screenToCanvas(me.clientX, me.clientY);
+          preview.endX = x;
+          preview.endY = y;
+          if (Math.abs(preview.endX - preview.startX) > 10 || Math.abs(preview.endY - preview.startY) > 10) dragged = true;
+          setTextPreview({ ...preview });
+        };
+        const onUp = () => {
+          ownerDoc().removeEventListener("pointermove", onMove);
+          ownerDoc().removeEventListener("pointerup", onUp);
+
+          // Drag lays out cells at the standard size — the dragged rect decides
+          // how many rows/columns; a plain click drops the tool's default grid.
+          const dragW = Math.abs(preview.endX - preview.startX);
+          const dragH = Math.abs(preview.endY - preview.startY);
+          const cols = dragged
+            ? Math.max(1, Math.min(12, Math.round(dragW / TABLE_CELL_W)))
+            : Math.max(1, Math.min(12, Math.round(engine.activeTool.tableCols ?? 3)));
+          const rows = dragged
+            ? Math.max(1, Math.min(50, Math.round(dragH / TABLE_CELL_H)))
+            : Math.max(1, Math.min(50, Math.round(engine.activeTool.tableRows ?? 3)));
+          const x = dragged ? Math.min(preview.startX, preview.endX) : startCx;
+          const y = dragged ? Math.min(preview.startY, preview.endY) : startCy;
+
+          const id = engine.createTable(
+            Array.from({ length: rows }, () => Array.from({ length: cols }, () => "")),
+            x,
+            y,
+            { w: cols * TABLE_CELL_W, roughness: engine.activeTool.roughness },
+          );
+          engine.select(id);
+          engine.setMode("select");
+          // Hold the preview until the real table has painted (see sticky).
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            setTextPreview(null);
+          }));
         };
         ownerDoc().addEventListener("pointermove", onMove);
         ownerDoc().addEventListener("pointerup", onUp);
@@ -1119,7 +1193,18 @@ export function usePointerGestures({
         if (!sourceNode || sourceNode.type === "edge") return;
 
         const isFreeForm = engine.freeFormEdges;
-        const edgeSourceT = isFreeForm ? nearestPerimeterPoint(sourceNode, cx, cy, measuredHeights).t : undefined;
+        // Source anchor honors the press point: deep inside the node (beyond
+        // the border band) → interior [u,v] anchor right there; near the
+        // border → classic perimeter attach. Symmetric with the drop end.
+        let edgeSourceT: number | [number, number] | undefined;
+        if (isFreeForm) {
+          const spp = nearestPerimeterPoint(sourceNode, cx, cy, measuredHeights);
+          edgeSourceT = spp.t;
+          if (Math.hypot(spp.x - cx, spp.y - cy) > INTERIOR_ANCHOR_BAND_PX / engine.viewport.zoom) {
+            const uv = nearestInteriorUV(sourceNode, cx, cy, measuredHeights);
+            if (uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1) edgeSourceT = uv;
+          }
+        }
         setEdgePreview({
           fromNode: sourceNode, cursorX: cx, cursorY: cy, sourceT: edgeSourceT,
           edgeColor: engine.activeTool.color,
@@ -1175,19 +1260,33 @@ export function usePointerGestures({
           )
             return;
 
-          // Determine which handles/t-values the edge connects to
+          // Determine which handles/t-values the edge connects to. A drop DEEP
+          // inside the target (beyond the border band) anchors at that interior
+          // [u,v] point — the arrow lands exactly where you let go; near the
+          // border it snaps to the perimeter as before.
           const sourceHandle = isFreeForm ? undefined : nearestHandle(sourceNode, cx, cy, measuredHeights);
           const targetHandle = isFreeForm ? undefined : nearestHandle(targetNode, x, y, measuredHeights);
-          const edgeTargetT = isFreeForm ? nearestPerimeterPoint(targetNode, x, y, measuredHeights).t : undefined;
+          let edgeTargetT: number | [number, number] | undefined;
+          if (isFreeForm) {
+            const pp = nearestPerimeterPoint(targetNode, x, y, measuredHeights);
+            edgeTargetT = pp.t;
+            if (Math.hypot(pp.x - x, pp.y - y) > INTERIOR_ANCHOR_BAND_PX / engine.viewport.zoom) {
+              const uv = nearestInteriorUV(targetNode, x, y, measuredHeights);
+              if (uv[0] > 0 && uv[0] < 1 && uv[1] > 0 && uv[1] < 1) edgeTargetT = uv;
+            }
+          }
 
           // Allow parallel edges between the same nodes, but block exact duplicates.
           const duplicate = engine.getAllNodes().some((n) => {
             if (n.type !== "edge") return false;
             const ed = (n as EdgeNode).data;
             if (isFreeForm) {
+              // Near-match dedupe applies to perimeter Ts only — interior [u,v]
+              // anchors are deliberate placements, so duplicates are allowed.
+              if (typeof edgeSourceT !== "number" || typeof edgeTargetT !== "number") return false;
               return ed.fromId === sourceNode.id && ed.toId === targetNode.id &&
-                ed.sourceT !== undefined && ed.targetT !== undefined &&
-                Math.abs(ed.sourceT - edgeSourceT!) < 0.02 && Math.abs(ed.targetT - edgeTargetT!) < 0.02;
+                typeof ed.sourceT === "number" && typeof ed.targetT === "number" &&
+                Math.abs(ed.sourceT - edgeSourceT) < 0.02 && Math.abs(ed.targetT - edgeTargetT) < 0.02;
             }
             return isExactEdgeConnectionDuplicate(ed, {
               fromId: sourceNode.id,

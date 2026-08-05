@@ -28,6 +28,8 @@ import { useSBI18n } from "../contexts/LocalizationContext";
 import { hostNodeInScope } from "./canvas-helpers";
 import type { NodeItemCtx } from "./node-item-context";
 import NodeItem from "./NodeItem";
+import { TABLE_CELL_W, TABLE_CELL_H } from "../blocks/TableBlock";
+import { getRoughRectPaths, getRoughLinePaths } from "../../rendering/rough-shapes";
 import ShapeLabelEditor from "./ShapeLabelEditor";
 import UnifiedDomViewportLayer from "./UnifiedDomViewportLayer";
 import LiveSVGLayerHost from "./LiveSVGLayerHost";
@@ -122,6 +124,7 @@ export default function SpatialCanvas({
     croppingImageId,
     setCroppingImageId,
     setEditingYouTubeId,
+    setEditingTableId,
     editingNodeId,
     editClickRef,
     newlyCreatedTextRef,
@@ -186,8 +189,8 @@ export default function SpatialCanvas({
     cursorX: number;
     cursorY: number;
     sourceHandle?: HandleSide;
-    /** Parametric position for free-form edge source. */
-    sourceT?: number;
+    /** Perimeter t (number) or interior [u,v] anchor on the source node. */
+    sourceT?: number | [number, number];
     /** Port ID on the source node (for port-aware edge creation). */
     sourcePort?: string;
     /** Direction of the source port. */
@@ -285,8 +288,11 @@ export default function SpatialCanvas({
   //
   // SVGLayer resolves edge geometry from its own node list, so each host also
   // carries the edge's ENDPOINT nodes. They are render-inert there (endpoint
-  // shapes are never in the host's selection, no registry ⇒ no chrome, no
-  // port dots) — membership only; the host re-reads live nodes each tick.
+  // shapes are never in the host's selection ⇒ no chrome; hidePortDots keeps
+  // the port-circle layer with the full-canvas overlay) — membership only;
+  // the host re-reads live nodes each tick. The registry prop is REQUIRED for
+  // port-connected edges: without it EdgeRenderer can't resolve port anchors
+  // and every edge silently falls back to freeform nearest-side geometry.
   // Ephemeral host-overlay endpoints (not in the engine) resolve from the
   // overlayNodes prop.
   const edgeHosts = useMemo(
@@ -554,6 +560,7 @@ export default function SpatialCanvas({
       setEditingShapeLabelId,
       setCroppingImageId,
       setEditingYouTubeId,
+      setEditingTableId,
     }),
     [
       engine,
@@ -696,6 +703,12 @@ export default function SpatialCanvas({
               mode={mode}
               freeFormEdges={engine.freeFormEdges}
               containerTypes={engine.containerTypes}
+              // Registry gives port-connected edges their port anchors (without
+              // it they'd fall back to freeform nearest-side geometry). The
+              // port DOTS stay with the full-canvas overlay layer below —
+              // drawing them per edge host would stack duplicates.
+              registry={registry}
+              hidePortDots
               onEdgeEndpointDown={handleEdgeEndpointDown}
               onKinkHandleDown={handleKinkHandleDown}
               hoveredNodeId={hoveredNodeId}
@@ -850,13 +863,141 @@ export default function SpatialCanvas({
         );
       })()}
 
-      {/* Text block drag preview */}
+      {/* Text block drag preview. Table mode renders the REAL thing instead —
+          the rough hand-drawn grid, snapped to standard cell size, so the drag
+          shows exactly what mouse-up will commit. */}
       {textPreview && (() => {
         const x = Math.min(textPreview.startX, textPreview.endX);
         const y = Math.min(textPreview.startY, textPreview.endY);
         const w = Math.abs(textPreview.endX - textPreview.startX);
         const h = Math.abs(textPreview.endY - textPreview.startY);
         if (w < 2 && h < 2) return null;
+        // The preview's look is frozen at gesture start (`kind`) so it stays
+        // correct while it lingers past the mouse-up mode switch.
+        const previewKind = textPreview.kind ?? mode;
+        if (previewKind === "note") {
+          // Blocknote drag preview: the committed card is border-only, which
+          // reads as a bare outline mid-drag — so draw a white card body
+          // under the ink border while drawing.
+          return (
+            <div
+              data-sb-overlay
+              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  transform: `translate(${renderVp.x}px, ${renderVp.y}px) scale(${renderVp.zoom})`,
+                  transformOrigin: "0 0",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: x,
+                    top: y,
+                    width: w,
+                    height: h,
+                    border: "1px solid #1e1e2e",
+                    boxSizing: "border-box",
+                    background: "#fff",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        }
+        if (previewKind === "sticky") {
+          // Render the REAL thing — a DOM sticky styled exactly like
+          // StickyNoteBlock (color, radius, shadow). Tracks the RAW drag rect
+          // so it grows naturally from under the cursor; the commit-time size
+          // minimums are not previewed (a jump at drag start feels jarring).
+          const pw = w;
+          const ph = h;
+          const fill = engine.activeTool.stickyColor ?? "#FEF3C7";
+          return (
+            <div
+              data-sb-overlay
+              style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  transform: `translate(${renderVp.x}px, ${renderVp.y}px) scale(${renderVp.zoom})`,
+                  transformOrigin: "0 0",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: x,
+                    top: y,
+                    width: pw,
+                    height: ph,
+                    background: fill,
+                    borderRadius: 2,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        }
+        if (previewKind === "table") {
+          const cols = Math.max(1, Math.min(12, Math.round(w / TABLE_CELL_W)));
+          const rows = Math.max(1, Math.min(50, Math.round(h / TABLE_CELL_H)));
+          const tw = cols * TABLE_CELL_W;
+          const th = rows * TABLE_CELL_H;
+          const opts = {
+            stroke: "#1e1e2e",
+            strokeWidth: 1.5,
+            roughness: engine.activeTool.roughness ?? 1,
+          };
+          const paths = [
+            ...getRoughRectPaths(x, y, tw, th, { ...opts, seed: "sb-table-preview:outer" }),
+          ];
+          for (let c = 1; c < cols; c++) {
+            paths.push(
+              ...getRoughLinePaths(x + c * TABLE_CELL_W, y, x + c * TABLE_CELL_W, y + th, {
+                ...opts,
+                seed: `sb-table-preview:c${c}`,
+              }),
+            );
+          }
+          for (let r = 1; r < rows; r++) {
+            paths.push(
+              ...getRoughLinePaths(x, y + r * TABLE_CELL_H, x + tw, y + r * TABLE_CELL_H, {
+                ...opts,
+                seed: `sb-table-preview:r${r}`,
+              }),
+            );
+          }
+          return (
+            <svg
+              data-sb-overlay
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+            >
+              <g transform={`translate(${renderVp.x}, ${renderVp.y}) scale(${renderVp.zoom})`}>
+                {paths.map((p, i) => (
+                  <path
+                    key={i}
+                    d={p.d}
+                    stroke={p.stroke}
+                    strokeWidth={p.strokeWidth}
+                    fill="none"
+                    strokeDasharray={p.strokeDasharray}
+                    strokeLinecap="round"
+                  />
+                ))}
+              </g>
+            </svg>
+          );
+        }
         return (
           <svg
             data-sb-overlay

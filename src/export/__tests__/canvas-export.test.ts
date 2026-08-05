@@ -206,6 +206,42 @@ describe("buildBoardSVG", () => {
     expect(svg.indexOf("#bb00bb")).toBeGreaterThan(lastShapeIdx); // default edge above all nodes
   });
 
+  it("renders table nodes: rough grid, bold header, cell text, embedded font", async () => {
+    const engine = new SpatialEngine();
+    engine.addNode({
+      id: "tbl1",
+      type: "table",
+      x: 0,
+      y: 0,
+      w: 330,
+      h: "auto",
+      z: 1,
+      data: {
+        rows: [
+          ["Name", "Qty"],
+          ["Apples", "3"],
+          ["Pears", "7"],
+        ],
+        headerRow: true,
+        roughness: 1,
+      },
+    } as never);
+
+    const out = await buildBoardSVG(engine, { format: "svg" });
+    expect(out).not.toBeNull();
+    const svg = out!.svg;
+    // Cell text present
+    expect(svg).toContain("Apples");
+    expect(svg).toContain("Qty");
+    // Header row renders bold
+    expect(svg).toContain('<g font-weight="700">');
+    // Hand-drawn grid: rough path strokes in the default ink
+    expect(svg).toContain('stroke="#1e1e2e"');
+    expect(svg).toContain('stroke-linecap="round"');
+    // Table text embeds the default font, same as sticky
+    expect(svg).toContain("@font-face");
+  });
+
   it("rotates draw nodes around an offset-space origin (rotated library items stay in view)", async () => {
     const engine = new SpatialEngine();
     // Vector node far from the origin so ox is large — the historical bug

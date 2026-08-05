@@ -108,6 +108,19 @@ export function pointToEdgeDistance(
   }
 
   if (edgeType === "bezier") {
+    // Use the EXACT control points the renderer drew with. Re-deriving from
+    // sides diverges for free/port/interior anchors (radial tangents) — the
+    // click then tests against a curve nobody sees and long edges become
+    // unclickable along most of their run.
+    const cp = pathResult.controlPoints;
+    if (cp) {
+      // Adaptive sampling: ~one segment per 25 canvas px of chord so long
+      // edges keep a tight polyline approximation (capped for perf).
+      const chord = Math.hypot(x2 - x1, y2 - y1);
+      const samples = Math.min(160, Math.max(40, Math.round(chord / 25)));
+      return pointToBezierDistance(px, py, x1, y1, cp.cx1, cp.cy1, cp.cx2, cp.cy2, x2, y2, samples);
+    }
+    // Fallback (should not happen — makeBezierPath always sets controlPoints)
     const dist = Math.hypot(x2 - x1, y2 - y1);
     const offset = Math.min(dist * 0.5, Math.max(50, dist * 0.25));
     const sd = sideDirection(pathResult.sourceSide);

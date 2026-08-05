@@ -11,6 +11,7 @@ import { buildOrderedFrames } from "../panels/FramesPanel";
 import { Icon } from "./BottomBar";
 import Minimap from "../overlays/Minimap";
 import { observeResize } from "../../utils/shared-resize-observer";
+import { loadCanvasPrefs, saveCanvasPrefs } from "../../store/canvas-prefs";
 
 /**
  * Console chrome — the whole control surface as one full-width bottom panel
@@ -20,8 +21,10 @@ import { observeResize } from "../../utils/shared-resize-observer";
  *
  * Collapse behavior: with nothing selected the panel sits at 44px (tools +
  * zoom only) and expands when a selection exists. The chevron overrides
- * either way; the override clears when the selection empties, so the next
- * selection auto-expands again.
+ * either way; the override clears whenever the selection state flips, so
+ * the next selection auto-expands again. The padlock pins the deck open
+ * (persisted via canvas-prefs) — while pinned the auto-collapse never runs
+ * and the chevron is hidden; unpinning collapses the deck immediately.
  */
 const PANEL_H = 232;
 const PANEL_COLLAPSED_H = 52;
@@ -52,6 +55,7 @@ const COLOR_FIELD: Record<string, string> = {
   sticky: "color",
   shape: "stroke",
   edge: "color",
+  table: "stroke",
 };
 
 const QUICK_SWATCHES = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b"];
@@ -67,13 +71,28 @@ interface ConsolePanelProps {
   /** Reports whether the minimap is docked in the deck — the host shows the
    *  floating map whenever it is not. */
   onMinimapDockedChange?: (docked: boolean) => void;
+  /** Reports the deck's expanded state (and `false` on unmount) so hosts can
+   *  move floating bottom chrome out of the tall deck's way. */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
-export default function ConsolePanel({ engine, registry, tools, framesPanelOpen, onToggleFramesPanel, minimapVisible, onToggleMinimap, onMinimapDockedChange }: ConsolePanelProps) {
+export default function ConsolePanel({ engine, registry, tools, framesPanelOpen, onToggleFramesPanel, minimapVisible, onToggleMinimap, onMinimapDockedChange, onExpandedChange }: ConsolePanelProps) {
   const theme = useSBTheme();
   const { labels } = useSBI18n();
   const [, setTick] = useState(0);
   const [override, setOverride] = useState<"open" | "closed" | null>(null);
+  // Pinned = locked open; survives reloads via canvas-prefs.
+  const [pinned, setPinned] = useState(() => loadCanvasPrefs().consolePinned);
+  const togglePinned = () => {
+    const next = !pinned;
+    setPinned(next);
+    saveCanvasPrefs({ ...loadCanvasPrefs(), consolePinned: next });
+    // Pinning drops any manual collapse; unpinning collapses the deck
+    // immediately (even mid-selection — otherwise unlocking looks like a
+    // no-op). The override clears on the next selection change, so
+    // auto-expand resumes from there.
+    setOverride(next ? null : "closed");
+  };
   const prevHadSelection = useRef(false);
   // Canvas-container size for the docked minimap (parent of this panel).
   const rootRef = useRef<HTMLDivElement>(null);
@@ -116,16 +135,24 @@ export default function ConsolePanel({ engine, registry, tools, framesPanelOpen,
     .filter((n): n is SpatialNode => !!n);
   const hasSelection = selectedNodes.length > 0;
 
-  // Clear the manual override when the selection empties so the panel
-  // auto-expands again on the next selection.
+  // Clear the manual override whenever the selection state flips (empties
+  // OR appears) so the panel resumes auto behavior: deselect after a manual
+  // collapse re-arms auto-expand, and a collapse left while empty (e.g.
+  // unlocking the pin) doesn't suppress the next selection's expand.
   useEffect(() => {
-    if (prevHadSelection.current && !hasSelection) {
+    if (prevHadSelection.current !== hasSelection) {
       setOverride(null);
     }
     prevHadSelection.current = hasSelection;
   }, [hasSelection]);
 
-  const expanded = override ? override === "open" : hasSelection || toolActive;
+  const expanded = pinned || (override ? override === "open" : hasSelection || toolActive);
+  // Report expansion to the host; the cleanup doubles as the unmount signal
+  // (presentation mode) so hosts don't hold a stale tall-deck clearance.
+  useEffect(() => {
+    onExpandedChange?.(expanded);
+    return () => onExpandedChange?.(false);
+  }, [expanded, onExpandedChange]);
   // Dock the minimap only when the deck has width to spare — on narrow
   // windows the properties zone wins and the map stays floating.
   const mapDocked = expanded && !!minimapVisible && containerSize.w >= 1360;
@@ -151,6 +178,7 @@ export default function ConsolePanel({ engine, registry, tools, framesPanelOpen,
       draw: ["drawing", "drawings"],
       frame: ["frame", "frames"],
       image: ["image", "images"],
+      table: ["table", "tables"],
     };
     const [one, many] = names[type] ?? [type, `${type}s`];
     return `${count} ${count === 1 ? one : many}`;
@@ -561,21 +589,38 @@ export default function ConsolePanel({ engine, registry, tools, framesPanelOpen,
         </div>
       )}
 
-      {/* Collapse / expand chevron */}
-      <button
-        title={expanded ? labels.consoleCollapse : labels.consoleExpand}
-        onClick={() => setOverride(expanded ? "closed" : "open")}
+      {/* Collapse / expand chevron + pin lock (lock keeps the deck open) */}
+      <div
         style={{
-          ...squareBtn,
-          background: "transparent",
-          color: theme.textMuted,
+          display: "flex",
+          flexDirection: expanded ? "column" : "row",
+          gap: 2,
           alignSelf: expanded ? "flex-start" : "center",
           margin: expanded ? "8px 8px 0 0" : "0 8px 0 0",
           flexShrink: 0,
         }}
       >
-        {expanded ? "▾" : "▴"}
-      </button>
+        {!pinned && (
+          <button
+            title={expanded ? labels.consoleCollapse : labels.consoleExpand}
+            onClick={() => setOverride(expanded ? "closed" : "open")}
+            style={{ ...squareBtn, background: "transparent", color: theme.textMuted }}
+          >
+            {expanded ? "▾" : "▴"}
+          </button>
+        )}
+        <button
+          title={pinned ? labels.consoleUnlock : labels.consoleLock}
+          onClick={togglePinned}
+          style={{
+            ...squareBtn,
+            background: "transparent",
+            color: pinned ? theme.accentColor : theme.textMuted,
+          }}
+        >
+          <Icon name={pinned ? "lock" : "unlock"} size={15} />
+        </button>
+      </div>
     </div>
   );
 }

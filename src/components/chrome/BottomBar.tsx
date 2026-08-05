@@ -139,6 +139,18 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
           <circle cx="19" cy="12" r="1.8" fill="currentColor" />
         </>
       )}
+      {name === "lock" && (
+        <>
+          <rect x="5" y="11" width="14" height="9" rx="2" {...sp} fill="none" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" {...sp} fill="none" />
+        </>
+      )}
+      {name === "unlock" && (
+        <>
+          <rect x="5" y="11" width="14" height="9" rx="2" {...sp} fill="none" />
+          <path d="M8 11V7a4 4 0 0 1 7.5-1.9" {...sp} fill="none" />
+        </>
+      )}
     </svg>
   );
 }

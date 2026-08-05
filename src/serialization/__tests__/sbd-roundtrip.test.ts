@@ -213,6 +213,58 @@ describe("SBD serialization", () => {
     expect((nodes[0].data as { label: string }).label).toBe("Houston");
   });
 
+  it("round-trips table nodes through the generic @node path", async () => {
+    const table = {
+      id: "tbl1", type: "table", x: 40, y: 60, w: 330, h: "auto", z: 2,
+      data: {
+        rows: [
+          ["Name", { text: "Qty", fontFamily: "Virgil", color: "#e11" }],
+          ["Apples", "3"],
+          ["Pears --> juice", ""],
+        ],
+        headerRow: true,
+        roughness: 2,
+        colWidths: [2, 1],
+        fontSize: 14,
+      },
+    } as unknown as SpatialNode;
+    const out = await serializeToSBD([table]);
+    expect(out).toContain('<!--@node type="table" id="tbl1"');
+    const { nodes, warnings } = await parseSBD(out);
+    expect(warnings).toEqual([]);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].type).toBe("table");
+    expect(nodes[0].h).toBe("auto");
+    const data = nodes[0].data as { rows: unknown[][]; headerRow: boolean; roughness: number; colWidths: number[] };
+    expect(data.rows).toEqual([
+      ["Name", { text: "Qty", fontFamily: "Virgil", color: "#e11" }],
+      ["Apples", "3"],
+      ["Pears --> juice", ""],
+    ]);
+    expect(data.headerRow).toBe(true);
+    expect(data.roughness).toBe(2);
+    expect(data.colWidths).toEqual([2, 1]);
+  });
+
+  it("round-trips free-anchor Ts: perimeter number and interior [u,v] tuple", async () => {
+    const ns: SpatialNode[] = [
+      sticky("s1", 0, 0, "a"),
+      sticky("s2", 400, 0, "b"),
+      {
+        id: "e1", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1,
+        data: {
+          fromId: "s1", toId: "s2", style: "solid", color: "#666", strokeWidth: 2,
+          sourceT: 0.25, targetT: [0.3, 0.65],
+        },
+      } as EdgeNode,
+    ];
+    const { nodes, warnings } = await parseSBD(await serializeToSBD(ns));
+    expect(warnings).toEqual([]);
+    const e = nodes.find((n) => n.type === "edge") as EdgeNode;
+    expect(e.data.sourceT).toBe(0.25);
+    expect(e.data.targetT).toEqual([0.3, 0.65]);
+  });
+
   it("is idempotent after one normalization pass (serialize∘parse fixed point)", async () => {
     const ns: SpatialNode[] = [
       frame("f1", 100, 100),

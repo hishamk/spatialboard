@@ -24,6 +24,8 @@ export type {
   TextNode,
   FrameNode,
   StickyNoteNode,
+  TableNode,
+  TableCell,
   AnySpatialNode,
   EdgeType,
   HandleSide,
@@ -54,11 +56,14 @@ export { imageNodeType } from "./nodes/image";
 export { textNodeType } from "./nodes/text";
 export { frameNodeType } from "./nodes/frame";
 export { stickyNodeType } from "./nodes/sticky";
+export { tableNodeType } from "./nodes/table";
 export { coreBoardNodes } from "./nodes/index";
 
 // ── React components ─────────────────────────────────────────
 export { default as SpatialBoard } from "./components/SpatialBoard";
 export type { SpatialBoardProps, PortConnectEmptyEvent } from "./components/SpatialBoard";
+export { CONSOLE_PANEL_CLEARANCE, CONSOLE_COLLAPSED_CLEARANCE } from "./components/chrome/ConsolePanel";
+export { tableCellText, tableCellStyle, withTableCellText, withTableCellStyle } from "./engine/table-cells";
 export { default as SpatialCanvas } from "./components/canvas/SpatialCanvas";
 export type { DataFlowEdgeOverlay } from "./components/canvas/SVGLayer";
 export { default as Sidebar } from "./components/sidebar/Sidebar";
@@ -141,6 +146,7 @@ export type { EraserAwareness } from "./collab/eraser-awareness";
 export { RemoteEdgeCreationPreview } from "./components/collab/RemoteEdgeCreationPreview";
 export { RemoteRectDragPreview } from "./components/collab/RemoteRectDragPreview";
 export { RemoteEraserPreview } from "./components/collab/RemoteEraserPreview";
+export { RemoteSelectionPreview } from "./components/collab/RemoteSelectionPreview";
 
 // ── Styles (consumers import as: import 'spatialboard/style.css') ──
 import "./styles/index.css";
