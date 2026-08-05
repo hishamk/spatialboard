@@ -6,6 +6,7 @@ import { nodeTypeHasPorts } from "../../nodes/registry";
 import type { HandlePosition } from "./SVGLayer";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
+import { RotateHandleGlyph } from "./rotate-handle-glyph";
 import { SEL_PAD } from "./node-item-context";
 import { selectionInkPad } from "./selection-pad";
 import { quantizeViewportForRender } from "./viewport-quantize";
@@ -226,50 +227,22 @@ const SelectionChromeOverlay = function SelectionChromeOverlay({
                 />
               ),
             )}
-          {/* Rotation handle */}
+          {/* Rotation handle — circular-arrow glyph above top-center */}
           {selectionAllowsRotate && (() => {
             const rotateGap = 25 / viewport.zoom;
             const topCx = b.x + b.w / 2;
             const topCy = b.y;
             return (
               <>
-                <line
-                  x1={topCx}
-                  y1={topCy}
-                  x2={topCx}
-                  y2={topCy - rotateGap}
-                  stroke="#3b82f6"
-                  strokeWidth={1.5 / viewport.zoom}
-                  style={{ pointerEvents: "none" }}
+                <RotateHandleGlyph cx={topCx} cy={topCy - rotateGap} zoom={viewport.zoom} />
+                <circle
+                  cx={topCx}
+                  cy={topCy - rotateGap}
+                  r={hitHalf}
+                  fill="transparent"
+                  style={{ cursor: "grab", pointerEvents: "auto" }}
+                  onPointerDown={(e) => onRotateDown(e)}
                 />
-                {(() => {
-                  const rotateSize = 8 / viewport.zoom;
-                  const rotateHalf = rotateSize / 2;
-                  return (
-                    <>
-                      <rect
-                        x={topCx - rotateHalf}
-                        y={topCy - rotateGap - rotateHalf}
-                        width={rotateSize}
-                        height={rotateSize}
-                        rx={1.5 / viewport.zoom}
-                        transform={`rotate(45, ${topCx}, ${topCy - rotateGap})`}
-                        fill="white"
-                        stroke="#3b82f6"
-                        strokeWidth={1.5 / viewport.zoom}
-                        style={{ pointerEvents: "none" }}
-                      />
-                      <circle
-                        cx={topCx}
-                        cy={topCy - rotateGap}
-                        r={hitHalf}
-                        fill="transparent"
-                        style={{ cursor: "grab", pointerEvents: "auto" }}
-                        onPointerDown={(e) => onRotateDown(e)}
-                      />
-                    </>
-                  );
-                })()}
               </>
             );
           })()}

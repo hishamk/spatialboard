@@ -6,6 +6,7 @@ import type { BlockNoteNode } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { SBDSchema } from "../../schema";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
+import { RotateHandleIcon } from "../canvas/rotate-handle-glyph";
 import { observeResize } from "../../utils/shared-resize-observer";
 import { applyCornerAspectLock } from "../../interactions/resize-aspect";
 
@@ -822,42 +823,27 @@ function BlockNoteBlock({
           );
         })}
 
-      {/* Rotation handle — line + rotate icon above top-center */}
+      {/* Rotation handle — circular-arrow glyph above top-center */}
       {showHandles && (() => {
         const rotateGap = 25 / zoom;
-        const size = 10 / zoom;
+        const size = 16 / zoom;
         return (
-          <>
-            <div
-              style={{
-                position: "absolute",
-                top: -rotateGap,
-                left: "50%",
-                width: 1.5 / zoom,
-                height: rotateGap,
-                transform: "translateX(-50%)",
-                background: "#3b82f6",
-                pointerEvents: "none",
-              }}
-            />
-            <div
-              onPointerDown={handleRotatePointerDown}
-              style={{
-                position: "absolute",
-                top: -(rotateGap + size / 2),
-                left: "50%",
-                width: size,
-                height: size,
-                transform: "translateX(-50%) rotate(45deg)",
-                borderRadius: 1.5 / zoom,
-                background: "white",
-                border: `${1.5 / zoom}px solid #3b82f6`,
-                cursor: "grab",
-                zIndex: 10,
-                pointerEvents: "auto",
-              }}
-            />
-          </>
+          <div
+            onPointerDown={handleRotatePointerDown}
+            style={{
+              position: "absolute",
+              top: -(rotateGap + size / 2),
+              left: "50%",
+              width: size,
+              height: size,
+              transform: "translateX(-50%)",
+              cursor: "grab",
+              zIndex: 10,
+              pointerEvents: "auto",
+            }}
+          >
+            <RotateHandleIcon size={size} />
+          </div>
         );
       })()}
     </div>

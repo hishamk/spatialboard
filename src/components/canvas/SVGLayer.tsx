@@ -37,6 +37,7 @@ import type { PortDataType, PortValue, PortDirection } from "../../engine/data-f
 import { nodeShowsEdgeComputeOverlay } from "../../engine/data-flow-types";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { handleHitSizePx } from "./pointer-coarse";
+import { RotateHandleGlyph } from "./rotate-handle-glyph";
 import { selectionInkPad } from "./selection-pad";
 import { quantizeViewportForRender } from "./viewport-quantize";
 import { useSBTheme } from "../sidebar/ThemeContext";
@@ -373,29 +374,10 @@ const SelectionBox = memo(function SelectionBox({
             />
           ),
         )}
-      {/* Rotation handle — line from top-center + rotate icon */}
+      {/* Rotation handle — circular-arrow glyph above top-center */}
       {showHandles && showRotateHandle && !isLocked && (
         <>
-          <line
-            x1={bx + bw / 2}
-            y1={by}
-            x2={bx + bw / 2}
-            y2={by - rotateGap}
-            stroke="#3b82f6"
-            strokeWidth={1.5 / zoom}
-          />
-          <rect
-            x={bx + bw / 2 - half}
-            y={by - rotateGap - half}
-            width={handleSize}
-            height={handleSize}
-            rx={1.5 / zoom}
-            transform={`rotate(45, ${bx + bw / 2}, ${by - rotateGap})`}
-            fill="white"
-            stroke="#3b82f6"
-            strokeWidth={1.5 / zoom}
-            style={{ pointerEvents: "none" }}
-          />
+          <RotateHandleGlyph cx={bx + bw / 2} cy={by - rotateGap} zoom={zoom} />
           <circle
             cx={bx + bw / 2}
             cy={by - rotateGap}

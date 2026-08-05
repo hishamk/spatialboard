@@ -3,6 +3,7 @@ import type { ImageNode } from "../../engine/types";
 import type { SpatialEngine } from "../../engine/SpatialEngine";
 import type { HandlePosition } from "../canvas/SVGLayer";
 import { getRotatedCursor } from "../../interactions/resize-cursors";
+import { RotateHandleIcon } from "../canvas/rotate-handle-glyph";
 
 const MIN_CROP = 0.05; // Minimum crop fraction (5%)
 const MIN_NODE = 10; // Spatial engine minimum node size
@@ -627,38 +628,26 @@ function ImageBlock({
           />
         ))}
 
-      {/* Rotation line + handle (hide during crop + move drags) */}
-      {showChrome && (
-        <>
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: -rotateGap,
-              width: 1,
-              height: rotateGap,
-              background: "#3b82f6",
-              marginLeft: -0.5,
-              pointerEvents: "none",
-            }}
-          />
+      {/* Rotation handle — circular-arrow glyph (hide during crop + move drags) */}
+      {showChrome && (() => {
+        const rotateIconSize = 16 / zoom;
+        return (
           <div
             onPointerDown={handleRotatePointerDown}
             style={{
               position: "absolute",
               left: "50%",
-              top: -(rotateGap + handleSize / 2),
-              width: handleSize,
-              height: handleSize,
-              marginLeft: -handleSize / 2,
-              borderRadius: "50%",
-              background: "white",
-              border: "1.5px solid #3b82f6",
+              top: -(rotateGap + rotateIconSize / 2),
+              width: rotateIconSize,
+              height: rotateIconSize,
+              marginLeft: -rotateIconSize / 2,
               cursor: "grab",
             }}
-          />
-        </>
-      )}
+          >
+            <RotateHandleIcon size={rotateIconSize} />
+          </div>
+        );
+      })()}
 
       {/* Resize handles (hide during crop) */}
       {showHandles &&
