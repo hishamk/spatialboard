@@ -188,6 +188,7 @@ function TransitionPicker({
   durationMs,
   onChange,
   onDurationChange,
+  onPreview,
   theme,
   labels,
 }: {
@@ -195,6 +196,8 @@ function TransitionPicker({
   durationMs?: number;
   onChange: (t: SlideTransition) => void;
   onDurationChange: (ms: number | undefined) => void;
+  /** Play this transition on the canvas (from the previous slide's view). */
+  onPreview: () => void;
   theme: ReturnType<typeof useSBTheme>;
   labels: ReturnType<typeof useSBI18n>["labels"];
 }) {
@@ -312,6 +315,17 @@ function TransitionPicker({
           </div>
         )}
       </div>
+
+      {/* Test-transition pill — plays the real thing on the canvas */}
+      <button
+        onClick={onPreview}
+        title={labels.slidesTestTransition}
+        style={{ ...pillStyle, padding: "0 5px" }}
+      >
+        <svg width={10} height={10} viewBox="0 0 16 16" fill="none">
+          <path d="M5 3.5v9l7-4.5z" fill="currentColor" />
+        </svg>
+      </button>
 
       {/* Duration pill */}
       {showDuration && (
@@ -768,6 +782,7 @@ function FramesPanelInner({ engine, open, onClose }: FramesPanelProps) {
                   durationMs={frame.transitionDuration}
                   onChange={handleTransitionChange}
                   onDurationChange={handleDurationChange}
+                  onPreview={() => engine.previewSlideTransition(frame.id, frames[index - 1]?.id)}
                   theme={theme}
                   labels={labels}
                 />

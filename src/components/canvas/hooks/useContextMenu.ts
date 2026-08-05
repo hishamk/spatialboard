@@ -1,10 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { SpatialEngine } from "../../../engine/SpatialEngine";
 import type { ImageNode, SpatialNode } from "../../../engine/types";
 import type { ContextMenuSection } from "../../overlays/ContextMenu";
 import { SB_ALIGN_MENU_ICONS } from "../../overlays/context-menu-align-icons";
-import { getClosestEdgeHit } from "../../../engine/edge-geometry";
+import { getClosestEdgeHit, hitTestAllEdges } from "../../../engine/edge-geometry";
 import { pasteFromSystemClipboard, copyToSystemClipboard } from "../canvas-clipboard";
 
 const MIME_EXT: Record<string, string> = {
@@ -55,6 +55,31 @@ export async function downloadImageNode(node: ImageNode): Promise<void> {
 import { exportBoard } from "../../../export/canvas-export";
 import type { SpatialBoardLocalization } from "../../contexts/LocalizationContext";
 
+/** Short human label for a node in the "objects here" stack list. */
+function describeNode(n: SpatialNode, labels: SpatialBoardLocalization): string {
+  const trim = (s: string | undefined, fallback: string) => {
+    const t = (s ?? "").replace(/\s+/g, " ").trim();
+    return t ? (t.length > 26 ? `${t.slice(0, 25)}…` : t) : fallback;
+  };
+  const d = n.data as Record<string, unknown> | undefined;
+  switch (n.type) {
+    case "sticky": return trim(d?.text as string, labels.toolSticky);
+    case "text": return trim(d?.text as string, labels.toolText);
+    case "frame": return trim(d?.label as string, labels.toolFrame);
+    case "shape": {
+      const s = (d?.shape as string) ?? "shape";
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    case "draw": return labels.toolDraw;
+    case "edge": return labels.toolEdge;
+    case "table": return labels.toolTable;
+    case "blocknote": return labels.toolNote;
+    case "image": return trim(d?.alt as string, "Image");
+    case "youtube": return "Video";
+    default: return n.type;
+  }
+}
+
 /**
  * Right-click / long-press context-menu builder + state. `buildContextMenuSections`
  * is a pure(ish) section builder that mutates selection then returns the menu model;
@@ -87,6 +112,37 @@ export function useContextMenu({
     y: number;
     sections: ContextMenuSection[];
   } | null>(null);
+
+  // ── Z-peek for the "objects here" stack list: hovering an entry raises the
+  // object above everything so it's visible through the pile; leaving (or
+  // closing the menu, or selecting) restores its original z. History-free
+  // updateNode — the peek is view feedback, never a persistent reorder.
+  const zPeekRef = useRef<Map<string, number>>(new Map());
+  const restorePeeks = useCallback(() => {
+    if (zPeekRef.current.size === 0) return;
+    for (const [id, z] of zPeekRef.current) {
+      if (engine.getNode(id)) engine.updateNode(id, { z });
+    }
+    zPeekRef.current.clear();
+  }, [engine]);
+  const peekNode = useCallback(
+    (id: string) => {
+      restorePeeks();
+      const n = engine.getNode(id);
+      if (!n) return;
+      let maxZ = -Infinity;
+      for (const node of engine.nodes.values()) maxZ = Math.max(maxZ, node.z);
+      if (n.z >= maxZ) return; // already on top — nothing to show
+      zPeekRef.current.set(id, n.z);
+      engine.updateNode(id, { z: maxZ + 1 });
+    },
+    [engine, restorePeeks],
+  );
+  // Any close path (item click, outside click, Escape) restores the peek.
+  useEffect(() => {
+    if (!contextMenu) restorePeeks();
+  }, [contextMenu, restorePeeks]);
+  useEffect(() => restorePeeks, [restorePeeks]);
 
   const buildContextMenuSections = useCallback(
     (screenX: number, screenY: number, altKey: boolean): ContextMenuSection[] => {
@@ -171,6 +227,34 @@ export function useContextMenu({
       const hasSel = selIds.length > 0;
 
       const sections: ContextMenuSection[] = [];
+
+      // "Objects here" — every object stacked under the click point (topmost
+      // first). Hovering an entry peeks it to the front on the canvas;
+      // clicking selects it and its z snaps back. The escape hatch for piles
+      // where the thing you want is buried.
+      {
+        const stack = [
+          ...engine.hitTestAll(cx, cy, measuredHeights),
+          ...hitTestAllEdges(engine.nodes, cx, cy, engine.viewport.zoom, measuredHeights),
+        ].sort((a, b) => b.z - a.z);
+        if (stack.length >= 2) {
+          sections.push({
+            items: [
+              { kind: "header", label: labels.contextObjectsHere, action: () => {} },
+              ...stack.slice(0, 10).map((n) => ({
+                label: describeNode(n, labels),
+                checked: engine.selection.has(n.id),
+                onHover: () => peekNode(n.id),
+                onHoverEnd: () => restorePeeks(),
+                action: () => {
+                  restorePeeks();
+                  engine.select(n.id);
+                },
+              })),
+            ],
+          });
+        }
+      }
 
       // Clipboard section
       sections.push({
@@ -532,7 +616,7 @@ export function useContextMenu({
 
       return sections;
     },
-    [engine, labels, measuredHeights, viewportZoom]
+    [engine, labels, measuredHeights, viewportZoom, peekNode, restorePeeks]
   );
 
   const handleContextMenu = useCallback(

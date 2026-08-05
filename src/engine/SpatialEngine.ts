@@ -678,6 +678,13 @@ export class SpatialEngine {
     PresentOps.zoomToFrame(this, frameId);
   }
 
+  /** Preview the transition INTO a slide without entering presentation mode —
+   *  snap to `fromFrameId`'s view (when given), beat, then run the destination
+   *  frame's own transition. The frames panel's "test transition" button. */
+  previewSlideTransition(toFrameId: string, fromFrameId?: string): void {
+    PresentOps.previewSlideTransition(this, toFrameId, fromFrameId);
+  }
+
   fitToContent(): void {
     CameraOps.fitToContent(this);
   }
@@ -702,6 +709,13 @@ export class SpatialEngine {
    *  Additive; the instant fitToNodes is unchanged for other callers. */
   fitToNodesAnimated(ids: readonly string[], opts?: { durationMs?: number }): void {
     CameraOps.fitToNodesAnimated(this, ids, opts);
+  }
+
+  /** Animate the camera to an explicit viewport (ease-out; snaps under
+   *  reduced motion). Building block for smart-zoom style toggles that
+   *  restore a previously saved viewport. */
+  animateViewportTo(target: { x: number; y: number; zoom: number }, opts?: { durationMs?: number }): void {
+    CameraOps.animateViewportTo(this, target, opts);
   }
 
   /** Animated fit to an arbitrary canvas-space rectangle (frame ephemeral overlay

@@ -168,7 +168,10 @@ export default function PresentationOverlay({ engine }: { engine: SpatialEngine 
 
   // Keep the (hidden) anchor mounted so the canvas lookup above can resolve
   // this board's own subtree even before the first presentation starts.
-  if (!active || total === 0) return <div ref={anchorRef} style={{ display: "none" }} />;
+  // The transition EFFECT layers also render while a transition preview runs
+  // OUTSIDE presentation mode (frames panel "test transition"); only the HUD
+  // bar below is presentation-only.
+  if ((!active || total === 0) && !overlay) return <div ref={anchorRef} style={{ display: "none" }} />;
 
   // Compute cube dimming from timeline t
   const cubeDim = overlay && overlay.type === "cube" && overlay.t != null
@@ -222,6 +225,7 @@ export default function PresentationOverlay({ engine }: { engine: SpatialEngine 
         />
       )}
 
+      {active && (
       <div style={bar} onPointerDown={(e) => e.stopPropagation()}>
         <button
           style={{ ...btn, position: "absolute", right: 16 }}
@@ -268,6 +272,7 @@ export default function PresentationOverlay({ engine }: { engine: SpatialEngine 
           <NavIcon dir="right" />
         </button>
       </div>
+      )}
     </div>
   );
 }

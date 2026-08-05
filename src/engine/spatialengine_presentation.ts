@@ -113,6 +113,62 @@ export function presentationGoTo(engine: SpatialEngine, index: number): void {
   }
 }
 
+/** Pending "beat on the source slide" timers for transition previews. */
+const _previewTimers = new WeakMap<SpatialEngine, ReturnType<typeof setTimeout>>();
+
+/**
+ * Preview the transition INTO a slide WITHOUT entering presentation mode —
+ * the frames panel's "test" button. Snaps to the previous slide's view (when
+ * given), holds a short beat so the eye settles, then runs the destination
+ * frame's own transition: exactly what the audience will see between the two
+ * slides. No-op while a real presentation owns the camera.
+ */
+export function previewSlideTransition(engine: SpatialEngine, toFrameId: string, fromFrameId?: string): void {
+  if (engine.presentationMode) return;
+  const to = engine.nodes.get(toFrameId);
+  if (!to || to.type !== "frame") return;
+
+  const pending = _previewTimers.get(engine);
+  if (pending != null) {
+    clearTimeout(pending);
+    _previewTimers.delete(engine);
+  }
+  if (engine._presentationAnimId != null) {
+    cancelAnimationFrame(engine._presentationAnimId);
+    engine._presentationAnimId = null;
+  }
+  engine._transitionOverlay = null;
+  engine.emit("presentation");
+
+  const target = _computeSlideViewport(engine, to);
+  const data = to.data as FrameNode["data"];
+  const transition = data.transition ?? "pan";
+  const duration = data.transitionDuration;
+
+  const run = () => {
+    _previewTimers.delete(engine);
+    if (engine.presentationMode) return;
+    switch (transition) {
+      case "none": _transitionNone(engine, target); break;
+      case "fade": _transitionFade(engine, target, duration); break;
+      case "dissolve": _transitionDissolve(engine, target, duration); break;
+      case "zoom": _transitionZoom(engine, target, duration); break;
+      case "fold": _transitionFold(engine, target, duration); break;
+      case "cube": _transitionCube(engine, target, duration, 1); break;
+      case "pan":
+      default: _transitionPan(engine, target, duration); break;
+    }
+  };
+
+  const from = fromFrameId ? engine.nodes.get(fromFrameId) : undefined;
+  if (from && from.type === "frame") {
+    _transitionNone(engine, _computeSlideViewport(engine, from));
+    _previewTimers.set(engine, setTimeout(run, 260));
+  } else {
+    run();
+  }
+}
+
 /**
  * Fit a frame to the screen — the same fit presentation slides use (small
  * padding, centered, clamped zoom) — with a smooth pan. Used by slide

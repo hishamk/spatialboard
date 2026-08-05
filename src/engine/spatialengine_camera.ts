@@ -196,6 +196,23 @@ export function fitToNodesAnimated(engine: SpatialEngine, ids: readonly string[]
   _animateOrSnap(engine, v, opts?.durationMs);
 }
 
+/** Animate the camera to an explicit viewport (ease-out pan tween; snaps when
+ *  reduced motion is preferred). Generic building block for chrome like the
+ *  smart-zoom toggle, which restores a previously saved viewport. */
+export function animateViewportTo(
+  engine: SpatialEngine,
+  target: { x: number; y: number; zoom: number },
+  opts?: { durationMs?: number },
+): void {
+  if (
+    !Number.isFinite(target.x) || !Number.isFinite(target.y) ||
+    !Number.isFinite(target.zoom) || target.zoom <= 0
+  ) {
+    return;
+  }
+  _animateOrSnap(engine, target, opts?.durationMs);
+}
+
 export function fitToRectAnimated(
   engine: SpatialEngine,
   minX: number, minY: number, maxX: number, maxY: number,

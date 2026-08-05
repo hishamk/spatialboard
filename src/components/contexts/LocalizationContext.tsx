@@ -54,6 +54,8 @@ export interface SpatialBoardLocalization {
   undo: string;
   redo: string;
   slidesTitle: string;
+  /** Frames panel: play the transition between two slides as a preview */
+  slidesTestTransition: string;
   closeSlidesPanel: string;
   noFramesYet: string;
   inspectorNoSelection: string;
@@ -254,6 +256,10 @@ export interface SpatialBoardLocalization {
   actionUngroupSelection: string;
   /** Fan a group's members apart to pick one out (raises it in the group) */
   actionFanOut: string;
+  /** Zoom the selection front-and-center; click again to return */
+  actionSmartZoom: string;
+  /** Context menu: header for the stacked-objects-under-cursor list */
+  contextObjectsHere: string;
   actionFlipHorizontal: string;
   actionFlipVertical: string;
   actionBringForward: string;
@@ -338,6 +344,7 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   undo: "Undo (Ctrl+Z)",
   redo: "Redo (Ctrl+Shift+Z)",
   slidesTitle: "Slides",
+  slidesTestTransition: "Test this transition",
   closeSlidesPanel: "Close slides panel",
   noFramesYet: "No frames yet. Use the Frame tool (F) to create slides.",
   inspectorNoSelection: "No selection",
@@ -534,6 +541,8 @@ export const DEFAULT_LOCALIZATION: SpatialBoardLocalization = {
   actionGroupSelection: "Group selection",
   actionUngroupSelection: "Ungroup selection",
   actionFanOut: "Fan out to pick",
+  actionSmartZoom: "Smart zoom",
+  contextObjectsHere: "Objects here",
   actionFlipHorizontal: "Flip horizontal",
   actionFlipVertical: "Flip vertical",
   actionBringForward: "Bring forward",

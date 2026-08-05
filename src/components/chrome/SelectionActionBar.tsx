@@ -107,6 +107,16 @@ function ZIcon({ kind }: { kind: "fwd" | "back" | "front" | "backmost" }) {
   );
 }
 
+function SmartZoomIcon() {
+  return (
+    <svg width={17} height={17} viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="6.5" {...icon} />
+      <path d="M15.8 15.8 20 20" {...icon} />
+      <circle cx="11" cy="11" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function DuplicateIcon() {
   return (
     <svg width={17} height={17} viewBox="0 0 24 24">
@@ -142,6 +152,8 @@ export default function SelectionActionBar({ engine }: { engine: SpatialEngine }
   const { labels } = useSBI18n();
   const [, setTick] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
+  /** Smart-zoom toggle memory: the viewport to return to + the selection it framed. */
+  const smartZoomRef = useRef<{ key: string; saved: { x: number; y: number; zoom: number } } | null>(null);
   // Measured bar + container dims so the pill can clamp itself inside the
   // canvas (and flip below the selection when there's no headroom).
   const [dims, setDims] = useState({ barW: 0, contW: 0, contH: 0 });
@@ -210,6 +222,39 @@ export default function SelectionActionBar({ engine }: { engine: SpatialEngine }
 
   const inGroup = !!engine.selectionGroupId();
   const canGroup = nodes.length > 1 && !inGroup;
+
+  // Smart zoom: frame the selection front-and-center; clicking again while
+  // still framed returns to the view you came from. Zoom-in capped at 2x so
+  // a small object doesn't balloon; manual pan/zoom in between invalidates
+  // the "framed" check, so the next click re-frames instead of restoring.
+  const handleSmartZoom = () => {
+    const PAD = 48;
+    const sw = engine._containerWidth;
+    const sh = engine._containerHeight;
+    const cw = maxX - minX + PAD * 2;
+    const ch = maxY - minY + PAD * 2;
+    if (!Number.isFinite(cw) || !Number.isFinite(ch) || cw <= 0 || ch <= 0) return;
+    const zoom = Math.min(Math.max(Math.min(sw / cw, sh / ch), 0.1), 2);
+    const target = {
+      x: (sw - cw * zoom) / 2 - (minX - PAD) * zoom,
+      y: (sh - ch * zoom) / 2 - (minY - PAD) * zoom,
+      zoom,
+    };
+    const key = ids.slice().sort().join("|");
+    const cur = engine.viewport;
+    const atTarget =
+      Math.abs(cur.zoom - target.zoom) < 0.01 &&
+      Math.abs(cur.x - target.x) < 2 &&
+      Math.abs(cur.y - target.y) < 2;
+    const mem = smartZoomRef.current;
+    if (atTarget && mem && mem.key === key) {
+      engine.animateViewportTo(mem.saved, { durationMs: 320 });
+      smartZoomRef.current = null;
+    } else {
+      smartZoomRef.current = { key, saved: { x: cur.x, y: cur.y, zoom: cur.zoom } };
+      engine.animateViewportTo(target, { durationMs: 320 });
+    }
+  };
   // Single image selected → offer the same download the context menu has.
   const imageNode = nodes.length === 1 && nodes[0].type === "image" ? (nodes[0] as ImageNode) : null;
 
@@ -254,6 +299,9 @@ export default function SelectionActionBar({ engine }: { engine: SpatialEngine }
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      <button style={btn} title={labels.actionSmartZoom} onClick={handleSmartZoom}>
+        <SmartZoomIcon />
+      </button>
       {(canGroup || inGroup) && (
         <button
           style={btn}

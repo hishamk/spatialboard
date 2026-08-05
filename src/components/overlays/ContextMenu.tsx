@@ -20,6 +20,9 @@ export interface ContextMenuItem {
   icon?: ReactNode;
   /** Non-interactive subsection title (e.g. alignment groups). */
   kind?: "header";
+  /** Hover callbacks — e.g. peek the item's target object on the canvas. */
+  onHover?: () => void;
+  onHoverEnd?: () => void;
 }
 
 export interface ContextMenuSection {
@@ -173,12 +176,15 @@ export default function ContextMenu({
                   transition: "background 0.1s",
                 }}
                 onMouseEnter={(e) => {
-                  if (!item.disabled)
+                  if (!item.disabled) {
                     (e.currentTarget as HTMLElement).style.background =
                       "rgba(255,255,255,0.08)";
+                    item.onHover?.();
+                  }
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.background = "transparent";
+                  item.onHoverEnd?.();
                 }}
               >
                 <span
