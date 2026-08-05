@@ -1075,7 +1075,9 @@ export function useNodeTransforms({
             patch: {
               x: newCx - init.w / 2,
               y: newCy - init.h / 2,
-              rotation: lastTotalAngle,
+              // Each node keeps its own spin: delta on top of its initial
+              // rotation, not the group's absolute angle.
+              rotation: init.rotation + angleDelta,
             },
           };
         });
