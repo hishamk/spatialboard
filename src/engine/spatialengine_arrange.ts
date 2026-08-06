@@ -143,63 +143,99 @@ export function arrangeAllNodes(
   );
 }
 
+/** A rigid alignment unit: an ungrouped node alone, or a whole group's
+ * members moving together. Align/distribute treat each unit as one object —
+ * aligning a selection that includes a group must not scatter its members. */
+type ArrangeUnit = {
+  nodes: SpatialNode[];
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+/** Cluster the current selection into rigid units: nodes sharing an outermost
+ * group form one unit; ungrouped nodes (and direct members of the entered
+ * group, so drill-down editing still aligns per node) are singletons. */
+function selectionUnits(
+  engine: SpatialEngine,
+  measuredHeights?: Record<string, number>,
+): ArrangeUnit[] {
+  const hOf = (n: SpatialNode) =>
+    n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : (n.h as number);
+  const byKey = new Map<string, SpatialNode[]>();
+  for (const id of engine.selection) {
+    const n = engine.nodes.get(id);
+    if (!n || n.type === "edge" || n.locked) continue;
+    const gid = engine.getNodeOutermostGroup(n.id);
+    const key = gid && gid !== engine.activeGroupId ? `g:${gid}` : `n:${n.id}`;
+    const arr = byKey.get(key);
+    if (arr) arr.push(n);
+    else byKey.set(key, [n]);
+  }
+  const units: ArrangeUnit[] = [];
+  for (const nodes of byKey.values()) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      const h = hOf(n);
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.w);
+      maxY = Math.max(maxY, n.y + h);
+    }
+    units.push({ nodes, minX, minY, maxX, maxY });
+  }
+  return units;
+}
+
 export function alignSelectedNodes(
   engine: SpatialEngine,
   mode: SelectionAlignMode,
   measuredHeights?: Record<string, number>,
 ): void {
-  const nodes: SpatialNode[] = [];
-  for (const id of engine.selection) {
-    const n = engine.nodes.get(id);
-    if (!n || n.type === "edge" || n.locked) continue;
-    nodes.push(n);
-  }
-  if (nodes.length < 2) return;
-
-  const hOf = (n: SpatialNode) =>
-    n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : (n.h as number);
+  const units = selectionUnits(engine, measuredHeights);
+  if (units.length < 2) return;
 
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const n of nodes) {
-    const h = hOf(n);
-    minX = Math.min(minX, n.x);
-    minY = Math.min(minY, n.y);
-    maxX = Math.max(maxX, n.x + n.w);
-    maxY = Math.max(maxY, n.y + h);
+  for (const u of units) {
+    minX = Math.min(minX, u.minX);
+    minY = Math.min(minY, u.minY);
+    maxX = Math.max(maxX, u.maxX);
+    maxY = Math.max(maxY, u.maxY);
   }
   const midX = (minX + maxX) / 2;
   const midY = (minY + maxY) / 2;
 
   const updates: Array<{ id: string; patch: Partial<SpatialNode> }> = [];
-  for (const n of nodes) {
-    const h = hOf(n);
-    let nx = n.x;
-    let ny = n.y;
+  for (const u of units) {
+    let dx = 0;
+    let dy = 0;
     switch (mode) {
       case "left":
-        nx = minX;
+        dx = minX - u.minX;
         break;
       case "right":
-        nx = maxX - n.w;
+        dx = maxX - u.maxX;
         break;
       case "centerH":
-        nx = midX - n.w / 2;
+        dx = midX - (u.minX + u.maxX) / 2;
         break;
       case "top":
-        ny = minY;
+        dy = minY - u.minY;
         break;
       case "bottom":
-        ny = maxY - h;
+        dy = maxY - u.maxY;
         break;
       case "centerV":
-        ny = midY - h / 2;
+        dy = midY - (u.minY + u.maxY) / 2;
         break;
     }
-    if (nx !== n.x || ny !== n.y) {
-      updates.push({ id: n.id, patch: { x: nx, y: ny } });
+    if (dx === 0 && dy === 0) continue;
+    for (const n of u.nodes) {
+      updates.push({ id: n.id, patch: { x: n.x + dx, y: n.y + dy } });
     }
   }
   if (updates.length === 0) return;
@@ -211,28 +247,22 @@ export function distributeSelectedNodes(
   axis: SelectionDistributeAxis,
   measuredHeights?: Record<string, number>,
 ): void {
-  const nodes: SpatialNode[] = [];
-  for (const id of engine.selection) {
-    const n = engine.nodes.get(id);
-    if (!n || n.type === "edge" || n.locked) continue;
-    nodes.push(n);
-  }
-  if (nodes.length < 2) return;
-
-  const hOf = (n: SpatialNode) =>
-    n.h === "auto" ? (measuredHeights?.[n.id] ?? 100) : (n.h as number);
+  const units = selectionUnits(engine, measuredHeights);
+  if (units.length < 2) return;
 
   const updates: Array<{ id: string; patch: Partial<SpatialNode> }> = [];
 
   if (axis === "horizontal") {
-    const sorted = [...nodes].sort((a, b) => a.x - b.x || a.id.localeCompare(b.id));
+    const sorted = [...units].sort(
+      (a, b) => a.minX - b.minX || a.nodes[0].id.localeCompare(b.nodes[0].id),
+    );
     let minL = Infinity;
     let maxR = -Infinity;
     let sumW = 0;
-    for (const n of sorted) {
-      minL = Math.min(minL, n.x);
-      maxR = Math.max(maxR, n.x + n.w);
-      sumW += n.w;
+    for (const u of sorted) {
+      minL = Math.min(minL, u.minX);
+      maxR = Math.max(maxR, u.maxX);
+      sumW += u.maxX - u.minX;
     }
     const span = maxR - minL;
     const slack = span - sumW;
@@ -240,23 +270,25 @@ export function distributeSelectedNodes(
       slack >= 0 ? slack / (sorted.length - 1) : 0;
     const startX = slack >= 0 ? minL : minL + (span - sumW) / 2;
     let cur = startX;
-    for (const n of sorted) {
-      const nx = cur;
-      cur += n.w + gap;
-      if (nx !== n.x) updates.push({ id: n.id, patch: { x: nx } });
+    for (const u of sorted) {
+      const dx = cur - u.minX;
+      cur += (u.maxX - u.minX) + gap;
+      if (dx === 0) continue;
+      for (const n of u.nodes) {
+        updates.push({ id: n.id, patch: { x: n.x + dx } });
+      }
     }
   } else {
-    const sorted = [...nodes].sort(
-      (a, b) => a.y - b.y || a.id.localeCompare(b.id),
+    const sorted = [...units].sort(
+      (a, b) => a.minY - b.minY || a.nodes[0].id.localeCompare(b.nodes[0].id),
     );
     let minT = Infinity;
     let maxB = -Infinity;
     let sumH = 0;
-    for (const n of sorted) {
-      const h = hOf(n);
-      minT = Math.min(minT, n.y);
-      maxB = Math.max(maxB, n.y + h);
-      sumH += h;
+    for (const u of sorted) {
+      minT = Math.min(minT, u.minY);
+      maxB = Math.max(maxB, u.maxY);
+      sumH += u.maxY - u.minY;
     }
     const span = maxB - minT;
     const slack = span - sumH;
@@ -264,11 +296,13 @@ export function distributeSelectedNodes(
       slack >= 0 ? slack / (sorted.length - 1) : 0;
     const startY = slack >= 0 ? minT : minT + (span - sumH) / 2;
     let cur = startY;
-    for (const n of sorted) {
-      const h = hOf(n);
-      const ny = cur;
-      cur += h + gap;
-      if (ny !== n.y) updates.push({ id: n.id, patch: { y: ny } });
+    for (const u of sorted) {
+      const dy = cur - u.minY;
+      cur += (u.maxY - u.minY) + gap;
+      if (dy === 0) continue;
+      for (const n of u.nodes) {
+        updates.push({ id: n.id, patch: { y: n.y + dy } });
+      }
     }
   }
 
