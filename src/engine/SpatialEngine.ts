@@ -294,6 +294,7 @@ export class SpatialEngine {
   /** @internal */ registry?: NodeTypeRegistry;
   /** Measured heights for auto-height nodes (canvas-coordinate units). */
   /** @internal */ _measuredHeights: Record<string, number> = {};
+  /** @internal */ _tableRowYs: Record<string, number[]> = {};
   /** @internal */ _search: SpatialSearchState = {
     query: "",
     matches: [],
@@ -389,11 +390,25 @@ export class SpatialEngine {
     this._measuredHeights[nodeId] = height;
   }
 
+  /** Publish a table's measured row boundaries (cumulative [0 … totalH]).
+   * Anchored-edge remapping reads these during resize so anchors track the
+   * CELL they point into rather than a box fraction — rows don't scale
+   * uniformly when text re-wraps. */
+  setTableRowYs(nodeId: string, ys: number[]): void {
+    this._tableRowYs[nodeId] = ys;
+  }
+
+  /** Measured row boundaries for a table node, if it has rendered. */
+  getTableRowYs(nodeId: string): number[] | undefined {
+    return this._tableRowYs[nodeId];
+  }
+
   /** Drop per-id residue (measured heights here and in the QuadTree) when a
    * node truly leaves the board. Without this the entries outlive their nodes
    * for the whole session. */
   /** @internal */ pruneNodeResidue(id: string): void {
     delete this._measuredHeights[id];
+    delete this._tableRowYs[id];
     this.quadTree.removeMeasuredHeight(id);
   }
 

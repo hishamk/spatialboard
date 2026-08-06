@@ -228,6 +228,9 @@ function TableBlock({
       ys.push((children[i] as HTMLElement).offsetTop);
     }
     ys.push(grid.offsetHeight);
+    // Share the layout with the engine so anchored edges can track cells
+    // through resizes (rows don't scale uniformly when text re-wraps).
+    engineRef.current.setTableRowYs(nodeRef.current.id, ys);
     setRowYs((prev) =>
       prev.length === ys.length && prev.every((v, i) => Math.abs(v - ys[i]) < 0.5) ? prev : ys,
     );
@@ -647,7 +650,10 @@ function TableBlock({
   };
 
   const h = node.h === "auto" ? undefined : (node.h as number);
-  const minCellH = TABLE_CELL_H;
+  // Rows breathe with the TYPE: at large font sizes the floor grows past the
+  // standard cell height so empty rows scale with a vertical (font) resize
+  // instead of clamping flat at 40.
+  const minCellH = Math.max(TABLE_CELL_H, Math.round(fontSize * 1.45) + 16);
   // Hover tools: shown while the table is selected OR hovered, hidden while
   // editing or in readOnly (interactive covers readOnly + tool modes).
   const showTools = interactive && (isSelected || hovered) && !editing && engine.mode === "select";

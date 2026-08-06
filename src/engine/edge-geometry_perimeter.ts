@@ -316,6 +316,88 @@ export function nearestPerimeterPoint(
 }
 
 // ---------------------------------------------------------------------------
+// Rect-perimeter t ⇄ (side, fraction) — dimension-independent anchor identity
+// ---------------------------------------------------------------------------
+// The perimeter t is ARC-LENGTH parameterized, so a node resize slides every
+// anchored t to a different physical spot. Resize gestures decompose each
+// anchor into its side + fractional position along that side (stable under
+// dimension changes) and re-encode a fresh t for the new box. Mirrors the
+// rect branch of `perimeterPoint` exactly (t=0 top-center, clockwise).
+
+export type RectSideFrac = { side: HandleSide; frac: number };
+
+/** Decompose a rect-perimeter t into side + fraction along that side
+ *  (fraction measured left→right on top/bottom, top→bottom on left/right). */
+export function rectPerimeterSideFrac(w: number, h: number, t: number): RectSideFrac {
+  t = ((t % 1) + 1) % 1;
+  const perim = 2 * (w + h);
+  let d = t * perim;
+  const halfTop = w / 2;
+  if (d < halfTop) return { side: "top", frac: w > 0 ? (w / 2 + d) / w : 0.5 };
+  d -= halfTop;
+  if (d < h) return { side: "right", frac: h > 0 ? d / h : 0.5 };
+  d -= h;
+  if (d < w) return { side: "bottom", frac: w > 0 ? (w - d) / w : 0.5 };
+  d -= w;
+  if (d < h) return { side: "left", frac: h > 0 ? (h - d) / h : 0.5 };
+  d -= h;
+  return { side: "top", frac: w > 0 ? d / w : 0.5 };
+}
+
+/** Inverse of `rectPerimeterSideFrac` for a (possibly different) box size. */
+export function rectSideFracToPerimeterT(w: number, h: number, sf: RectSideFrac): number {
+  const perim = 2 * (w + h);
+  if (perim <= 0) return 0;
+  const frac = Math.min(1, Math.max(0, sf.frac));
+  const halfTop = w / 2;
+  let d: number;
+  switch (sf.side) {
+    case "top":
+      // frac ∈ [0,1] left→right; right half maps to [0, w/2), left half wraps
+      d = frac >= 0.5 ? frac * w - w / 2 : halfTop + h + w + h + frac * w;
+      break;
+    case "right":
+      d = halfTop + frac * h;
+      break;
+    case "bottom":
+      d = halfTop + h + (w - frac * w);
+      break;
+    case "left":
+    default:
+      d = halfTop + h + w + (h - frac * h);
+      break;
+  }
+  return (((d / perim) % 1) + 1) % 1;
+}
+
+/** A position decomposed against cumulative band boundaries: which band it
+ * falls in plus the pixel offset from that band's start. Used to keep edge
+ * anchors glued to a table CELL through resizes — rows don't scale uniformly
+ * when text re-wraps, so box fractions alone drift. */
+export type BandOffset = { band: number; off: number };
+
+/** Decompose `pos` against cumulative `bounds` ([0 … total]). */
+export function bandDecompose(pos: number, bounds: number[]): BandOffset {
+  let band = 0;
+  for (let i = 1; i < bounds.length - 1; i++) {
+    if (bounds[i] <= pos) band = i;
+    else break;
+  }
+  return { band, off: pos - bounds[band] };
+}
+
+/** Recompose a band offset against fresh `bounds`, scaling the in-band offset
+ * (content pixels scale with the type, so `offScale` = fontScale). The result
+ * is clamped inside its band so the anchor never crosses into a neighbor. */
+export function bandRecompose(bo: BandOffset, bounds: number[], offScale: number): number {
+  const band = Math.min(Math.max(0, bo.band), Math.max(0, bounds.length - 2));
+  const start = bounds[band] ?? 0;
+  const end = bounds[band + 1] ?? start;
+  const pos = start + bo.off * offScale;
+  return Math.min(Math.max(pos, start), end);
+}
+
+// ---------------------------------------------------------------------------
 // Interior anchors: a free endpoint parked INSIDE the node (uv fractions)
 // ---------------------------------------------------------------------------
 

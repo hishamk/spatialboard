@@ -10,6 +10,7 @@ import type {
   DrawNode,
   ShapeNode,
   TextNode,
+  TableNode,
   FrameNode,
   StrokeStyle,
 } from "../../../engine/types";
@@ -26,7 +27,14 @@ import {
   nearestInteriorUV,
   INTERIOR_ANCHOR_BAND_PX,
   computeEdgePath,
+  rectPerimeterSideFrac,
+  rectSideFracToPerimeterT,
+  bandDecompose,
+  bandRecompose,
+  type RectSideFrac,
+  type BandOffset,
 } from "../../../engine/edge-geometry";
+import { tableColXs } from "../../blocks/TableBlock";
 import { isExactEdgeConnectionDuplicate } from "../canvas-helpers";
 import { SEL_PAD } from "../node-item-context";
 import type { HandlePosition } from "../SVGLayer";
@@ -163,6 +171,106 @@ export function useNodeTransforms({
       // Save original font size for proportional scaling of text nodes
       const origFontSize =
         node.type === "text" ? (node as TextNode).data.fontSize : 0;
+
+      // Save original table typography — vertical/corner resize scales the
+      // table's TYPE (base size + per-cell overrides); e/w stretch columns.
+      const origTableFont =
+        node.type === "table" ? ((node as TableNode).data.fontSize ?? 14) : 0;
+      const origTableRows =
+        node.type === "table" ? (node as TableNode).data.rows : null;
+
+      // Anchored connectors track the node's CONTENT while it resizes.
+      // Generic nodes: proportional — an anchor keeps its side + fractional
+      // position (perimeter t is arc-length parameterized over 2(w+h), so
+      // WITHOUT a remap any dimension change slides it along or around the
+      // perimeter; interior [u,v] is already fraction-encoded). Tables get
+      // cell-aware tracking on top: rows don't scale uniformly when text
+      // re-wraps, so each anchor is decomposed into (row, column, pixel
+      // offset from the cell origin) against the measured row boundaries and
+      // recomposed each frame with the offset scaled by the font — the anchor
+      // stays glued to the text it points at. Rect-perimeter nodes only for t
+      // (ellipse/diamond use angle/edge params that are already
+      // dimension-stable; draw follows its stroke, which scales
+      // proportionally).
+      const shapeKind = node.type === "shape" ? ((node as ShapeNode).data as { shape?: string }).shape : undefined;
+      const rectPerimeter =
+        node.type !== "draw" &&
+        !(node.type === "shape" && (shapeKind === "ellipse" || shapeKind === "diamond"));
+      const tableCols = node.type === "table" && origTableRows
+        ? origTableRows.reduce((m, r) => Math.max(m, r.length), 1)
+        : 0;
+      const origRowYs = node.type === "table" ? engine.getTableRowYs(nodeId) : undefined;
+      const tableTracking = tableCols > 0 && !!origRowYs && origRowYs.length >= 2;
+      const origColXs = tableTracking
+        ? tableColXs(origW, tableCols, (node as TableNode).data.colWidths)
+        : undefined;
+      const origFont = origTableFont > 0 ? origTableFont : 14;
+      type AnchorFixup = {
+        edgeId: string;
+        key: "sourceT" | "targetT";
+        kind: "perimeter" | "interior";
+        sf?: RectSideFrac;
+        uv?: [number, number];
+        row?: BandOffset;
+        col?: BandOffset;
+      };
+      const anchorFixups: AnchorFixup[] = [];
+      const collect = (n: SpatialNode, key: "sourceT" | "targetT", t: unknown) => {
+        if (typeof t === "number" && rectPerimeter) {
+          const sf = rectPerimeterSideFrac(origW, origH, t);
+          const f: AnchorFixup = { edgeId: n.id, key, kind: "perimeter", sf };
+          if (tableTracking) {
+            if (sf.side === "left" || sf.side === "right") f.row = bandDecompose(sf.frac * origH, origRowYs!);
+            else f.col = bandDecompose(sf.frac * origW, origColXs!);
+          }
+          anchorFixups.push(f);
+        } else if (tableTracking && Array.isArray(t) && t.length === 2) {
+          anchorFixups.push({
+            edgeId: n.id, key, kind: "interior", uv: [t[0], t[1]],
+            col: bandDecompose(t[0] * origW, origColXs!),
+            row: bandDecompose(t[1] * origH, origRowYs!),
+          });
+        }
+      };
+      for (const n of engine.nodes.values()) {
+        if (n.type !== "edge") continue;
+        const ed = (n as EdgeNode).data;
+        if (ed.fromId === nodeId) collect(n, "sourceT", ed.sourceT);
+        if (ed.toId === nodeId) collect(n, "targetT", ed.targetT);
+      }
+      const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+      const remapAnchors = (w: number, hh: number) => {
+        if (!anchorFixups.length) return;
+        const live = engine.getNode(nodeId);
+        const liveRowYs = tableTracking ? engine.getTableRowYs(nodeId) : undefined;
+        const cellsLive = !!liveRowYs && liveRowYs.length === origRowYs!.length && !!live;
+        const liveColXs = cellsLive
+          ? tableColXs(w, tableCols, (live as TableNode).data.colWidths)
+          : undefined;
+        const fs = cellsLive ? ((live as TableNode).data.fontSize ?? 14) / origFont : 1;
+        for (const f of anchorFixups) {
+          const e = engine.getNode(f.edgeId) as EdgeNode | undefined;
+          if (!e) continue;
+          let value: number | [number, number];
+          if (f.kind === "perimeter") {
+            let frac = f.sf!.frac;
+            if (cellsLive && f.row) frac = clamp01(bandRecompose(f.row, liveRowYs!, fs) / hh);
+            else if (cellsLive && f.col) frac = clamp01(bandRecompose(f.col, liveColXs!, fs) / w);
+            value = rectSideFracToPerimeterT(w, hh, { side: f.sf!.side, frac });
+          } else if (cellsLive) {
+            value = [
+              clamp01(bandRecompose(f.col!, liveColXs!, fs) / w),
+              clamp01(bandRecompose(f.row!, liveRowYs!, fs) / hh),
+            ];
+          } else {
+            value = f.uv!;
+          }
+          engine.updateNode(f.edgeId, {
+            data: { ...e.data, [f.key]: value },
+          } as Partial<EdgeNode>);
+        }
+      };
+
 
       let historyPushed = false;
 
@@ -333,7 +441,44 @@ export function useNodeTransforms({
           patch.data = { ...(node as TextNode).data, fontSize: newFontSize };
         }
 
+        // Table: vertical/corner handles scale the TYPE — the rows re-measure
+        // and the table grows/shrinks with the drag. Per-cell font overrides
+        // scale by the same factor so mixed sizes keep their proportions.
+        // e/w handles keep stretching columns via width alone.
+        if (node.type === "table" && origTableRows && handle !== "e" && handle !== "w") {
+          const scale = (handle === "n" || handle === "s")
+            ? (origH > 0 ? newH / origH : 1)
+            : (origW > 0 ? newW / origW : 1);
+          const scaleFont = (f: number) => Math.min(96, Math.max(8, Math.round(f * scale)));
+          const rows = origTableRows.map((row) =>
+            row.map((cell) =>
+              typeof cell === "object" && cell !== null && typeof cell.fontSize === "number"
+                ? { ...cell, fontSize: scaleFont(cell.fontSize) }
+                : cell,
+            ),
+          );
+          patch.data = {
+            ...(node as TableNode).data,
+            fontSize: scaleFont(origTableFont),
+            rows,
+          };
+          // n/s drags scale type only — never squash the column layout; the
+          // height itself stays measured ("auto") and follows the type.
+          if (handle === "n" || handle === "s") {
+            patch.w = origW;
+            patch.x = origX;
+          }
+        }
+
         engine.updateNode(nodeId, patch);
+
+        // Pin anchored connectors: re-encode their t for the LIVE box (auto-
+        // height nodes re-measure a beat later; using resolveHeight converges
+        // per frame and the settle pass below lands it exactly).
+        if (anchorFixups.length) {
+          const live = engine.getNode(nodeId);
+          if (live) remapAnchors(live.w, engine.resolveHeight(live));
+        }
       };
 
       const onUp = () => {
@@ -344,6 +489,13 @@ export function useNodeTransforms({
           engine.syncFrameChildrenAfterResize(nodeId);
         }
         engine.endNodeGesture();
+        // Settle pass: auto-height re-measures after the last frame renders.
+        if (anchorFixups.length && historyPushed) {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const live = engine.getNode(nodeId);
+            if (live) remapAnchors(live.w, engine.resolveHeight(live));
+          }));
+        }
       };
       ownerDoc().addEventListener("pointermove", onMove);
       ownerDoc().addEventListener("pointerup", onUp);

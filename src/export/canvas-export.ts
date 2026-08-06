@@ -963,11 +963,12 @@ function renderTableNode(node: TableNode, x: number, y: number, w: number): stri
   const fontCSS = getFontFamilyCSS(d.fontFamily ?? DEFAULT_FONT);
 
   // Canvas parity (TableBlock): padding "8px 10px", line-height 1.45,
-  // column x boundaries from colWidths weights, min row height 40.
+  // column x boundaries from colWidths weights, min row height 40 — growing
+  // with the font so vertically-resized (type-scaled) tables export true.
   const padX = 10;
   const padY = 8;
   const lineH = fontSize * 1.45;
-  const minRowH = 40;
+  const minRowH = Math.max(40, Math.round(fontSize * 1.45) + 16);
   const weights = Array.from({ length: cols }, (_, i) => {
     const v = d.colWidths?.[i];
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 1;
