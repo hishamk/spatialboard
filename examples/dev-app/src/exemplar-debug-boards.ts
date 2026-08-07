@@ -8,6 +8,7 @@ import {
   loadHalfAdderBoard,
   loadLayoutExemplarBoard,
   loadMissionControlBoard,
+  loadWhiteboardBoard,
 } from "./exemplars";
 
 export const exemplarDebugBoards: DebugBoardEntry[] = [
@@ -15,4 +16,5 @@ export const exemplarDebugBoards: DebugBoardEntry[] = [
   { label: "Half adder", color: "#eab308", load: (eng) => loadHalfAdderBoard(eng) },
   { label: "Layout exemplar", color: "#38bdf8", load: (eng) => loadLayoutExemplarBoard(eng) },
   { label: "Mission Control", color: "#d946ef", load: (eng) => loadMissionControlBoard(eng) },
+  { label: "Whiteboard", color: "#f97316", load: (eng) => loadWhiteboardBoard(eng) },
 ];

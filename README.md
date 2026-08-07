@@ -104,6 +104,16 @@ lifecycle, persistence, and the key props.
 frames — everything in the feature list above, working together out of the
 box.
 
+<img src="docs/assets/whiteboard.png" alt="A hand-drawn kickoff whiteboard: a rough rectangle, ellipse and diamond with hachure and cross-hatch fills wired by sketchy arrows, a dashed loop-back labelled not yet, a red circled annotation, three rotated photos, a yellow highlighter swipe under handwritten text, a pencil squiggle, and two tilted sticky notes." />
+
+<p align="center">
+  <sub>
+    Rough shapes with hachure fills, sketchy edges, pen / pencil /
+    highlighter ink, rotated images, and stickies — all built-in node types,
+    all in the hand-drawn register.
+  </sub>
+</p>
+
 **A node-based tool.** Define your own node types with typed input/output
 ports and a pure `compute` function; the reactive `DataFlowEngine` propagates
 values through the wired graph. This is the foundation for visual
@@ -214,8 +224,8 @@ self-contained, persist to localStorage, and work offline (PWA):
 - **`examples/custom-nodes`** — three custom node types wired as a live data-flow
   graph (Number × Number → Multiply → Gauge).
 - **`examples/dev-app`** — the development playground: every feature, ~40 custom
-  node types, both boards pictured above, and an MCP eval server. The Mission
-  Control and Half adder boards load from the debug panel.
+  node types, and an MCP eval server. Every board pictured above ships here —
+  Whiteboard, Half adder, and Mission Control all load from the debug panel.
 
 From the package root:
 
