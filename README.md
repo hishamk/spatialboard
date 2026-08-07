@@ -1,14 +1,74 @@
-# SpatialBoard
+<h1 align="center">SpatialBoard</h1>
 
-**An embeddable spatial canvas engine for React** — whiteboard, node-graph
-editor, presentation surface, and LLM-readable board format in one
-TypeScript library.
+<h3 align="center">
+  Build infinite canvas apps in React, on a framework-agnostic engine.
+</h3>
 
-SpatialBoard is built around a framework-agnostic `SpatialEngine` with a thin
-React shell on top. You get an infinite canvas with hand-drawn aesthetics out
-of the box, and a registry API that lets you turn that canvas into whatever
-your product needs: a diagramming tool, a visual programming environment, a
-slide deck, or a board that AI agents can read and write.
+<p align="center">
+  <a href="docs/getting-started.md">Getting started</a> ·
+  <a href="docs/custom-nodes.md">Custom nodes</a> ·
+  <a href="docs/data-flow.md">Data flow</a> ·
+  <a href="docs/agents.md">Agents &amp; LLMs</a> ·
+  <a href="sbd-spec.md">SBD format</a> ·
+  <a href="docs/examples.md">Examples</a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/React-18%20%7C%2019-149eca.svg" alt="React 18 and 19" />
+</p>
+
+<img src="docs/assets/hero.png" alt="A SpatialBoard canvas showing a mission-control board: live analog clock nodes, telemetry data cards, a stopwatch and countdown, sticky notes, a 3D wireframe, and a flow timeline with a progress bar." />
+
+<p align="center">
+  <sub>
+    The Mission Control board from the <a href="docs/examples.md">examples</a>.
+    The clocks, telemetry cards, timers, and 3D wireframe are custom nodes
+    built with the same public API as the built-in stickies, frames, text,
+    and connectors.
+  </sub>
+</p>
+
+SpatialBoard is a whiteboard, node-graph editor, presentation surface, and
+LLM-readable board format in one MIT-licensed TypeScript library. It is built
+around a framework-agnostic `SpatialEngine` with a thin React shell on top:
+you get an infinite canvas with hand-drawn aesthetics out of the box, and a
+registry API that turns that canvas into whatever your product needs — a
+diagramming tool, a visual programming environment, a slide deck, or a board
+that AI agents can read and write.
+
+## Feature highlights
+
+- **Whiteboarding, complete** — pressure-aware freehand ink, rough hand-drawn
+  shapes, sticky notes, rich text, images, and frames, with snapping, smart
+  alignment guides, grouping, align/distribute, infinite pan/zoom, undo
+  history, and a minimap.
+- **Custom nodes are the core API** — everything on the canvas is a node
+  type: a React component plus a declarative definition. The built-ins use
+  the same public API you do.
+- **Typed data flow** — nodes declare input/output ports and a pure
+  `compute` function; the reactive `DataFlowEngine` propagates values through
+  the wired graph, detects cycles, and badges live values on edges.
+- **Presentations built in** — frames double as slides, stepped through with
+  animated transitions (pan, fade, dissolve, zoom, fold, 3D cube). One call:
+  `engine.enterPresentation()`.
+- **Headless engine** — `spatialboard/engine` ships the full engine with no
+  React and no CSS, for servers, tests, and agents.
+- **Collaboration-ready** — transport-agnostic remote ops and live gesture
+  awareness; wire it to any sync layer or CRDT. Storage stays your business.
+- **AI-native** — budgeted board snapshots for LLM context, a programmatic
+  drawing API, and SBD: a markdown-compatible board format that models both
+  read and write.
+- **Interop** — imports Excalidraw `.excalidrawlib` shape libraries, and a
+  built-in Mermaid importer turns flowcharts and sequence diagrams into
+  editable nodes.
+
+## Quick start
+
+```bash
+npm install spatialboard
+```
 
 ```tsx
 import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
@@ -25,24 +85,34 @@ export default function App() {
 }
 ```
 
-## What you can build with it
+`react` / `react-dom` (`^18 || ^19`) are the only required peer
+dependencies. Three entry points let you take exactly as much as you need:
 
-**A whiteboard.** Pressure-aware freehand ink (perfect-freehand), rough
-hand-drawn shapes (roughjs), sticky notes, rich-text blocks (BlockNote),
-images, text, and frames — with snapping, smart alignment guides, grouping,
-multi-select arrange/align/distribute, infinite pan/zoom, undo history, and a
-minimap. Excalidraw `.excalidrawlib` libraries import directly, and a built-in
-Mermaid importer turns flowcharts and sequence diagrams into editable nodes.
+| Entry | What you get |
+|-------|--------------|
+| `spatialboard` | The board component, the engine, and the built-in node types |
+| `spatialboard/blocknote` | Opt-in rich-text nodes (adds the BlockNote `^0.46` + Mantine `^8` peers) |
+| `spatialboard/engine` | The headless engine — no React, no CSS |
+
+[docs/getting-started.md](docs/getting-started.md) covers the engine
+lifecycle, persistence, and the key props.
+
+## What you can build
+
+**A whiteboard.** Freehand ink (perfect-freehand), rough hand-drawn shapes
+(roughjs), sticky notes, rich-text blocks (BlockNote), images, text, and
+frames — everything in the feature list above, working together out of the
+box.
 
 **A node-based tool.** Define your own node types with typed input/output
 ports and a pure `compute` function; the reactive `DataFlowEngine` propagates
-values through the wired graph, detects cycles, and can badge live values on
-edges. This is the foundation for visual programming, pipelines, and
-dashboards. See [docs/data-flow.md](docs/data-flow.md).
+values through the wired graph. This is the foundation for visual
+programming, pipelines, and dashboards. See
+[docs/data-flow.md](docs/data-flow.md).
 
 **A presentation.** Frames double as slides: order them explicitly or let
-reading order decide, then step through with animated transitions (pan, fade,
-dissolve, zoom, fold, 3D cube). One method call — `engine.enterPresentation()`.
+reading order decide, then step through with animated transitions. One method
+call — `engine.enterPresentation()`.
 
 **A collaborative canvas.** The engine exposes remote-op methods
 (`addRemoteNode`, `applyRemoteNodeUpdate`, `deleteRemoteNode`) and broadcasts
@@ -58,16 +128,6 @@ plus `beginAgentAction()` batching lets agents draw; and the whole board
 round-trips through **SBD** — a markdown-compatible format that models can
 both read and write. See [docs/agents.md](docs/agents.md) and
 [sbd-spec.md](sbd-spec.md).
-
-## Install
-
-```bash
-npm install spatialboard
-```
-
-Peer dependencies (your app provides these): `react` `^18`, `react-dom` `^18`,
-`@blocknote/core` `^0.46`, `@blocknote/react` `^0.46`, `@blocknote/mantine`
-`^0.46`, `@mantine/core` `^8`, `@mantine/hooks` `^8`.
 
 ## Custom nodes in one glance
 
@@ -133,11 +193,12 @@ built-in presentations, and an agent-first API, under a plain MIT license:
 | **Custom nodes** | First-class: plain React component + declarative definition (typed `data`, panels, lifecycle hooks) | Not a public extension point of the core package | First-class (`ShapeUtil` classes) |
 | **Typed ports + reactive data flow** | Built in (`ports` + `compute`, cycle detection, live edge values) | — | Build your own on shapes |
 | **Presentations** | Built in: frames → slides with animated transitions (incl. 3D cube/fold) | Frames + laser pointer (slides are an Excalidraw+ feature) | Build your own |
+| **Headless / non-React use** | `spatialboard/engine` — no React, no CSS | — | State/store usable standalone; canvas requires React |
 | **Rich text** | BlockNote block-editor nodes | Plain text elements | Rich-text shapes |
 | **Interchange format** | SBD — markdown-compatible, diff-stable, LLM-writable — plus JSON | JSON (`.excalidraw`) | JSON (`.tldr`) |
-| **Agent / LLM API** | Built in: budgeted state snapshots, markdown summaries, node-type catalog, one-call create API | Text-to-diagram in Excalidraw+ | Official agent templates / experimental AI tooling |
-| **Rendering** | React DOM + SVG layers | Canvas2D | React DOM/SVG |
-| **Collaboration** | Transport-agnostic primitives (remote ops + gesture awareness) — bring your own CRDT/sync | excalidraw-room; E2E rooms on excalidraw.com | tldraw sync (hosted or self-hosted) |
+| **Agent / LLM API** | Built in: budgeted state snapshots, markdown summaries, node-type catalog, one-call create API | Text-to-diagram in Excalidraw+ | Agent starter kits + driver package |
+| **Rendering** | React DOM + SVG layers | Canvas2D | React DOM |
+| **Collaboration** | Transport-agnostic primitives (remote ops + gesture awareness) — bring your own CRDT/sync | excalidraw-room; E2E rooms on excalidraw.com | tldraw sync (self-hosted; demo server for prototyping) |
 | **Excalidraw interop** | Imports `.excalidrawlib` libraries | Native | — |
 
 (License and feature notes as of mid-2026 — verify against each project's
@@ -167,7 +228,8 @@ self-contained, persist to localStorage, and work offline (PWA):
 - **`examples/custom-nodes`** — three custom node types wired as a live data-flow
   graph (Number × Number → Multiply → Gauge).
 - **`examples/dev-app`** — the development playground: every feature, ~40 custom
-  node types, and an MCP eval server.
+  node types, the Mission Control board pictured above, and an MCP eval
+  server.
 
 From the package root:
 
@@ -202,12 +264,14 @@ npm run test
 npm run build      # dist/ (generated; not committed)
 ```
 
-## Contributing, security, licenses
+## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-Security reports: [SECURITY.md](SECURITY.md).
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Security
+reports go through [SECURITY.md](SECURITY.md).
 
-SpatialBoard is [MIT licensed](LICENSE). Third-party components and their
-licenses are inventoried in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); bundled and runtime fonts
-in [FONTS.md](FONTS.md).
+## License
+
+SpatialBoard is [MIT licensed](LICENSE) — development and production, no
+license keys, no watermarks. Third-party components and their licenses are
+inventoried in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); bundled and
+runtime fonts in [FONTS.md](FONTS.md).
