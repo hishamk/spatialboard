@@ -134,6 +134,16 @@ programming, pipelines, and dashboards. See
 reading order decide, then step through with animated transitions. One method
 call — `engine.enterPresentation()`.
 
+<img src="docs/assets/slides.png" alt="Four slide frames laid out as a grid on the canvas — a title slide, a sticky-note slide, a rough bar chart, and a closing slide — with the slides panel open on the right listing the same four as an ordered deck, each with its own transition and duration." />
+
+<p align="center">
+  <sub>
+    The same four frames are both a canvas layout and an ordered deck. The
+    slides panel picks the transition per slide — pan, fade, zoom, cube —
+    and Present runs them.
+  </sub>
+</p>
+
 **A collaborative canvas.** The engine exposes remote-op methods
 (`addRemoteNode`, `applyRemoteNodeUpdate`, `deleteRemoteNode`) and broadcasts
 gesture awareness (live stroke, shape, drag, eraser, and laser previews) so
@@ -225,7 +235,8 @@ self-contained, persist to localStorage, and work offline (PWA):
   graph (Number × Number → Multiply → Gauge).
 - **`examples/dev-app`** — the development playground: every feature, ~40 custom
   node types, and an MCP eval server. Every board pictured above ships here —
-  Whiteboard, Half adder, and Mission Control all load from the debug panel.
+  Whiteboard, Half adder, Deck, and Mission Control all load from the debug
+  panel.
 
 From the package root:
 

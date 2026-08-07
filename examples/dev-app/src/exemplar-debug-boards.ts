@@ -9,6 +9,7 @@ import {
   loadLayoutExemplarBoard,
   loadMissionControlBoard,
   loadWhiteboardBoard,
+  loadDeckBoard,
 } from "./exemplars";
 
 export const exemplarDebugBoards: DebugBoardEntry[] = [
@@ -17,4 +18,5 @@ export const exemplarDebugBoards: DebugBoardEntry[] = [
   { label: "Layout exemplar", color: "#38bdf8", load: (eng) => loadLayoutExemplarBoard(eng) },
   { label: "Mission Control", color: "#d946ef", load: (eng) => loadMissionControlBoard(eng) },
   { label: "Whiteboard", color: "#f97316", load: (eng) => loadWhiteboardBoard(eng) },
+  { label: "Deck", color: "#0ea5e9", load: (eng) => loadDeckBoard(eng) },
 ];
