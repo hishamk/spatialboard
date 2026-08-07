@@ -8,3 +8,4 @@ export { loadApiConstellationBoard } from "./api-constellation";
 export { loadMissionControlBoard } from "./mission-control";
 export { loadWhiteboardBoard } from "./whiteboard";
 export { loadDeckBoard } from "./deck";
+export { loadSummitDayBoard } from "./summit-day";
