@@ -1,4 +1,6 @@
-<h1 align="center">SpatialBoard</h1>
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="SpatialBoard" width="420" />
+</p>
 
 <h3 align="center">
   Build infinite canvas apps in React — whiteboards, node graphs, and slide decks.
