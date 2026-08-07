@@ -196,6 +196,8 @@ export const displayNodeType: NodeTypeDefinition<DisplayData> = {
   docs: {},
   component: DisplayRenderer,
   propertiesPanel: DisplayPropertiesPanel,
+  // Body is drawn inset from its box, so anchor ports on the drawn edge.
+  portAnchor: { kind: "inset", left: 0.067, right: 0.067 },
   ports,
   compute: (inputs: Record<string, PortValue>) => {
     // Display is a sink — it just passes through for rendering

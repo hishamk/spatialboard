@@ -138,6 +138,8 @@ export const gateNodeType: NodeTypeDefinition<GateData> = {
   docs: {},
   component: GateRenderer,
   propertiesPanel: GatePropertiesPanel,
+  // Body is drawn inset from its box, so anchor ports on the drawn edge.
+  portAnchor: { kind: "inset", left: 0.071, right: 0.071 },
   ports,
   compute: (inputs: Record<string, PortValue>) => {
     const enable = Boolean(inputs.enable);

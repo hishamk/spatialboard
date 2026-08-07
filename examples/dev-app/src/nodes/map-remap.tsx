@@ -212,6 +212,8 @@ export const mapRemapNodeType: NodeTypeDefinition<MapRemapData> = {
   docs: {},
   component: MapRemapRenderer,
   propertiesPanel: MapRemapPropertiesPanel,
+  // Body is drawn inset from its box, so anchor ports on the drawn edge.
+  portAnchor: { kind: "inset", left: 0.029, right: 0.029 },
   ports,
   compute: (inputs: Record<string, PortValue>, data: MapRemapData) => {
     const value = Number(inputs.value ?? 0);

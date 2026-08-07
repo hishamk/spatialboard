@@ -21,6 +21,19 @@ export const PORT_DOT_HIGHLIGHT_RADIUS_PX = 8;
 export const PORT_DOT_RADIUS_PX = 6;
 
 /**
+ * Horizontal inset in canvas units for an `inset` anchor, clamped so a bad
+ * fraction can never push a port past the node's centre line.
+ */
+function portInsetPx(
+  node: SpatialNode,
+  anchor: { kind: "inset"; left?: number; right?: number },
+  direction: PortDirection,
+): number {
+  const frac = direction === "input" ? (anchor.left ?? 0) : (anchor.right ?? 0);
+  return Math.max(0, Math.min(0.5, frac)) * node.w;
+}
+
+/**
  * Canvas coordinates for a point in the node's unrotated AABB space
  * (same convention as stacked port placement).
  */
@@ -42,8 +55,23 @@ export function nodeLocalPointToCanvas(
   return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
 }
 
-/** How port dots attach to the node rect. */
-export type PortAnchorMode = "bbox" | "inscribed-circle";
+/**
+ * How port dots attach to the node rect.
+ *
+ * `bbox` (default) anchors on the node's bounding box. `inscribed-circle`
+ * anchors on the circle inscribed in `min(w, h)`. The `inset` form anchors a
+ * fraction of the node width in from each side — for bodies drawn inset from
+ * their box (parallelograms, hexagons, diamonds), whose ports would otherwise
+ * float in the gap between the box edge and the drawn shape.
+ *
+ * A single fraction per side is exact for a body whose edge is vertical at the
+ * port row, and a close approximation for a slanted one; the residual is a
+ * fraction of the slant, well under the port dot's own radius at usable zooms.
+ */
+export type PortAnchorMode =
+  | "bbox"
+  | "inscribed-circle"
+  | { kind: "inset"; left?: number; right?: number };
 
 /**
  * Unrotated canvas coordinates for the port connector dot (same frame as `node.x` / `node.y`).
@@ -79,6 +107,12 @@ export function getPortOuterLocal(
       port.direction === "input"
         ? cx - r - portOffset
         : cx + r + portOffset;
+  } else if (typeof portAnchor === "object" && portAnchor.kind === "inset") {
+    const inset = portInsetPx(node, portAnchor, port.direction);
+    px =
+      port.direction === "input"
+        ? node.x + inset - portOffset
+        : node.x + node.w - inset + portOffset;
   } else {
     px =
       port.direction === "input"
@@ -105,6 +139,12 @@ export function getPortStubInnerLocal(
     return direction === "input"
       ? { x: node.x, y: outerLocal.y }
       : { x: node.x + node.w, y: outerLocal.y };
+  }
+  if (typeof portAnchor === "object" && portAnchor.kind === "inset") {
+    const inset = portInsetPx(node, portAnchor, direction);
+    return direction === "input"
+      ? { x: node.x + inset, y: outerLocal.y }
+      : { x: node.x + node.w - inset, y: outerLocal.y };
   }
   const r = Math.min(node.w, nh) / 2;
   const cx = node.x + node.w / 2;

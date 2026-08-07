@@ -210,6 +210,8 @@ export const mathOpNodeType: NodeTypeDefinition<MathOpData> = {
   docs: {},
   component: MathOpRenderer,
   propertiesPanel: MathOpPropertiesPanel,
+  // Body is drawn inset from its box, so anchor ports on the drawn edge.
+  portAnchor: { kind: "inset", left: 0.10, right: 0.02 },
   ports,
   compute: (inputs: Record<string, PortValue>, data: MathOpData) => {
     const a = (inputs.a as number) ?? 0;
