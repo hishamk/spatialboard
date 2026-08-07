@@ -1,7 +1,7 @@
 <h1 align="center">SpatialBoard</h1>
 
 <h3 align="center">
-  Build infinite canvas apps in React, on a framework-agnostic engine.
+  Build infinite canvas apps in React — whiteboards, node graphs, and slide decks.
 </h3>
 
 <p align="center">
@@ -31,12 +31,12 @@
 </p>
 
 SpatialBoard is a whiteboard, node-graph editor, presentation surface, and
-LLM-readable board format in one MIT-licensed TypeScript library. It is built
-around a framework-agnostic `SpatialEngine` with a thin React shell on top:
-you get an infinite canvas with hand-drawn aesthetics out of the box, and a
-registry API that turns that canvas into whatever your product needs — a
-diagramming tool, a visual programming environment, a slide deck, or a board
-that AI agents can read and write.
+LLM-readable board format in one MIT-licensed TypeScript library. All board
+state lives in a `SpatialEngine`, with a React shell on top: you get an
+infinite canvas with hand-drawn aesthetics out of the box, and a registry API
+that turns that canvas into whatever your product needs — a diagramming tool,
+a visual programming environment, a slide deck, or a board that AI agents can
+read and write.
 
 ## Feature highlights
 
@@ -53,13 +53,13 @@ that AI agents can read and write.
 - **Presentations built in** — frames double as slides, stepped through with
   animated transitions (pan, fade, dissolve, zoom, fold, 3D cube). One call:
   `engine.enterPresentation()`.
-- **Headless engine** — `spatialboard/engine` ships the full engine with no
-  React and no CSS, for servers, tests, and agents.
 - **Collaboration-ready** — transport-agnostic remote ops and live gesture
   awareness; wire it to any sync layer or CRDT. Storage stays your business.
 - **AI-native** — budgeted board snapshots for LLM context, a programmatic
   drawing API, and SBD: a markdown-compatible board format that models both
   read and write.
+- **Headless entry** — `spatialboard/engine` imports without React or CSS, so
+  the engine runs in tests, scripts, and agent tooling.
 - **Interop** — imports Excalidraw `.excalidrawlib` shape libraries, and a
   built-in Mermaid importer turns flowcharts and sequence diagrams into
   editable nodes.
