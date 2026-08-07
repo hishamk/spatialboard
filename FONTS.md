@@ -1,15 +1,14 @@
 # Fonts
 
-SpatialBoard ships **two** bundled fonts. Every other font it offers is
+SpatialBoard ships **one** bundled font. Every other font it offers is
 referenced by name and loaded at runtime from Google Fonts — those files are
 never bundled or redistributed with this package.
 
-## Bundled fonts
+## Bundled font
 
 | Font | File | License | Source |
 |------|------|---------|--------|
 | **Excalifont** | `src/assets/fonts/Excalifont-Regular.woff2` | [SIL OFL-1.1](https://openfontlicense.org) | [plus.excalidraw.com/excalifont](https://plus.excalidraw.com/excalifont) |
-| **HishamHand** | `src/assets/fonts/HishamHand-Regular.ttf` | First-party (this repository's MIT license) | Created for SpatialBoard |
 
 Excalifont is the default text font (`DEFAULT_FONT` in `src/fonts.ts`). It is
 the official Excalidraw hand-drawn font, released under the SIL Open Font
@@ -52,12 +51,6 @@ and works offline. Deployments that must avoid the Google Fonts CDN entirely
 can self-host any of the runtime families (their licenses permit it) and serve
 equivalent `@font-face` rules, or simply restrict boards to Excalifont and the
 system fonts.
-
-## HishamHand
-
-HishamHand is a first-party handwriting font created for SpatialBoard by
-the project author. It is distributed as part of this repository under the
-repository's MIT license (`LICENSE`) and requires no third-party notice.
 
 ## SIL Open Font License 1.1 — full text (applies to Excalifont)
 

@@ -39,8 +39,7 @@ and is **not** part of the distributed package. Each retains its own license
 
 ## Fonts
 
-Two fonts are bundled — Excalifont (SIL OFL-1.1) and the first-party
-HishamHand (this repository's MIT license); all other offered families are
+One font is bundled — Excalifont (SIL OFL-1.1); all other offered families are
 fetched by the end user's browser from Google Fonts and are not redistributed.
 See **[FONTS.md](FONTS.md)** for the full inventory and notices.
 

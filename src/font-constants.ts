@@ -20,7 +20,6 @@ export const DEFAULT_FONT = "Excalifont";
 export const FONT_FAMILIES: FontOption[] = [
   // Bundled — hand-drawn default
   { key: "Excalifont", label: "Excalifont", category: "hand" },
-  { key: "HishamHand", label: "Hisham Hand", category: "hand" },
   // System
   { key: "sans-serif", label: "Sans (system)", category: "system" },
   { key: "serif", label: "Serif (system)", category: "system" },
@@ -54,7 +53,7 @@ export const FONT_FAMILIES: FontOption[] = [
 ];
 
 export const SYSTEM_FONTS = new Set(["sans-serif", "serif", "monospace"]);
-export const BUNDLED_FONTS = new Set(["Excalifont", "HishamHand"]);
+export const BUNDLED_FONTS = new Set(["Excalifont"]);
 export const NON_GOOGLE_FONTS = new Set([...SYSTEM_FONTS, ...BUNDLED_FONTS]);
 
 /** Icon for font category (like reference: H, A, </>, pencil) */
