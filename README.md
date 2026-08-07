@@ -180,30 +180,6 @@ Round-trip with `await engine.toSBD()` / `await engine.fromSBD(text)`. The
 lower-level functions are `serializeToSBD(nodes)` and `parseSBD(text)` (which
 returns `{ nodes, meta, warnings }`). Spec in [sbd-spec.md](sbd-spec.md).
 
-## How it compares
-
-Excalidraw and tldraw are excellent, mature projects — if you need a pure
-whiteboard with a huge ecosystem, or a polished commercial canvas SDK, use
-them. SpatialBoard's niche is combining the whiteboard with typed data flow,
-built-in presentations, and an agent-first API, under a plain MIT license:
-
-| | SpatialBoard | Excalidraw | tldraw |
-|---|---|---|---|
-| **License** | MIT | MIT | tldraw license — production needs a license key; free hobby tier keeps the watermark, paid removes it |
-| **Custom nodes** | First-class: plain React component + declarative definition (typed `data`, panels, lifecycle hooks) | Not a public extension point of the core package | First-class (`ShapeUtil` classes) |
-| **Typed ports + reactive data flow** | Built in (`ports` + `compute`, cycle detection, live edge values) | — | Build your own on shapes |
-| **Presentations** | Built in: frames → slides with animated transitions (incl. 3D cube/fold) | Frames + laser pointer (slides are an Excalidraw+ feature) | Build your own |
-| **Headless / non-React use** | `spatialboard/engine` — no React, no CSS | — | State/store usable standalone; canvas requires React |
-| **Rich text** | BlockNote block-editor nodes | Plain text elements | Rich-text shapes |
-| **Interchange format** | SBD — markdown-compatible, diff-stable, LLM-writable — plus JSON | JSON (`.excalidraw`) | JSON (`.tldr`) |
-| **Agent / LLM API** | Built in: budgeted state snapshots, markdown summaries, node-type catalog, one-call create API | Text-to-diagram in Excalidraw+ | Agent starter kits + driver package |
-| **Rendering** | React DOM + SVG layers | Canvas2D | React DOM |
-| **Collaboration** | Transport-agnostic primitives (remote ops + gesture awareness) — bring your own CRDT/sync | excalidraw-room; E2E rooms on excalidraw.com | tldraw sync (self-hosted; demo server for prototyping) |
-| **Excalidraw interop** | Imports `.excalidrawlib` libraries | Native | — |
-
-(License and feature notes as of mid-2026 — verify against each project's
-current docs before making decisions based on them.)
-
 ## Documentation
 
 | Guide | What's inside |

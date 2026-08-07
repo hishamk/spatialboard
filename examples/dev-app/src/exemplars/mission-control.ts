@@ -226,7 +226,7 @@ export function loadMissionControlBoard(engine: SpatialEngine): void {
     data: {
       mode: "stopwatch",
       targetSeconds: 0,
-      elapsed: 73180800, // ~847 sols in seconds (approximate)
+      elapsed: 512, // a few minutes into the current activity
       running: true,
       accentColor: "#3b82f6",
     } satisfies TimerData,
@@ -253,12 +253,12 @@ export function loadMissionControlBoard(engine: SpatialEngine): void {
     id: "label-mission-timer",
     type: "text",
     x: 890,
-    y: 370,
+    y: 392,
     w: 150,
     h: "auto",
     z: z++,
     data: {
-      text: "Mission Elapsed",
+      text: "Task Elapsed",
       fontSize: 11,
       fontFamily: "ui-sans-serif, system-ui, sans-serif",
       color: "#888",
@@ -270,7 +270,7 @@ export function loadMissionControlBoard(engine: SpatialEngine): void {
     id: "label-comms-timer",
     type: "text",
     x: 1080,
-    y: 370,
+    y: 392,
     w: 150,
     h: "auto",
     z: z++,
