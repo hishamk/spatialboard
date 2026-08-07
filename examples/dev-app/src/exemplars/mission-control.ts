@@ -404,7 +404,7 @@ export function loadMissionControlBoard(engine: SpatialEngine): void {
     x: 1540,
     y: 480,
     w: 190,
-    h: 120,
+    h: 165,
     z: z++,
     rotation: 2,
     data: {
