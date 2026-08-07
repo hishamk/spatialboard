@@ -110,6 +110,16 @@ values through the wired graph. This is the foundation for visual
 programming, pipelines, and dashboards. See
 [docs/data-flow.md](docs/data-flow.md).
 
+<img src="docs/assets/dataflow.png" alt="A one-bit half adder built from custom nodes: two toggle inputs wired into XOR and AND gates, whose outputs drive Sum and Carry displays. Input A is on, so the XOR gate shows 1 and the Sum display reads true." />
+
+<p align="center">
+  <sub>
+    A one-bit half adder. Flipping a toggle propagates through the wired
+    graph — the gates recompute and the Sum and Carry displays update — with
+    no host code in the loop.
+  </sub>
+</p>
+
 **A presentation.** Frames double as slides: order them explicitly or let
 reading order decide, then step through with animated transitions. One method
 call — `engine.enterPresentation()`.
@@ -204,8 +214,8 @@ self-contained, persist to localStorage, and work offline (PWA):
 - **`examples/custom-nodes`** — three custom node types wired as a live data-flow
   graph (Number × Number → Multiply → Gauge).
 - **`examples/dev-app`** — the development playground: every feature, ~40 custom
-  node types, the Mission Control board pictured above, and an MCP eval
-  server.
+  node types, both boards pictured above, and an MCP eval server. The Mission
+  Control and Half adder boards load from the debug panel.
 
 From the package root:
 
