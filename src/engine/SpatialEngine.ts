@@ -704,16 +704,16 @@ export class SpatialEngine {
     CameraOps.fitToContent(this);
   }
 
-  /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera tween.
-   *  Additive; the instant fitToContent is unchanged for other callers. */
+  /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera
+   *  tween. `fitToContent` is the instant variant. */
   fitToContentAnimated(opts?: { durationMs?: number }): void {
     CameraOps.fitToContentAnimated(this, opts);
   }
 
   /**
    * Fit the viewport to a SUBSET of nodes (their union AABB), ignoring the rest.
-   * Additive helper for host render-scope views (e.g. the workflow Loop node's
-   * nested sub-canvas — frame the loop + its body). Falls back to fitToContent
+   * For host render-scope views (e.g. the workflow Loop node's nested
+   * sub-canvas — frame the loop + its body). Falls back to fitToContent
    * when the subset is empty/unknown. Edge nodes are skipped (no meaningful box).
    */
   fitToNodes(ids: readonly string[]): void {
@@ -721,7 +721,7 @@ export class SpatialEngine {
   }
 
   /** Animated fit-to-subset (zoom-in) — reuses the ease-out camera tween.
-   *  Additive; the instant fitToNodes is unchanged for other callers. */
+   *  `fitToNodes` is the instant variant. */
   fitToNodesAnimated(ids: readonly string[], opts?: { durationMs?: number }): void {
     CameraOps.fitToNodesAnimated(this, ids, opts);
   }
@@ -735,7 +735,7 @@ export class SpatialEngine {
 
   /** Animated fit to an arbitrary canvas-space rectangle (frame ephemeral overlay
    *  content the engine doesn't own — e.g. the Loop mini-flow's synthetic Start/End
-   *  cards + body). Additive; reuses the same ease-out camera tween. */
+   *  cards + body). Reuses the same ease-out camera tween. */
   fitToRectAnimated(
     minX: number, minY: number, maxX: number, maxY: number,
     opts?: { durationMs?: number; padding?: number },
@@ -750,8 +750,8 @@ export class SpatialEngine {
    * `zoom` defaults to the current zoom; it is capped so the rect (+`padding`)
    * always fully fits. `offsetX`/`offsetY` shift the effective screen center
    * in px — for host overlays that cover an edge of the container (e.g. a
-   * docked inspector), so "centered" means the VISIBLE area. Additive; reuses
-   * the ease-out camera tween (reduced-motion snaps).
+   * docked inspector), so "centered" means the VISIBLE area. Reuses the
+   * ease-out camera tween (reduced-motion snaps).
    */
   centerOnRectAnimated(
     minX: number, minY: number, maxX: number, maxY: number,

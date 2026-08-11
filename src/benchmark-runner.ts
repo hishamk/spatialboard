@@ -9,9 +9,6 @@ async function main() {
     console.log("Initializing Engine...");
     const engine = new SpatialEngine();
 
-    // Create a mock measuredHeights object since we don't have DOM
-    const measuredHeights: Record<string, number> = {};
-
     console.log("Running Benchmark...");
     try {
         await runBenchmark(engine);

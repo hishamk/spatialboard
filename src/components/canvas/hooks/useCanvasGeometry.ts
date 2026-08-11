@@ -10,10 +10,9 @@ import { SEL_PAD } from "../node-item-context";
 import { useSBI18n } from "../../contexts/LocalizationContext";
 
 /**
- * Pure canvas geometry + selection-bounds derivations extracted from SpatialCanvas.
+ * Pure canvas geometry + selection-bounds derivations for SpatialCanvas.
  * Every member is a pure function of engine/registry/viewport/measuredHeights/
- * selection/nodes/activeGroupId (no gesture or editing state). Behaviour and every
- * hook identity (dep array) are preserved byte-for-byte from the original component.
+ * selection/nodes/activeGroupId (no gesture or editing state).
  */
 export function useCanvasGeometry({
   engine,

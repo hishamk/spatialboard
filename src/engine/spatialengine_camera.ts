@@ -164,7 +164,7 @@ function _prefersReducedMotion(): boolean {
 
 /** Move the camera to `target` — animated (reuses the existing ease-out
  *  `_transitionPan` rAF tween) unless reduced-motion is preferred, in which
- *  case snap instantly (`_transitionNone`). Additive; no other caller affected. */
+ *  case snap instantly (`_transitionNone`). */
 function _animateOrSnap(engine: SpatialEngine, target: { x: number; y: number; zoom: number }, durationMs?: number): void {
   if (_prefersReducedMotion()) _transitionNone(engine, target);
   else _transitionPan(engine, target, durationMs ?? 380);

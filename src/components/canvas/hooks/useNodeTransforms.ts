@@ -85,13 +85,11 @@ export type GroupRotationState = {
 /**
  * The nine transform / handle interaction handlers extracted from SpatialCanvas.
  *
- * Pure mechanical extraction — every handler's body, guard order, ref usage and
- * `useCallback` dependency array is preserved byte-for-byte from the original
- * component so the shared `nodeItemCtx` identity (which lists
- * `handleResizeHandleDown`) and every LiveSVGLayerHost / SelectionChromeOverlay
- * wiring behaves identically. The edge-preview / edge-reconnect / group-rotation
- * state atoms remain declared in SpatialCanvas; only their setters are threaded
- * in here.
+ * Handler identities are stable across renders — the shared `nodeItemCtx`
+ * (which lists `handleResizeHandleDown`) and the LiveSVGLayerHost /
+ * SelectionChromeOverlay wiring depend on them. The edge-preview /
+ * edge-reconnect / group-rotation state atoms are declared in SpatialCanvas;
+ * only their setters are threaded in here.
  */
 export function useNodeTransforms({
   engine,

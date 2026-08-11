@@ -59,7 +59,7 @@ console.log(`spatialboard/engine graph (${reached.length} files):`);
 for (const r of reached) console.log("  ", r);
 
 if (violations.length) {
-  console.error("\n❌ headless contract VIOLATED:");
+  console.error("\n✗ headless contract VIOLATED:");
   for (const v of violations) console.error("  ", v);
   process.exit(1);
 }

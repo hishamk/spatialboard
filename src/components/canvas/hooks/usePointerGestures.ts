@@ -42,10 +42,9 @@ import type { EdgePreviewState, GroupRotationState } from "./useNodeTransforms";
  * state it owns (marquee/lasso/stroke/shape/text previews + eraser/laser trails)
  * and the notify/awareness effects that read ONLY that state.
  *
- * Pure mechanical extraction — every ref/guard/rAF/`useCallback` + effect
- * dependency array is preserved byte-for-byte. Performance-load-bearing: the
- * per-node gesture subscriptions (`beginNodeGesture`/`endNodeGesture`) and the
- * rAF batching in the drag/marquee/lasso paths are unchanged. State that is ALSO
+ * Performance-load-bearing: the per-node gesture subscriptions
+ * (`beginNodeGesture`/`endNodeGesture`) and the rAF batching in the
+ * drag/marquee/lasso paths keep large-board drags at frame rate. State that is ALSO
  * read by another hook or by chrome outside these previews stays declared in
  * SpatialCanvas and is threaded in (`setEdgePreview`, `setGroupRotation`,
  * `setViewport`, `altClickRef`, `longPress*Ref`, the context-menu handles, the
@@ -932,7 +931,7 @@ export function usePointerGestures({
           // Keep the preview up until the real node has painted underneath —
           // clearing immediately leaves an empty frame (visible blink). The
           // preview matches the final rendering (its look is frozen via
-          // `kind`), so the hand-off is seamless.
+          // `kind`), so nothing shifts at the swap.
           requestAnimationFrame(() => requestAnimationFrame(() => {
             setTextPreview(null);
           }));

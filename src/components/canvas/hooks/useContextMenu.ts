@@ -83,8 +83,7 @@ function describeNode(n: SpatialNode, labels: SpatialBoardLocalization): string 
 /**
  * Right-click / long-press context-menu builder + state. `buildContextMenuSections`
  * is a pure(ish) section builder that mutates selection then returns the menu model;
- * it and `setContextMenu` are exposed so the still-in-component pointer code can call
- * them (a later stage moves that code). Pure extraction from SpatialCanvas.
+ * it and `setContextMenu` are exposed so SpatialCanvas's pointer code can call them.
  */
 export function useContextMenu({
   engine,

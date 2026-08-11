@@ -8,15 +8,14 @@ import type { GroupRotationState } from "./useNodeTransforms";
 
 /**
  * The engine-mirror sync spine — the React state that mirrors the engine plus
- * the master subscription that keeps it in sync. Pure mechanical extraction
- * from SpatialCanvas: every guard, dependency array, and effect body is
- * preserved byte-for-byte. This code is performance-load-bearing (the
- * `handleChange` gesture gate, the `handleGuides` bail-if-unchanged, the
- * gesture force-end safety net) — nothing here may change behaviour.
+ * the master subscription that keeps it in sync. Performance-load-bearing:
+ * the `handleChange` gesture gate, the `handleGuides` bail-if-unchanged, and
+ * the gesture force-end safety net each keep large-board interaction at frame
+ * rate — treat every guard here as deliberate.
  *
  * The editing-slot setters + `textEditLockRef` live in `useInlineEditing`, and
- * `setGroupRotation`'s state lives in the orchestrator; both are threaded in so
- * `handleSelection` can clear them on selection change exactly as before.
+ * `setGroupRotation`'s state lives in the orchestrator; both are threaded in
+ * so `handleSelection` can clear them on selection change.
  */
 export function useEngineMirror(
   engine: SpatialEngine,

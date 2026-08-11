@@ -5,7 +5,7 @@ import type { Viewport, SpatialNode } from "../../../engine/types";
 /**
  * Search-highlight overlay logic: the set of node ids to outline, the active
  * match id, and the screen-space word-level highlight rects (recomputed via a
- * text-range scan, skipped while dragging). Pure extraction from SpatialCanvas.
+ * text-range scan, skipped while dragging).
  */
 export function useSearchHighlights({
   searchState,

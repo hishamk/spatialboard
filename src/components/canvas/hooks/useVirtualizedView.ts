@@ -7,10 +7,9 @@ import { spatialPerf } from "../../../perf/spatial-perf";
 import { hostNodeInScope } from "../canvas-helpers";
 
 /**
- * Viewport culling / virtualization for large boards, extracted from SpatialCanvas.
- * Owns the QuadTree-backed `virtualizedView` memo plus the SVG-layer node
- * derivations and the perf-record + throttled-debug effects. Behaviour and every
- * dep array are preserved byte-for-byte; this memo is performance-load-bearing.
+ * Viewport culling / virtualization for large boards. Owns the QuadTree-backed
+ * `virtualizedView` memo plus the SVG-layer node derivations and the
+ * perf-record + throttled-debug effects. The memo is performance-load-bearing.
  */
 export function useVirtualizedView({
   viewport,
@@ -223,8 +222,7 @@ export function useVirtualizedView({
   // the crossing-edge path-bounds pass (above), so edges whose endpoints are
   // offscreen but whose path crosses the view are included — mounting one
   // <svg> host per edge for EVERY edge on the board was pure memory/DOM waste.
-  // During drag the crossing pass is skipped (interaction FPS trade-off,
-  // unchanged from before).
+  // During drag the crossing pass is skipped (interaction FPS trade-off).
   // When singleFrameId is set, pre-compute visible node IDs for SVG layer filtering
   const _singleFrameIds = useMemo(() => {
     if (!singleFrameId) return null;

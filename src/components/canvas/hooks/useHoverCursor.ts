@@ -10,16 +10,14 @@ import type { PortPositionResolver } from "../../../engine/edge-geometry";
 import { getCursorForMode, LASSO_CURSOR } from "../canvas-helpers";
 
 /**
- * Cursor management + rAF-throttled hover pointer-move extracted from
- * SpatialCanvas.
+ * Cursor management + rAF-throttled hover pointer-move for the canvas.
  *
- * Pure mechanical extraction — the imperative cursor writes (NOT React state),
- * the rAF throttle, the `hoveredNodeIdRef` mirror, and every dependency array
- * are preserved byte-for-byte. Eraser cleanup is deliberately left behind as a
- * tiny separate effect in the component (its refs/setters stay there until a
- * later stage); this hook owns only the cursor-setting + hover-clear half of
- * the original mode effect, plus `hoveredNodeId` / `cursorCanvasPos` /
- * `hoveredNodeIdRef` state and the `boppingNodeIds` derivation.
+ * Cursor writes are imperative (NOT React state) and rAF-throttled — hover
+ * runs on every pointermove and must never trigger a render. Owns the
+ * cursor-setting + hover-clear half of mode handling, plus `hoveredNodeId` /
+ * `cursorCanvasPos` / `hoveredNodeIdRef` state and the `boppingNodeIds`
+ * derivation. Eraser cleanup stays in SpatialCanvas as its own small effect
+ * (its refs/setters live there).
  */
 export function useHoverCursor({
   engine,
@@ -27,7 +25,7 @@ export function useHoverCursor({
   mode,
   selBounds,
   resolvePortPositions,
-  // Kept solely to preserve handlePointerMove's exact useCallback dep array.
+  // Only referenced in handlePointerMove's dependency array.
   getNodeAABB,
   measuredHeights,
   nodes,

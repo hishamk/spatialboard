@@ -7,12 +7,11 @@ import { isPointInShapeNode } from "../../../engine/spatial-index";
 import { DEFAULT_FONT } from "../../../fonts";
 
 /**
- * Node/text/block creation extracted from SpatialCanvas — `createBlockNote`,
+ * Node/text/block creation for SpatialCanvas — `createBlockNote`,
  * `createTextNodeAndEdit` (with its external-editable blur helper + retry-focus
- * logic), and the `handleDoubleClick` dispatcher. Pure mechanical extraction:
- * every `useCallback` dependency array is preserved byte-for-byte. The editing
- * setters/refs these three write are the SAME identities returned by
- * `useInlineEditing`, passed in so creation can drive inline edit mode.
+ * logic), and the `handleDoubleClick` dispatcher. The editing setters/refs
+ * these three write are the identities returned by `useInlineEditing`, passed
+ * in so creation can drive inline edit mode.
  */
 export function useNodeCreation({
   engine,

@@ -11,10 +11,9 @@ import type { SpatialEngine } from "../../../engine/SpatialEngine";
  * mode) and the capture-phase input-leakage suppressor active while a canvas
  * text node is being edited.
  *
- * Pure mechanical extraction from SpatialCanvas — every setter/ref identity,
- * effect body, and dependency array is preserved byte-for-byte. The returned
- * setters/refs are the SAME stable identities the rest of the component +
- * `nodeItemCtx` consume, so no downstream dependency array changes.
+ * The returned setters/refs are stable identities — SpatialCanvas and
+ * `nodeItemCtx` list them in dependency arrays, so they must not change
+ * across renders.
  */
 export function useInlineEditing(
   engine: SpatialEngine,

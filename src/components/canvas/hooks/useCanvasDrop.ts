@@ -15,7 +15,7 @@ import { parseSBD } from "../../../serialization/sbd-parser";
 /**
  * External drag-and-drop handlers for the canvas root: GIF / personal-library /
  * library items, `.excalidrawlib` files, SVGs, and image files. Owns the
- * duplicate-drop dedup ref. Pure extraction from SpatialCanvas — behavior identical.
+ * duplicate-drop dedup ref.
  */
 export function useCanvasDrop(engine: SpatialEngine) {
   /** Some browsers / host apps deliver two `drop` events for one OS file drop — coalesce by file + position. */

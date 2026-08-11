@@ -109,9 +109,9 @@ export default function SpatialCanvas({
   const containerSize = useContainerSize(engine, containerRef);
   // Inline-editing slots (six editing-id slots + derived editingNodeId +
   // creation-tracking refs) and their two owning effects (engine crop-request,
-  // input-leakage suppression). Setters/refs keep stable identities so the
-  // still-in-component handlers + nodeItemCtx consume them unchanged. Declared
-  // ahead of useEngineMirror so its selection handler can clear these slots.
+  // input-leakage suppression). Setters/refs keep stable identities for the
+  // handlers + nodeItemCtx that consume them. Declared ahead of
+  // useEngineMirror so its selection handler can clear these slots.
   const {
     editingTextId,
     setEditingTextId,
@@ -144,7 +144,7 @@ export default function SpatialCanvas({
   // Engine-mirror sync spine: the React state that mirrors the engine + the
   // master subscription (change/viewport/selection/mode/background/guides/
   // search/gesture/group/lasso) + the native wheel handler. Performance-load-
-  // bearing — see the hook for every preserved guard.
+  // bearing — see the hook header for the guards.
   const {
     nodes,
     viewport,
@@ -477,7 +477,7 @@ export default function SpatialCanvas({
 
   // Node transform / handle interaction handlers (resize, rotate, connect,
   // port-connect, kink, edge-endpoint reconnect, unified multi-selection
-  // rotate/resize). Extracted to a hook; every identity + dep array preserved.
+  // rotate/resize).
   const {
     handleResizeHandleDown,
     handleRotateStart,

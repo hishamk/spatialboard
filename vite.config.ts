@@ -32,9 +32,9 @@ export default defineConfig({
       },
     },
     cssCodeSplit: false,
-    // Vite lib mode inlines assets regardless of this limit (verified: fonts
-    // stay base64 even at the 4096 default). Kept explicit so the intent —
-    // bundled fonts ride inside index.js — survives a Vite behavior change.
+    // Vite lib mode inlines assets regardless of this limit — fonts stay
+    // base64 even at the 4096 default. Explicit so the intent — bundled
+    // fonts ride inside index.js — survives a Vite behavior change.
     assetsInlineLimit: 100_000,
   },
 });

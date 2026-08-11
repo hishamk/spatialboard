@@ -35,13 +35,7 @@ export async function runBenchmark(engine: SpatialEngine) {
     // Batch insert for setup; individual-insert cost shows up in the
     // per-query timings below, which mirror real interaction patterns.
     const startInsert = performance.now();
-    // @ts-ignore
-    if (engine.addNodes) {
-        // @ts-ignore
-        engine.addNodes(nodes);
-    } else {
-        nodes.forEach(n => engine.addNode(n));
-    }
+    engine.addNodes(nodes);
     const endInsert = performance.now();
     console.timeEnd(`Insert ${NODE_COUNT} nodes`);
     console.log(`Insert took ${(endInsert - startInsert).toFixed(2)}ms`);
