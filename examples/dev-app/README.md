@@ -5,15 +5,17 @@ Full-featured playground: custom node types, **exemplar layouts**, and the dragg
 ## Run
 
 ```bash
-cd spatialboard/examples/dev-app
+# from the repo root
 npm install
-npm run dev
+npm run dev:app
 ```
 
-From repo root you can also use `cd spatialboard && npm run dev` (workspace script).
+Or from this directory: `npm run dev`.
 
 ## Exemplar boards (Debug panel)
 
-Open the **Debug** strip at the bottom → expand → use the colored buttons (**Packet Observatory**, **Half adder**, **Layout exemplar**, **Mission Control**).
+The app opens on the **Summit day** board. The **Debug** strip at the bottom
+loads the others — **Packet Observatory**, **Half adder**, **Layout
+exemplar**, **Mission Control**, **Whiteboard**, **Deck**, **Summit day**.
 
 - **TypeScript layouts** are listed in `src/exemplar-debug-boards.ts` and implemented under `src/exemplars/`.

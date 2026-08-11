@@ -28,7 +28,7 @@ Battery check at 06:00.
   "label": "Houston"
 }
 
-<!--@edge id="e1" from="s1" to="clock1" style="dashed" color="#666" arrowHead="arrow" -->
+<!--@edge id="e1" from="s1" to="clock1" style="dashed" color="#111" arrowHead="arrow" -->
 ```
 
 ### Directives

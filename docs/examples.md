@@ -3,7 +3,9 @@
 A guided path from a one-liner to the full playground. The runnable apps live in
 [`examples/`](../examples/) — each is a self-contained Vite + React project that
 persists to `localStorage` and works offline (PWA), so you can install any of them
-to your home screen. Run one from the package root:
+to your home screen. All four are hosted live at
+[spatialboard.hishamkhalifa.com](https://spatialboard.hishamkhalifa.com), or run
+one from the package root:
 
 ```bash
 npm install
@@ -71,7 +73,7 @@ the product and gauge update live. See [custom-nodes.md](custom-nodes.md) and
 ## 4. The full playground — [`examples/dev-app`](../examples/dev-app)
 
 The kitchen sink: ~40 custom node types, Mermaid import, Excalidraw library import,
-presentations, search, themes, localization, debug boards, and an MCP eval server.
+presentations, search, themes, localization, and debug boards.
 Run it with `npm run dev:app`. Explore `examples/dev-app/src/App.tsx` for how a real
 host wires props, custom nodes, localization, and fonts together.
 

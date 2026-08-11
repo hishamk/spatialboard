@@ -44,5 +44,5 @@ npm install
 npm run dev --workspace=examples/custom-nodes
 ```
 
-For the exhaustive version (~40 node types, palette, exemplars, an MCP eval
-server), see [`../dev-app`](../dev-app).
+For the exhaustive version (~40 node types, palette, exemplars), see
+[`../dev-app`](../dev-app).
