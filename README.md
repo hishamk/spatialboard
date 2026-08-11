@@ -7,6 +7,10 @@
 </h3>
 
 <p align="center">
+  <strong><a href="https://spatialboard.hishamkhalifa.com">Try it ↗</a></strong>
+</p>
+
+<p align="center">
   <a href="docs/getting-started.md">Getting started</a> ·
   <a href="docs/custom-nodes.md">Custom nodes</a> ·
   <a href="docs/data-flow.md">Data flow</a> ·
@@ -25,10 +29,11 @@
 
 <p align="center">
   <sub>
-    The Mission Control board from the <a href="docs/examples.md">examples</a>.
-    The clocks, telemetry cards, timers, and 3D wireframe are custom nodes
-    built with the same public API as the built-in stickies, frames, text,
-    and connectors.
+    The Mission Control board from the <a href="docs/examples.md">examples</a> —
+    <a href="https://spatialboard.hishamkhalifa.com/dev-app/">open it live</a>
+    and load it from the debug panel. The clocks, telemetry cards, timers, and
+    3D wireframe are custom nodes built with the same public API as the
+    built-in stickies, frames, text, and connectors.
   </sub>
 </p>
 
@@ -227,18 +232,26 @@ returns `{ nodes, meta, warnings }`). Spec in [sbd-spec.md](sbd-spec.md).
 
 ## Examples
 
-Four runnable apps — three focused tiers plus the kitchen sink. All are
-self-contained, persist to localStorage, and work offline (PWA):
+Four runnable apps — three focused tiers plus the kitchen sink, all hosted
+live at
+[spatialboard.hishamkhalifa.com](https://spatialboard.hishamkhalifa.com). All
+are self-contained, persist to localStorage, and work offline (PWA):
 
-- **`examples/basic`** — the slim core board (`<SpatialBoard />`), no rich text and
-  **zero `@blocknote` peers**.
-- **`examples/rich-text`** — opt-in BlockNote nodes via `spatialboard/blocknote`.
-- **`examples/custom-nodes`** — three custom node types wired as a live data-flow
-  graph (Number × Number → Multiply → Gauge).
-- **`examples/dev-app`** — the development playground: every feature, ~40 custom
-  node types, and an MCP eval server. Every board pictured above ships here —
-  Whiteboard, Half adder, Deck, and Mission Control all load from the debug
-  panel.
+- **`examples/basic`**
+  ([live](https://spatialboard.hishamkhalifa.com/basic/)) — the slim core
+  board (`<SpatialBoard />`), no rich text and **zero `@blocknote` peers**.
+- **`examples/rich-text`**
+  ([live](https://spatialboard.hishamkhalifa.com/rich-text/)) — opt-in
+  BlockNote nodes via `spatialboard/blocknote`.
+- **`examples/custom-nodes`**
+  ([live](https://spatialboard.hishamkhalifa.com/custom-nodes/)) — three
+  custom node types wired as a live data-flow graph
+  (Number × Number → Multiply → Gauge).
+- **`examples/dev-app`**
+  ([live](https://spatialboard.hishamkhalifa.com/dev-app/)) — the development
+  playground: every feature and ~40 custom node types. Every board pictured
+  above ships here — Whiteboard, Half adder, Deck, and Mission Control all
+  load from the debug panel.
 
 From the package root:
 
@@ -262,6 +275,19 @@ playground.
   localization via `direction` and `localization`.
 - **Read-only + preview modes** — `readOnly` keeps pan/zoom/select alive while
   guarding all mutations; `preview` renders a static board.
+
+## Roadmap
+
+Near-term directions rather than commitments — if one of these matters to
+you, open an issue and it will move up:
+
+- **MCP server** — expose a live board to agents over the Model Context
+  Protocol, so LLM tooling can read, draw on, and rearrange a canvas through
+  the same engine API the examples use. The SBD format and
+  `getAgentStateMarkdown()` already cover the read/write loop; MCP makes it a
+  standard plug.
+- **Collaboration example** — a worked example wiring the engine's remote ops
+  and gesture awareness to a real CRDT transport, end to end.
 
 ## Development
 
