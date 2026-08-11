@@ -44,6 +44,7 @@ import { throttleNodeType, type ThrottleData } from "./nodes/throttle";
 import { convertNodeType, type ConvertData } from "./nodes/convert";
 import { variableNodeType, type VariableData } from "./nodes/variable";
 import { exemplarDebugBoards } from "./exemplar-debug-boards";
+import { loadSummitDayBoard } from "./exemplars";
 import { DEV_CUSTOM_NODE_DOCS } from "./localization/custom-node-docs";
 import { nanoid } from "nanoid";
 
@@ -84,6 +85,24 @@ export default function App() {
     w.__engine = engine;
     /** MCP `spatialboard_list_node_types` merges `docTitle` / `docBody` from these keys. */
     w.__nodeTypeDocs = DEV_CUSTOM_NODE_DOCS;
+  }, [engine]);
+
+  // The dev-app has no persistence — start on the Summit day board instead of
+  // an empty canvas. (The loader clears the board first, so it's idempotent
+  // under StrictMode's double-invoked effects.) The loader's fitToContent()
+  // runs against the engine's default 2000×1500 container — the ResizeObserver
+  // delivers the real size later in the first frame, AFTER rAF callbacks — so
+  // re-fit on the second frame.
+  useEffect(() => {
+    loadSummitDayBoard(engine);
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => engine.fitToContent());
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [engine]);
 
   // ── Agent demo ──────────────────────────────────────────────
@@ -163,7 +182,7 @@ export default function App() {
     const statusBar = document.createElement("div");
     statusBar.id = "agent-status";
     statusBar.style.cssText = "position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 20px;border-radius:8px;font:14px/1.4 monospace;z-index:99998;box-shadow:0 4px 20px rgba(0,0,0,0.5);border:1px solid #333;white-space:nowrap;pointer-events:none;";
-    statusBar.textContent = "🤖 Agent starting...";
+    statusBar.textContent = "Agent starting…";
     document.body.appendChild(statusBar);
 
     try {
@@ -231,12 +250,12 @@ export default function App() {
       
       // Transition cursor away
       agentShowCursor(false);
-      statusBar.textContent = "✅ Agent demo complete!";
+      statusBar.textContent = "Agent demo complete";
       await engine.animateViewport({ zoom: 0.7 }, { duration: 600 });
       await new Promise(r => setTimeout(r, 1000));
       await engine.fitToContent();
     } finally {
-      statusBar.textContent = "✅ Done!";
+      statusBar.textContent = "Done";
       setTimeout(() => {
         agentRemoveCursor();
         statusBar.remove();
