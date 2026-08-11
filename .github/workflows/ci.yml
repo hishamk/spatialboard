@@ -25,5 +25,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test
+        run: npm run test
+
       - name: Build
         run: npm run build
+
+      - name: Verify headless entry
+        run: node scripts/assert-headless.mjs
