@@ -61,7 +61,19 @@ export function usePersistentBoard(opts: {
         seed(engine);
       }
       if (cancelled) return;
-      if (!hadViewport) engine.fitToContent();
+      if (!hadViewport) {
+        // Fit now, and again on the second frame: the engine defaults to a
+        // 2000×1500 container until the board's ResizeObserver delivers the
+        // real size — which lands later in the first frame, AFTER rAF
+        // callbacks — so only a second-frame re-fit is guaranteed to frame
+        // the board against the measured container.
+        engine.fitToContent();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!cancelled) engine.fitToContent();
+          });
+        });
+      }
       setSaveState("saved");
     })();
     return () => {
