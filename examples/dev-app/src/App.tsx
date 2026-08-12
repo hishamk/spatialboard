@@ -87,14 +87,23 @@ export default function App() {
     w.__nodeTypeDocs = DEV_CUSTOM_NODE_DOCS;
   }, [engine]);
 
-  // The dev-app has no persistence — start on the Summit day board instead of
-  // an empty canvas. (The loader clears the board first, so it's idempotent
-  // under StrictMode's double-invoked effects.) The loader's fitToContent()
-  // runs against the engine's default 2000×1500 container — the ResizeObserver
-  // delivers the real size later in the first frame, AFTER rAF callbacks — so
-  // re-fit on the second frame.
+  // The dev-app has no persistence — start on an exemplar instead of an empty
+  // canvas: `?board=<slug>` deep-links any board from the debug strip (labels
+  // kebab-cased, e.g. ?board=mission-control), defaulting to Summit day.
+  // (Loaders clear the board first, so this is idempotent under StrictMode's
+  // double-invoked effects.) A loader's fitToContent() runs against the
+  // engine's default 2000×1500 container — the ResizeObserver delivers the
+  // real size later in the first frame, AFTER rAF callbacks — so re-fit on
+  // the second frame.
   useEffect(() => {
-    loadSummitDayBoard(engine);
+    const slug = new URLSearchParams(window.location.search).get("board");
+    const entry = slug
+      ? exemplarDebugBoards.find(
+          (b) => b.label.toLowerCase().replace(/\s+/g, "-") === slug,
+        )
+      : undefined;
+    if (entry) entry.load(engine);
+    else loadSummitDayBoard(engine);
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => engine.fitToContent());
