@@ -31,12 +31,12 @@ Three build entries, declared in `package.json` (`exports`):
 
 The default board registers `coreBoardNodes` (`src/nodes/index.ts:44`); hosts that want rich-text notes append the `blocknote` node type from the subpath, keeping the heavy editor out of every other bundle.
 
-## 1. From `App()` to the board
+## 1. From the host app to the board
 
-`src/App.tsx` is the dev harness, and it shows the two ways to assemble a board:
+Two ways to assemble a board:
 
-- **Raw composition** (what `App()` does): `const engine = useMemo(() => new SpatialEngine(), [])` (`App.tsx:11`), then wire `<Sidebar engine={…}>` and `<SpatialCanvas engine={…}>` by hand and call `setupKeyboardHandler(engine)` yourself (`App.tsx:20`).
-- **The product path**: render `<SpatialBoard>` (`src/components/SpatialBoard.tsx`), which does all of that assembly for you. Library consumers and the `examples/` apps use this.
+- **The product path**: render `<SpatialBoard>` (`src/components/SpatialBoard.tsx`), which owns the whole assembly. Library consumers and the `examples/` apps use this.
+- **Raw composition**: `const engine = useMemo(() => new SpatialEngine(), [])`, then wire `<Sidebar engine={…}>` and `<SpatialCanvas engine={…}>` by hand and call `setupKeyboardHandler(engine)` yourself — the same wiring `SpatialBoard` performs internally (step 7 below), for hosts that want to own the layout.
 
 ### `SpatialBoard` — the composition root (`src/components/SpatialBoard.tsx`)
 
