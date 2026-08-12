@@ -279,16 +279,21 @@ playground.
 
 ## Roadmap
 
-Near-term directions rather than commitments — if one of these matters to
-you, open an issue and it will move up:
+In priority order — directions rather than commitments, and an issue that
+argues for reshuffling them is welcome:
 
-- **MCP server** — expose a live board to agents over the Model Context
-  Protocol, so LLM tooling can read, draw on, and rearrange a canvas through
-  the same engine API the examples use. The SBD format and
-  `getAgentStateMarkdown()` already cover the read/write loop; MCP makes it a
-  standard plug.
-- **Collaboration example** — a worked example wiring the engine's remote ops
-  and gesture awareness to a real CRDT transport, end to end.
+1. **Test coverage** — the current suite covers the engine core,
+   serialization, export, and geometry; it should also pin down the
+   interaction layer (pointer gestures, selection, undo semantics), the
+   data-flow engine's edge cases, and the React rendering contracts. Depth
+   here pays for everything below it.
+2. **MCP server** — expose a live board to agents over the Model Context
+   Protocol, so LLM tooling can read, draw on, and rearrange a canvas
+   through the same engine API the examples use. The SBD format and
+   `getAgentStateMarkdown()` already cover the read/write loop; MCP makes
+   it a standard plug.
+3. **Collaboration example** — a worked example wiring the engine's remote
+   ops and gesture awareness to a real CRDT transport, end to end.
 
 ## Development
 
