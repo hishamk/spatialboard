@@ -26,7 +26,7 @@ And `spatialboard/engine` — the headless entry — needs no peers at all.
 ## First board
 
 ```tsx
-import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
+import { SpatialBoard, SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { useMemo } from "react";
 
@@ -34,7 +34,7 @@ export default function App() {
   const engine = useMemo(() => new SpatialEngine(), []);
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      <SpatialBoard engine={engine} nodeTypes={builtinNodeTypes} />
+      <SpatialBoard engine={engine} />
     </div>
   );
 }
@@ -107,7 +107,7 @@ See [../sbd-spec.md](../sbd-spec.md) for the format.
 
 | Prop | What it does |
 |------|--------------|
-| `nodeTypes` | Node type definitions to register (start from `builtinNodeTypes`) |
+| `nodeTypes` | Node type definitions to register (defaults to `coreBoardNodes`; spread it to add your own) |
 | `engine` | Your `SpatialEngine` instance |
 | `initialData` | SBD string loaded on mount |
 | `toolbar`, `propertiesPanel`, `nodeInspector` | Toggle built-in chrome |

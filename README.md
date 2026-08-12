@@ -78,7 +78,7 @@ npm install spatialboard
 ```
 
 ```tsx
-import { SpatialBoard, SpatialEngine, builtinNodeTypes } from "spatialboard";
+import { SpatialBoard, SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { useMemo } from "react";
 
@@ -86,7 +86,7 @@ export default function App() {
   const engine = useMemo(() => new SpatialEngine(), []);
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      <SpatialBoard engine={engine} nodeTypes={builtinNodeTypes} />
+      <SpatialBoard engine={engine} />
     </div>
   );
 }
@@ -189,7 +189,7 @@ export const counterNodeType: NodeTypeDefinition<CounterData> = {
   component: Counter,
 };
 
-// <SpatialBoard nodeTypes={[...builtinNodeTypes, counterNodeType]} />
+// <SpatialBoard nodeTypes={[...coreBoardNodes, counterNodeType]} />
 ```
 
 Definitions can also declare container behavior, custom hit-testing, a

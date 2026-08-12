@@ -30,7 +30,7 @@ export const counterNodeType: NodeTypeDefinition<CounterData> = {
 ```tsx
 <SpatialBoard
   engine={engine}
-  nodeTypes={[...builtinNodeTypes, counterNodeType]}
+  nodeTypes={[...coreBoardNodes, counterNodeType]}
 />
 ```
 

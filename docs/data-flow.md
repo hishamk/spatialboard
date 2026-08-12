@@ -56,7 +56,7 @@ yourself only for headless or host-driven use:
 import { DataFlowEngine, NodeTypeRegistry } from "spatialboard";
 
 const registry = new NodeTypeRegistry();
-[...builtinNodeTypes, mathNodeType].forEach((t) => registry.register(t));
+[...coreBoardNodes, mathNodeType].forEach((t) => registry.register(t));
 engine.setRegistry(registry);
 
 const flow = new DataFlowEngine(engine, registry);
