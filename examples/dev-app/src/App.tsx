@@ -44,6 +44,7 @@ import { throttleNodeType, type ThrottleData } from "./nodes/throttle";
 import { convertNodeType, type ConvertData } from "./nodes/convert";
 import { variableNodeType, type VariableData } from "./nodes/variable";
 import { exemplarDebugBoards } from "./exemplar-debug-boards";
+import { DemoSwitcher } from "./DemoSwitcher";
 import { loadSummitDayBoard } from "./exemplars";
 import { DEV_CUSTOM_NODE_DOCS } from "./localization/custom-node-docs";
 import { nanoid } from "nanoid";
@@ -860,6 +861,7 @@ export default function App() {
           </button>
         )}
       </div>
+      <DemoSwitcher current="dev-app" />
     </div>
   );
 }

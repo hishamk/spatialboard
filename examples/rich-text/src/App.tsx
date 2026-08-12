@@ -5,6 +5,7 @@ import { defaultBoardNodes } from "spatialboard/blocknote";
 import "spatialboard/style.css";
 import { usePersistentBoard } from "./usePersistentBoard";
 import { BoardShell } from "./BoardShell";
+import { DemoSwitcher } from "./DemoSwitcher";
 
 /**
  * Example 2 — opt-in rich text.
@@ -61,7 +62,8 @@ export default function App() {
   });
 
   return (
-    <BoardShell title="Rich-text Board" subtitle="core + BlockNote · spatialboard/blocknote" saveState={saveState} onReset={reset}>
+    <BoardShell title="Rich-text Board" subtitle="core + BlockNote · spatialboard/blocknote" saveState={saveState} onReset={reset}
+      nav={<DemoSwitcher current="rich-text" />}>
       {/* defaultBoardNodes = coreBoardNodes + the rich-text node. */}
       <SpatialBoard engine={engine} nodeTypes={defaultBoardNodes} />
     </BoardShell>

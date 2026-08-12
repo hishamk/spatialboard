@@ -7,12 +7,14 @@ export function BoardShell({
   subtitle,
   saveState,
   onReset,
+  nav,
   children,
 }: {
   title: string;
   subtitle: string;
   saveState: SaveState;
   onReset: () => void;
+  nav?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -50,6 +52,7 @@ export function BoardShell({
         >
           Reset
         </button>
+        {nav}
       </header>
       <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
     </div>

@@ -2,6 +2,7 @@ import { SpatialBoard, coreBoardNodes, type SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { usePersistentBoard } from "./usePersistentBoard";
 import { BoardShell } from "./BoardShell";
+import { DemoSwitcher } from "./DemoSwitcher";
 import { numberNodeType } from "./nodes/number";
 import { multiplyNodeType } from "./nodes/multiply";
 import { gaugeNodeType } from "./nodes/gauge";
@@ -45,7 +46,8 @@ export default function App() {
   });
 
   return (
-    <BoardShell title="Custom Nodes" subtitle="data-flow · ports + compute" saveState={saveState} onReset={reset}>
+    <BoardShell title="Custom Nodes" subtitle="data-flow · ports + compute" saveState={saveState} onReset={reset}
+      nav={<DemoSwitcher current="custom-nodes" />}>
       <SpatialBoard engine={engine} nodeTypes={nodeTypes} dataFlowEdgeOverlay="ports+compute" />
     </BoardShell>
   );

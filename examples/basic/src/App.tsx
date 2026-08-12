@@ -3,6 +3,7 @@ import { SpatialBoard, LIGHT_SB_THEME, type SpatialEngine } from "spatialboard";
 import "spatialboard/style.css";
 import { usePersistentBoard } from "./usePersistentBoard";
 import { BoardShell } from "./BoardShell";
+import { DemoSwitcher } from "./DemoSwitcher";
 import { AboutPage } from "./AboutPage";
 
 /**
@@ -56,6 +57,7 @@ export default function App() {
       saveState={saveState}
       onReset={reset}
       onAbout={() => setAboutOpen(true)}
+      nav={<DemoSwitcher current="basic" />}
     >
       {/* No `nodeTypes` prop → the slim default preset (coreBoardNodes). */}
       <SpatialBoard engine={engine} theme={LIGHT_SB_THEME} chrome="console" />
