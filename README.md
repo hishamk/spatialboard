@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="SpatialBoard" width="420" />
+  <img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/logo.svg" alt="SpatialBoard" width="420" />
 </p>
 
 <h3 align="center">
@@ -25,7 +25,7 @@
   <img src="https://img.shields.io/badge/React-18%20%7C%2019-149eca.svg" alt="React 18 and 19" />
 </p>
 
-<img src="docs/assets/hero.png" alt="A SpatialBoard canvas showing a mission-control board: live analog clock nodes, telemetry data cards, a stopwatch and countdown, sticky notes, a 3D wireframe, and a flow timeline with a progress bar." />
+<img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/hero.png" alt="A SpatialBoard canvas showing a mission-control board: live analog clock nodes, telemetry data cards, a stopwatch and countdown, sticky notes, a 3D wireframe, and a flow timeline with a progress bar." />
 
 <p align="center">
   <sub>
@@ -111,7 +111,7 @@ lifecycle, persistence, and the key props.
 frames — everything in the feature list above, working together out of the
 box.
 
-<img src="docs/assets/whiteboard.png" alt="A hand-drawn kickoff whiteboard: a rough rectangle, ellipse and diamond with hachure and cross-hatch fills wired by sketchy arrows, a dashed loop-back labelled not yet, a red circled annotation, three rotated photos, a yellow highlighter swipe under handwritten text, a pencil squiggle, and two tilted sticky notes." />
+<img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/whiteboard.png" alt="A hand-drawn kickoff whiteboard: a rough rectangle, ellipse and diamond with hachure and cross-hatch fills wired by sketchy arrows, a dashed loop-back labelled not yet, a red circled annotation, three rotated photos, a yellow highlighter swipe under handwritten text, a pencil squiggle, and two tilted sticky notes." />
 
 <p align="center">
   <sub>
@@ -127,7 +127,7 @@ values through the wired graph. This is the foundation for visual
 programming, pipelines, and dashboards. See
 [docs/data-flow.md](docs/data-flow.md).
 
-<img src="docs/assets/dataflow.png" alt="A one-bit half adder built from custom nodes: two toggle inputs wired into XOR and AND gates, whose outputs drive Sum and Carry displays. Input A is on, so the XOR gate shows 1 and the Sum display reads true." />
+<img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/dataflow.png" alt="A one-bit half adder built from custom nodes: two toggle inputs wired into XOR and AND gates, whose outputs drive Sum and Carry displays. Input A is on, so the XOR gate shows 1 and the Sum display reads true." />
 
 <p align="center">
   <sub>
@@ -141,7 +141,7 @@ programming, pipelines, and dashboards. See
 reading order decide, then step through with animated transitions. One method
 call — `engine.enterPresentation()`.
 
-<img src="docs/assets/slides.png" alt="Four slide frames laid out as a grid on the canvas — a title slide, a sticky-note slide, a rough bar chart, and a closing slide — with the slides panel open on the right listing the same four as an ordered deck, each with its own transition and duration." />
+<img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/slides.png" alt="Four slide frames laid out as a grid on the canvas — a title slide, a sticky-note slide, a rough bar chart, and a closing slide — with the slides panel open on the right listing the same four as an ordered deck, each with its own transition and duration." />
 
 <p align="center">
   <sub>
