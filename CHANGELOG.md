@@ -314,3 +314,6 @@ Versioning.
 
 - Initial SpatialBoard release with core engine, built-in nodes, React board
   components, and SBD serialization support.
+
+[Unreleased]: https://github.com/hishamk/spatialboard/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hishamk/spatialboard/releases/tag/v0.2.0
