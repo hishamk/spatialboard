@@ -26,7 +26,7 @@
   <img src="https://img.shields.io/badge/React-18%20%7C%2019-149eca.svg" alt="React 18 and 19" />
 </p>
 
-<a href="https://spatialboard.hishamkhalifa.com/dev-app/?board=mission-control"><img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/hero.png" alt="A SpatialBoard canvas showing a mission-control board: live analog clock nodes, telemetry data cards, a stopwatch and countdown, sticky notes, a 3D wireframe, and a flow timeline with a progress bar." /></a>
+<a href="https://spatialboard.hishamkhalifa.com/dev-app/?board=mission-control"><img src="https://raw.githubusercontent.com/hishamk/spatialboard/main/docs/assets/hero.gif" alt="A SpatialBoard canvas showing a mission-control board: live analog clock nodes, telemetry data cards, a stopwatch and countdown, sticky notes, a 3D wireframe, and a flow timeline with a progress bar." /></a>
 
 <p align="center">
   <sub>
