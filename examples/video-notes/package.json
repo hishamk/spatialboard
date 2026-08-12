@@ -1,0 +1,24 @@
+{
+  "name": "spatialboard-example-video-notes",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "SpatialBoard example — YouTube nodes on the canvas: annotate talks with ink and stickies.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "spatialboard": "file:../../"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5",
+    "vite": "^5"
+  }
+}

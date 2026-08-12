@@ -1,0 +1,19 @@
+{
+  "name": "SpatialBoard — Video Notes",
+  "short_name": "Video Notes",
+  "description": "YouTube embeds on an infinite canvas — annotate talks with ink and stickies. Saved on your device.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f7f4",
+  "theme_color": "#1e1e2e",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -55,6 +55,7 @@
     "dev:rich-text": "npm run dev --workspace=examples/rich-text",
     "dev:custom": "npm run dev --workspace=examples/custom-nodes",
     "dev:app": "npm run dev --workspace=examples/dev-app",
+    "dev:video": "npm run dev --workspace=examples/video-notes",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "build": "vite build && tsc -p tsconfig.build.json",
     "prepare": "node -e \"try{require.resolve('vite')}catch{console.log('spatialboard: vite unavailable — skipping prepare build (using provided dist)');process.exit(0)}require('child_process').execSync('npm run build',{stdio:'inherit'})\"",
