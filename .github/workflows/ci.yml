@@ -33,3 +33,24 @@ jobs:
 
       - name: Verify headless entry
         run: node scripts/assert-headless.mjs
+
+  # Installs the packed tarball into a fresh Vite app and builds the
+  # documented snippets against it — catches exports-map, type-path, and
+  # docs-vs-API drift that the source-aliased examples can't see.
+  consumer-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Consumer smoke test
+        run: bash scripts/consumer-smoke.sh
