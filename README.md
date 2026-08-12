@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/spatialboard"><img src="https://img.shields.io/npm/v/spatialboard.svg?color=cb3837" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" alt="TypeScript" />
   <img src="https://img.shields.io/badge/React-18%20%7C%2019-149eca.svg" alt="React 18 and 19" />

@@ -6,7 +6,7 @@
   "author": "Hisham Khalifa",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hishamk/spatialboard.git"
+    "url": "git+https://github.com/hishamk/spatialboard.git"
   },
   "homepage": "https://github.com/hishamk/spatialboard#readme",
   "bugs": {
@@ -76,11 +76,21 @@
     "react-dom": "^18 || ^19"
   },
   "peerDependenciesMeta": {
-    "@blocknote/core": { "optional": true },
-    "@blocknote/mantine": { "optional": true },
-    "@blocknote/react": { "optional": true },
-    "@mantine/core": { "optional": true },
-    "@mantine/hooks": { "optional": true }
+    "@blocknote/core": {
+      "optional": true
+    },
+    "@blocknote/mantine": {
+      "optional": true
+    },
+    "@blocknote/react": {
+      "optional": true
+    },
+    "@mantine/core": {
+      "optional": true
+    },
+    "@mantine/hooks": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
