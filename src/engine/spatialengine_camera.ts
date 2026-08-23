@@ -320,6 +320,16 @@ export function animateViewport(
     y: target.y ?? engine.viewport.y,
     zoom: target.zoom ?? engine.viewport.zoom,
   };
+  // Zero / negative / NaN duration: snap. The tween divides elapsed by
+  // duration, and the first rAF timestamp can equal the captured start time,
+  // so duration 0 yields 0/0 = NaN and poisons every subsequent transform.
+  if (!(duration > 0)) {
+    engine.viewport.x = to.x;
+    engine.viewport.y = to.y;
+    engine.viewport.zoom = to.zoom;
+    engine.emit("viewport");
+    return Promise.resolve();
+  }
   return new Promise((resolve) => {
     const startTime = performance.now();
     const animate = (now: number) => {

@@ -16,6 +16,10 @@ Versioning.
   create from a StrictMode double-run seeding effect, cannot wedge a node.
   `createEdge` additionally returns the existing edge id for an exact
   duplicate port wire (same endpoints and ports) instead of stacking a twin.
+- `animatePanTo(x, y, 0)` — and any camera animation given a zero, negative,
+  or NaN duration (`animateViewport`, `animateZoomTo`, `animateViewportTo`,
+  the animated fits) — now snaps to the target instead of tweening
+  elapsed/0 into NaN viewport transforms that blanked the canvas.
 
 ## [0.2.0] - 2026-08-11
 

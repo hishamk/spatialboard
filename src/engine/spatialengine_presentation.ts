@@ -201,6 +201,10 @@ function _computeSlideViewport(engine: SpatialEngine, frame: SpatialNode): { x: 
 /** Pan transition: smooth viewport interpolation (default). */
 export function _transitionPan(engine: SpatialEngine, target: { x: number; y: number; zoom: number }, durationMs?: number): void {
   const duration = durationMs ?? 400;
+  // Zero / negative / NaN duration snaps — the tween's elapsed/duration
+  // division would produce NaN on a first frame whose timestamp matches
+  // the captured start time.
+  if (!(duration > 0)) return _transitionNone(engine, target);
   const startTime = performance.now();
   const from = { ...engine.viewport };
   const animate = (now: number) => {
