@@ -41,6 +41,16 @@ Versioning.
   or NaN duration (`animateViewport`, `animateZoomTo`, `animateViewportTo`,
   the animated fits) — now snaps to the target instead of tweening
   elapsed/0 into NaN viewport transforms that blanked the canvas.
+- Port wires no longer intercept pointer events over the solid cards they
+  cross: buttons, inputs, and draggable cells inside a card stay clickable
+  under a crossing wire. The wire's invisible hit stroke is pointer-inert
+  for port wires (selection uses the canvas's geometric pick, whose
+  tolerance exceeds the stroke), and that pick yields to a solid card when
+  the point is inside it — the wire remains selectable in the gaps, and the
+  right-click "Objects here" list reaches it even where a card covers it.
+  Drawn strokes are untouched — wires still paint over cards — and freeform
+  edges keep their full hit priority, so annotation arrows over images
+  behave as before.
 
 ## [0.2.0] - 2026-08-11
 

@@ -260,6 +260,49 @@ export function edgePickTolerance(edge: EdgeNode, zoom: number): number {
 export type ClosestEdgeHit = { node: SpatialNode; distance: number };
 
 /**
+ * Whether a picked PORT wire must yield to a node hit at the same point: the
+ * node is a solid card (not ink/shape geometry or a border-only container)
+ * and the point lies strictly inside its rect. In a data-flow board the cards
+ * are the interactive surface — a wire crossing one must not steal clicks
+ * from its buttons/inputs; the wire stays pickable in the gaps, and the
+ * context menu's "Objects here" list reaches it even where a card covers it.
+ * Freeform edges (no ports) never yield: a drawn arrow over an image is an
+ * annotation the user expects to grab. Mirrors the DOM side, where a port
+ * wire's invisible hit stroke is pointer-inert so card DOM beneath it
+ * receives events directly.
+ */
+export function portEdgeYieldsToNode(
+  edge: EdgeNode,
+  node: SpatialNode | null | undefined,
+  canvasX: number,
+  canvasY: number,
+  isContainerType: (type: string) => boolean,
+  measuredHeights?: Record<string, number>,
+): boolean {
+  if (!node) return false;
+  const ed = edge.data;
+  if (!ed.sourcePort || !ed.targetPort) return false;
+  if (node.type === "edge" || node.type === "draw" || node.type === "shape") return false;
+  if (isContainerType(node.type)) return false;
+  const h = resolveH(node, measuredHeights);
+  let lx = canvasX;
+  let ly = canvasY;
+  if (node.rotation) {
+    // Inverse-rotate the point around the node center (node-local frame).
+    const cx = node.x + node.w / 2;
+    const cy = node.y + h / 2;
+    const rad = (-node.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const dx = canvasX - cx;
+    const dy = canvasY - cy;
+    lx = cx + dx * cos - dy * sin;
+    ly = cy + dx * sin + dy * cos;
+  }
+  return lx >= node.x && lx <= node.x + node.w && ly >= node.y && ly <= node.y + h;
+}
+
+/**
  * Closest edge whose path lies within per-edge pick tolerance of the point.
  */
 export function getClosestEdgeHit(

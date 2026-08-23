@@ -20,6 +20,7 @@ import {
   nearestHandle,
   nearestPerimeterPoint,
   nearestInteriorUV,
+  portEdgeYieldsToNode,
   INTERIOR_ANCHOR_BAND_PX,
 } from "../../../engine/edge-geometry";
 import { distancePointToBoxNodeBorder } from "../../../engine/spatial-index";
@@ -546,10 +547,26 @@ export function usePointerGestures({
           if (edgePick && hitEligible(edgePick.node)) {
             if (!hit) {
               hit = edgePick.node;
+            } else if (
+              portEdgeYieldsToNode(
+                edgePick.node as EdgeNode,
+                hit,
+                cx,
+                cy,
+                (t) => engine.isContainerType(t),
+                measuredHeights,
+              )
+            ) {
+              // A port wire crossing a solid card yields the pick — the
+              // card's interactive content is what the user is aiming at.
+              // The wire stays clickable in the gaps, and the context menu's
+              // "Objects here" list reaches it even where it is covered.
+              // Matches the DOM side, where a port wire's hit stroke is
+              // pointer-inert.
             } else if (edgePick.node.z > hit.z) {
               // Unified z-order: the edge paints ABOVE the hit node here, so
               // it is what the user sees under the cursor — it wins the pick.
-              // (Alt+click still cycles to what lies underneath.)
+              // (Right-click → "Objects here" reaches what lies underneath.)
               hit = edgePick.node;
             } else if (
               hit.type !== "draw" &&

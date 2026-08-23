@@ -757,7 +757,12 @@ const EdgeRenderer = memo(function EdgeRenderer({
 
   return (
     <g opacity={isReconnecting ? 0.15 : (isEraserMarked ? 0.25 : undefined)} style={eraserStyle}>
-      {/* Invisible wide hit area for easier clicking */}
+      {/* Invisible wide hit area for easier clicking. Port wires make it
+          pointer-INERT: selection runs on the container's geometric pick
+          (whose tolerance exceeds this stroke, and which yields to the solid
+          cards a wire crosses — portEdgeYieldsToNode), so the stroke's only
+          DOM effect would be shadowing the buttons/inputs of cards beneath
+          it. Freeform edges keep the stroke as an easy grab area. */}
       <path
         d={path}
         stroke="transparent"
@@ -765,7 +770,8 @@ const EdgeRenderer = memo(function EdgeRenderer({
         strokeLinecap="round"
         fill="none"
         style={{
-          pointerEvents: "stroke",
+          pointerEvents:
+            edge.data.sourcePort && edge.data.targetPort ? "none" : "stroke",
           cursor:
             interactionMode === "select" || interactionMode == null
               ? "move"
