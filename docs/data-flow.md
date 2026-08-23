@@ -71,6 +71,7 @@ flow.getPortValue(nodeId, "out");
 flow.getInputs(nodeId);       // resolved from connected edges (or defaults)
 flow.getAllPortValues(nodeId);
 flow.getLastComputeMs(nodeId); // profiling
+flow.getComputeError(nodeId);  // last throw/rejection, undefined after a good run
 flow.markDirty(nodeId);        // force recompute (e.g. after external I/O)
 
 // Teardown

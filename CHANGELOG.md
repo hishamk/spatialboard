@@ -7,6 +7,39 @@ Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `DataFlowEngine.getComputeError(nodeId)` — the error the node's last
+  `compute` threw (sync) or rejected with (async), or `undefined` after a
+  successful run. Errors park there instead of aborting the flush, clear on
+  the node's next successful run, and both transitions notify change
+  listeners so hosts can render the failure.
+
+### Fixed
+
+- Deleting a node now recomputes its dependents immediately. The delete
+  handler marked them dirty but nothing scheduled the flush (node deletion
+  cascades the connected edges away without events), so stale outputs
+  survived until an unrelated event touched the graph.
+- A node recreated with a deleted node's id no longer accepts the dead
+  instance's late async result: generation counters bump on delete instead
+  of resetting, so an in-flight promise from the old instance can never
+  match the new one. Matters for serialized boards, where ids are
+  deterministic.
+- A fresh run supersedes an async run still in flight for the same node:
+  the superseded landing can no longer overwrite a newer result — or erase
+  the error a newer failing run parked.
+- One throwing `compute` no longer costs the rest of the flush its
+  recompute: sync throws are caught and parked per node instead of escaping
+  the flush microtask after the dirty set was already cleared, and async
+  rejections are handled the same way instead of surfacing as unhandled
+  rejections. Failed nodes keep their last good outputs.
+- `dispose()` now severs the SpatialEngine subscription itself — a host
+  that never called the `connect()` cleanup no longer keeps a recomputing
+  zombie — marks the engine inert (a flush already in progress stops, and
+  a late `markDirty` schedules nothing), and bumps the generation counters
+  so async computes still in flight resolve into nothing, even across a
+  dispose-and-reconnect revival.
 ## [0.3.0] - 2026-08-23
 
 ### Added

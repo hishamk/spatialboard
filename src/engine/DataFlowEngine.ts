@@ -43,6 +43,25 @@ export class DataFlowEngine {
   /** Wall time of the last `compute` run per node (sync or async resolution), in ms. */
   private lastComputeMs = new Map<string, number>();
 
+  /** Last thrown/rejected `compute` error per node — parked so one failing
+   *  node cannot abort the rest of a flush, cleared by the node's next
+   *  successful run. Read via getComputeError(). */
+  private computeErrors = new Map<string, unknown>();
+
+  /** Bumped whenever a parked error appears or clears; the flush compares it
+   *  around its execute loop so error transitions notify listeners exactly
+   *  once per flush. */
+  private errorEpoch = 0;
+
+  /** The connect() unsubscribe, retained so dispose() can sever the engine
+   *  even when the host never calls the returned cleanup. */
+  private disconnectSpatial: (() => void) | null = null;
+
+  /** Set by dispose(), cleared by connect(): a disposed engine schedules
+   *  nothing and executes nothing, even from a flush already in progress or
+   *  a markDirty issued by a host that kept the reference. */
+  private disposed = false;
+
   constructor(spatial: SpatialEngine, registry: NodeTypeRegistry) {
     this.spatial = spatial;
     this.registry = registry;
@@ -125,6 +144,14 @@ export class DataFlowEngine {
     return this.lastComputeMs.get(nodeId);
   }
 
+  /** The error the target node's last `compute` threw (sync) or rejected
+   *  with (async), or undefined when its last run succeeded. Errors park
+   *  here instead of aborting the flush; a park or clear notifies change
+   *  listeners like a value change does. */
+  getComputeError(nodeId: string): unknown {
+    return this.computeErrors.get(nodeId);
+  }
+
   /** Get all port values (inputs + outputs) for a node. */
   getAllPortValues(nodeId: string): Record<string, PortValue> {
     const node = this.spatial.nodes.get(nodeId);
@@ -166,8 +193,12 @@ export class DataFlowEngine {
     this.scheduleFlush();
   }
 
-  /** Wire up SpatialEngine event listeners. Returns cleanup function. */
+  /** Wire up SpatialEngine event listeners. Returns cleanup function.
+   *  Connecting a disposed engine re-arms it — deliberate, and safe against
+   *  anything left in flight from before the dispose (the counters were
+   *  bumped, never reset, so a dead run's landing can't match). */
   connect(): () => void {
+    this.disposed = false;
     const onNodeData = (node: SpatialNode) => {
       const def = this.registry.get(node.type);
       if (def?.ports) {
@@ -210,10 +241,17 @@ export class DataFlowEngine {
           // Mark any downstream nodes dirty
           this.markDownstream(node.id);
         }
-        // Per-id bookkeeping outlives the node otherwise (until dispose()).
-        this.generations.delete(node.id);
+        // Bump — never delete — the generation: an entry exists iff an
+        // async compute started, and a recreated node with the SAME id
+        // (serialized boards carry deterministic ids) must not accept the
+        // dead instance's in-flight resolution. Absent entry ⇒ nothing in
+        // flight ⇒ nothing to guard. The counter deliberately outlives the
+        // node (until dispose()); the rest of the bookkeeping is dropped.
+        const gen = this.generations.get(node.id);
+        if (gen !== undefined) this.generations.set(node.id, gen + 1);
         this.dirty.delete(node.id);
         this.lastComputeMs.delete(node.id);
+        this.computeErrors.delete(node.id);
       }
     };
 
@@ -224,20 +262,35 @@ export class DataFlowEngine {
     // Initial computation for all existing nodes with ports
     this.initializeAll();
 
-    return () => {
+    const disconnect = () => {
       this.spatial.off("node:data", onNodeData);
       this.spatial.off("node:create", onNodeCreate);
       this.spatial.off("node:delete", onNodeDelete);
     };
+    this.disconnectSpatial = disconnect;
+    return disconnect;
   }
 
-  /** Dispose and clean up. */
+  /** Dispose and clean up. Severs the SpatialEngine subscription itself (a
+   *  host that forgot the connect() cleanup must not keep a recomputing
+   *  zombie), marks the engine inert (nothing schedules or executes past
+   *  this point, including the remainder of a flush in progress), and BUMPS
+   *  every generation counter — clearing would let a dispose+connect revival
+   *  re-mint a number a pre-dispose in-flight promise still holds, the same
+   *  trap the delete path avoids by bumping. */
   dispose(): void {
+    this.disposed = true;
+    this.disconnectSpatial?.();
     this.values.clear();
     this.dirty.clear();
     this.listeners.clear();
     this.scheduled = false;
     this.lastComputeMs.clear();
+    for (const [id, gen] of this.generations) {
+      this.generations.set(id, gen + 1);
+    }
+    this.computeErrors.clear();
+    this._cycleNodeIds = new Set();
   }
 
   // ── Private implementation ─────────────────────────────────
@@ -257,7 +310,7 @@ export class DataFlowEngine {
 
   /** Schedule a microtask flush if not already scheduled. */
   private scheduleFlush(): void {
-    if (this.scheduled) return;
+    if (this.disposed || this.scheduled) return;
     this.scheduled = true;
     queueMicrotask(() => {
       this.scheduled = false;
@@ -265,15 +318,23 @@ export class DataFlowEngine {
     });
   }
 
-  /** Mark all downstream nodes (nodes that depend on outputs of nodeId) as dirty. */
+  /** Mark all downstream nodes (nodes that depend on outputs of nodeId) as
+   *  dirty, and schedule a flush when anything was marked. Scheduling here is
+   *  load-bearing for the node-delete path: deleteNode/deleteNodes emit ONE
+   *  node:delete per node (its edges still queryable at that point) and then
+   *  cascade the edges away without events, so no later signal arrives to
+   *  flush the dependents. */
   private markDownstream(nodeId: string): void {
     const edges = this.spatial.getEdgesForNode(nodeId);
+    let marked = false;
     for (const edge of edges) {
       const ed = (edge as EdgeNode).data;
       if (ed.fromId === nodeId && ed.targetPort) {
         this.dirty.add(ed.toId);
+        marked = true;
       }
     }
+    if (marked) this.scheduleFlush();
   }
 
   /** Topological sort of dirty nodes + their downstream dependents. Also
@@ -397,7 +458,7 @@ export class DataFlowEngine {
 
   /** Full graph recompute of dirty nodes. */
   private flush(): void {
-    if (this.dirty.size === 0) return;
+    if (this.disposed || this.dirty.size === 0) return;
 
     const initiallyDirty = new Set(this.dirty);
     const { sorted, cyclesChanged, adj } = this.topoSort();
@@ -413,6 +474,7 @@ export class DataFlowEngine {
     // return "unchanged" here and re-enter through markDirty when their
     // promise applies a real change.)
     const pending = new Set<string>();
+    const errorEpochBefore = this.errorEpoch;
     let changed = false;
     for (const nodeId of sorted) {
       if (!initiallyDirty.has(nodeId) && !pending.has(nodeId)) continue;
@@ -423,13 +485,16 @@ export class DataFlowEngine {
       }
     }
 
-    if (changed || cyclesChanged) {
+    if (changed || cyclesChanged || this.errorEpoch !== errorEpochBefore) {
       this.notifyListeners();
     }
   }
 
   /** Execute a single node's compute function. Returns true if outputs changed. */
   private executeNode(nodeId: string): boolean {
+    // A compute earlier in this same flush may have disposed the engine —
+    // the rest of the topo order must not write into the cleared maps.
+    if (this.disposed) return false;
     const node = this.spatial.nodes.get(nodeId);
     if (!node) return false;
 
@@ -439,35 +504,85 @@ export class DataFlowEngine {
     const ports = resolveNodePorts(def, node);
     if (!def?.compute || !ports) return false;
 
+    // A new run supersedes any async run still in flight for this node —
+    // the old landing must not overwrite what this run produces, nor clear
+    // the error it parks. An entry exists iff an async run ever started, so
+    // sync-only nodes never grow the map.
+    const prevGen = this.generations.get(nodeId);
+    if (prevGen !== undefined) this.generations.set(nodeId, prevGen + 1);
+
     const inputs = this.getInputs(nodeId);
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
-    const result = def.compute(inputs, node.data);
+    let result: Record<string, PortValue> | Promise<Record<string, PortValue>>;
+    try {
+      result = def.compute(inputs, node.data);
+    } catch (err) {
+      // Park and move on: dirty is already cleared for this flush, so letting
+      // the throw escape the microtask would silently cost every node later
+      // in the topo order its recompute. Outputs keep their last good values.
+      this.parkComputeError(nodeId, err);
+      return false;
+    }
 
     // Handle async compute
     if (result instanceof Promise) {
       const gen = (this.generations.get(nodeId) ?? 0) + 1;
       this.generations.set(nodeId, gen);
-      result.then((outputs) => {
-        if (gen !== this.generations.get(nodeId)) return; // stale — this node re-ran
-        const t1 = typeof performance !== "undefined" ? performance.now() : 0;
-        this.lastComputeMs.set(nodeId, t1 - t0);
-        const didChange = this.applyOutputs(nodeId, ports, outputs);
-        if (didChange) {
-          // Mark downstream dirty and flush again
-          this.markDownstream(nodeId);
-          this.notifyListeners();
-          if (this.dirty.size > 0) {
-            this.scheduleFlush();
+      result.then(
+        (outputs) => {
+          if (gen !== this.generations.get(nodeId)) return; // stale — this node re-ran
+          const t1 = typeof performance !== "undefined" ? performance.now() : 0;
+          this.lastComputeMs.set(nodeId, t1 - t0);
+          let didChange: boolean;
+          try {
+            didChange = this.applyOutputs(nodeId, ports, outputs);
+          } catch (err) {
+            // Hostile output values (a plain object whose property getter
+            // throws) fail during the change check; that failure belongs to
+            // this node, exactly like a rejection.
+            if (this.parkComputeError(nodeId, err)) {
+              this.notifyListeners();
+            }
+            return;
           }
-        }
-      });
+          const errorCleared = this.clearComputeError(nodeId);
+          if (didChange) {
+            // markDownstream schedules the follow-up flush itself when the
+            // change has dependents.
+            this.markDownstream(nodeId);
+          }
+          if (didChange || errorCleared) {
+            this.notifyListeners();
+          }
+        },
+        (err) => {
+          // Rejections park exactly like a sync throw — an async compute must
+          // never surface as an unhandled rejection. Stale rejections (node
+          // re-ran, was deleted, or the engine was disposed) are dropped.
+          if (gen !== this.generations.get(nodeId)) return;
+          if (this.parkComputeError(nodeId, err)) {
+            this.notifyListeners();
+          }
+        },
+      );
       return false;
     }
 
     // Synchronous compute
     const t1 = typeof performance !== "undefined" ? performance.now() : 0;
     this.lastComputeMs.set(nodeId, t1 - t0);
-    return this.applyOutputs(nodeId, ports, result);
+    // applyOutputs sits inside the same net as the compute itself: hostile
+    // output values (a plain object whose property getter throws) fail during
+    // the change check, and that failure belongs to this node, not to the
+    // rest of the flush.
+    try {
+      const didChange = this.applyOutputs(nodeId, ports, result);
+      this.clearComputeError(nodeId);
+      return didChange;
+    } catch (err) {
+      this.parkComputeError(nodeId, err);
+      return false;
+    }
   }
 
   /** Apply computed outputs to the values map. Returns true if any value
@@ -493,6 +608,27 @@ export class DataFlowEngine {
       }
     }
     return changed;
+  }
+
+  /** Park a compute error for a node. Returns true when the parked state
+   *  changed — a compute that throws a cached singleton error on every run
+   *  must not re-notify hosts once per flush, so identical re-parks are
+   *  no-ops (fresh objects per throw, the common case, always report).
+   *  `undefined` normalizes to a real Error so a parked failure can never
+   *  read as "no error" through getComputeError. */
+  private parkComputeError(nodeId: string, err: unknown): boolean {
+    if (err === undefined) err = new Error("compute failed with no error value");
+    if (this.computeErrors.get(nodeId) === err) return false;
+    this.computeErrors.set(nodeId, err);
+    this.errorEpoch++;
+    return true;
+  }
+
+  /** Clear a node's parked compute error. Returns true when one was parked. */
+  private clearComputeError(nodeId: string): boolean {
+    if (!this.computeErrors.delete(nodeId)) return false;
+    this.errorEpoch++;
+    return true;
   }
 
   /** Notify all change listeners. */
