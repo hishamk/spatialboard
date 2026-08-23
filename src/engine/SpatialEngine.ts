@@ -128,6 +128,11 @@ type EventMap = {
   background: () => void;
   guides: () => void;
   lassoToggle: () => void;
+  /** The whole nodes map was replaced at once (undo / redo / deserialize)
+   *  rather than mutated through the granular node lifecycle events. Consumers
+   *  that mirror per-node state (e.g. the data-flow engine) must rebuild
+   *  against the new graph on this signal. */
+  "graph:replaced": () => void;
   /** A pointer-driven node gesture (drag/resize/rotate) started/ended.
    *  While active, the canvas suppresses whole-board React syncs and lets
    *  per-node subscriptions drive rendering; `gesture:end` triggers the

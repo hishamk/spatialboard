@@ -56,6 +56,7 @@ export async function fromSBD(engine: SpatialEngine, sbd: string): Promise<void>
   engine.refreshSearchIfNeeded();
   // Apply origin view if saved, otherwise fit-to-content
   engine.goToOriginView();
+  engine.emit("graph:replaced");
   engine.emit("change");
   engine.emit("selection");
   engine.emit("history");
@@ -106,6 +107,7 @@ export function fromJSON(
   if (json.viewport) engine.viewport = json.viewport;
   engine.selection.clear();
   engine.refreshSearchIfNeeded();
+  engine.emit("graph:replaced");
   engine.emit("change");
   engine.emit("viewport");
   engine.emit("selection");

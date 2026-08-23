@@ -22,6 +22,13 @@ export class DataFlowEngine {
   /** Current resolved port values. */
   private values = new Map<PortKey, PortValue>();
 
+  /** Reverse index: node id → the value keys it owns. Lets a delete purge a
+   *  node's values exactly, without a prefix scan over the whole map (which
+   *  would also mis-match a sibling whose id is a colon-prefix of this one)
+   *  and without re-deriving ports at delete time (which a narrowed resolver
+   *  would under-report). Written wherever `values` is. */
+  private valueKeys = new Map<string, Set<PortKey>>();
+
   /** Node IDs that need recomputation. */
   private dirty = new Set<string>();
 
@@ -231,14 +238,12 @@ export class DataFlowEngine {
         }
         // Clean up port values for this edge's connections
       } else {
-        // Clean up port values for deleted node
+        // Drop the deleted node's whole state (by id prefix — a narrowed
+        // resolver port set must not leak values onto a reused id), then
+        // mark any downstream nodes dirty.
         const def = this.registry.get(node.type);
-        const ports = resolveNodePorts(def, node);
-        if (ports) {
-          for (const port of ports) {
-            this.values.delete(portKey(node.id, port.id));
-          }
-          // Mark any downstream nodes dirty
+        if (def?.ports) {
+          this.purgeNodeState(node.id);
           this.markDownstream(node.id);
         }
         // Bump — never delete — the generation: an entry exists iff an
@@ -246,18 +251,22 @@ export class DataFlowEngine {
         // (serialized boards carry deterministic ids) must not accept the
         // dead instance's in-flight resolution. Absent entry ⇒ nothing in
         // flight ⇒ nothing to guard. The counter deliberately outlives the
-        // node (until dispose()); the rest of the bookkeeping is dropped.
+        // node (until dispose()); purgeNodeState leaves it untouched.
         const gen = this.generations.get(node.id);
         if (gen !== undefined) this.generations.set(node.id, gen + 1);
         this.dirty.delete(node.id);
-        this.lastComputeMs.delete(node.id);
-        this.computeErrors.delete(node.id);
       }
     };
+
+    // A wholesale swap of the nodes map (undo / redo / deserialize) emits no
+    // granular node events — the handlers above never fire, so the engine must
+    // rebuild its state against the new graph from scratch.
+    const onGraphReplaced = () => this.reconcile();
 
     this.spatial.on("node:data", onNodeData);
     this.spatial.on("node:create", onNodeCreate);
     this.spatial.on("node:delete", onNodeDelete);
+    this.spatial.on("graph:replaced", onGraphReplaced);
 
     // Initial computation for all existing nodes with ports
     this.initializeAll();
@@ -266,6 +275,7 @@ export class DataFlowEngine {
       this.spatial.off("node:data", onNodeData);
       this.spatial.off("node:create", onNodeCreate);
       this.spatial.off("node:delete", onNodeDelete);
+      this.spatial.off("graph:replaced", onGraphReplaced);
     };
     this.disconnectSpatial = disconnect;
     return disconnect;
@@ -282,6 +292,7 @@ export class DataFlowEngine {
     this.disposed = true;
     this.disconnectSpatial?.();
     this.values.clear();
+    this.valueKeys.clear();
     this.dirty.clear();
     this.listeners.clear();
     this.scheduled = false;
@@ -306,6 +317,46 @@ export class DataFlowEngine {
     if (this.dirty.size > 0) {
       this.scheduleFlush();
     }
+  }
+
+  /** Rebuild state after a wholesale swap of the nodes map (undo / redo /
+   *  deserialize), which arrives with no granular node events. Drop stored
+   *  state for node ids the swap removed — their values would otherwise
+   *  linger and read back through getPortValue — then re-mark every live
+   *  compute-capable node dirty so the restored graph recomputes without a
+   *  manual touch. Cheap and idempotent: it fires only on the swap events,
+   *  never on ordinary edits (which the granular handlers keep in sync). */
+  private reconcile(): void {
+    if (this.disposed) return;
+    const live = this.spatial.nodes;
+    // Candidate ids come from the per-node maps, all keyed by node id — no
+    // reverse-parsing of `nodeId:portId` value keys (which would assume
+    // colon-free ids). The union covers stored values (valueKeys), timings
+    // (lastComputeMs), in-flight async (generations), and parked errors
+    // (computeErrors) — each map explicitly, so completeness holds even if a
+    // future write path populates one without the others.
+    const stale = new Set<string>();
+    for (const nodeId of this.valueKeys.keys()) {
+      if (!live.has(nodeId)) stale.add(nodeId);
+    }
+    for (const nodeId of this.lastComputeMs.keys()) {
+      if (!live.has(nodeId)) stale.add(nodeId);
+    }
+    for (const nodeId of this.generations.keys()) {
+      if (!live.has(nodeId)) stale.add(nodeId);
+    }
+    for (const nodeId of this.computeErrors.keys()) {
+      if (!live.has(nodeId)) stale.add(nodeId);
+    }
+    for (const nodeId of stale) {
+      this.purgeNodeState(nodeId);
+      // A gone node's in-flight async must not land on a future reuse of its
+      // id — bump past the generation the dead run holds (matching delete).
+      const gen = this.generations.get(nodeId);
+      if (gen !== undefined) this.generations.set(nodeId, gen + 1);
+      this.dirty.delete(nodeId);
+    }
+    this.initializeAll();
   }
 
   /** Schedule a microtask flush if not already scheduled. */
@@ -604,6 +655,9 @@ export class DataFlowEngine {
       const oldVal = this.values.get(key) ?? null;
       if (!portValuesEqual(oldVal, newVal)) {
         this.values.set(key, newVal);
+        let keys = this.valueKeys.get(nodeId);
+        if (!keys) this.valueKeys.set(nodeId, (keys = new Set()));
+        keys.add(key);
         changed = true;
       }
     }
@@ -631,11 +685,35 @@ export class DataFlowEngine {
     return true;
   }
 
-  /** Notify all change listeners. */
+  /** Notify all change listeners. A throwing listener is isolated: it is
+   *  reported and the remaining listeners still run — one misbehaving host
+   *  subscriber must not starve the others, and on the async notify paths a
+   *  throw here would otherwise surface as an unhandled rejection. Listener
+   *  errors deliberately do not propagate to the engine's callers. */
   private notifyListeners(): void {
     for (const cb of this.listeners) {
-      cb();
+      try {
+        cb();
+      } catch (err) {
+        console.error("DataFlowEngine: a change listener threw", err);
+      }
     }
+  }
+
+  /** Remove every stored entry for a node id — all the port values it owns
+   *  (from the reverse index, so every port it ever produced is dropped even
+   *  if a later narrow removed the port from its resolver, and a sibling
+   *  whose id is a colon-prefix of this one is never touched) plus the
+   *  per-node timing / error records. Generations are left to the caller —
+   *  delete and reconcile bump them rather than clear. */
+  private purgeNodeState(nodeId: string): void {
+    const keys = this.valueKeys.get(nodeId);
+    if (keys) {
+      for (const key of keys) this.values.delete(key);
+      this.valueKeys.delete(nodeId);
+    }
+    this.lastComputeMs.delete(nodeId);
+    this.computeErrors.delete(nodeId);
   }
 }
 

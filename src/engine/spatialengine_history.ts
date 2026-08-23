@@ -29,6 +29,7 @@ export function undo(engine: SpatialEngine): void {
     engine.rebuildFrameChildren();
     engine.selection.clear();
     engine.refreshSearchIfNeeded();
+    engine.emit("graph:replaced");
     engine.emit("change");
     engine.emit("selection");
     engine.emit("history");
@@ -47,6 +48,7 @@ export function redo(engine: SpatialEngine): void {
     engine.rebuildFrameChildren();
     engine.selection.clear();
     engine.refreshSearchIfNeeded();
+    engine.emit("graph:replaced");
     engine.emit("change");
     engine.emit("selection");
     engine.emit("history");

@@ -86,3 +86,39 @@ describe("setContainerSize input hygiene", () => {
     expect(engine.viewport.y).toBe(before.y);
   });
 });
+
+describe("sub-pixel measurement guard", () => {
+  it("a sub-pixel first measurement keeps the parked fit parked", () => {
+    const engine = new SpatialEngine();
+    engine.setContainer({} as HTMLElement);
+    addBox(engine, "n1", 0, 0, 400, 400);
+    const before = { ...engine.viewport };
+    engine.fitToContent({ padding: 0 });
+    expect(engine.viewport).toEqual(before); // parked
+
+    engine.setContainerSize(0.5, 0.4); // panel mid-animation — not a real layout
+    expect(engine.viewport).toEqual(before); // still parked, nothing consumed
+
+    engine.setContainerSize(1000, 800); // real measurement
+    expect(engine.viewport.zoom).toBe(2); // parked fit applied against the real size
+  });
+
+  it("ignores a sub-pixel resize (no viewport shift, size unchanged)", () => {
+    const engine = new SpatialEngine();
+    engine.setContainerSize(800, 600);
+    engine.pan(20, -10);
+    const before = { ...engine.viewport };
+
+    engine.setContainerSize(0.9, 0.9);
+    expect(engine.viewport).toEqual(before);
+    expect(engine._containerWidth).toBe(800);
+  });
+
+  it("still admits a whole-pixel measurement", () => {
+    const engine = new SpatialEngine();
+    engine.setContainerSize(800, 600);
+    const before = { ...engine.viewport };
+    engine.setContainerSize(1000, 600); // >= 1 on both axes → real
+    expect(engine.viewport.x).toBe(before.x + 100);
+  });
+});

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { SpatialEngine } from "../SpatialEngine";
 import { DataFlowEngine } from "../DataFlowEngine";
 import { NodeTypeRegistry } from "../../nodes/registry";
@@ -500,5 +500,222 @@ describe("dispose severs the engine", () => {
     release!({ out: 42 });
     await drain();
     expect(flow.getPortValue("x", "out")).toBeNull();
+  });
+});
+
+// ── Wholesale graph swaps ────────────────────────────────────────────────────
+//
+// undo / redo / deserialize replace the whole nodes map at once, emitting no
+// granular node events. The engine reconciles on the graph:replaced signal:
+// restored nodes recompute, and values for removed nodes are dropped (not left
+// to read back through getPortValue).
+
+describe("graph:replaced reconcile", () => {
+  it("undo of a delete recomputes the restored graph without a manual touch", async () => {
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([NUM, SUM]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("a", "t-num", 0, { value: 50 }));
+    engine.addNode(cardNode("s", "t-sum", 300));
+    engine.addNode(portEdge("e1", "a", "s"));
+    await drain();
+    expect(flow.getOutputs("s")).toEqual({ sum: 51 });
+
+    engine.deleteNode("a");
+    await drain();
+    expect(flow.getOutputs("s")).toEqual({ sum: 1 }); // source gone
+
+    engine.undo(); // restores a + e1 via a wholesale map swap
+    await drain();
+    // Reconciled: the restored source drives the sum again, no manual touch.
+    expect(flow.getOutputs("s")).toEqual({ sum: 51 });
+    expect(flow.getPortValue("a", "out")).toBe(50);
+  });
+
+  it("redo of a delete drops the removed node's values (no leak)", async () => {
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([NUM, SUM]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("a", "t-num", 0, { value: 50 }));
+    engine.addNode(cardNode("s", "t-sum", 300));
+    engine.addNode(portEdge("e1", "a", "s"));
+    await drain();
+
+    engine.deleteNode("a");
+    await drain();
+    engine.undo(); // a back
+    await drain();
+    expect(flow.getPortValue("a", "out")).toBe(50);
+
+    engine.redo(); // a gone again, via wholesale swap (no node:delete)
+    await drain();
+    expect(flow.getPortValue("a", "out")).toBeNull(); // value purged, not leaked
+    expect(flow.getOutputs("s")).toEqual({ sum: 1 });
+  });
+
+  it("an SBD board-file load emits graph:replaced (reconcile fires on fromSBD too)", async () => {
+    // fromSBD clears + repopulates the nodes map (a wholesale swap by a
+    // different idiom than fromJSON's reassignment) — it must emit the signal
+    // so a live data-flow engine rebuilds after a board file loads.
+    const src = new SpatialEngine();
+    src.addNode({
+      id: "sticky1", type: "sticky", x: 0, y: 0, w: 100, h: 100, z: 1,
+      data: { text: "hi", color: "#ffd400" },
+    } as SpatialNode);
+    const sbd = await src.toSBD();
+
+    const dst = new SpatialEngine();
+    let replaced = 0;
+    dst.on("graph:replaced", () => replaced++);
+    await dst.fromSBD(sbd);
+    expect(replaced).toBe(1);
+  });
+
+  it("does not fire on ordinary edits (no wasteful whole-graph recompute)", async () => {
+    let runs = 0;
+    const COUNTING_SUM: NodeTypeDefinition = {
+      type: "t-csum",
+      ports: [
+        { id: "a", direction: "input", dataType: "number" },
+        { id: "sum", direction: "output", dataType: "number" },
+      ],
+      compute: (inputs) => {
+        runs++;
+        return { sum: Number(inputs.a ?? 0) + 1 };
+      },
+    };
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([NUM, COUNTING_SUM]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("a", "t-num", 0, { value: 1 }));
+    engine.addNode(cardNode("s", "t-csum", 300));
+    engine.addNode(portEdge("e1", "a", "s"));
+    await drain();
+    const baseline = runs;
+
+    // A granular data edit on an unrelated new node must not trigger a
+    // graph:replaced reconcile that re-runs s.
+    engine.addNode(cardNode("b", "t-num", 600, { value: 9 }));
+    await drain();
+    expect(runs).toBe(baseline); // s did not recompute (b doesn't feed it)
+  });
+});
+
+// ── Delete purges whole-node state, not just resolved ports ──────────────────
+
+describe("delete purges by node id, not resolved ports", () => {
+  it("a narrowed resolver port set does not leak a value onto a reused id", async () => {
+    // The resolver drops the "out" port once data.narrow is set.
+    const RESOLVER: NodeTypeDefinition = {
+      type: "t-resolver",
+      ports: (node) =>
+        (node?.data as { narrow?: boolean })?.narrow
+          ? []
+          : [{ id: "out", direction: "output", dataType: "number" }],
+      compute: () => ({ out: 51 }),
+    };
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([RESOLVER]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("x", "t-resolver"));
+    await drain();
+    expect(flow.getPortValue("x", "out")).toBe(51);
+
+    // Narrow the port set (resolver now returns []), then delete. The purge
+    // must drop x:out even though the resolver no longer reports it — a purge
+    // that walked only the currently-resolved ports would leave it behind.
+    engine.updateNode("x", { data: { narrow: true } });
+    await drain();
+    engine.deleteNode("x");
+    await drain();
+
+    expect(flow.getPortValue("x", "out")).toBeNull(); // purged despite the narrow
+  });
+
+  it("deleting a node does not wipe a sibling whose id is a colon-prefix of it", async () => {
+    // Value keys are `nodeId:portId`; a prefix scan for "a:" would also match
+    // "a:x:out". The reverse index deletes only the deleted node's own keys.
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([NUM]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("a", "t-num", 0, { value: 1 }));
+    engine.addNode(cardNode("a:x", "t-num", 300, { value: 2 }));
+    await drain();
+    expect(flow.getPortValue("a", "out")).toBe(1);
+    expect(flow.getPortValue("a:x", "out")).toBe(2);
+
+    engine.deleteNode("a");
+    await drain();
+    expect(flow.getPortValue("a", "out")).toBeNull();
+    expect(flow.getPortValue("a:x", "out")).toBe(2); // sibling untouched
+  });
+});
+
+// ── Listener isolation ───────────────────────────────────────────────────────
+
+describe("a throwing change listener is isolated", () => {
+  it("does not starve later listeners and does not escape the flush", async () => {
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([NUM]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+    engine.addNode(cardNode("a", "t-num", 0, { value: 5 }));
+    await drain();
+
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let secondRan = false;
+    flow.onChange(() => {
+      throw new Error("listener boom");
+    });
+    flow.onChange(() => {
+      secondRan = true;
+    });
+
+    // A recompute notifies both listeners; the first throws.
+    engine.updateNode("a", { data: { value: 6 } });
+    await drain();
+
+    expect(secondRan).toBe(true); // the throw did not starve the second listener
+    expect(errSpy).toHaveBeenCalled(); // reported, not swallowed
+    errSpy.mockRestore();
+  });
+
+  it("a throwing listener on the async path produces no unhandled rejection", async () => {
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      let release: ((v: Record<string, PortValue>) => void) | null = null;
+      const ASYNC: NodeTypeDefinition = {
+        type: "t-async2",
+        ports: [{ id: "out", direction: "output", dataType: "number" }],
+        compute: () =>
+          new Promise<Record<string, PortValue>>((resolve) => {
+            release = resolve;
+          }),
+      };
+      const engine = new SpatialEngine();
+      const flow = new DataFlowEngine(engine, new NodeTypeRegistry([ASYNC]));
+      flow.connect();
+      engine.addNode(cardNode("x", "t-async2"));
+      await drain();
+      flow.onChange(() => {
+        throw new Error("async listener boom");
+      });
+
+      release!({ out: 1 }); // async completion notifies → listener throws
+      await drain();
+
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      errSpy.mockRestore();
+    }
   });
 });

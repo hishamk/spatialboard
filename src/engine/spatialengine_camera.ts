@@ -88,7 +88,13 @@ export function setContainerSize(engine: SpatialEngine, w: number, h: number): v
   // everything.
   w = Number(w);
   h = Number(h);
-  if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) return;
+  // Require at least one whole pixel on each axis. A sub-pixel measurement
+  // (e.g. 0.5×0.4 while a panel animates open) is not a real layout: admitting
+  // it marks the container measured and consumes the one-shot parked fit
+  // against a degenerate size. A shown container is never legitimately below a
+  // CSS pixel. (A larger transient measurement mid-animation can still consume
+  // the parked fit — that needs settle/debounce, i.e. a timer, out of scope.)
+  if (!(Number.isFinite(w) && w >= 1 && Number.isFinite(h) && h >= 1)) return;
   const oldW = engine._containerWidth;
   const oldH = engine._containerHeight;
   engine._containerWidth = w;

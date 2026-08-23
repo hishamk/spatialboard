@@ -14,6 +14,10 @@ Versioning.
   successful run. Errors park there instead of aborting the flush, clear on
   the node's next successful run, and both transitions notify change
   listeners so hosts can render the failure.
+- A `graph:replaced` engine event, emitted when the whole nodes map is
+  swapped at once (undo / redo / deserialize) rather than mutated through the
+  granular node lifecycle events. Consumers that mirror per-node state — the
+  data-flow engine does — rebuild against the new graph on it.
 
 ### Fixed
 
@@ -40,14 +44,30 @@ Versioning.
   a late `markDirty` schedules nothing), and bumps the generation counters
   so async computes still in flight resolve into nothing, even across a
   dispose-and-reconnect revival.
-- `setContainerSize` ignores non-finite or non-positive measurements. A
-  NaN/Infinity size from an unvalidated host measurement used to flow into
-  the maintain-center shift and poison the viewport (and the stored size
-  that later fit math reads); a hidden container's 0×0 measurement used to
-  shift the viewport by half the old size on re-show. Junk measurements now
-  change nothing, parked fits keep waiting, and the next real measurement
-  recovers everything. Measurements are coerced to numbers first, so
-  untyped hosts passing numeric strings keep working.
+- `setContainerSize` ignores any measurement that is not at least one whole
+  pixel on both axes. A NaN/Infinity size from an unvalidated host measurement
+  used to flow into the maintain-center shift and poison the viewport (and the
+  stored size that later fit math reads); a hidden container's 0×0 measurement
+  used to shift the viewport by half the old size on re-show; and a sub-pixel
+  measurement while a panel animates open (e.g. 0.5×0.4) used to consume the
+  one-shot parked fit against a degenerate size. Such measurements now change
+  nothing, parked fits keep waiting, and the next real (≥1px) measurement
+  recovers everything. Measurements are coerced to numbers first, so untyped
+  hosts passing numeric strings keep working.
+- Undo, redo, and deserialize now replay the data flow. They replace the
+  whole nodes map at once, which arrives with no granular node events, so the
+  data-flow engine used to leave restored nodes stale and removed nodes'
+  values lingering until an unrelated edit; it now reconciles against the new
+  graph — dropping gone nodes' state and recomputing the rest — with no
+  manual touch. Ordinary edits are unaffected (no whole-graph recompute).
+- Deleting a node drops its whole stored state by id, not just the ports its
+  type resolves at delete time. A node whose port set is data-driven and was
+  narrowed before deletion used to leak the dropped ports' values onto a
+  later node reusing the same id.
+- A throwing `onChange` listener is isolated: it is reported and the
+  remaining listeners still run, on the synchronous and asynchronous notify
+  paths alike, instead of starving later listeners or surfacing as an
+  unhandled rejection.
 
 ## [0.3.0] - 2026-08-23
 
