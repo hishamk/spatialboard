@@ -426,6 +426,24 @@ export function createEdge(
   if (!engine.nodes.has(fromId)) throw new Error(`createEdge: source node "${fromId}" not found`);
   if (!engine.nodes.has(toId)) throw new Error(`createEdge: target node "${toId}" not found`);
 
+  // An exact duplicate port wire (same endpoints, same ports) carries no
+  // information — a second wire into the same input port can never win over
+  // the first — so return the existing edge instead of stacking a twin.
+  // Double-invoked seeding effects (React StrictMode) hit this constantly.
+  if (options?.sourcePort && options?.targetPort) {
+    for (const existing of engine.getEdgesForNode(fromId)) {
+      const xd = (existing as EdgeNode).data;
+      if (
+        xd.fromId === fromId &&
+        xd.toId === toId &&
+        xd.sourcePort === options.sourcePort &&
+        xd.targetPort === options.targetPort
+      ) {
+        return existing.id;
+      }
+    }
+  }
+
   const id = nanoid(10);
 
   // Edges store zero bounds — the renderer derives geometry from fromId/toId

@@ -296,10 +296,8 @@ export class DataFlowEngine {
     // Build adjacency for port-connected nodes only
     // adj[nodeId] = set of node IDs that depend on this node's outputs
     const adj = new Map<string, Set<string>>();
-    const inDegree = new Map<string, number>();
     for (const id of portNodes) {
       adj.set(id, new Set());
-      inDegree.set(id, 0);
     }
 
     // Walk all edges to build the dependency graph
@@ -313,7 +311,6 @@ export class DataFlowEngine {
         portNodes.has(ed.toId)
       ) {
         adj.get(ed.fromId)!.add(ed.toId);
-        inDegree.set(ed.toId, (inDegree.get(ed.toId) ?? 0) + 1);
       }
     }
 
@@ -335,23 +332,22 @@ export class DataFlowEngine {
       expand(id);
     }
 
-    // Kahn's algorithm on the expanded dirty set
+    // Kahn's algorithm on the expanded dirty set. In-degree is counted over
+    // the deduped adjacency — the same structure the decrement walk below
+    // traverses — never per edge: duplicate wires between the same port pair
+    // collapse to one adjacency entry, so a per-edge count would leave the
+    // target's in-degree permanently above zero (a false cycle).
     const subInDegree = new Map<string, number>();
     for (const id of expandedDirty) {
       subInDegree.set(id, 0);
     }
-    for (const edge of allEdges) {
-      const ed = (edge as EdgeNode).data;
-      if (
-        ed.sourcePort &&
-        ed.targetPort &&
-        expandedDirty.has(ed.fromId) &&
-        expandedDirty.has(ed.toId)
-      ) {
-        subInDegree.set(
-          ed.toId,
-          (subInDegree.get(ed.toId) ?? 0) + 1,
-        );
+    for (const from of expandedDirty) {
+      const outs = adj.get(from);
+      if (!outs) continue;
+      for (const to of outs) {
+        if (expandedDirty.has(to)) {
+          subInDegree.set(to, (subInDegree.get(to) ?? 0) + 1);
+        }
       }
     }
 
