@@ -40,6 +40,15 @@ Versioning.
   a late `markDirty` schedules nothing), and bumps the generation counters
   so async computes still in flight resolve into nothing, even across a
   dispose-and-reconnect revival.
+- `setContainerSize` ignores non-finite or non-positive measurements. A
+  NaN/Infinity size from an unvalidated host measurement used to flow into
+  the maintain-center shift and poison the viewport (and the stored size
+  that later fit math reads); a hidden container's 0×0 measurement used to
+  shift the viewport by half the old size on re-show. Junk measurements now
+  change nothing, parked fits keep waiting, and the next real measurement
+  recovers everything. Measurements are coerced to numbers first, so
+  untyped hosts passing numeric strings keep working.
+
 ## [0.3.0] - 2026-08-23
 
 ### Added

@@ -77,11 +77,23 @@ export function zoomToNode(engine: SpatialEngine, nodeId: string, targetZoom = 1
 }
 
 export function setContainerSize(engine: SpatialEngine, w: number, h: number): void {
+  // Coerce first — an untyped JS host may pass numeric strings, which the
+  // old arithmetic accepted implicitly and Number.isFinite would reject
+  // (silently parking every fit forever). Then a host feeding an unvalidated
+  // measurement (NaN/Infinity from a detached rect, 0×0 from a hidden
+  // container) must not poison the viewport through the maintain-center
+  // shift below, nor overwrite the last real size that later fit math reads.
+  // Ignore junk wholesale: the size fields keep their previous values, a
+  // parked fit keeps waiting, and the next real measurement recovers
+  // everything.
+  w = Number(w);
+  h = Number(h);
+  if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) return;
   const oldW = engine._containerWidth;
   const oldH = engine._containerHeight;
   engine._containerWidth = w;
   engine._containerHeight = h;
-  if (w > 0 && h > 0) engine._containerMeasured = true;
+  engine._containerMeasured = true;
   // Re-center the current slide when the container resizes during presentation
   if (engine.presentationMode && engine.presentationSlides.length > 0) {
     engine.presentationGoTo(engine.presentationIndex);
@@ -92,8 +104,9 @@ export function setContainerSize(engine: SpatialEngine, w: number, h: number): v
     engine.emit("viewport");
   }
   // A fit parked before the first measurement can now compute against the
-  // real size. Runs last so the fit has the final word over the re-center.
-  if (engine._containerMeasured && engine._pendingFit) {
+  // real size (the guard above admitted only a real one). Runs last so the
+  // fit has the final word over the re-center.
+  if (engine._pendingFit) {
     const fit = engine._pendingFit;
     engine._pendingFit = null;
     fit();
