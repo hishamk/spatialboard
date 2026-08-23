@@ -9,7 +9,7 @@ import MobileToolbar from "./chrome/MobileToolbar";
 import { TOOL_STRIP_WIDTH, COMPACT_BREAKPOINT } from "./sidebar/styles";
 import type { DebugBoardEntry } from "./overlays/DebugPanel";
 import { setupKeyboardHandler } from "../interactions/keyboard-handler";
-import { NodeTypeRegistry, nodeTypeHasPorts } from "../nodes/registry";
+import { NodeTypeRegistry, nodeTypeHasPorts, sameNodeTypeDefs } from "../nodes/registry";
 import { coreBoardNodes } from "../nodes/index";
 import type { NodeTypeDefinition } from "../nodes/registry";
 import { loadGoogleFonts } from "../fonts";
@@ -35,6 +35,36 @@ import type { ToolKey } from "../engine/types";
 import type { PortDirection } from "../engine/data-flow-types";
 
 const DebugPanel = lazy(() => import("./overlays/DebugPanel"));
+
+/**
+ * Pin `nodeTypes` to a stable identity while its CONTENTS are unchanged.
+ * An inline `nodeTypes={[...coreBoardNodes, myType]}` re-creates the array
+ * every host render; keyed on identity that would rebuild the registry and
+ * reconnect the data-flow engine (marking every node dirty) each time — and
+ * when a `compute` publishes into host state, that loop hangs the page.
+ * Ref mutation during render is deliberate here: it is the idempotent
+ * memo pattern (same inputs → same stored value within a render pass).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function useStableNodeTypes(nodeTypes: NodeTypeDefinition<any>[]): NodeTypeDefinition<any>[] {
+  const listRef = useRef(nodeTypes);
+  const warnedRef = useRef(false);
+  if (listRef.current !== nodeTypes) {
+    if (sameNodeTypeDefs(listRef.current, nodeTypes)) {
+      if (!warnedRef.current) {
+        warnedRef.current = true;
+        console.warn(
+          "SpatialBoard: the `nodeTypes` array has a new identity on every render " +
+            "but the same contents; reusing the previous one. Pass a module-level " +
+            "constant (or useMemo) to avoid this per-render comparison.",
+        );
+      }
+    } else {
+      listRef.current = nodeTypes;
+    }
+  }
+  return listRef.current;
+}
 
 /** Port-drag released on empty canvas (see `onPortConnectEmpty`). */
 export type PortConnectEmptyEvent = {
@@ -238,17 +268,21 @@ export default function SpatialBoard({
     [externalEngine],
   );
 
+  // Content-stable identity: an inline array with unchanged defs must not
+  // rebuild the registry / data-flow wiring below.
+  const stableNodeTypes = useStableNodeTypes(nodeTypes);
+
   const registry = useMemo(() => {
     // Custom catalogs are additive: keep built-ins (sticky, text, …) so toolbar
     // tools like workflow's Note still resolve; host types override by `type`.
-    if (nodeTypes === coreBoardNodes) {
+    if (stableNodeTypes === coreBoardNodes) {
       return new NodeTypeRegistry(coreBoardNodes);
     }
     const byType = new Map<string, NodeTypeDefinition>();
     for (const nt of coreBoardNodes) byType.set(nt.type, nt);
-    for (const nt of nodeTypes) byType.set(nt.type, nt);
+    for (const nt of stableNodeTypes) byType.set(nt.type, nt);
     return new NodeTypeRegistry([...byType.values()]);
-  }, [nodeTypes]);
+  }, [stableNodeTypes]);
 
   // Load Google Fonts on mount
   useEffect(() => loadGoogleFonts(), []);
@@ -268,12 +302,12 @@ export default function SpatialBoard({
 
   // Register custom container types (nodes with isContainer: true)
   useEffect(() => {
-    for (const nt of nodeTypes) {
+    for (const nt of stableNodeTypes) {
       if (nt.isContainer) {
         engine.registerContainerType(nt.type);
       }
     }
-  }, [engine, nodeTypes]);
+  }, [engine, stableNodeTypes]);
 
   // Load initial data (only once per engine instance — "initial" means first load only)
   const initialDataLoadedRef = useRef(false);
@@ -323,9 +357,9 @@ export default function SpatialBoard({
 
   // Data-flow engine — created only when node types have ports
   const dataFlow = useMemo(() => {
-    const hasPorts = nodeTypes.some((nt) => nodeTypeHasPorts(nt));
+    const hasPorts = stableNodeTypes.some((nt) => nodeTypeHasPorts(nt));
     return hasPorts ? new DataFlowEngine(engine, registry) : null;
-  }, [engine, registry, nodeTypes]);
+  }, [engine, registry, stableNodeTypes]);
 
   useEffect(() => {
     if (!dataFlow) return;

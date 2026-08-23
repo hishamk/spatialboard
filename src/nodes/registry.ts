@@ -263,6 +263,26 @@ export function nodeTypeHasPorts(
   return typeof p === "function" || (Array.isArray(p) && p.length > 0);
 }
 
+/**
+ * Same catalog contents: equal length and the same definition objects in the
+ * same order (reference identity per entry). A freshly spread array of stable
+ * defs (`[...coreBoardNodes, myType]` rebuilt each render) compares equal;
+ * genuinely new or edited defs do not.
+ */
+export function sameNodeTypeDefs(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  a: readonly NodeTypeDefinition<any>[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  b: readonly NodeTypeDefinition<any>[],
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 // ── Agent / MCP catalog (JSON-safe) ───────────────────────────
 
 /** Built-in SpatialBoard node `type` strings — anything else is embedder-defined (“custom”). */

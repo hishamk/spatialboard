@@ -51,6 +51,13 @@ Versioning.
   Drawn strokes are untouched — wires still paint over cards — and freeform
   edges keep their full hit priority, so annotation arrows over images
   behave as before.
+- An inline `nodeTypes` prop (`nodeTypes={[...coreBoardNodes, myType]}`, the
+  README pattern) no longer rebuilds the `NodeTypeRegistry` — and reconnects
+  the data-flow engine, recomputing the whole graph — on every host render:
+  the list is pinned to a stable identity while its contents (length +
+  per-entry references) are unchanged. When a `compute` published into host
+  state, that rebuild loop could hang the page. A one-time console warning
+  still suggests hoisting the array.
 
 ## [0.2.0] - 2026-08-11
 
