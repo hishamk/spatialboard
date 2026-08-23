@@ -22,11 +22,23 @@ Versioning.
   (no container attached) keep fitting immediately.
 - `PortValue` admits arrays (`unknown[]`): matrices, vectors, and token
   lists flow through ports directly instead of being wrapped in an object
-  to satisfy the type. Output change detection is now DEEP (SameValueZero
-  primitives, arrays, plain objects, depth-capped): a freshly built but
-  structurally equal payload no longer recomputes the downstream graph,
-  and a flush skips downstream nodes whose upstream outputs did not
-  actually change.
+  to satisfy the type. (Note for consumers narrowing `PortValue`: after
+  `typeof v === "object"` the type is now `Record<string, unknown> |
+  unknown[]` — code assigning that to a `Record` or indexing by string
+  needs an `Array.isArray` branch.)
+
+### Changed
+
+- Output change detection is DEEP (SameValueZero primitives, arrays, plain
+  objects, depth-capped), and a flush now skips downstream nodes whose
+  upstream outputs did not actually change — a freshly built but
+  structurally equal payload no longer recomputes the downstream graph. A
+  `compute` that reads external state and relied on those accidental
+  recomputes should call `markDirty` explicitly. Structural comparison
+  applies to plain data only: Date, Map, Set, class instances, and
+  subclassed arrays compare by reference, so a fresh exotic instance always
+  counts as a change (its state is invisible to a key walk and must never
+  be swallowed as "equal").
 
 ### Fixed
 

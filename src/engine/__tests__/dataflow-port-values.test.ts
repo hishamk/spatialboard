@@ -81,6 +81,92 @@ describe("array port values", () => {
     expect(flow.getOutputs("snk").seen).toEqual([[1, 9], [3, 4]]);
   });
 
+  it("non-plain objects compare by reference — a changed Date propagates", async () => {
+    let sinkRuns = 0;
+    const SRC: NodeTypeDefinition = {
+      type: "t-date",
+      ports: [{ id: "out", direction: "output", dataType: "object" }],
+      compute: (_inputs, data) => ({
+        out: { t: new Date((data as { k?: number }).k ?? 0) },
+      }),
+    };
+    const SINK: NodeTypeDefinition = {
+      type: "t-date-sink",
+      ports: [
+        { id: "in", direction: "input", dataType: "object" },
+        { id: "seen", direction: "output", dataType: "object" },
+      ],
+      compute: (inputs) => {
+        sinkRuns++;
+        return { seen: inputs.in };
+      },
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([SRC, SINK]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+
+    engine.addNode({ id: "src", type: "t-date", x: 0, y: 0, w: 100, h: 60, z: 1, data: { k: 0 } } as SpatialNode);
+    engine.addNode({ id: "snk", type: "t-date-sink", x: 300, y: 0, w: 100, h: 60, z: 2, data: {} } as SpatialNode);
+    engine.addNode({
+      id: "e1", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 3,
+      data: { fromId: "src", toId: "snk", sourcePort: "out", targetPort: "in" },
+    } as EdgeNode);
+    await drain();
+    const runsAfterSetup = sinkRuns;
+
+    // A key-less object (Date) must not read as "equal" to a different one —
+    // the exotic-instance state is invisible to Object.keys, so instances
+    // compare by reference and the change flows through.
+    engine.updateNode("src", { data: { k: 99999 } });
+    await drain();
+    const stored = flow.getPortValue("src", "out") as { t: Date };
+    expect(stored.t.getTime()).toBe(99999);
+    expect(sinkRuns).toBeGreaterThan(runsAfterSetup);
+  });
+
+  it("subclassed arrays compare by reference like other exotic objects", async () => {
+    class Vec extends Array<number> {}
+    let sinkRuns = 0;
+    const SRC: NodeTypeDefinition = {
+      type: "t-vec",
+      ports: [{ id: "out", direction: "output", dataType: "object" }],
+      // Same elements every run — but a subclass can carry state its
+      // elements don't show, so fresh instances must count as a change.
+      compute: () => ({ out: Vec.from([1, 2, 3]) as unknown as PortValue }),
+    };
+    const SINK: NodeTypeDefinition = {
+      type: "t-vec-sink",
+      ports: [
+        { id: "in", direction: "input", dataType: "object" },
+        { id: "seen", direction: "output", dataType: "object" },
+      ],
+      compute: (inputs) => {
+        sinkRuns++;
+        return { seen: inputs.in };
+      },
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([SRC, SINK]);
+    const flow = new DataFlowEngine(engine, registry);
+    flow.connect();
+
+    engine.addNode({ id: "src", type: "t-vec", x: 0, y: 0, w: 100, h: 60, z: 1, data: {} } as SpatialNode);
+    engine.addNode({ id: "snk", type: "t-vec-sink", x: 300, y: 0, w: 100, h: 60, z: 2, data: {} } as SpatialNode);
+    engine.addNode({
+      id: "e1", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 3,
+      data: { fromId: "src", toId: "snk", sourcePort: "out", targetPort: "in" },
+    } as EdgeNode);
+    await drain();
+    const runsAfterSetup = sinkRuns;
+
+    flow.markDirty("src");
+    await drain();
+    expect(sinkRuns).toBeGreaterThan(runsAfterSetup);
+  });
+
   it("treats NaN outputs as unchanged (no recompute churn)", async () => {
     let sinkRuns = 0;
     const SRC: NodeTypeDefinition = {

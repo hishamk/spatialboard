@@ -509,6 +509,17 @@ export class DataFlowEngine {
  *  recompute) rather than a missed one. */
 const EQUAL_MAX_DEPTH = 100;
 
+/** Plain data object: `{}`-literal or null-prototype. */
+function isPlainObject(v: object): boolean {
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+/** Plain array — a subclass can carry state its elements don't show. */
+function isPlainArray(v: unknown[]): boolean {
+  return Object.getPrototypeOf(v) === Array.prototype;
+}
+
 /** Deep equality for port values: SameValueZero primitives, arrays, and plain
  *  objects. Freshly built but structurally equal payloads (a recomputed
  *  matrix) must compare equal, or every upstream run marks the whole
@@ -528,12 +539,20 @@ function portValuesEqual(a: unknown, b: unknown, depth = 0): boolean {
   if (aIsArray) {
     const arrA = a as unknown[];
     const arrB = b as unknown[];
+    if (!isPlainArray(arrA) || !isPlainArray(arrB)) return false;
     if (arrA.length !== arrB.length) return false;
     for (let i = 0; i < arrA.length; i++) {
       if (!portValuesEqual(arrA[i], arrB[i], depth + 1)) return false;
     }
     return true;
   }
+
+  // Structural comparison is for DATA: plain objects and arrays. Anything
+  // else — Date, Map, Set, class instances — carries state Object.keys
+  // cannot see, so two DISTINCT instances always count as a change
+  // (identical references already returned true at the top). Errs toward
+  // a recompute, never a swallowed update.
+  if (!isPlainObject(a) || !isPlainObject(b)) return false;
 
   const keysA = Object.keys(a);
   const keysB = Object.keys(b);

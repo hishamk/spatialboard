@@ -102,7 +102,7 @@ describe("DataFlowEngine duplicate port wires", () => {
   it("still detects a real cycle", async () => {
     const { engine, flow } = setup();
     engine.addNode(rawPortEdge("e1", "a", "s"));
-    // Close the loop: s.sum back into… a has no input, so build a two-sum loop.
+    // The source type has no input port, so the loop closes between two sums.
     engine.addNode(cardNode("s2", "t-sum", 600));
     engine.addNode({
       id: "e2", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 11,
