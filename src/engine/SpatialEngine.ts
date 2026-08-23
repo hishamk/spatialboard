@@ -444,6 +444,10 @@ export class SpatialEngine {
 
   /** Set the container element (used by SpatialCanvas on mount). */
   setContainer(el: HTMLElement | null): void {
+    // A different container means a different size is coming: re-park fits
+    // until its first measurement. Left sticky, a reused engine remounted
+    // into another panel would frame the PREVIOUS container's size.
+    if (el !== this._container) this._containerMeasured = false;
     this._container = el;
   }
 

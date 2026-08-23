@@ -153,30 +153,41 @@ function _boundsViewport(
   ) {
     return null;
   }
+  // Caller-supplied options are hostile inputs to this math: a NaN/Infinity
+  // padding or maxZoom, or a negative/non-finite inset, would sail past the
+  // guard above (it only sees the raw box) and poison the viewport.
+  if (!Number.isFinite(padding)) padding = 0;
   minX -= padding; minY -= padding; maxX += padding; maxY += padding;
+  if (maxX < minX || maxY < minY) return null; // negative padding inverted the box
   const contentW = maxX - minX;
   const contentH = maxY - minY;
   const screenW = engine._containerWidth;
   const screenH = engine._containerHeight;
-  let insetLeft = opts?.insets?.left ?? 0;
-  let insetTop = opts?.insets?.top ?? 0;
-  let availW = screenW - insetLeft - (opts?.insets?.right ?? 0);
-  let availH = screenH - insetTop - (opts?.insets?.bottom ?? 0);
-  // Insets that consume the whole container (or are NaN) fall back to the
-  // full area — a broken fit beats a negative/NaN viewport.
+  const inset = (v: number | undefined) => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
+  let insetLeft = inset(opts?.insets?.left);
+  let insetTop = inset(opts?.insets?.top);
+  let availW = screenW - insetLeft - inset(opts?.insets?.right);
+  let availH = screenH - insetTop - inset(opts?.insets?.bottom);
+  // Insets that consume the whole container fall back to the full area — a
+  // broken fit beats a negative viewport.
   if (!(availW > 0) || !(availH > 0)) {
     insetLeft = 0;
     insetTop = 0;
     availW = screenW;
     availH = screenH;
   }
-  const zoomCeil = clamp(opts?.maxZoom ?? 5, 0.1, 5);
+  const maxZoom = opts?.maxZoom;
+  const zoomCeil = maxZoom !== undefined && Number.isFinite(maxZoom) ? clamp(maxZoom, 0.1, 5) : 5;
   const zoom = clamp(Math.min(availW / contentW, availH / contentH), 0.1, zoomCeil);
-  return {
-    x: insetLeft + (availW - contentW * zoom) / 2 - minX * zoom,
-    y: insetTop + (availH - contentH * zoom) / 2 - minY * zoom,
-    zoom,
-  };
+  const x = insetLeft + (availW - contentW * zoom) / 2 - minX * zoom;
+  const y = insetTop + (availH - contentH * zoom) / 2 - minY * zoom;
+  // Backstop for anything the per-channel checks above can't foresee (e.g. a
+  // finite padding large enough to overflow the box arithmetic): a fit that
+  // computed a non-finite viewport no-ops instead of applying it.
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(zoom)) {
+    return null;
+  }
+  return { x, y, zoom };
 }
 
 /** The fit-to-all-content target viewport (null when the board is empty). */
@@ -320,6 +331,10 @@ export function centerOnRectAnimated(
 }
 
 export function fitToFrame(engine: SpatialEngine, frameId: string): void {
+  // Parks before first measurement like the other fits (the fallback below
+  // reaches fitToContent, which parks — one method must not have two
+  // timing behaviors).
+  if (_deferFitUntilMeasured(engine, () => fitToFrame(engine, frameId))) return;
   const frame = engine.nodes.get(frameId);
   if (!frame) return engine.fitToContent();
 

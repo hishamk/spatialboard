@@ -15,11 +15,16 @@ Versioning.
   in the remaining region), and `maxZoom` (framing-zoom cap, so fitting a
   single small node stops zooming all the way in). `FitOptions` / `FitInsets`
   are exported from both the board and `spatialboard/engine` entries.
+  Option values are sanitized: a NaN/Infinity `padding` or `maxZoom` and
+  negative/non-finite insets can never poison the viewport transform.
 - Fits requested before the board's first size measurement are parked and
   applied when the container measures, instead of framing the 2000×1500
   stand-in defaults. A `fitToContent()` inside a seeding effect now just
-  works — no more double-rAF / setTimeout dances in hosts. Headless engines
-  (no container attached) keep fitting immediately.
+  works — no more double-rAF / setTimeout dances in hosts. `fitToFrame`
+  parks the same way, and attaching a DIFFERENT container re-arms parking
+  (a reused engine remounted into another panel waits for the new
+  measurement instead of framing the previous container's size). Headless
+  engines (no container attached) keep fitting immediately.
 - `PortValue` admits arrays (`unknown[]`): matrices, vectors, and token
   lists flow through ports directly instead of being wrapped in an object
   to satisfy the type. (Note for consumers narrowing `PortValue`: after

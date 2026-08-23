@@ -57,6 +57,34 @@ describe("fit options", () => {
     expect(engine.viewport.x).toBe((1000 - 800) / 2);
   });
 
+  it("hostile option values never poison the viewport", () => {
+    const engine = new SpatialEngine();
+    engine.setContainerSize(1000, 800);
+    addBox(engine, "n1", 0, 0, 400, 400);
+    const finite = () =>
+      Number.isFinite(engine.viewport.x) &&
+      Number.isFinite(engine.viewport.y) &&
+      Number.isFinite(engine.viewport.zoom);
+
+    engine.fitToContent({ maxZoom: Number.NaN });
+    expect(finite()).toBe(true);
+    engine.fitToContent({ padding: Number.NaN });
+    expect(finite()).toBe(true);
+    engine.fitToContent({ padding: Infinity });
+    expect(finite()).toBe(true);
+    engine.fitToContent({ insets: { left: -Infinity } });
+    expect(finite()).toBe(true);
+    // A finite huge negative padding inverts the box: the fit no-ops and the
+    // previous (finite) viewport stands.
+    const before = { ...engine.viewport };
+    engine.fitToContent({ padding: -1e9 });
+    expect(engine.viewport).toEqual(before);
+    // A finite padding large enough to overflow the box arithmetic hits the
+    // returned-viewport backstop: no-op, previous viewport stands.
+    engine.fitToContent({ padding: 1e308 });
+    expect(engine.viewport).toEqual(before);
+  });
+
   it("defaults preserve the previous framing behavior", () => {
     const engine = new SpatialEngine();
     engine.setContainerSize(1000, 800);
@@ -112,6 +140,33 @@ describe("pre-measure fit parking", () => {
     addBox(engine, "n1", 0, 0, 400, 400);
     engine.fitToContent({ padding: 0 });
     expect(engine.viewport.zoom).toBe(2);
+  });
+
+  it("a container swap re-parks fits until the new element measures", () => {
+    const engine = new SpatialEngine();
+    engine.setContainer({} as HTMLElement);
+    engine.setContainerSize(2000, 2000);
+    addBox(engine, "n1", 0, 0, 400, 400);
+    // Remount into a DIFFERENT container: its size is not known yet, so a
+    // fit must wait for the new measurement instead of framing 2000×2000.
+    engine.setContainer({} as HTMLElement);
+    const before = { ...engine.viewport };
+    engine.fitToContent({ padding: 0 });
+    expect(engine.viewport).toEqual(before);
+    engine.setContainerSize(1000, 800);
+    expect(engine.viewport.zoom).toBe(2);
+  });
+
+  it("fitToFrame parks before first measurement too", () => {
+    const engine = new SpatialEngine();
+    engine.setContainer({} as HTMLElement);
+    addBox(engine, "f1", 0, 0, 400, 400);
+    const before = { ...engine.viewport };
+    engine.fitToFrame("f1");
+    expect(engine.viewport).toEqual(before);
+    engine.setContainerSize(1000, 800);
+    // 400×400 frame + 20 padding each side = 440 → zoom min(1000/440, 800/440).
+    expect(engine.viewport.zoom).toBeCloseTo(800 / 440, 5);
   });
 
   it("headless engines (no container) fit immediately against the defaults", () => {
