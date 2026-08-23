@@ -7,6 +7,20 @@ Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `fitToContent` / `fitToNodes` (and their animated variants) accept options:
+  `padding` (canvas-space margin, defaults unchanged), `insets` (screen-pixel
+  bands reserved for host chrome floating over the canvas — content centers
+  in the remaining region), and `maxZoom` (framing-zoom cap, so fitting a
+  single small node stops zooming all the way in). `FitOptions` / `FitInsets`
+  are exported from both the board and `spatialboard/engine` entries.
+- Fits requested before the board's first size measurement are parked and
+  applied when the container measures, instead of framing the 2000×1500
+  stand-in defaults. A `fitToContent()` inside a seeding effect now just
+  works — no more double-rAF / setTimeout dances in hosts. Headless engines
+  (no container attached) keep fitting immediately.
+
 ### Fixed
 
 - Duplicate port wires between the same pair of nodes no longer make the

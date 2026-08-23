@@ -81,6 +81,7 @@ export function setContainerSize(engine: SpatialEngine, w: number, h: number): v
   const oldH = engine._containerHeight;
   engine._containerWidth = w;
   engine._containerHeight = h;
+  if (w > 0 && h > 0) engine._containerMeasured = true;
   // Re-center the current slide when the container resizes during presentation
   if (engine.presentationMode && engine.presentationSlides.length > 0) {
     engine.presentationGoTo(engine.presentationIndex);
@@ -90,13 +91,57 @@ export function setContainerSize(engine: SpatialEngine, w: number, h: number): v
     engine.viewport.y += (h - oldH) / 2;
     engine.emit("viewport");
   }
+  // A fit parked before the first measurement can now compute against the
+  // real size. Runs last so the fit has the final word over the re-center.
+  if (engine._containerMeasured && engine._pendingFit) {
+    const fit = engine._pendingFit;
+    engine._pendingFit = null;
+    fit();
+  }
+}
+
+/** Screen-pixel bands along each container edge that a fit must keep clear. */
+export interface FitInsets {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+/** Options accepted by the fit methods. */
+export interface FitOptions {
+  /** Canvas-space margin added around the content box before framing.
+   *  Defaults: 50 for content fits, 60 for node-subset / rect fits. */
+  padding?: number;
+  /** Screen-pixel bands reserved for host chrome floating over the canvas
+   *  (title cards, side panels, bottom bars); content centers in the
+   *  remaining region. */
+  insets?: FitInsets;
+  /** Cap on the resulting zoom (clamped to the engine's 0.1–5 range). A fit
+   *  of a single small node otherwise zooms all the way in. */
+  maxZoom?: number;
+}
+
+/** Whether this fit request must wait for the container's first measurement.
+ *  With a container attached but unmeasured, the size fields still hold the
+ *  2000×1500 stand-ins — a fit now would frame the wrong window and stick
+ *  (hosts historically papered over this with double-rAF / setTimeout). Park
+ *  the latest request; setContainerSize applies it on first measure. Headless
+ *  engines (no container ever attached) fit immediately against the defaults. */
+function _deferFitUntilMeasured(engine: SpatialEngine, apply: () => void): boolean {
+  if (!engine._container || engine._containerMeasured) return false;
+  engine._pendingFit = apply;
+  return true;
 }
 
 /** The viewport that frames a bounding box (minX..maxY) with padding, or null
- *  when the box is empty. Shared by the instant + animated fit methods. */
+ *  when the box is empty. Shared by the instant + animated fit methods.
+ *  `opts.insets` reserve screen-pixel bands for host chrome (content centers
+ *  in the remaining region); `opts.maxZoom` caps the framing zoom. */
 function _boundsViewport(
   engine: SpatialEngine,
   minX: number, minY: number, maxX: number, maxY: number, padding: number,
+  opts?: FitOptions,
 ): { x: number; y: number; zoom: number } | null {
   // Reject non-finite or degenerate boxes — a single node with a non-finite
   // dimension (e.g. w="1e400" in a hostile board) would otherwise poison the
@@ -113,16 +158,29 @@ function _boundsViewport(
   const contentH = maxY - minY;
   const screenW = engine._containerWidth;
   const screenH = engine._containerHeight;
-  const zoom = clamp(Math.min(screenW / contentW, screenH / contentH), 0.1, 5);
+  let insetLeft = opts?.insets?.left ?? 0;
+  let insetTop = opts?.insets?.top ?? 0;
+  let availW = screenW - insetLeft - (opts?.insets?.right ?? 0);
+  let availH = screenH - insetTop - (opts?.insets?.bottom ?? 0);
+  // Insets that consume the whole container (or are NaN) fall back to the
+  // full area — a broken fit beats a negative/NaN viewport.
+  if (!(availW > 0) || !(availH > 0)) {
+    insetLeft = 0;
+    insetTop = 0;
+    availW = screenW;
+    availH = screenH;
+  }
+  const zoomCeil = clamp(opts?.maxZoom ?? 5, 0.1, 5);
+  const zoom = clamp(Math.min(availW / contentW, availH / contentH), 0.1, zoomCeil);
   return {
-    x: (screenW - contentW * zoom) / 2 - minX * zoom,
-    y: (screenH - contentH * zoom) / 2 - minY * zoom,
+    x: insetLeft + (availW - contentW * zoom) / 2 - minX * zoom,
+    y: insetTop + (availH - contentH * zoom) / 2 - minY * zoom,
     zoom,
   };
 }
 
 /** The fit-to-all-content target viewport (null when the board is empty). */
-function _contentViewport(engine: SpatialEngine): { x: number; y: number; zoom: number } | null {
+function _contentViewport(engine: SpatialEngine, opts?: FitOptions): { x: number; y: number; zoom: number } | null {
   if (engine.nodes.size === 0) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const node of engine.nodes.values()) {
@@ -132,12 +190,12 @@ function _contentViewport(engine: SpatialEngine): { x: number; y: number; zoom: 
     if (node.x + node.w > maxX) maxX = node.x + node.w;
     if (node.y + h > maxY) maxY = node.y + h;
   }
-  return _boundsViewport(engine, minX, minY, maxX, maxY, 50);
+  return _boundsViewport(engine, minX, minY, maxX, maxY, opts?.padding ?? 50, opts);
 }
 
 /** The fit-to-subset target viewport (null when no node id is found). Edges
  *  are skipped (no meaningful box). */
-function _nodesViewport(engine: SpatialEngine, ids: readonly string[]): { x: number; y: number; zoom: number } | null {
+function _nodesViewport(engine: SpatialEngine, ids: readonly string[], opts?: FitOptions): { x: number; y: number; zoom: number } | null {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   let found = 0;
   for (const id of ids) {
@@ -151,7 +209,7 @@ function _nodesViewport(engine: SpatialEngine, ids: readonly string[]): { x: num
     found++;
   }
   if (found === 0) return null;
-  return _boundsViewport(engine, minX, minY, maxX, maxY, 60);
+  return _boundsViewport(engine, minX, minY, maxX, maxY, opts?.padding ?? 60, opts);
 }
 
 function _prefersReducedMotion(): boolean {
@@ -170,28 +228,36 @@ function _animateOrSnap(engine: SpatialEngine, target: { x: number; y: number; z
   else _transitionPan(engine, target, durationMs ?? 380);
 }
 
-export function fitToContent(engine: SpatialEngine): void {
-  const v = _contentViewport(engine);
+export function fitToContent(engine: SpatialEngine, opts?: FitOptions): void {
+  if (_deferFitUntilMeasured(engine, () => fitToContent(engine, opts))) return;
+  const v = _contentViewport(engine, opts);
   if (!v) return;
   engine.viewport = v;
   engine.emit("viewport");
 }
 
-export function fitToContentAnimated(engine: SpatialEngine, opts?: { durationMs?: number }): void {
-  const v = _contentViewport(engine);
+export function fitToContentAnimated(engine: SpatialEngine, opts?: { durationMs?: number } & FitOptions): void {
+  // A fit parked before first measurement applies instantly when the size
+  // arrives — the board has not painted meaningfully yet, so there is
+  // nothing sensible to tween from.
+  if (_deferFitUntilMeasured(engine, () => fitToContent(engine, opts))) return;
+  const v = _contentViewport(engine, opts);
   if (!v) return;
   _animateOrSnap(engine, v, opts?.durationMs);
 }
 
-export function fitToNodes(engine: SpatialEngine, ids: readonly string[]): void {
-  const v = _nodesViewport(engine, ids);
-  if (!v) return engine.fitToContent();
+export function fitToNodes(engine: SpatialEngine, ids: readonly string[], opts?: FitOptions): void {
+  if (_deferFitUntilMeasured(engine, () => fitToNodes(engine, ids, opts))) return;
+  const v = _nodesViewport(engine, ids, opts);
+  if (!v) return engine.fitToContent(opts);
   engine.viewport = v;
   engine.emit("viewport");
 }
 
-export function fitToNodesAnimated(engine: SpatialEngine, ids: readonly string[], opts?: { durationMs?: number }): void {
-  const v = _nodesViewport(engine, ids);
+export function fitToNodesAnimated(engine: SpatialEngine, ids: readonly string[], opts?: { durationMs?: number } & FitOptions): void {
+  // Parked fits apply instantly at first measure (see fitToContentAnimated).
+  if (_deferFitUntilMeasured(engine, () => fitToNodes(engine, ids, opts))) return;
+  const v = _nodesViewport(engine, ids, opts);
   if (!v) return engine.fitToContentAnimated(opts);
   _animateOrSnap(engine, v, opts?.durationMs);
 }

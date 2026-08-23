@@ -208,8 +208,10 @@ export class SpatialEngine {
     opacity: 1,
   };
   containerOffset = { x: 0, y: 0 };
-  /** DOM element that hosts the canvas — used to derive the correct window in pop-out scenarios. */
-  private _container: HTMLElement | null = null;
+  /** DOM element that hosts the canvas — used to derive the correct window in
+   *  pop-out scenarios, and by the camera shard as the "a measurement is
+   *  coming" signal that parks pre-measure fits. */
+  /** @internal */ _container: HTMLElement | null = null;
   snapToGrid = false;
   smartGuides = true;
   lassoSelect = false;
@@ -259,6 +261,11 @@ export class SpatialEngine {
   /** Container dimensions for viewport bounds computation. */
   /** @internal */ _containerWidth = 2000;
   /** @internal */ _containerHeight = 1500;
+  /** Whether a real container measurement has replaced the size defaults. */
+  /** @internal */ _containerMeasured = false;
+  /** Fit request parked until the container's first measurement (the latest
+   *  request wins). Applied + cleared by `setContainerSize`. */
+  /** @internal */ _pendingFit: (() => void) | null = null;
 
   /** @internal */ history = new History();
   /** When set, `updateNodeWithHistoryCoalesced` reuses one undo step until `endHistoryCoalesce()`. */
@@ -700,13 +707,18 @@ export class SpatialEngine {
     PresentOps.previewSlideTransition(this, toFrameId, fromFrameId);
   }
 
-  fitToContent(): void {
-    CameraOps.fitToContent(this);
+  /** Fit the viewport to all content. `opts` adds canvas padding, screen-px
+   *  insets for host chrome, and a zoom cap. Requested before the container's
+   *  first measurement (with a container attached), the fit is parked and
+   *  applied when the size arrives — callers need no rAF/timeout dance. */
+  fitToContent(opts?: CameraOps.FitOptions): void {
+    CameraOps.fitToContent(this, opts);
   }
 
   /** Animated fit-to-all-content (zoom-out) — reuses the ease-out camera
-   *  tween. `fitToContent` is the instant variant. */
-  fitToContentAnimated(opts?: { durationMs?: number }): void {
+   *  tween. `fitToContent` is the instant variant (and what a fit parked
+   *  before first measurement applies as). */
+  fitToContentAnimated(opts?: { durationMs?: number } & CameraOps.FitOptions): void {
     CameraOps.fitToContentAnimated(this, opts);
   }
 
@@ -715,14 +727,15 @@ export class SpatialEngine {
    * For host render-scope views (e.g. the workflow Loop node's nested
    * sub-canvas — frame the loop + its body). Falls back to fitToContent
    * when the subset is empty/unknown. Edge nodes are skipped (no meaningful box).
+   * Accepts the same options + pre-measure parking as `fitToContent`.
    */
-  fitToNodes(ids: readonly string[]): void {
-    CameraOps.fitToNodes(this, ids);
+  fitToNodes(ids: readonly string[], opts?: CameraOps.FitOptions): void {
+    CameraOps.fitToNodes(this, ids, opts);
   }
 
   /** Animated fit-to-subset (zoom-in) — reuses the ease-out camera tween.
    *  `fitToNodes` is the instant variant. */
-  fitToNodesAnimated(ids: readonly string[], opts?: { durationMs?: number }): void {
+  fitToNodesAnimated(ids: readonly string[], opts?: { durationMs?: number } & CameraOps.FitOptions): void {
     CameraOps.fitToNodesAnimated(this, ids, opts);
   }
 

@@ -8,6 +8,7 @@ export type {
   SpatialSearchMatch,
   SpatialSearchState,
 } from "./engine/SpatialEngine";
+export type { FitOptions, FitInsets } from "./engine/spatialengine_camera";
 export type {
   SpatialNode,
   Viewport,
