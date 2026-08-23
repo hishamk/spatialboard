@@ -7,6 +7,8 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-23
+
 ### Added
 
 - `DataFlowEngine.getComputeError(nodeId)` — the error the node's last
