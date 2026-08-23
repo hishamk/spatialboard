@@ -276,8 +276,14 @@ export class DataFlowEngine {
     }
   }
 
-  /** Topological sort of dirty nodes + their downstream dependents. */
-  private topoSort(): { sorted: string[]; cyclesChanged: boolean } {
+  /** Topological sort of dirty nodes + their downstream dependents. Also
+   *  returns the adjacency it sorted on, so the flush can forward-propagate
+   *  changes through the exact same graph. */
+  private topoSort(): {
+    sorted: string[];
+    cyclesChanged: boolean;
+    adj: Map<string, Set<string>>;
+  } {
     // Collect all nodes that have ports and compute
     const portNodes = new Set<string>();
     for (const node of this.spatial.nodes.values()) {
@@ -290,7 +296,7 @@ export class DataFlowEngine {
     if (portNodes.size === 0) {
       const cyclesChanged = this._cycleNodeIds.size > 0;
       if (cyclesChanged) this._cycleNodeIds = new Set();
-      return { sorted: [], cyclesChanged };
+      return { sorted: [], cyclesChanged, adj: new Map() };
     }
 
     // Build adjacency for port-connected nodes only
@@ -386,20 +392,35 @@ export class DataFlowEngine {
       cyclesChanged = true;
     }
 
-    return { sorted, cyclesChanged };
+    return { sorted, cyclesChanged, adj };
   }
 
   /** Full graph recompute of dirty nodes. */
   private flush(): void {
     if (this.dirty.size === 0) return;
 
-    const { sorted, cyclesChanged } = this.topoSort();
+    const initiallyDirty = new Set(this.dirty);
+    const { sorted, cyclesChanged, adj } = this.topoSort();
     this.dirty.clear();
 
+    // Execute in topo order, but only where something actually happened: a
+    // node the flush was asked about (initially dirty), or one downstream of
+    // a node whose outputs CHANGED this pass — forward-propagated through
+    // the same adjacency the sort ran on (topo order guarantees upstream
+    // executes first). Expansion-only nodes with untouched inputs keep
+    // their values: recomputing a matrix upstream must not re-run the whole
+    // downstream when the result is structurally identical. (Async computes
+    // return "unchanged" here and re-enter through markDirty when their
+    // promise applies a real change.)
+    const pending = new Set<string>();
     let changed = false;
     for (const nodeId of sorted) {
+      if (!initiallyDirty.has(nodeId) && !pending.has(nodeId)) continue;
       const didChange = this.executeNode(nodeId);
-      if (didChange) changed = true;
+      if (didChange) {
+        changed = true;
+        for (const to of adj.get(nodeId) ?? []) pending.add(to);
+      }
     }
 
     if (changed || cyclesChanged) {
@@ -449,7 +470,12 @@ export class DataFlowEngine {
     return this.applyOutputs(nodeId, ports, result);
   }
 
-  /** Apply computed outputs to the values map. Returns true if any value changed. */
+  /** Apply computed outputs to the values map. Returns true if any value
+   *  changed. Propagation is the CALLER's job: the sync flush loop carries
+   *  changes forward through its topo order, and the async completion marks
+   *  downstream itself — marking here too would leave stale ids in `dirty`
+   *  during a flush, and a later flush would then treat untouched downstream
+   *  nodes as invalidated. */
   private applyOutputs(
     nodeId: string,
     ports: PortDefinition[],
@@ -461,14 +487,10 @@ export class DataFlowEngine {
       const key = portKey(nodeId, port.id);
       const newVal = outputs[port.id] ?? null;
       const oldVal = this.values.get(key) ?? null;
-      if (!shallowEqual(oldVal, newVal)) {
+      if (!portValuesEqual(oldVal, newVal)) {
         this.values.set(key, newVal);
         changed = true;
       }
-    }
-    if (changed) {
-      // Mark downstream nodes dirty for next flush
-      this.markDownstream(nodeId);
     }
     return changed;
   }
@@ -481,23 +503,51 @@ export class DataFlowEngine {
   }
 }
 
-/** Shallow equality check for port values. */
-function shallowEqual(a: PortValue, b: PortValue): boolean {
+/** Recursion ceiling for the change check. Port payloads are data (matrices,
+ *  token lists, plain records); anything nested deeper than this — or cyclic —
+ *  falls back to reference identity, which errs toward "changed" (a spurious
+ *  recompute) rather than a missed one. */
+const EQUAL_MAX_DEPTH = 100;
+
+/** Deep equality for port values: SameValueZero primitives, arrays, and plain
+ *  objects. Freshly built but structurally equal payloads (a recomputed
+ *  matrix) must compare equal, or every upstream run marks the whole
+ *  downstream dirty for nothing. */
+function portValuesEqual(a: unknown, b: unknown, depth = 0): boolean {
   if (a === b) return true;
+  // SameValueZero: NaN equals NaN (=== already treats +0/-0 as equal).
+  if (typeof a === "number" && typeof b === "number") {
+    return a !== a && b !== b;
+  }
   if (a == null || b == null) return false;
-  if (typeof a !== typeof b) return false;
-  if (typeof a === "object" && typeof b === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-    for (const k of keysA) {
-      if (
-        (a as Record<string, unknown>)[k] !==
-        (b as Record<string, unknown>)[k]
-      )
-        return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  if (depth >= EQUAL_MAX_DEPTH) return false;
+
+  const aIsArray = Array.isArray(a);
+  if (aIsArray !== Array.isArray(b)) return false;
+  if (aIsArray) {
+    const arrA = a as unknown[];
+    const arrB = b as unknown[];
+    if (arrA.length !== arrB.length) return false;
+    for (let i = 0; i < arrA.length; i++) {
+      if (!portValuesEqual(arrA[i], arrB[i], depth + 1)) return false;
     }
     return true;
   }
-  return false;
+
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (
+      !portValuesEqual(
+        (a as Record<string, unknown>)[k],
+        (b as Record<string, unknown>)[k],
+        depth + 1,
+      )
+    )
+      return false;
+  }
+  return true;
 }

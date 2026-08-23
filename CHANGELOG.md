@@ -20,6 +20,13 @@ Versioning.
   stand-in defaults. A `fitToContent()` inside a seeding effect now just
   works — no more double-rAF / setTimeout dances in hosts. Headless engines
   (no container attached) keep fitting immediately.
+- `PortValue` admits arrays (`unknown[]`): matrices, vectors, and token
+  lists flow through ports directly instead of being wrapped in an object
+  to satisfy the type. Output change detection is now DEEP (SameValueZero
+  primitives, arrays, plain objects, depth-capped): a freshly built but
+  structurally equal payload no longer recomputes the downstream graph,
+  and a flush skips downstream nodes whose upstream outputs did not
+  actually change.
 
 ### Fixed
 

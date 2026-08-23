@@ -45,8 +45,17 @@ export interface PortDefinition {
   sideT?: number;
 }
 
-/** A value that flows through a port. */
-export type PortValue = number | string | boolean | Record<string, unknown> | null;
+/** A value that flows through a port. Arrays cover the common data-flow
+ *  payloads (vectors, matrices, token lists) without forcing an object
+ *  wrapper; element/property types stay loose on purpose so hosts can move
+ *  whatever their compute functions understand. */
+export type PortValue =
+  | number
+  | string
+  | boolean
+  | Record<string, unknown>
+  | unknown[]
+  | null;
 
 /** Composite key for port values: "nodeId:portId". */
 export type PortKey = `${string}:${string}`;
