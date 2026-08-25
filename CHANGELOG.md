@@ -14,6 +14,10 @@ Versioning.
   `chrome="floating"` had no fan affordance on grouped selections. The FAB is
   selection chrome — it anchors to the selection envelope both modes share —
   and keeps its own gates (grouped multi-selection, not read-only).
+- Undoing a fan-out pick no longer scatters the group to the transient ring
+  layout. The pick's z-raise pushed its undo snapshot while the members were
+  still fanned out, so undo restored the ring positions instead of the pile;
+  the snapshot now captures the members at their home positions.
 
 ## [0.3.2] - 2026-08-23
 
