@@ -570,10 +570,13 @@ export default function SpatialBoard({
             onTogglePerfOverlay={() => setShowPerfOverlay((v) => !v)}
           />
         )}
+        {/* The fan-out FAB is selection chrome, not console furniture — it
+            mounts in both chrome modes (its own gates require a grouped
+            multi-selection, so it stays invisible otherwise). */}
+        {showChrome && !readOnly && <GroupFanFab engine={engine} />}
         {showChrome && consoleChrome && (
           <>
             <SelectionActionBar engine={engine} />
-            {!readOnly && <GroupFanFab engine={engine} />}
             <ConsolePanel
               engine={engine}
               registry={registry}

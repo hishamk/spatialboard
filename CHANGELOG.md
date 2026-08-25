@@ -7,6 +7,14 @@ Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- The group fan-out FAB now mounts in floating chrome too. It was rendered
+  only in the console-chrome branch, so boards on the default
+  `chrome="floating"` had no fan affordance on grouped selections. The FAB is
+  selection chrome — it anchors to the selection envelope both modes share —
+  and keeps its own gates (grouped multi-selection, not read-only).
+
 ## [0.3.2] - 2026-08-23
 
 ### Added
