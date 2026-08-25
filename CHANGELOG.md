@@ -7,6 +7,8 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-08-25
+
 ### Fixed
 
 - The group fan-out FAB now mounts in floating chrome too. It was rendered
