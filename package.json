@@ -1,6 +1,6 @@
 {
   "name": "spatialboard",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A React + TypeScript spatial canvas and node-board library for whiteboards, visual editors, and graph interfaces.",
   "license": "MIT",
   "author": "Hisham Khalifa",

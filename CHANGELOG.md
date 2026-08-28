@@ -7,6 +7,22 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-08-28
+
+### Fixed
+
+- Selection chrome drawn by the image, youtube, and blocknote-placeholder
+  blocks now stays screen-constant at any zoom. These blocks render their own
+  ring and handles in HTML inside the zoomed viewport layer and used fixed
+  pixel values, so the chrome scaled with the viewport — a thick ring and fat
+  rounded handle dots at high zoom. Ring outlines, handle borders, and handle
+  corner radii now divide by zoom like the SVG selection chrome; the youtube
+  block also drops the 6-unit handle floor that inflated its handles as zoom
+  rose. Ring corner rounding stays in canvas units, tracking the node's ink.
+- Selecting a blocknote placeholder no longer shifts its layout: the ring was
+  a border-width swap (1px → 2px) and is now an outline, which paints outside
+  the box.
+
 ## [0.3.3] - 2026-08-25
 
 ### Fixed
