@@ -46,7 +46,9 @@ function YouTubeBlock({
     ? `${data.borderWidth ?? 1}px ${data.borderStyle ?? "solid"} ${data.borderColor}`
     : "none";
 
-  const handleSize = Math.max(6, 8 / zoom);
+  // Chrome sizes divide by zoom so they render screen-constant inside the
+  // zoomed viewport layer (matches the SVG SelectionBox convention).
+  const handleSize = 8 / zoom;
   const handles: { key: HandlePosition; x: string; y: string; cursor: string }[] = [
     { key: "nw", x: "0%", y: "0%", cursor: "nwse-resize" },
     { key: "ne", x: "100%", y: "0%", cursor: "nesw-resize" },
@@ -81,7 +83,7 @@ function YouTubeBlock({
         // Outline, not border — a border-box border insets the inset:0
         // inner container and visibly shrinks the video on select (same
         // fix as ImageBlock). Hidden during move drags like all chrome.
-        outline: isSelected && engine.gestureKind !== "move" ? "2px dashed #3b82f6" : "none",
+        outline: isSelected && engine.gestureKind !== "move" ? `${2 / zoom}px dashed #3b82f6` : "none",
         borderRadius: 6,
         overflow: "visible",
         pointerEvents: interactive ? "auto" : "none",
@@ -151,8 +153,8 @@ function YouTubeBlock({
               marginLeft: -handleSize / 2,
               marginTop: -handleSize / 2,
               background: "#fff",
-              border: "1px solid #3b82f6",
-              borderRadius: 2,
+              border: `${1 / zoom}px solid #3b82f6`,
+              borderRadius: 2 / zoom,
               cursor: hdl.cursor,
               zIndex: 1,
             }}

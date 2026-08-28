@@ -166,7 +166,6 @@ function BlockNoteBlockPlaceholder({
     [engine, node.id, onZoomToNode]
   );
 
-  const showBorder = isSelected;
   const { lines, skeletonCount } = getPreviewLines(node.data.blocks);
   const remainingHeight = height - 28 - (lines.length * 18) - 8;
   const skeletonLineCount = Math.min(
@@ -189,7 +188,10 @@ function BlockNoteBlockPlaceholder({
         height,
         minHeight: 60,
         zIndex: node.z,
-        border: showBorder ? `2px solid #3b82f6` : "1px solid #e2e8f0",
+        border: "1px solid #e2e8f0",
+        // Selection ring as an outline: no layout shift when it appears, and
+        // divided by zoom so it renders screen-constant like all chrome.
+        outline: isSelected ? `${1.5 / zoom}px solid #3b82f6` : "none",
         borderRadius: 8,
         background: "white",
         boxShadow: isSelected ? "none" : "0 1px 2px rgba(0,0,0,0.06)",

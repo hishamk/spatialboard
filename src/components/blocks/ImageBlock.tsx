@@ -552,7 +552,7 @@ function ImageBlock({
         // absolutely-positioned (inset: 0) image by the border width —
         // the image visibly resized on select. Outlines paint outside
         // the box and never affect layout.
-        outline: showChrome ? `2px solid #3b82f6` : "none",
+        outline: showChrome ? `${2 / zoom}px solid #3b82f6` : "none",
         borderRadius: 6,
         overflow: "visible",
         pointerEvents: interactive || cropping ? "auto" : "none",
@@ -621,7 +621,7 @@ function ImageBlock({
               height: cropHandleSize,
               background: "white",
               border: `${1.5 / zoom}px solid #3b82f6`,
-              borderRadius: 2,
+              borderRadius: 2 / zoom,
               cursor,
               zIndex: 11,
             }}
@@ -665,8 +665,8 @@ function ImageBlock({
               width: handleSize,
               height: handleSize,
               background: "white",
-              border: "1.5px solid #3b82f6",
-              borderRadius: 2,
+              border: `${1.5 / zoom}px solid #3b82f6`,
+              borderRadius: 2 / zoom,
               cursor: getRotatedCursor(pos, node.rotation || 0),
             }}
           />
