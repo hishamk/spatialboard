@@ -552,7 +552,17 @@ export class DataFlowEngine {
     const def = this.registry.get(node.type) as
       | NodeTypeDefinition<unknown>
       | undefined;
-    const ports = resolveNodePorts(def, node);
+    // Resolving ports runs host code (a per-node resolver can throw), and it
+    // sits in the same flush microtask as the compute below. Park and move on
+    // like a throwing compute: letting the throw escape would silently cost
+    // every node later in the topo order its recompute.
+    let ports: PortDefinition[] | undefined;
+    try {
+      ports = resolveNodePorts(def, node);
+    } catch (err) {
+      this.parkComputeError(nodeId, err);
+      return false;
+    }
     if (!def?.compute || !ports) return false;
 
     // A new run supersedes any async run still in flight for this node —
@@ -659,6 +669,29 @@ export class DataFlowEngine {
         if (!keys) this.valueKeys.set(nodeId, (keys = new Set()));
         keys.add(key);
         changed = true;
+      }
+    }
+
+    // A node can narrow its outputs while staying alive — a resolver that
+    // stops emitting a port after a data or type change. The write loop above
+    // only refreshes the ports it still has, so drop any stored key this node
+    // no longer backs; otherwise getPortValue and a downstream edge still
+    // naming the gone port read its last value forever. A dropped key counts
+    // as a change so a dependent reading the now-absent port re-propagates to
+    // null. (purgeNodeState handles the whole-node delete; this is the
+    // alive-but-narrower case.)
+    const stored = this.valueKeys.get(nodeId);
+    if (stored && stored.size > 0) {
+      const live = new Set<PortKey>();
+      for (const port of ports) {
+        if (port.direction === "output") live.add(portKey(nodeId, port.id));
+      }
+      for (const key of stored) {
+        if (!live.has(key)) {
+          this.values.delete(key);
+          stored.delete(key);
+          changed = true;
+        }
       }
     }
     return changed;
