@@ -7,6 +7,23 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-14
+
+### Fixed
+
+- A node whose port resolver throws no longer aborts the rest of a recompute
+  pass. Resolving a node's ports runs host code and can throw, but it sat
+  outside the guard that already isolates a throwing compute, so the exception
+  escaped the flush and every node later in the topological order silently lost
+  its recompute. The resolver now parks the error on that node and the pass
+  carries on, exactly like a throwing compute.
+- A node that stops emitting an output port while staying on the board no longer
+  leaves the dropped port's last value behind. The value map only refreshed the
+  ports a node still has, so a resolver that narrows its outputs after a data or
+  type change left the gone port readable at its stale value. On recompute a
+  node now drops any stored value for a port it no longer backs, and the drop
+  counts as a change so a downstream edge still naming that port re-reads null.
+
 ## [0.3.4] - 2026-08-28
 
 ### Fixed
