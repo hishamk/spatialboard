@@ -569,6 +569,15 @@ export class DataFlowEngine {
     if (!node) return false;
     const lifetime = this.lifetime;
 
+    // A new run supersedes any async run still in flight for this node —
+    // the old landing must not overwrite what this run produces, nor clear
+    // the error it parks. The bump comes before any host code, so a run that
+    // stops early (a throwing resolver, a type that no longer computes) still
+    // retires the old landing. An entry exists iff an async run ever started,
+    // so sync-only nodes never grow the map.
+    const prevGen = this.generations.get(nodeId);
+    if (prevGen !== undefined) this.generations.set(nodeId, prevGen + 1);
+
     const def = this.registry.get(node.type) as
       | NodeTypeDefinition<unknown>
       | undefined;
@@ -587,13 +596,6 @@ export class DataFlowEngine {
     }
     if (!this.isLive(nodeId, lifetime)) return false;
     if (!def?.compute || !ports) return false;
-
-    // A new run supersedes any async run still in flight for this node —
-    // the old landing must not overwrite what this run produces, nor clear
-    // the error it parks. An entry exists iff an async run ever started, so
-    // sync-only nodes never grow the map.
-    const prevGen = this.generations.get(nodeId);
-    if (prevGen !== undefined) this.generations.set(nodeId, prevGen + 1);
 
     // Inputs are gathered against the ports resolved above, never a second
     // resolve: a resolver is host code and need not answer the same way twice.
@@ -627,7 +629,13 @@ export class DataFlowEngine {
     // abandoned promise still gets a rejection handler, so a later rejection
     // never surfaces as unhandled.
     if (!this.isLive(nodeId, lifetime)) {
-      if (result instanceof Promise) result.then(undefined, () => {});
+      if (result instanceof Promise) {
+        try {
+          result.then(undefined, () => {});
+        } catch {
+          // A Promise subclass whose `then` throws; nothing is left to report to.
+        }
+      }
       return false;
     }
 
@@ -635,53 +643,62 @@ export class DataFlowEngine {
     if (result instanceof Promise) {
       const gen = (this.generations.get(nodeId) ?? 0) + 1;
       this.generations.set(nodeId, gen);
-      result.then(
-        (outputs) => {
-          if (gen !== this.generations.get(nodeId)) return; // stale — this node re-ran
-          const t1 = typeof performance !== "undefined" ? performance.now() : 0;
-          this.lastComputeMs.set(nodeId, t1 - t0);
-          let didChange: boolean;
-          try {
-            didChange = this.applyOutputs(nodeId, ports, outputs);
-          } catch (err) {
-            // Hostile output values (a plain object whose property getter
-            // throws) fail during the change check; that failure belongs to
-            // this node, exactly like a rejection. A getter may also have
-            // deleted the node or disposed the engine before the throw, and
-            // the ports written before it must not outlive that.
+      // Subscribing runs host code as well: a Promise subclass can override
+      // `then`, and a throw there belongs to this node, not to the flush.
+      try {
+        result.then(
+          (outputs) => {
+            if (gen !== this.generations.get(nodeId)) return; // stale — this node re-ran
+            const t1 = typeof performance !== "undefined" ? performance.now() : 0;
+            this.lastComputeMs.set(nodeId, t1 - t0);
+            let didChange: boolean;
+            try {
+              didChange = this.applyOutputs(nodeId, ports, outputs);
+            } catch (err) {
+              // Hostile output values (a plain object whose property getter
+              // throws) fail during the change check; that failure belongs to
+              // this node, exactly like a rejection. A getter may also have
+              // deleted the node or disposed the engine before the throw, and
+              // the ports written before it must not outlive that.
+              if (!this.isLive(nodeId, lifetime)) {
+                this.purgeNodeState(nodeId);
+              } else if (this.parkComputeError(nodeId, err)) {
+                this.notifyListeners();
+              }
+              return;
+            }
+            // An output getter is host code as well; one that deleted the node
+            // or disposed the engine mid-write leaves nothing to keep.
             if (!this.isLive(nodeId, lifetime)) {
               this.purgeNodeState(nodeId);
-            } else if (this.parkComputeError(nodeId, err)) {
+              return;
+            }
+            const errorCleared = this.clearComputeError(nodeId);
+            if (didChange) {
+              // markDownstream schedules the follow-up flush itself when the
+              // change has dependents.
+              this.markDownstream(nodeId);
+            }
+            if (didChange || errorCleared) {
               this.notifyListeners();
             }
-            return;
-          }
-          // An output getter is host code as well; one that deleted the node
-          // or disposed the engine mid-write leaves nothing to keep.
-          if (!this.isLive(nodeId, lifetime)) {
-            this.purgeNodeState(nodeId);
-            return;
-          }
-          const errorCleared = this.clearComputeError(nodeId);
-          if (didChange) {
-            // markDownstream schedules the follow-up flush itself when the
-            // change has dependents.
-            this.markDownstream(nodeId);
-          }
-          if (didChange || errorCleared) {
-            this.notifyListeners();
-          }
-        },
-        (err) => {
-          // Rejections park exactly like a sync throw — an async compute must
-          // never surface as an unhandled rejection. Stale rejections (node
-          // re-ran, was deleted, or the engine was disposed) are dropped.
-          if (gen !== this.generations.get(nodeId)) return;
-          if (this.parkComputeError(nodeId, err)) {
-            this.notifyListeners();
-          }
-        },
-      );
+          },
+          (err) => {
+            // Rejections park exactly like a sync throw — an async compute must
+            // never surface as an unhandled rejection. Stale rejections (node
+            // re-ran, was deleted, or the engine was disposed) are dropped.
+            if (gen !== this.generations.get(nodeId)) return;
+            // A node removed without an event (a remote delete) bumps no
+            // generation; liveness still keeps the error off the dead id.
+            if (!this.isLive(nodeId, lifetime)) return;
+            if (this.parkComputeError(nodeId, err)) {
+              this.notifyListeners();
+            }
+          },
+        );
+      } catch (err) {
+        if (this.isLive(nodeId, lifetime)) this.parkComputeError(nodeId, err);
+      }
       return false;
     }
 
@@ -709,11 +726,10 @@ export class DataFlowEngine {
 
   /** Whether a run that began in `lifetime` may still write state for a node:
    *  no dispose() since the run began, and the node is still on the board.
-   *  Host code — a ports resolver, compute, an
-   *  output getter — can delete its own node or dispose the engine, so every
-   *  write after host code runs checks this first. Presence by id, not object
-   *  identity: a compute that updates its own node replaces the object but is
-   *  still alive. */
+   *  Host code — a ports resolver, compute, an output getter — can delete its
+   *  own node or dispose the engine, so every write after host code runs
+   *  checks this first. Presence by id, not object identity: a compute that
+   *  updates its own node replaces the object but is still alive. */
   private isLive(nodeId: string, lifetime: number): boolean {
     return this.lifetime === lifetime && this.spatial.nodes.has(nodeId);
   }

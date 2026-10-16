@@ -903,3 +903,151 @@ describe("DataFlowEngine node data isolation from host callbacks", () => {
     expect(resolveNodePorts(staticDef, objectNode)).toBe(OUT);
   });
 });
+
+describe("DataFlowEngine async runs around host code", () => {
+  /** A promise the test settles by hand. */
+  function deferred() {
+    let resolve!: (v: Record<string, unknown>) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<Record<string, unknown>>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it("retires an in-flight async run when a newer run's resolver throws", async () => {
+    const engine = new SpatialEngine();
+    const pending: ReturnType<typeof deferred>[] = [];
+    const slow: NodeTypeDef<Record<string, unknown>> = {
+      type: "slow",
+      ports: (node) => {
+        if ((node.data as Record<string, unknown>).explode) {
+          throw new Error("ports resolver blew up");
+        }
+        return OUT;
+      },
+      compute: () => {
+        const d = deferred();
+        pending.push(d);
+        return d.promise as Promise<Record<string, never>>;
+      },
+    };
+    engine.addNode(makeNode("n", "slow", { v: 1 }));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([slow]));
+    dfe.connect();
+    await settle();
+    pending[0].resolve({ out: 1 });
+    await settle();
+    expect(dfe.getPortValue("n", "out")).toBe(1);
+
+    // A second run goes in flight, then a third stops at its resolver.
+    engine.updateNode("n", { data: { v: 2 } });
+    await settle();
+    expect(pending).toHaveLength(2);
+    engine.updateNode("n", { data: { explode: true } });
+    await settle();
+    expect(dfe.getComputeError("n")).toBeInstanceOf(Error);
+
+    // The superseded run lands late: it neither writes nor clears the error.
+    pending[1].resolve({ out: 2 });
+    await settle();
+    expect(dfe.getComputeError("n")).toBeInstanceOf(Error);
+    expect(dfe.getPortValue("n", "out")).toBe(1);
+  });
+
+  it("parks no error for a node removed without an event before its run rejects", async () => {
+    const engine = new SpatialEngine();
+    const pending: ReturnType<typeof deferred>[] = [];
+    const slow: NodeTypeDef<Record<string, unknown>> = {
+      type: "slow-reject",
+      ports: OUT,
+      compute: () => {
+        const d = deferred();
+        pending.push(d);
+        return d.promise as Promise<Record<string, never>>;
+      },
+    };
+    engine.addNode(makeNode("n", "slow-reject", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([slow]));
+    dfe.connect();
+    await settle();
+    expect(pending).toHaveLength(1);
+
+    engine.deleteRemoteNode("n");
+    pending[0].reject(new Error("late rejection"));
+    await settle();
+
+    expect(engine.nodes.has("n")).toBe(false);
+    expect(dfe.getComputeError("n")).toBeUndefined();
+  });
+
+  it("parks a promise whose then throws and keeps flushing the rest of the topo order", async () => {
+    const engine = new SpatialEngine();
+    const unhandled = await captureUnhandled(async () => {
+      const odd: NodeTypeDef<Record<string, unknown>> = {
+        type: "odd-promise",
+        ports: OUT,
+        compute: () => {
+          const p = Promise.resolve({ out: 1 });
+          Object.defineProperty(p, "then", {
+            value: () => {
+              throw new Error("then threw");
+            },
+          });
+          return p;
+        },
+      };
+      const tail: NodeTypeDef<Record<string, unknown>> = {
+        type: "tail",
+        ports: [
+          { id: "in", direction: "input", dataType: "number" },
+          { id: "out", direction: "output", dataType: "number" },
+        ],
+        compute: (_inputs, data) => ({ out: Number(data.tag ?? 0) }),
+      };
+      engine.addNode(makeNode("odd", "odd-promise", {}));
+      engine.addNode(makeNode("tail", "tail", { tag: 1 }));
+      engine.createEdge("odd", "tail", { sourcePort: "out", targetPort: "in" });
+      const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([odd, tail]));
+      dfe.connect();
+      await settle();
+
+      expect(dfe.getComputeError("odd")).toBeInstanceOf(Error);
+      expect(dfe.getPortValue("tail", "out")).toBe(1);
+    });
+    expect(unhandled).toEqual([]);
+  });
+
+  it("keeps a throwing then on an abandoned promise inside the flush", async () => {
+    const engine = new SpatialEngine();
+    const gone: NodeTypeDef<Record<string, unknown>> = {
+      type: "gone-odd",
+      ports: OUT,
+      compute: () => {
+        engine.deleteNode("gone");
+        const p = Promise.resolve({ out: 1 });
+        Object.defineProperty(p, "then", {
+          value: () => {
+            throw new Error("then threw");
+          },
+        });
+        return p;
+      },
+    };
+    const tail: NodeTypeDef<Record<string, unknown>> = {
+      type: "tail",
+      ports: OUT,
+      compute: (_inputs, data) => ({ out: Number(data.tag ?? 0) }),
+    };
+    engine.addNode(makeNode("gone", "gone-odd", {}));
+    engine.addNode(makeNode("tail", "tail", { tag: 3 }));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([gone, tail]));
+    dfe.connect();
+    await settle();
+
+    expect(engine.nodes.has("gone")).toBe(false);
+    expect(dfe.getComputeError("gone")).toBeUndefined();
+    expect(dfe.getPortValue("tail", "out")).toBe(3);
+  });
+});

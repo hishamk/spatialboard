@@ -10,14 +10,14 @@ Versioning.
 ### Fixed
 
 - A node that deletes itself, or disposes the data-flow engine, from inside its
-  own port resolver or compute no longer has outputs written afterwards. The
-  engine checked that the node was still on the board only before running host
-  code, so a sync result, an async result whose run began before the delete, or
-  a parked error still landed under the dead id or in the disposed engine. Every
-  write after host code now checks that the node is still present and that the
-  engine has not been disposed (or disposed and reconnected) since the run
-  began, and an abandoned async result's rejection is handled quietly instead of
-  surfacing as unhandled.
+  own port resolver, compute, or an output getter no longer has outputs written
+  afterwards. The engine checked that the node was still on the board only
+  before running host code, so a sync result, an async result whose run began
+  before the delete, or a parked error still landed under the dead id or in the
+  disposed engine. Every write after host code now checks that the node is
+  still present and that the engine has not been disposed (or disposed and
+  reconnected) since the run began, and an abandoned async result's rejection is
+  handled quietly instead of surfacing as unhandled.
 - An edge left without usable data no longer breaks the data-flow engine. A
   host can replace an edge's data with `undefined` (or leave a rejected
   data-less edge on the board), and the engine read edge fields unguarded while
@@ -33,6 +33,18 @@ Versioning.
   the resolver a copy of the node and its data, compute a copy of the data — and
   the docs spell out that both are read-only inputs: change a node through
   `updateNode`, and leave nested objects, which the copy still shares, alone.
+  The resolver receives a fresh copy on every call, so a cache keyed on the
+  identity of the node or its data will miss.
+- An async compute that is superseded, removed, or returns an unusual promise
+  no longer leaks into the node's state or the rest of the recompute pass. A
+  newer run that stopped at its port resolver did not retire the run still in
+  flight, so the older result landed late and cleared the newer run's error; a
+  node removed without an event still had a late rejection parked under its id;
+  and a promise whose `then` throws escaped the pass, costing every node later
+  in the topological order its recompute. A run now retires any in-flight run
+  before calling host code, a rejection parks only on a node still on the
+  board, and a throwing `then` parks the error on its node like a throwing
+  compute.
 
 ## [0.3.5] - 2026-10-14
 
