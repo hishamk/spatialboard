@@ -98,7 +98,17 @@ export class DataFlowEngine {
     const def = this.registry.get(node?.type ?? "");
     const ports = resolveNodePorts(def, node);
     if (!ports) return {};
+    return this.collectInputs(nodeId, ports);
+  }
 
+  /**
+   * Gather a node's input values from connected edges against an
+   * already-resolved port set, so a recompute resolves its ports once.
+   */
+  private collectInputs(
+    nodeId: string,
+    ports: PortDefinition[],
+  ): Record<string, PortValue> {
     const inputs: Record<string, PortValue> = {};
     const inputPorts = ports.filter((p) => p.direction === "input");
 
@@ -572,7 +582,17 @@ export class DataFlowEngine {
     const prevGen = this.generations.get(nodeId);
     if (prevGen !== undefined) this.generations.set(nodeId, prevGen + 1);
 
-    const inputs = this.getInputs(nodeId);
+    // Inputs are gathered against the ports resolved above, never a second
+    // resolve: a resolver is host code and need not answer the same way twice.
+    // A malformed port entry fails here, and that failure parks with the node
+    // instead of escaping the flush.
+    let inputs: Record<string, PortValue>;
+    try {
+      inputs = this.collectInputs(nodeId, ports);
+    } catch (err) {
+      this.parkComputeError(nodeId, err);
+      return false;
+    }
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     let result: Record<string, PortValue> | Promise<Record<string, PortValue>>;
     try {

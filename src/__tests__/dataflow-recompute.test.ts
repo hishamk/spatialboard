@@ -3,15 +3,18 @@ import {
   SpatialEngine,
   NodeTypeRegistry,
   DataFlowEngine,
+  resolveNodePorts,
   type NodeTypeDef,
+  type PortDefinition,
   type SpatialNode,
 } from "../engine";
 
 /*
  * Recompute-path robustness for the data-flow engine, exercised headlessly
- * (no React board). Two hazards a per-node resolver introduces on recompute:
- * a resolver that throws, and a resolver that narrows a node's output ports
- * while the node stays alive.
+ * (no React board). Hazards a per-node resolver introduces on recompute: a
+ * resolver that throws, one that narrows a node's output ports while the node
+ * stays alive, one that returns a non-array, one that does not answer the same
+ * way twice, and one that returns a malformed port entry.
  */
 
 /** Let the engine's queued microtask flush (and any async compute landings)
@@ -125,5 +128,208 @@ describe("DataFlowEngine recompute robustness", () => {
     expect(dfe.getPortValue("narrow", "out")).toBeNull();
     expect(dfe.getPortValue("narrow", "keep")).toBe(10);
     expect(dfe.getPortValue("reader", "echo")).toBeNull();
+  });
+
+  it("treats a resolver returning null as an empty port set and drops stale outputs", async () => {
+    // `src` emits `out` while on; once off, its resolver returns null instead
+    // of an empty array. `reader` reads `src.out` over an edge that outlives
+    // the port.
+    const src: NodeTypeDef<Record<string, unknown>> = {
+      type: "src",
+      ports: (node) =>
+        (node.data as Record<string, unknown>).on
+          ? [{ id: "out", direction: "output", dataType: "number" }]
+          : (null as unknown as PortDefinition[]),
+      compute: () => ({ out: 5 }),
+    };
+    const reader: NodeTypeDef<Record<string, unknown>> = {
+      type: "reader",
+      ports: [
+        { id: "in", direction: "input", dataType: "number" },
+        { id: "echo", direction: "output", dataType: "number" },
+      ],
+      compute: (inputs) => ({ echo: inputs.in }),
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([src, reader]);
+    engine.addNode(makeNode("src", "src", { on: true }));
+    engine.addNode(makeNode("reader", "reader", {}));
+    engine.createEdge("src", "reader", { sourcePort: "out", targetPort: "in" });
+
+    const dfe = new DataFlowEngine(engine, registry);
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("src", "out")).toBe(5);
+    expect(dfe.getPortValue("reader", "echo")).toBe(5);
+
+    engine.updateNode("src", { data: { on: false } });
+    await settle();
+
+    // A null port set behaves like an empty one: the stale value is gone and
+    // the downstream edge re-propagated to null.
+    expect(dfe.getPortValue("src", "out")).toBeNull();
+    expect(dfe.getPortValue("reader", "echo")).toBeNull();
+    expect(dfe.getComputeError("src")).toBeUndefined();
+  });
+
+  it("resolves a non-array resolver result to an empty port set", () => {
+    const node = makeNode("n", "dyn", {});
+    const resolverReturning = (value: unknown): NodeTypeDef<unknown> => ({
+      type: "dyn",
+      ports: () => value as PortDefinition[],
+    });
+
+    expect(resolveNodePorts(resolverReturning(null), node)).toEqual([]);
+    expect(resolveNodePorts(resolverReturning(undefined), node)).toEqual([]);
+    expect(resolveNodePorts(resolverReturning({ id: "out" }), node)).toEqual([]);
+    expect(resolveNodePorts(resolverReturning("out"), node)).toEqual([]);
+
+    const resolved: PortDefinition[] = [
+      { id: "out", direction: "output", dataType: "number" },
+    ];
+    expect(resolveNodePorts(resolverReturning(resolved), node)).toBe(resolved);
+
+    const staticPorts: PortDefinition[] = [
+      { id: "in", direction: "input", dataType: "number" },
+    ];
+    expect(resolveNodePorts({ type: "fixed", ports: staticPorts }, node)).toBe(staticPorts);
+
+    expect(resolveNodePorts({ type: "plain" }, node)).toBeUndefined();
+  });
+
+  it("resolves a node's ports once per recompute so a flaky resolver cannot escape the flush", async () => {
+    // Once armed, `flaky` throws on any second resolve within the same
+    // synchronous turn; the counter resets on the next microtask. `tail` sits
+    // downstream and drives its output from its own data.
+    let callsThisTurn = 0;
+    let maxCallsPerTurn = 0;
+    const flaky: NodeTypeDef<Record<string, unknown>> = {
+      type: "flaky",
+      ports: (node) => {
+        if ((node.data as Record<string, unknown>).armed) {
+          callsThisTurn += 1;
+          maxCallsPerTurn = Math.max(maxCallsPerTurn, callsThisTurn);
+          if (callsThisTurn === 1) {
+            queueMicrotask(() => {
+              callsThisTurn = 0;
+            });
+          } else {
+            throw new Error("resolver answered differently the second time");
+          }
+        }
+        return [
+          { id: "in", direction: "input", dataType: "number", defaultValue: 3 },
+          { id: "out", direction: "output", dataType: "number" },
+        ];
+      },
+      compute: (inputs, data) => ({ out: Number(inputs.in) + Number(data.add ?? 0) }),
+    };
+    const tail: NodeTypeDef<Record<string, unknown>> = {
+      type: "tail",
+      ports: [
+        { id: "in", direction: "input", dataType: "number" },
+        { id: "out", direction: "output", dataType: "number" },
+      ],
+      compute: (_inputs, data) => ({ out: Number(data.tag ?? 0) }),
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([flaky, tail]);
+    engine.addNode(makeNode("flaky", "flaky", { armed: false, add: 0 }));
+    engine.addNode(makeNode("tail", "tail", { tag: 1 }));
+    engine.createEdge("flaky", "tail", { sourcePort: "out", targetPort: "in" });
+
+    const dfe = new DataFlowEngine(engine, registry);
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("flaky", "out")).toBe(3);
+    expect(dfe.getPortValue("tail", "out")).toBe(1);
+
+    engine.updateNode("flaky", { data: { armed: true, add: 1 } });
+    engine.updateNode("tail", { data: { tag: 2 } });
+    await settle();
+
+    // The node computed against its default input, nothing parked, the
+    // resolver ran once, and `tail` later in the topo order still recomputed.
+    expect(dfe.getComputeError("flaky")).toBeUndefined();
+    expect(dfe.getPortValue("flaky", "out")).toBe(4);
+    expect(maxCallsPerTurn).toBe(1);
+    expect(dfe.getPortValue("tail", "out")).toBe(2);
+  });
+
+  it("parks a malformed port entry and keeps flushing the rest of the topo order", async () => {
+    // `broken` returns a port list with a null entry once its data says to.
+    const broken: NodeTypeDef<Record<string, unknown>> = {
+      type: "broken",
+      ports: (node) =>
+        (node.data as Record<string, unknown>).malformed
+          ? ([null] as unknown as PortDefinition[])
+          : [{ id: "out", direction: "output", dataType: "number" }],
+      compute: () => ({ out: 7 }),
+    };
+    const tail: NodeTypeDef<Record<string, unknown>> = {
+      type: "tail",
+      ports: [
+        { id: "in", direction: "input", dataType: "number" },
+        { id: "out", direction: "output", dataType: "number" },
+      ],
+      compute: (_inputs, data) => ({ out: Number(data.tag ?? 0) }),
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([broken, tail]);
+    engine.addNode(makeNode("broken", "broken", { malformed: false }));
+    engine.addNode(makeNode("tail", "tail", { tag: 1 }));
+    engine.createEdge("broken", "tail", { sourcePort: "out", targetPort: "in" });
+
+    const dfe = new DataFlowEngine(engine, registry);
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("broken", "out")).toBe(7);
+    expect(dfe.getComputeError("broken")).toBeUndefined();
+
+    engine.updateNode("broken", { data: { malformed: true } });
+    engine.updateNode("tail", { data: { tag: 2 } });
+    await settle();
+
+    // The failure parks for `broken`, which keeps its last good output, and
+    // `tail` still recomputed.
+    expect(dfe.getComputeError("broken")).toBeInstanceOf(Error);
+    expect(dfe.getPortValue("broken", "out")).toBe(7);
+    expect(dfe.getPortValue("tail", "out")).toBe(2);
+  });
+
+  it("keeps getInputs answering for a well-formed node on its own", async () => {
+    const sum: NodeTypeDef<Record<string, unknown>> = {
+      type: "sum",
+      ports: () => [
+        { id: "a", direction: "input", dataType: "number", defaultValue: 1 },
+        { id: "b", direction: "input", dataType: "number", defaultValue: 2 },
+        { id: "out", direction: "output", dataType: "number" },
+      ],
+      compute: (inputs) => ({ out: Number(inputs.a) + Number(inputs.b) }),
+    };
+    const src: NodeTypeDef<Record<string, unknown>> = {
+      type: "src",
+      ports: [{ id: "out", direction: "output", dataType: "number" }],
+      compute: () => ({ out: 10 }),
+    };
+
+    const engine = new SpatialEngine();
+    const registry = new NodeTypeRegistry([sum, src]);
+    engine.addNode(makeNode("src", "src", {}));
+    engine.addNode(makeNode("sum", "sum", {}));
+    engine.createEdge("src", "sum", { sourcePort: "out", targetPort: "a" });
+
+    const dfe = new DataFlowEngine(engine, registry);
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getInputs("sum")).toEqual({ a: 10, b: 2 });
+    expect(dfe.getInputs("missing")).toEqual({});
   });
 });
