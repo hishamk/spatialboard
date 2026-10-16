@@ -7,6 +7,18 @@ Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- A node that deletes itself, or disposes the data-flow engine, from inside its
+  own port resolver or compute no longer has outputs written afterwards. The
+  engine checked that the node was still on the board only before running host
+  code, so a sync result, an async result whose run began before the delete, or
+  a parked error still landed under the dead id or in the disposed engine. Every
+  write after host code now checks that the node is still present and that the
+  engine has not been disposed (or disposed and reconnected) since the run
+  began, and an abandoned async result's rejection is handled quietly instead of
+  surfacing as unhandled.
+
 ## [0.3.5] - 2026-10-14
 
 ### Fixed

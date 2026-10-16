@@ -69,6 +69,11 @@ export class DataFlowEngine {
    *  a markDirty issued by a host that kept the reference. */
   private disposed = false;
 
+  /** Bumped by dispose(). A run captures it on entry, so a run that outlives
+   *  a dispose — even one revived by connect() before the run returns —
+   *  writes nothing into the engine's next life. */
+  private lifetime = 0;
+
   constructor(spatial: SpatialEngine, registry: NodeTypeRegistry) {
     this.spatial = spatial;
     this.registry = registry;
@@ -300,6 +305,7 @@ export class DataFlowEngine {
    *  trap the delete path avoids by bumping. */
   dispose(): void {
     this.disposed = true;
+    this.lifetime++;
     this.disconnectSpatial?.();
     this.values.clear();
     this.valueKeys.clear();
@@ -558,6 +564,7 @@ export class DataFlowEngine {
     if (this.disposed) return false;
     const node = this.spatial.nodes.get(nodeId);
     if (!node) return false;
+    const lifetime = this.lifetime;
 
     const def = this.registry.get(node.type) as
       | NodeTypeDefinition<unknown>
@@ -570,9 +577,12 @@ export class DataFlowEngine {
     try {
       ports = resolveNodePorts(def, node);
     } catch (err) {
-      this.parkComputeError(nodeId, err);
+      // A resolver that deleted its own node (or disposed the engine) before
+      // throwing leaves nothing to park the error on.
+      if (this.isLive(nodeId, lifetime)) this.parkComputeError(nodeId, err);
       return false;
     }
+    if (!this.isLive(nodeId, lifetime)) return false;
     if (!def?.compute || !ports) return false;
 
     // A new run supersedes any async run still in flight for this node —
@@ -590,7 +600,7 @@ export class DataFlowEngine {
     try {
       inputs = this.collectInputs(nodeId, ports);
     } catch (err) {
-      this.parkComputeError(nodeId, err);
+      if (this.isLive(nodeId, lifetime)) this.parkComputeError(nodeId, err);
       return false;
     }
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
@@ -601,7 +611,18 @@ export class DataFlowEngine {
       // Park and move on: dirty is already cleared for this flush, so letting
       // the throw escape the microtask would silently cost every node later
       // in the topo order its recompute. Outputs keep their last good values.
-      this.parkComputeError(nodeId, err);
+      if (this.isLive(nodeId, lifetime)) this.parkComputeError(nodeId, err);
+      return false;
+    }
+
+    // Compute is host code too: it may have deleted this node or disposed the
+    // engine. Nothing it returns may be written then. The check comes before
+    // an async run's generation is minted — a delete or dispose during the
+    // compute's synchronous part bumped nothing the promise would hold. An
+    // abandoned promise still gets a rejection handler, so a later rejection
+    // never surfaces as unhandled.
+    if (!this.isLive(nodeId, lifetime)) {
+      if (result instanceof Promise) result.then(undefined, () => {});
       return false;
     }
 
@@ -620,10 +641,20 @@ export class DataFlowEngine {
           } catch (err) {
             // Hostile output values (a plain object whose property getter
             // throws) fail during the change check; that failure belongs to
-            // this node, exactly like a rejection.
-            if (this.parkComputeError(nodeId, err)) {
+            // this node, exactly like a rejection. A getter may also have
+            // deleted the node or disposed the engine before the throw, and
+            // the ports written before it must not outlive that.
+            if (!this.isLive(nodeId, lifetime)) {
+              this.purgeNodeState(nodeId);
+            } else if (this.parkComputeError(nodeId, err)) {
               this.notifyListeners();
             }
+            return;
+          }
+          // An output getter is host code as well; one that deleted the node
+          // or disposed the engine mid-write leaves nothing to keep.
+          if (!this.isLive(nodeId, lifetime)) {
+            this.purgeNodeState(nodeId);
             return;
           }
           const errorCleared = this.clearComputeError(nodeId);
@@ -658,12 +689,28 @@ export class DataFlowEngine {
     // rest of the flush.
     try {
       const didChange = this.applyOutputs(nodeId, ports, result);
+      if (!this.isLive(nodeId, lifetime)) {
+        this.purgeNodeState(nodeId);
+        return false;
+      }
       this.clearComputeError(nodeId);
       return didChange;
     } catch (err) {
-      this.parkComputeError(nodeId, err);
+      if (this.isLive(nodeId, lifetime)) this.parkComputeError(nodeId, err);
+      else this.purgeNodeState(nodeId);
       return false;
     }
+  }
+
+  /** Whether a run that began in `lifetime` may still write state for a node:
+   *  no dispose() since the run began, and the node is still on the board.
+   *  Host code — a ports resolver, compute, an
+   *  output getter — can delete its own node or dispose the engine, so every
+   *  write after host code runs checks this first. Presence by id, not object
+   *  identity: a compute that updates its own node replaces the object but is
+   *  still alive. */
+  private isLive(nodeId: string, lifetime: number): boolean {
+    return this.lifetime === lifetime && this.spatial.nodes.has(nodeId);
   }
 
   /** Apply computed outputs to the values map. Returns true if any value

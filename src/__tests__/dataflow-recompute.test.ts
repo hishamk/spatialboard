@@ -333,3 +333,361 @@ describe("DataFlowEngine recompute robustness", () => {
     expect(dfe.getInputs("missing")).toEqual({});
   });
 });
+
+/** Collect unhandled rejections raised while `body` runs and settles. */
+async function captureUnhandled(body: () => Promise<void>): Promise<unknown[]> {
+  const seen: unknown[] = [];
+  const onUnhandled = (reason: unknown) => seen.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    await body();
+    await settle();
+    await settle();
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+  return seen;
+}
+
+const OUT: PortDefinition[] = [{ id: "out", direction: "output", dataType: "number" }];
+const AB: PortDefinition[] = [
+  { id: "a", direction: "output", dataType: "number" },
+  { id: "b", direction: "output", dataType: "number" },
+];
+
+describe("DataFlowEngine liveness after host code", () => {
+  it("writes nothing for a node whose sync compute deletes it", async () => {
+    const engine = new SpatialEngine();
+    const selfDelete: NodeTypeDef<Record<string, unknown>> = {
+      type: "self-delete",
+      ports: OUT,
+      compute: () => {
+        engine.deleteNode("a");
+        return { out: 1 };
+      },
+    };
+    engine.addNode(makeNode("a", "self-delete", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([selfDelete]));
+    dfe.connect();
+    await settle();
+
+    expect(engine.nodes.has("a")).toBe(false);
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("a")).toBeUndefined();
+    expect(dfe.getComputeError("a")).toBeUndefined();
+  });
+
+  it("writes nothing into an engine its sync compute disposes", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    let disposals = 0;
+    const disposer: NodeTypeDef<Record<string, unknown>> = {
+      type: "disposer",
+      ports: OUT,
+      compute: () => {
+        if (disposals++ === 0) dfe.dispose();
+        return { out: 1 };
+      },
+    };
+    engine.addNode(makeNode("a", "disposer", {}));
+    dfe = new DataFlowEngine(engine, new NodeTypeRegistry([disposer]));
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("a")).toBeUndefined();
+
+    // Reconnecting starts clean: the pre-dispose run left nothing behind, and
+    // the value only appears once the new life recomputes it.
+    dfe.connect();
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    await settle();
+    expect(dfe.getPortValue("a", "out")).toBe(1);
+  });
+
+  it("writes nothing into an engine a compute disposes and reconnects", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    let runs = 0;
+    const reviver: NodeTypeDef<Record<string, unknown>> = {
+      type: "reviver",
+      ports: OUT,
+      compute: () => {
+        runs++;
+        if (runs === 1) {
+          dfe.dispose();
+          dfe.connect();
+          return { out: 1 };
+        }
+        // The revived engine's own run fails, so any value left on the port
+        // can only have come from the run that began before the dispose.
+        throw new Error("revived run failed");
+      },
+    };
+    engine.addNode(makeNode("a", "reviver", {}));
+    dfe = new DataFlowEngine(engine, new NodeTypeRegistry([reviver]));
+    dfe.connect();
+    await settle();
+
+    expect(runs).toBe(2);
+    expect(dfe.getComputeError("a")).toBeInstanceOf(Error);
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+  });
+
+  it("writes nothing for a node whose async compute deletes it before returning", async () => {
+    const engine = new SpatialEngine();
+    const selfDelete: NodeTypeDef<Record<string, unknown>> = {
+      type: "self-delete-async",
+      ports: OUT,
+      compute: () => {
+        engine.deleteNode("a");
+        return Promise.resolve({ out: 1 });
+      },
+    };
+    engine.addNode(makeNode("a", "self-delete-async", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([selfDelete]));
+    dfe.connect();
+    await settle();
+    await settle();
+
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("a")).toBeUndefined();
+  });
+
+  it("writes nothing into an engine its async compute disposes before returning", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    const disposer: NodeTypeDef<Record<string, unknown>> = {
+      type: "disposer-async",
+      ports: OUT,
+      compute: () => {
+        dfe.dispose();
+        return Promise.resolve({ out: 1 });
+      },
+    };
+    engine.addNode(makeNode("a", "disposer-async", {}));
+    dfe = new DataFlowEngine(engine, new NodeTypeRegistry([disposer]));
+    dfe.connect();
+    await settle();
+    await settle();
+
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("a")).toBeUndefined();
+  });
+
+  it("parks nothing for a deleted node whose abandoned promise rejects, and the rejection stays handled", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    const unhandled = await captureUnhandled(async () => {
+      const selfDelete: NodeTypeDef<Record<string, unknown>> = {
+        type: "self-delete-reject",
+        ports: OUT,
+        compute: () => {
+          engine.deleteNode("a");
+          return Promise.reject(new Error("rejected after delete"));
+        },
+      };
+      engine.addNode(makeNode("a", "self-delete-reject", {}));
+      dfe = new DataFlowEngine(engine, new NodeTypeRegistry([selfDelete]));
+      dfe.connect();
+      await settle();
+    });
+
+    expect(unhandled).toEqual([]);
+    expect(dfe.getComputeError("a")).toBeUndefined();
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+  });
+
+  it("parks nothing for a ports resolver that deletes its own node and throws", async () => {
+    const engine = new SpatialEngine();
+    const resolverDelete: NodeTypeDef<Record<string, unknown>> = {
+      type: "resolver-delete-throw",
+      ports: (node) => {
+        if (engine.nodes.has(node.id)) engine.deleteNode(node.id);
+        throw new Error("resolver threw after delete");
+      },
+      compute: () => ({ out: 1 }),
+    };
+    engine.addNode(makeNode("a", "resolver-delete-throw", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([resolverDelete]));
+    dfe.connect();
+    await settle();
+
+    expect(engine.nodes.has("a")).toBe(false);
+    expect(dfe.getComputeError("a")).toBeUndefined();
+  });
+
+  it("skips compute for a node its ports resolver deletes", async () => {
+    const engine = new SpatialEngine();
+    let computes = 0;
+    const resolverDelete: NodeTypeDef<Record<string, unknown>> = {
+      type: "resolver-delete",
+      ports: (node) => {
+        if (engine.nodes.has(node.id)) engine.deleteNode(node.id);
+        return OUT;
+      },
+      compute: () => {
+        computes++;
+        return { out: 1 };
+      },
+    };
+    engine.addNode(makeNode("a", "resolver-delete", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([resolverDelete]));
+    dfe.connect();
+    await settle();
+
+    expect(computes).toBe(0);
+    expect(dfe.getPortValue("a", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("a")).toBeUndefined();
+  });
+
+  it("keeps no value for a node an output getter deletes mid-write", async () => {
+    const engine = new SpatialEngine();
+    const getterDelete = (id: string): NodeTypeDef<Record<string, unknown>> => ({
+      type: `getter-delete-${id}`,
+      ports: OUT,
+      compute: () => {
+        const outputs = {
+          get out() {
+            if (engine.nodes.has(id)) engine.deleteNode(id);
+            return 5;
+          },
+        };
+        return id === "s" ? outputs : Promise.resolve(outputs);
+      },
+    });
+    engine.addNode(makeNode("s", "getter-delete-s", {}));
+    engine.addNode(makeNode("p", "getter-delete-p", {}));
+    const dfe = new DataFlowEngine(
+      engine,
+      new NodeTypeRegistry([getterDelete("s"), getterDelete("p")]),
+    );
+    dfe.connect();
+    await settle();
+    await settle();
+
+    expect(engine.nodes.has("s")).toBe(false);
+    expect(engine.nodes.has("p")).toBe(false);
+    expect(dfe.getPortValue("s", "out")).toBeNull();
+    expect(dfe.getPortValue("p", "out")).toBeNull();
+    expect(dfe.getLastComputeMs("s")).toBeUndefined();
+    expect(dfe.getLastComputeMs("p")).toBeUndefined();
+  });
+
+  it("keeps no value for a node a getter deletes before a later getter throws", async () => {
+    // Port `a` is written before port `b`'s getter throws, so the write has to
+    // be undone on the throwing path too, sync and async alike.
+    const engine = new SpatialEngine();
+    const twoPort = (id: string, async: boolean): NodeTypeDef<Record<string, unknown>> => ({
+      type: `two-port-${id}`,
+      ports: AB,
+      compute: () => {
+        const outputs = {
+          get a() {
+            if (engine.nodes.has(id)) engine.deleteNode(id);
+            return 1;
+          },
+          get b(): number {
+            throw new Error("b getter");
+          },
+        };
+        return async ? Promise.resolve(outputs) : outputs;
+      },
+    });
+    engine.addNode(makeNode("s", "two-port-s", {}));
+    engine.addNode(makeNode("p", "two-port-p", {}));
+    const dfe = new DataFlowEngine(
+      engine,
+      new NodeTypeRegistry([twoPort("s", false), twoPort("p", true)]),
+    );
+    dfe.connect();
+    await settle();
+    await settle();
+
+    for (const id of ["s", "p"]) {
+      expect(engine.nodes.has(id)).toBe(false);
+      expect(dfe.getPortValue(id, "a")).toBeNull();
+      expect(dfe.getComputeError(id)).toBeUndefined();
+      expect(dfe.getLastComputeMs(id)).toBeUndefined();
+    }
+  });
+
+  it("keeps no value in an engine a getter disposes before a later getter throws", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    const disposer: NodeTypeDef<Record<string, unknown>> = {
+      type: "two-port-disposer",
+      ports: AB,
+      compute: () => ({
+        get a() {
+          dfe.dispose();
+          return 1;
+        },
+        get b(): number {
+          throw new Error("b getter");
+        },
+      }),
+    };
+    engine.addNode(makeNode("n", "two-port-disposer", {}));
+    dfe = new DataFlowEngine(engine, new NodeTypeRegistry([disposer]));
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("n", "a")).toBeNull();
+  });
+
+  it("keeps a getter's dispose-and-reconnect from carrying a value into the next life", async () => {
+    const engine = new SpatialEngine();
+    let dfe!: DataFlowEngine;
+    let runs = 0;
+    const reviver: NodeTypeDef<Record<string, unknown>> = {
+      type: "two-port-reviver",
+      ports: AB,
+      compute: () => {
+        runs++;
+        if (runs > 1) throw new Error("revived run failed");
+        return {
+          get a() {
+            dfe.dispose();
+            dfe.connect();
+            return 1;
+          },
+          get b(): number {
+            throw new Error("b getter");
+          },
+        };
+      },
+    };
+    engine.addNode(makeNode("n", "two-port-reviver", {}));
+    dfe = new DataFlowEngine(engine, new NodeTypeRegistry([reviver]));
+    dfe.connect();
+    await settle();
+
+    expect(runs).toBe(2);
+    expect(dfe.getComputeError("n")).toBeInstanceOf(Error);
+    expect(dfe.getPortValue("n", "a")).toBeNull();
+  });
+
+  it("keeps the outputs of a compute that updates its own node", async () => {
+    // Moving the node replaces its object without re-marking it dirty, so the
+    // value can only come from the run that did the update.
+    const engine = new SpatialEngine();
+    let runs = 0;
+    const mover: NodeTypeDef<Record<string, unknown>> = {
+      type: "mover",
+      ports: OUT,
+      compute: () => {
+        runs++;
+        engine.updateNode("a", { x: 50 });
+        return { out: 7 };
+      },
+    };
+    engine.addNode(makeNode("a", "mover", {}));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([mover]));
+    dfe.connect();
+    await settle();
+
+    expect(runs).toBe(1);
+    expect(dfe.getPortValue("a", "out")).toBe(7);
+  });
+});
