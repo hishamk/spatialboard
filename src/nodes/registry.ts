@@ -234,11 +234,12 @@ export function defineReactNode<TData = unknown>(
 
 /**
  * The port set for a specific node. When `def.ports` is a static array it is
- * returned verbatim (byte-identical to the pre-dynamic behavior); when it is a
- * `(node) => PortDefinition[]` resolver it is invoked with the node. Returns
- * `undefined` for a non-data-flow type (no `ports`). This is the single seam
- * every port consumer reads through so a node type can grow/shrink ports per
- * instance (e.g. an N-way branch node).
+ * returned as-is; when it is a `(node) => PortDefinition[]` resolver it is
+ * invoked with the node, and a result that is not an array (`null`,
+ * `undefined`, an object from an untyped host) resolves to `[]`, so callers
+ * can always iterate it. Returns `undefined` for a non-data-flow type (no
+ * `ports`). This is the single seam every port consumer reads through so a
+ * node type can grow/shrink ports per instance (e.g. an N-way branch node).
  */
 export function resolveNodePorts(
   def: NodeTypeDef<unknown> | undefined,
@@ -246,7 +247,11 @@ export function resolveNodePorts(
 ): PortDefinition[] | undefined {
   const p = def?.ports;
   if (!p) return undefined;
-  if (typeof p === "function") return node ? p(node) : [];
+  if (typeof p === "function") {
+    if (!node) return [];
+    const resolved = p(node);
+    return Array.isArray(resolved) ? resolved : [];
+  }
   return p;
 }
 
