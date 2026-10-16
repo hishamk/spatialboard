@@ -122,7 +122,8 @@ export class DataFlowEngine {
       const edges = this.spatial.getEdgesForNode(nodeId);
       let found = false;
       for (const edge of edges) {
-        const ed = (edge as EdgeNode).data;
+        const ed = edgeDataOf(edge);
+        if (!ed) continue;
         if (ed.toId === nodeId && ed.targetPort === port.id) {
           // Read value from the source port
           const sourceVal = this.values.get(
@@ -188,7 +189,8 @@ export class DataFlowEngine {
         const edges = this.spatial.getEdgesForNode(nodeId);
         let found = false;
         for (const edge of edges) {
-          const ed = (edge as EdgeNode).data;
+          const ed = edgeDataOf(edge);
+          if (!ed) continue;
           if (ed.toId === nodeId && ed.targetPort === port.id) {
             result[port.id] =
               this.values.get(portKey(ed.fromId, ed.sourcePort ?? "")) ??
@@ -231,8 +233,8 @@ export class DataFlowEngine {
     const onNodeCreate = (node: SpatialNode) => {
       if (node.type === "edge") {
         // New edge: mark the target node dirty
-        const ed = (node as EdgeNode).data;
-        if (ed.targetPort) {
+        const ed = edgeDataOf(node);
+        if (ed?.targetPort) {
           this.markDirty(ed.toId);
         }
       } else {
@@ -247,8 +249,8 @@ export class DataFlowEngine {
     const onNodeDelete = (node: SpatialNode) => {
       if (node.type === "edge") {
         // Deleted edge: mark the former target node dirty
-        const ed = (node as EdgeNode).data;
-        if (ed.targetPort) {
+        const ed = edgeDataOf(node);
+        if (ed?.targetPort) {
           this.markDirty(ed.toId);
         }
         // Clean up port values for this edge's connections
@@ -395,8 +397,8 @@ export class DataFlowEngine {
     const edges = this.spatial.getEdgesForNode(nodeId);
     let marked = false;
     for (const edge of edges) {
-      const ed = (edge as EdgeNode).data;
-      if (ed.fromId === nodeId && ed.targetPort) {
+      const ed = edgeDataOf(edge);
+      if (ed && ed.fromId === nodeId && ed.targetPort) {
         this.dirty.add(ed.toId);
         marked = true;
       }
@@ -437,8 +439,9 @@ export class DataFlowEngine {
     // Walk all edges to build the dependency graph
     const allEdges = this.spatial.getAllEdges();
     for (const edge of allEdges) {
-      const ed = (edge as EdgeNode).data;
+      const ed = edgeDataOf(edge);
       if (
+        ed &&
         ed.sourcePort &&
         ed.targetPort &&
         portNodes.has(ed.fromId) &&
@@ -815,6 +818,17 @@ export class DataFlowEngine {
     this.lastComputeMs.delete(nodeId);
     this.computeErrors.delete(nodeId);
   }
+}
+
+/** An edge's data, or undefined when it is missing or not an object. A host
+ *  can leave a live edge without usable data (`updateNode(edgeId, { data:
+ *  undefined })` replaces it outright), and every edge read in this engine
+ *  runs inside a flush, an async landing, or a host's own node call — so a
+ *  malformed edge reads as no edge at all: no dependency, no input source,
+ *  nothing marked dirty. */
+function edgeDataOf(edge: SpatialNode): EdgeNode["data"] | undefined {
+  const data = (edge as EdgeNode).data as EdgeNode["data"] | null | undefined;
+  return data !== null && typeof data === "object" ? data : undefined;
 }
 
 /** Recursion ceiling for the change check. Port payloads are data (matrices,

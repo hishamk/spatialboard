@@ -18,6 +18,14 @@ Versioning.
   engine has not been disposed (or disposed and reconnected) since the run
   began, and an abandoned async result's rejection is handled quietly instead of
   surfacing as unhandled.
+- An edge left without usable data no longer breaks the data-flow engine. A
+  host can replace an edge's data with `undefined` (or leave a rejected
+  data-less edge on the board), and the engine read edge fields unguarded while
+  ordering a recompute, gathering inputs, propagating an async result, and
+  handling edge creates and deletes, so the throw escaped the recompute pass,
+  surfaced as an unhandled rejection, or reached the host's own node call. Such
+  an edge now reads as no edge at all: it adds no dependency, feeds no input
+  (the target reads its port default), and marks nothing dirty.
 
 ## [0.3.5] - 2026-10-14
 

@@ -691,3 +691,114 @@ describe("DataFlowEngine liveness after host code", () => {
     expect(dfe.getPortValue("a", "out")).toBe(7);
   });
 });
+
+describe("DataFlowEngine malformed edge data", () => {
+  /** head → mid → tail, where mid passes its input through and tail doubles
+   *  it. mid's input defaults to 100 when nothing feeds it. */
+  function chain(headCompute: NodeTypeDef<Record<string, unknown>>["compute"]) {
+    const head: NodeTypeDef<Record<string, unknown>> = {
+      type: "head",
+      ports: OUT,
+      compute: headCompute,
+    };
+    const mid: NodeTypeDef<Record<string, unknown>> = {
+      type: "mid",
+      ports: [
+        { id: "in", direction: "input", dataType: "number", defaultValue: 100 },
+        { id: "out", direction: "output", dataType: "number" },
+      ],
+      compute: (inputs) => ({ out: inputs.in }),
+    };
+    const tail: NodeTypeDef<Record<string, unknown>> = {
+      type: "tail",
+      ports: [
+        { id: "in", direction: "input", dataType: "number" },
+        { id: "out", direction: "output", dataType: "number" },
+      ],
+      compute: (inputs) => ({ out: Number(inputs.in) * 2 }),
+    };
+    const engine = new SpatialEngine();
+    engine.addNode(makeNode("head", "head", { v: 1 }));
+    engine.addNode(makeNode("mid", "mid", {}));
+    engine.addNode(makeNode("tail", "tail", {}));
+    const feed = engine.createEdge("head", "mid", { sourcePort: "out", targetPort: "in" });
+    engine.createEdge("mid", "tail", { sourcePort: "out", targetPort: "in" });
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([head, mid, tail]));
+    return { engine, dfe, feed };
+  }
+
+  it.each([
+    ["undefined", undefined],
+    ["null", null],
+  ])("treats an edge whose data is %s as no edge during a recompute", async (_label, bad) => {
+    const { engine, dfe, feed } = chain((_inputs, data) => ({ out: Number(data.v) }));
+    const unhandled = await captureUnhandled(async () => {
+      dfe.connect();
+      await settle();
+      expect(dfe.getPortValue("tail", "out")).toBe(2);
+
+      engine.updateNode(feed, { data: bad } as unknown as Partial<SpatialNode>);
+      engine.updateNode("head", { data: { v: 3 } });
+      engine.updateNode("mid", { data: { tick: 1 } });
+      await settle();
+    });
+
+    expect(unhandled).toEqual([]);
+    // mid lost its feed, so it reads its input default and tail follows.
+    expect(dfe.getPortValue("head", "out")).toBe(3);
+    expect(dfe.getComputeError("mid")).toBeUndefined();
+    expect(dfe.getPortValue("mid", "out")).toBe(100);
+    expect(dfe.getPortValue("tail", "out")).toBe(200);
+  });
+
+  it("keeps port reads, async landings, and edge deletes quiet around a malformed edge", async () => {
+    const { engine, dfe, feed } = chain((_inputs, data) =>
+      Promise.resolve({ out: Number(data.v) }),
+    );
+    const unhandled = await captureUnhandled(async () => {
+      dfe.connect();
+      await settle();
+      await settle();
+      expect(dfe.getPortValue("tail", "out")).toBe(2);
+
+      engine.updateNode(feed, { data: undefined } as unknown as Partial<SpatialNode>);
+      expect(dfe.getAllPortValues("mid")).toEqual({ in: 100, out: 1 });
+
+      // head's async landing walks head's edges, the malformed one included.
+      engine.updateNode("head", { data: { v: 5 } });
+      await settle();
+      await settle();
+      expect(dfe.getPortValue("head", "out")).toBe(5);
+
+      expect(() => engine.deleteNode(feed)).not.toThrow();
+      expect(engine.nodes.has(feed)).toBe(false);
+      await settle();
+    });
+
+    expect(unhandled).toEqual([]);
+    expect(dfe.getComputeError("head")).toBeUndefined();
+    expect(dfe.getComputeError("mid")).toBeUndefined();
+  });
+
+  it("ignores a data-less edge that a failed add leaves on the board", async () => {
+    const { engine, dfe } = chain((_inputs, data) => ({ out: Number(data.v) }));
+    const unhandled = await captureUnhandled(async () => {
+      dfe.connect();
+      await settle();
+
+      // addNode stores the edge before rejecting its missing data, so the
+      // edge stays in the node map; the create event itself never fires.
+      const bare = { id: "bare", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1 } as unknown as SpatialNode;
+      expect(() => engine.addNode(bare)).toThrow();
+      expect(engine.nodes.has("bare")).toBe(true);
+      // A host replaying the event by hand reaches the engine's create handler.
+      expect(() => engine.emit("node:create", bare)).not.toThrow();
+
+      engine.updateNode("head", { data: { v: 4 } });
+      await settle();
+    });
+
+    expect(unhandled).toEqual([]);
+    expect(dfe.getPortValue("tail", "out")).toBe(8);
+  });
+});
