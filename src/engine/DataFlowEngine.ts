@@ -1,7 +1,7 @@
 import type { SpatialEngine } from "./SpatialEngine";
 import type { SpatialNode, EdgeNode } from "./types";
 import type { NodeTypeRegistry, NodeTypeDefinition } from "../nodes/registry";
-import { resolveNodePorts } from "../nodes/registry";
+import { resolveNodePorts, copyNodeData } from "../nodes/registry";
 import type { PortValue, PortDefinition } from "./data-flow-types";
 import { portKey } from "./data-flow-types";
 import type { PortKey } from "./data-flow-types";
@@ -609,7 +609,9 @@ export class DataFlowEngine {
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     let result: Record<string, PortValue> | Promise<Record<string, PortValue>>;
     try {
-      result = def.compute(inputs, node.data);
+      // A copy, so a compute writing to its data cannot reach the committed
+      // node that undo history shares.
+      result = def.compute(inputs, copyNodeData(node.data));
     } catch (err) {
       // Park and move on: dirty is already cleared for this flush, so letting
       // the throw escape the microtask would silently cost every node later

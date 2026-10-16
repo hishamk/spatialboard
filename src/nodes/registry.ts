@@ -187,6 +187,12 @@ export interface NodeTypeDef<TData = unknown> {
    * one out-port per configured branch). The resolver is read at every port
    * consumer via `resolveNodePorts(def, node)`; an array-valued def resolves to
    * the exact same array, so static-port nodes are byte-identical.
+   *
+   * A resolver must treat the node it receives as read-only — change a node
+   * through `updateNode`. Each call gets a shallow copy of the node and of its
+   * `data`, so a top-level write lands on the copy and never reaches the board
+   * or its undo history; nested objects are still shared with the committed
+   * node and must not be mutated.
    */
   ports?: PortDefinition[] | ((node: SpatialNode) => PortDefinition[]);
 
@@ -199,7 +205,12 @@ export interface NodeTypeDef<TData = unknown> {
 
   /** Pure compute function. Called when input port values change.
    *  Receives: inputs (keyed by port id) and current node data.
-   *  Returns: outputs (keyed by port id). */
+   *  Returns: outputs (keyed by port id).
+   *
+   *  `data` is a read-only input — change a node through `updateNode`. Each
+   *  call gets a shallow copy, so a top-level write lands on the copy and
+   *  never reaches the board or its undo history; nested objects are still
+   *  shared with the committed node and must not be mutated. */
   compute?: (
     inputs: Record<string, PortValue>,
     data: TData,
@@ -249,10 +260,31 @@ export function resolveNodePorts(
   if (!p) return undefined;
   if (typeof p === "function") {
     if (!node) return [];
-    const resolved = p(node);
+    // Committed nodes are shared with undo history snapshots, so the resolver
+    // gets a copy it can scribble on without rewriting the past.
+    const resolved = p({ ...node, data: copyNodeData(node.data) });
     return Array.isArray(resolved) ? resolved : [];
   }
   return p;
+}
+
+/**
+ * A shallow copy of node data for handing to host callbacks: an array is
+ * sliced, a `{}`-literal object is spread, and anything else — `null`, a
+ * primitive, a class instance — passes through as-is.
+ *
+ * @internal
+ */
+export function copyNodeData<T>(data: T): T {
+  if (Array.isArray(data)) return data.slice() as T;
+  if (
+    data !== null &&
+    typeof data === "object" &&
+    Object.getPrototypeOf(data) === Object.prototype
+  ) {
+    return { ...data };
+  }
+  return data;
 }
 
 /**

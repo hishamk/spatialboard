@@ -26,6 +26,13 @@ Versioning.
   surfaced as an unhandled rejection, or reached the host's own node call. Such
   an edge now reads as no edge at all: it adds no dependency, feeds no input
   (the target reads its port default), and marks nothing dirty.
+- A port resolver or compute that writes to the node data it receives no longer
+  rewrites undo history. Undo snapshots share node objects with the live board,
+  and both callbacks were handed the committed node and its data directly, so
+  an in-place write survived an undo. Each call now receives a shallow copy —
+  the resolver a copy of the node and its data, compute a copy of the data — and
+  the docs spell out that both are read-only inputs: change a node through
+  `updateNode`, and leave nested objects, which the copy still shares, alone.
 
 ## [0.3.5] - 2026-10-14
 

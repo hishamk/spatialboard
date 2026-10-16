@@ -802,3 +802,104 @@ describe("DataFlowEngine malformed edge data", () => {
     expect(dfe.getPortValue("tail", "out")).toBe(8);
   });
 });
+
+describe("DataFlowEngine node data isolation from host callbacks", () => {
+  it("keeps a resolver's in-place writes out of the board and its undo history", async () => {
+    const engine = new SpatialEngine();
+    const scribbler: NodeTypeDef<Record<string, unknown>> = {
+      type: "scribbler",
+      ports: (node) => {
+        (node.data as Record<string, unknown>).touched = true;
+        (node as { x: number }).x = 999;
+        return OUT;
+      },
+      compute: (_inputs, data) => ({ out: Number(data.v) }),
+    };
+    engine.addNode(makeNode("a", "scribbler", { v: 1 }));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([scribbler]));
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("a", "out")).toBe(1);
+    expect(engine.nodes.get("a")!.data).toEqual({ v: 1 });
+    expect(engine.nodes.get("a")!.x).toBe(0);
+
+    engine.updateNodeWithHistory("a", { data: { v: 2 } });
+    await settle();
+    expect(engine.nodes.get("a")!.data).toEqual({ v: 2 });
+
+    engine.undo();
+    await settle();
+    expect(engine.nodes.get("a")!.data).toEqual({ v: 1 });
+    expect(dfe.getPortValue("a", "out")).toBe(1);
+
+    engine.redo();
+    await settle();
+    expect(engine.nodes.get("a")!.data).toEqual({ v: 2 });
+  });
+
+  it("keeps a compute's in-place writes out of the board", async () => {
+    const engine = new SpatialEngine();
+    const scribbler: NodeTypeDef<Record<string, unknown>> = {
+      type: "compute-scribbler",
+      ports: OUT,
+      compute: (_inputs, data) => {
+        data.touched = true;
+        return { out: Number(data.v) };
+      },
+    };
+    engine.addNode(makeNode("a", "compute-scribbler", { v: 3 }));
+    const dfe = new DataFlowEngine(engine, new NodeTypeRegistry([scribbler]));
+    dfe.connect();
+    await settle();
+
+    expect(dfe.getPortValue("a", "out")).toBe(3);
+    expect(engine.nodes.get("a")!.data).toEqual({ v: 3 });
+  });
+
+  it("hands a ports resolver a shallow copy of the node and its data", () => {
+    const seen: SpatialNode[] = [];
+    const def: NodeTypeDef<unknown> = {
+      type: "probe",
+      ports: (node) => {
+        seen.push(node);
+        return OUT;
+      },
+    };
+
+    const objectNode = makeNode("o", "probe", { v: 1, nested: { k: 1 } });
+    resolveNodePorts(def, objectNode);
+    expect(seen[0]).not.toBe(objectNode);
+    expect(seen[0].data).not.toBe(objectNode.data);
+    expect(seen[0].data).toEqual(objectNode.data);
+    // Shallow: nested objects stay shared.
+    expect((seen[0].data as { nested: unknown }).nested).toBe(
+      (objectNode.data as { nested: unknown }).nested,
+    );
+
+    const list = [1, 2, 3];
+    const arrayNode = { ...makeNode("l", "probe", {}), data: list } as SpatialNode;
+    resolveNodePorts(def, arrayNode);
+    expect(Array.isArray(seen[1].data)).toBe(true);
+    expect(seen[1].data).not.toBe(list);
+    expect(seen[1].data).toEqual(list);
+
+    for (const value of [null, undefined, 42, "text"]) {
+      const before = seen.length;
+      resolveNodePorts(def, { ...makeNode("p", "probe", {}), data: value } as SpatialNode);
+      expect(seen[before].data).toBe(value);
+    }
+
+    class Payload {
+      v = 1;
+    }
+    const instance = new Payload();
+    const before = seen.length;
+    resolveNodePorts(def, { ...makeNode("c", "probe", {}), data: instance } as SpatialNode);
+    expect(seen[before].data).toBe(instance);
+
+    // The static-array form is returned verbatim, with no copy involved.
+    const staticDef: NodeTypeDef<unknown> = { type: "static", ports: OUT };
+    expect(resolveNodePorts(staticDef, objectNode)).toBe(OUT);
+  });
+});
