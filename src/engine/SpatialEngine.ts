@@ -280,6 +280,8 @@ export class SpatialEngine {
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
   /** @internal */ _suppressEvents = false;
   /** @internal */ _collabMode = false;
+  /** Ids of remote records `addRemoteNode` refused (see `getRefusedRemoteIds`). */
+  /** @internal */ _refusedRemoteIds = new Set<string>();
   /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
    *  so a single `beginAgentAction()` snapshot covers multiple operations. */
   /** @internal */ _agentActionDepth = 0;
@@ -1390,9 +1392,22 @@ export class SpatialEngine {
 
   // --- Remote Collaboration ---
 
-  /** Add a remote node without emitting events or pushing history. */
+  /** Add a remote node without emitting events or pushing history. A record
+   *  the engine refuses (an edge without endpoints) is not added; its id is
+   *  listed by `getRefusedRemoteIds` until the peer replaces or deletes it. */
   addRemoteNode(node: SpatialNode): void {
     RemoteOps.addRemoteNode(this, node);
+  }
+
+  /**
+   * Ids of remote records that `addRemoteNode` refused and that no later
+   * `addRemoteNode`/`deleteRemoteNode` for the same id has cleared. These
+   * records exist in the shared document but not on this board: a host that
+   * writes the board back and deletes records the board lacks must skip
+   * them, or it deletes a peer's record for everyone.
+   */
+  getRefusedRemoteIds(): ReadonlySet<string> {
+    return this._refusedRemoteIds;
   }
 
   /** Delete a remote node without emitting events or pushing history. */

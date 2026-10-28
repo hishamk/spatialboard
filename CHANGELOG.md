@@ -7,24 +7,8 @@ Versioning.
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- Links in rich-text nodes no longer open with the board as their opener. The
-  editor's built-in link click, the link toolbar's Open button and the file
-  block's download button all called `window.open` without `noopener`, so the
-  opened page could navigate the board's tab elsewhere. All three now open
-  http, https and mailto links in a new tab with `noopener,noreferrer` and
-  refuse other schemes (`javascript:`, `data:` and the like, however the
-  scheme is disguised). A link with an empty or missing href opens nothing
-  instead of the board itself. Link clicks are claimed ahead of the built-in handler,
-  so one click opens one page. Rendered links always carry
-  `rel="noopener noreferrer nofollow"` and `target="_blank"` and drop any
-  stored `class`, including in read-only nodes where a click follows the
-  anchor natively; stored attributes are not rewritten.
-  `spatialboard/blocknote` now imports `@tiptap/core` and `@tiptap/pm`, which
-  BlockNote already depends on. They are optional peer dependencies, kept
-  external in the build so the host's single ProseMirror copy is used, and
-  `verify:headless` asserts the engine entry never reaches them.
 - Collaborative mode now records no local undo steps at all. `setCollabMode`
   documented that it disables local snapshot history, but only the two
   coalesced update helpers honoured it: adds, deletes, `updateNodeWithHistory`,
@@ -35,6 +19,25 @@ Versioning.
   on: `canUndo()` and `canRedo()` stay false, `undo()` and `redo()` do nothing,
   and the host owns undo. Turning the mode off resumes local history. This is
   a behaviour change for collaborative hosts that relied on local undo.
+
+### Fixed
+
+- Links in rich-text nodes no longer open with the board as their opener. The
+  editor's built-in link click, the link toolbar's Open button and the file
+  block's download button all called `window.open` without `noopener`, so the
+  opened page could navigate the board's tab elsewhere. All three now open
+  http, https and mailto links in a new tab with `noopener,noreferrer` and
+  refuse other schemes (`javascript:`, `data:` and the like, however the
+  scheme is disguised). A link with an empty or missing href opens nothing
+  instead of the board itself. Link clicks are claimed ahead of the built-in
+  handler, so one click opens one page. Rendered links always carry
+  `rel="noopener noreferrer nofollow"` and `target="_blank"` and drop any
+  stored `class`, including in read-only nodes where a click follows the
+  anchor natively; stored attributes are not rewritten.
+  `spatialboard/blocknote` now imports `@tiptap/core` and `@tiptap/pm`, which
+  BlockNote already depends on. They are optional peer dependencies, kept
+  external in the build so the host's single ProseMirror copy is used, and
+  `verify:headless` asserts the engine entry never reaches them.
 - An edge without string `fromId`/`toId` endpoints can no longer enter the
   engine. `updateNode(edgeId, { data: undefined })`, a peer's data-less edge
   through `addRemoteNode`, or such an edge in board JSON was stored as is, and
@@ -49,7 +52,11 @@ Versioning.
   board some other way, and `fromJSON` skips holes and malformed entries in its
   node list. `selectMultiple`, which paste and inserted templates use to select
   what they added, now selects only ids that are on the board, so a refused
-  edge never stays selected for a drag to look up.
+  edge never stays selected for a drag to look up. `addRemoteNode` remembers
+  the ids it refused (`getRefusedRemoteIds()`, warning once per id) until the
+  peer replaces or deletes the record, so a host that writes the board back
+  and deletes shared records the board lacks can leave a refused record
+  untouched instead of deleting it for everyone.
 - A node that deletes itself, or disposes the data-flow engine, from inside its
   own port resolver, compute, or an output getter no longer has outputs written
   afterwards. The engine checked that the node was still on the board only

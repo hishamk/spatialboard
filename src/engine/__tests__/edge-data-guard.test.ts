@@ -221,6 +221,39 @@ describe("whole-map readers skip an edge that bypassed the entry points", () => 
   });
 });
 
+describe("refused remote records are reported, not lost", () => {
+  /** What a host does when it writes the board back to the shared document:
+   *  delete every shared record the board lacks, except refused ones. */
+  const deletePass = (engine: SpatialEngine, sharedIds: string[]) =>
+    sharedIds.filter((id) => !engine.getNode(id) && !engine.getRefusedRemoteIds().has(id));
+
+  it("a refused remote edge is listed and kept out of the delete pass", () => {
+    const { engine, a, b, edge } = board();
+    engine.addRemoteNode(bareEdge("peer-edge", { from: a, to: b }));
+    expect(engine.getNode("peer-edge")).toBeUndefined();
+    expect([...engine.getRefusedRemoteIds()]).toEqual(["peer-edge"]);
+    // A record deleted locally is still deleted; the refused one is not.
+    engine.deleteNode(edge);
+    expect(deletePass(engine, [a, b, edge, "peer-edge"])).toEqual([edge]);
+  });
+
+  it("warns once per refused id across repeated syncs", () => {
+    const { engine } = board();
+    for (let i = 0; i < 3; i++) engine.addRemoteNode(bareEdge("peer-edge", undefined));
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a later valid record or a remote delete clears the id", () => {
+    const { engine, a, b } = board();
+    engine.addRemoteNode(bareEdge("e1", undefined));
+    engine.addRemoteNode(bareEdge("e2", null));
+    engine.addRemoteNode(bareEdge("e1", { fromId: a, toId: b }));
+    expect(engine.getNode("e1")).toBeDefined();
+    engine.deleteRemoteNode("e2");
+    expect(engine.getRefusedRemoteIds().size).toBe(0);
+  });
+});
+
 describe("a refused edge never stays selected", () => {
   const shape = (id: string, x: number) =>
     ({ id, type: "shape", x, y: 0, w: 50, h: 50, z: 1, data: { shapeType: "rect" } }) as unknown as SpatialNode;

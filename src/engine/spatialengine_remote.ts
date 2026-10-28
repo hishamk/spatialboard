@@ -10,11 +10,20 @@ import { edgeEndpoints, isAdmissibleNode, linkEdgeAdjacency, mergeNodePatch, war
 /** Add a remote node without emitting events or pushing history. */
 export function addRemoteNode(engine: SpatialEngine, node: SpatialNode): void {
   // A peer's record is untrusted: an edge without endpoints would break every
-  // later delete and undo on this board, so it never enters the engine.
+  // later delete and undo on this board, so it never enters the engine. Its id
+  // is remembered so a host syncing the board back to the shared document can
+  // leave that record alone instead of deleting it as "gone locally".
   if (!isAdmissibleNode(node)) {
-    warnRefusedEdges("addRemoteNode", [(node as { id?: unknown } | null)?.id]);
+    const id = (node as { id?: unknown } | null)?.id;
+    if (typeof id === "string") {
+      if (!engine._refusedRemoteIds.has(id)) warnRefusedEdges("addRemoteNode", [id]);
+      engine._refusedRemoteIds.add(id);
+    } else {
+      warnRefusedEdges("addRemoteNode", [id]);
+    }
     return;
   }
+  engine._refusedRemoteIds.delete(node.id);
   engine._suppressEvents = true;
   engine.nodes.set(node.id, node);
   engine.quadTree.insert(node);
@@ -32,6 +41,7 @@ export function addRemoteNode(engine: SpatialEngine, node: SpatialNode): void {
 
 /** Delete a remote node without emitting events or pushing history. */
 export function deleteRemoteNode(engine: SpatialEngine, id: string): void {
+  engine._refusedRemoteIds.delete(id);
   engine._suppressEvents = true;
   const node = engine.nodes.get(id);
   if (node) {
