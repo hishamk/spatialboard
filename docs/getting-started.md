@@ -14,11 +14,14 @@ npm install react@^18 react-dom@^18
 ```
 
 The rich-text nodes are opt-in. Only if you import from
-`spatialboard/blocknote` do you also need the BlockNote + Mantine peers:
+`spatialboard/blocknote` do you also need the BlockNote + Mantine peers, plus
+the TipTap core that BlockNote itself runs on (the rich-text node hooks its
+link handling into it, so it must resolve to the same copy):
 
 ```bash
 npm install @blocknote/core@^0.46 @blocknote/react@^0.46 \
-  @blocknote/mantine@^0.46 @mantine/core@^8 @mantine/hooks@^8
+  @blocknote/mantine@^0.46 @mantine/core@^8 @mantine/hooks@^8 \
+  @tiptap/core@^3 @tiptap/pm@^3
 ```
 
 And `spatialboard/engine` — the headless entry — needs no peers at all.

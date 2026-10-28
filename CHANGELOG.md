@@ -9,6 +9,22 @@ Versioning.
 
 ### Fixed
 
+- Links in rich-text nodes no longer open with the board as their opener. The
+  editor's built-in link click, the link toolbar's Open button and the file
+  block's download button all called `window.open` without `noopener`, so the
+  opened page could navigate the board's tab elsewhere. All three now open
+  http, https and mailto links in a new tab with `noopener,noreferrer` and
+  refuse other schemes (`javascript:`, `data:` and the like, however the
+  scheme is disguised). A link with an empty or missing href opens nothing
+  instead of the board itself. Link clicks are claimed ahead of the built-in handler,
+  so one click opens one page. Rendered links always carry
+  `rel="noopener noreferrer nofollow"` and `target="_blank"` and drop any
+  stored `class`, including in read-only nodes where a click follows the
+  anchor natively; stored attributes are not rewritten.
+  `spatialboard/blocknote` now imports `@tiptap/core` and `@tiptap/pm`, which
+  BlockNote already depends on. They are optional peer dependencies, kept
+  external in the build so the host's single ProseMirror copy is used, and
+  `verify:headless` asserts the engine entry never reaches them.
 - Collaborative mode now records no local undo steps at all. `setCollabMode`
   documented that it disables local snapshot history, but only the two
   coalesced update helpers honoured it: adds, deletes, `updateNodeWithHistory`,

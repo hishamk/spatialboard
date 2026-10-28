@@ -99,7 +99,7 @@ dependencies. Three entry points let you take exactly as much as you need:
 | Entry | What you get |
 |-------|--------------|
 | `spatialboard` | The board component, the engine, and the built-in node types |
-| `spatialboard/blocknote` | Opt-in rich-text nodes (adds the BlockNote `^0.46` + Mantine `^8` peers) |
+| `spatialboard/blocknote` | Opt-in rich-text nodes (adds the BlockNote `^0.46` + Mantine `^8` peers, and the `@tiptap/core` + `@tiptap/pm` `^3` that BlockNote runs on) |
 | `spatialboard/engine` | The headless engine — no React, no CSS |
 
 [docs/getting-started.md](docs/getting-started.md) covers the engine

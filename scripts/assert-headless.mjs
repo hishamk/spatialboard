@@ -2,7 +2,7 @@
 //
 // Walks the ACTUAL built import graph of `dist/engine.js` (the `spatialboard/engine`
 // subpath) and asserts none of the reachable chunks pull React, @blocknote/*,
-// @mantine/*, or the bundled font asset. Run after `npm run build`
+// @mantine/*, @tiptap/*, prosemirror-*, or the bundled font asset. Run after `npm run build`
 // (`npm run verify:headless`). Exits non-zero on any violation.
 
 import { readFileSync, existsSync } from "node:fs";
@@ -19,6 +19,8 @@ const FORBIDDEN = [
   /from\s*"react\/jsx-runtime"/,
   /from\s*"@blocknote\//,
   /from\s*"@mantine\//,
+  /from\s*"@tiptap\//,
+  /from\s*"prosemirror-/,
   /Excalifont-Regular/,
   /\.woff2/,
 ];
@@ -63,4 +65,4 @@ if (violations.length) {
   for (const v of violations) console.error("  ", v);
   process.exit(1);
 }
-console.log("\n✓ headless: no react / @blocknote / @mantine / *.woff2 in the engine graph");
+console.log("\n✓ headless: no react / @blocknote / @mantine / @tiptap / prosemirror / *.woff2 in the engine graph");

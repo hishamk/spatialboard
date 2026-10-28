@@ -26,6 +26,11 @@ export default defineConfig({
         "react/jsx-runtime",
         /^@blocknote\//,
         /^@mantine\//,
+        // The rich-text entry's link handling imports the editor core that
+        // BlockNote itself runs on; bundling it would ship a second copy of
+        // ProseMirror next to the host's.
+        /^@tiptap\//,
+        /^prosemirror-/,
       ],
       output: {
         chunkFileNames: "chunks/[name]-[hash].js",

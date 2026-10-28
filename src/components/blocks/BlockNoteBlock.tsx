@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, memo, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { useCreateBlockNote } from "@blocknote/react";
+import { FormattingToolbarController, LinkToolbarController, useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import type { BlockNoteNode } from "../../engine/types";
@@ -9,6 +9,8 @@ import { getRotatedCursor } from "../../interactions/resize-cursors";
 import { RotateHandleIcon } from "../canvas/rotate-handle-glyph";
 import { observeResize } from "../../utils/shared-resize-observer";
 import { applyCornerAspectLock } from "../../interactions/resize-aspect";
+import { safeLinksExtension } from "./blocknote-safe-links";
+import { SafeFormattingToolbar, SafeLinkToolbar } from "./SafeBlockNoteToolbars";
 
 // ---------------------------------------------------------------------------
 // Error Boundary – catches ProseMirror/TipTap mount crashes (e.g. the known
@@ -145,7 +147,9 @@ function BlockNoteBlock({
   // crash (known TipTap bug where certain block structures cause
   // "Cannot read properties of undefined (reading 'localsInner')" during
   // Editor.createView). Blocks are applied after mount via replaceBlocks.
-  const editor = useCreateBlockNote({ schema });
+  // Links open without an opener and render with a fixed rel/target
+  // (blocknote-safe-links.ts).
+  const editor = useCreateBlockNote({ schema, extensions: [safeLinksExtension()] });
 
   // Ref for the blocks that should be applied after the view mounts
   const pendingBlocksRef = useRef(
@@ -805,7 +809,12 @@ function BlockNoteBlock({
                 editor={editor}
                 theme="light"
                 editable={interactive && editing}
-              />
+                linkToolbar={false}
+                formattingToolbar={false}
+              >
+                <LinkToolbarController linkToolbar={SafeLinkToolbar} />
+                <FormattingToolbarController formattingToolbar={SafeFormattingToolbar} />
+              </BlockNoteView>
             </EditorErrorBoundary>
           )}
         </div>

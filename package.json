@@ -73,6 +73,8 @@
     "@blocknote/react": "^0.46",
     "@mantine/core": "^8",
     "@mantine/hooks": "^8",
+    "@tiptap/core": "^3",
+    "@tiptap/pm": "^3",
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"
   },
@@ -91,6 +93,12 @@
     },
     "@mantine/hooks": {
       "optional": true
+    },
+    "@tiptap/core": {
+      "optional": true
+    },
+    "@tiptap/pm": {
+      "optional": true
     }
   },
   "dependencies": {
@@ -105,6 +113,8 @@
     "@blocknote/react": "^0.46",
     "@mantine/core": "^8",
     "@mantine/hooks": "^8",
+    "@tiptap/core": "^3",
+    "@tiptap/pm": "^3",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@vitejs/plugin-react": "^4",
