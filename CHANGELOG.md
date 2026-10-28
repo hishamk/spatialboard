@@ -9,6 +9,16 @@ Versioning.
 
 ### Fixed
 
+- Collaborative mode now records no local undo steps at all. `setCollabMode`
+  documented that it disables local snapshot history, but only the two
+  coalesced update helpers honoured it: adds, deletes, `updateNodeWithHistory`,
+  z-order, grouping, arrange, paste and the rest still pushed whole-board
+  snapshots. Undoing one restored the board as it was before any peer's later
+  edits, so a host that syncs local changes would revert those edits for
+  everyone. History is now suspended at the source while collaborative mode is
+  on: `canUndo()` and `canRedo()` stay false, `undo()` and `redo()` do nothing,
+  and the host owns undo. Turning the mode off resumes local history. This is
+  a behaviour change for collaborative hosts that relied on local undo.
 - An edge without string `fromId`/`toId` endpoints can no longer enter the
   engine. `updateNode(edgeId, { data: undefined })`, a peer's data-less edge
   through `addRemoteNode`, or such an edge in board JSON was stored as is, and

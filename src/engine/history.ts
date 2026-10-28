@@ -24,6 +24,14 @@ export class History {
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
   private maxSize = 50;
+  private suspended = false;
+
+  /** While suspended, `pushSnapshot` records nothing. Gating here rather than
+   *  at each call site keeps every snapshot path, including future ones, out
+   *  of the stacks at once. */
+  setSuspended(on: boolean): void {
+    this.suspended = on;
+  }
 
   private capture(nodes: Map<string, SpatialNode>, groupParent?: Map<string, string>): Snapshot {
     const snap: Snapshot = { nodes: new Map(nodes) };
@@ -43,6 +51,7 @@ export class History {
   }
 
   pushSnapshot(nodes: Map<string, SpatialNode>, groupParent?: Map<string, string>): void {
+    if (this.suspended) return;
     this.undoStack.push(this.capture(nodes, groupParent));
     if (this.undoStack.length > this.maxSize) this.undoStack.shift();
     this.redoStack = [];

@@ -7,6 +7,7 @@ import { selectionInkPad } from "../canvas/selection-pad";
 import { SEL_PAD } from "../canvas/node-item-context";
 import { handleHitSizePx } from "../canvas/pointer-coarse";
 import { nodeChromeAABB } from "./SelectionActionBar";
+import { raiseFanPick } from "./group-fan";
 
 /**
  * Floating "fan out" button for grouped selections — a round FAB hanging off
@@ -140,24 +141,8 @@ export default function GroupFanFab({ engine }: { engine: SpatialEngine }) {
     }
     if (pickId) {
       // Raise the pick above every other GROUP member first, so it visibly
-      // lands on top of the pile as the fan collapses. Single undo step.
-      // The history push snapshots the whole graph, and the members currently
-      // sit at their transient ring positions — flip them home around the
-      // push (history-free, inside one synchronous block so nothing paints)
-      // or undoing the raise would resurrect the ring layout.
-      let maxZ = -Infinity;
-      for (const id of fan.originals.keys()) {
-        const n = engine.getNode(id);
-        if (n) maxZ = Math.max(maxZ, n.z);
-      }
-      const ring = new Map<string, { x: number; y: number }>();
-      for (const id of fan.originals.keys()) {
-        const n = engine.getNode(id);
-        if (n) ring.set(id, { x: n.x, y: n.y });
-      }
-      engine.updateMany(Array.from(fan.originals, ([id, p]) => ({ id, patch: p })));
-      engine.updateNodeWithHistory(pickId, { z: maxZ + 1 });
-      engine.updateMany(Array.from(ring, ([id, p]) => ({ id, patch: p })));
+      // lands on top of the pile as the fan collapses (single undo step).
+      raiseFanPick(engine, fan.originals, pickId);
     }
     tweenPositions(new Map(fan.originals), () => {
       fanRef.current = null;

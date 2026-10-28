@@ -366,11 +366,21 @@ export class SpatialEngine {
     return this.registry?.toCatalog() ?? [];
   }
 
-  /** Enable collaborative mode. Disables local snapshot history. */
+  /**
+   * Enable collaborative mode. Disables local snapshot history.
+   *
+   * In collaborative mode the host owns undo. A local snapshot holds the whole
+   * board as it was before any peer's later edits, so restoring one would
+   * revert those edits once the host syncs the result. While the mode is on,
+   * no operation records an undo step, `canUndo()`/`canRedo()` are false and
+   * `undo()`/`redo()` do nothing. Turning it off resumes local history from
+   * an empty stack.
+   */
   setCollabMode(enabled: boolean): void {
     this._collabMode = enabled;
     this._historyCoalesceKey = null;
     if (enabled) this.history.clear();
+    this.history.setSuspended(enabled);
   }
 
   /** Whether the engine is in collaborative mode. */
