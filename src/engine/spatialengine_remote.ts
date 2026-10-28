@@ -5,22 +5,22 @@
 
 import type { SpatialNode } from "./types";
 import type { SpatialEngine } from "./SpatialEngine";
+import { edgeEndpoints, isAdmissibleNode, linkEdgeAdjacency, mergeNodePatch, warnRefusedEdges } from "./edge-data";
 
 /** Add a remote node without emitting events or pushing history. */
 export function addRemoteNode(engine: SpatialEngine, node: SpatialNode): void {
+  // A peer's record is untrusted: an edge without endpoints would break every
+  // later delete and undo on this board, so it never enters the engine.
+  if (!isAdmissibleNode(node)) {
+    warnRefusedEdges("addRemoteNode", [(node as { id?: unknown } | null)?.id]);
+    return;
+  }
   engine._suppressEvents = true;
   engine.nodes.set(node.id, node);
   engine.quadTree.insert(node);
 
   // Update adjacency for edges
-  if (node.type === "edge") {
-    const edge = node as import("./types").EdgeNode;
-    const { fromId, toId } = edge.data;
-    if (!engine.adjacency.has(fromId)) engine.adjacency.set(fromId, new Set());
-    if (!engine.adjacency.has(toId)) engine.adjacency.set(toId, new Set());
-    engine.adjacency.get(fromId)!.add(node.id);
-    engine.adjacency.get(toId)!.add(node.id);
-  }
+  linkEdgeAdjacency(engine, node);
 
   // Update z-counters
   if (node.z >= engine.nextZValue) engine.nextZValue = node.z + 1;
@@ -45,8 +45,8 @@ export function deleteRemoteNode(engine: SpatialEngine, id: string): void {
 
     // Cascade: delete edges connected to this node
     for (const [edgeId, edgeNode] of engine.nodes) {
-      if (edgeNode.type === "edge") {
-        const data = edgeNode.data as { fromId: string; toId: string };
+      const data = edgeEndpoints(edgeNode);
+      if (data) {
         if (data.fromId === id || data.toId === id) {
           const edge = engine.nodes.get(edgeId);
           if (edge) engine.quadTree.remove(edge);
@@ -65,39 +65,30 @@ export function deleteRemoteNode(engine: SpatialEngine, id: string): void {
 
 /** Apply a remote node update without emitting events or pushing history. */
 export function applyRemoteNodeUpdate(engine: SpatialEngine, id: string, props: Partial<SpatialNode>): void {
-  engine._suppressEvents = true;
   const existing = engine.nodes.get(id);
-  if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updated: any = { ...existing, ...props };
-    if (
-      props.data &&
-      typeof props.data === "object" &&
-      existing.data &&
-      typeof existing.data === "object"
-    ) {
-      updated.data = {
-        ...(existing as { data: Record<string, unknown> }).data,
-        ...(props as { data: Record<string, unknown> }).data,
-      };
-    }
-    engine.nodes.set(id, updated);
-
-    // Update QuadTree if geometry changed
-    if (
-      existing.x !== updated.x ||
-      existing.y !== updated.y ||
-      existing.w !== updated.w ||
-      existing.h !== updated.h
-    ) {
-      engine.quadTree.remove(existing);
-      engine.quadTree.insert(updated);
-      engine.updateConnectedEdges(id);
-    }
-
-    // Update z-counter
-    if (updated.z >= engine.nextZValue) engine.nextZValue = updated.z + 1;
-    if (props.data) engine.refreshSearchIfNeeded();
+  if (!existing) return;
+  const updated = mergeNodePatch(existing, props);
+  if (!isAdmissibleNode(updated)) {
+    warnRefusedEdges("applyRemoteNodeUpdate", [id]);
+    return;
   }
+  engine._suppressEvents = true;
+  engine.nodes.set(id, updated);
+
+  // Update QuadTree if geometry changed
+  if (
+    existing.x !== updated.x ||
+    existing.y !== updated.y ||
+    existing.w !== updated.w ||
+    existing.h !== updated.h
+  ) {
+    engine.quadTree.remove(existing);
+    engine.quadTree.insert(updated);
+    engine.updateConnectedEdges(id);
+  }
+
+  // Update z-counter
+  if (updated.z >= engine.nextZValue) engine.nextZValue = updated.z + 1;
+  if (props.data) engine.refreshSearchIfNeeded();
   engine._suppressEvents = false;
 }

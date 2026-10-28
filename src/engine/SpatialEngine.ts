@@ -41,6 +41,7 @@ import type {
   ShapeType,
 } from "./types";
 import { History } from "./history";
+import { edgeEndpoints, linkEdgeAdjacency } from "./edge-data";
 import { deepCloneNode } from "./deep-clone";
 import { hitTest, hitTestAll } from "./spatial-index";
 import { QuadTree } from "./QuadTree";
@@ -1083,8 +1084,8 @@ export class SpatialEngine {
 
     // Cascade: delete edges referencing deleted nodes
     for (const [edgeId, node] of this.nodes) {
-      if (node.type === "edge") {
-        const data = node.data as { fromId: string; toId: string };
+      const data = edgeEndpoints(node);
+      if (data) {
         if (deletedIds.has(data.fromId) || deletedIds.has(data.toId)) {
           const edge = this.nodes.get(edgeId);
           if (edge) this.quadTree.remove(edge);
@@ -1355,14 +1356,7 @@ export class SpatialEngine {
       this.quadTree.insert(node);
       if (node.z < minZ) minZ = node.z;
       if (node.z > maxZ) maxZ = node.z;
-      if (node.type === "edge") {
-        const edge = node as import("./types").EdgeNode;
-        const { fromId, toId } = edge.data;
-        if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
-        if (!this.adjacency.has(toId)) this.adjacency.set(toId, new Set());
-        this.adjacency.get(fromId)!.add(node.id);
-        this.adjacency.get(toId)!.add(node.id);
-      }
+      linkEdgeAdjacency(this, node);
     }
     this._minZ = minZ;
     this.nextZValue = maxZ + 1;

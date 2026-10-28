@@ -92,7 +92,10 @@ export function toggleSelect(engine: SpatialEngine, id: string): void {
 }
 
 export function selectMultiple(engine: SpatialEngine, ids: string[]): void {
-  engine.selection = new Set(ids);
+  // Only ids on the board: callers pass the ids they tried to add, and a node
+  // the engine refused (an edge without endpoints) must not stay selected for
+  // gestures to look up.
+  engine.selection = new Set(ids.filter((id) => engine.nodes.has(id)));
   engine.expandSelectionToGroups();
   engine.emit("selection");
 }

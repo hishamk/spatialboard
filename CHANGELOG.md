@@ -9,6 +9,21 @@ Versioning.
 
 ### Fixed
 
+- An edge without string `fromId`/`toId` endpoints can no longer enter the
+  engine. `updateNode(edgeId, { data: undefined })`, a peer's data-less edge
+  through `addRemoteNode`, or such an edge in board JSON was stored as is, and
+  the adjacency rebuild and every delete cascade destructured its data, so a
+  single malformed edge broke all later deletes, undo and redo on the board.
+  `addNode`, `addRemoteNode` and `fromJSON` now drop it, `addNodes` drops it and
+  adds the rest, and an update (`updateNode`, `updateMany`, the history
+  variants, `applyRemoteNodeUpdate`) that would leave an edge without endpoints
+  is not applied, while the other entries of a batch still are. Each refusal
+  logs one `console.warn`. Empty-string endpoints stay valid. The adjacency
+  rebuild and the delete cascades also skip such an edge if one reaches the
+  board some other way, and `fromJSON` skips holes and malformed entries in its
+  node list. `selectMultiple`, which paste and inserted templates use to select
+  what they added, now selects only ids that are on the board, so a refused
+  edge never stays selected for a drag to look up.
 - A node that deletes itself, or disposes the data-flow engine, from inside its
   own port resolver, compute, or an output getter no longer has outputs written
   afterwards. The engine checked that the node was still on the board only

@@ -5,9 +5,14 @@
 
 import type { SpatialNode, NodeType } from "./types";
 import type { SpatialEngine } from "./SpatialEngine";
+import { edgeEndpoints, isAdmissibleNode, linkEdgeAdjacency, mergeNodePatch, warnRefusedEdges } from "./edge-data";
 
 export function addNode(engine: SpatialEngine, node: SpatialNode, opts?: { skipHistory?: boolean }): void {
   if (engine.readOnly) return;
+  if (!isAdmissibleNode(node)) {
+    warnRefusedEdges("addNode", [(node as { id?: unknown } | null)?.id]);
+    return;
+  }
   // `skipHistory` (host-managed ephemeral nodes — e.g. the workflow loop
   // Start/End frame): the node renders + hit-tests + connects like any node
   // but never enters the undo stack (the host reconciles it from UI scope,
@@ -22,14 +27,7 @@ export function addNode(engine: SpatialEngine, node: SpatialNode, opts?: { skipH
   if (node.z < engine._minZ) engine._minZ = node.z;
 
   // Update adjacency
-  if (node.type === "edge") {
-    const edge = node as import("./types").EdgeNode;
-    const { fromId, toId } = edge.data;
-    if (!engine.adjacency.has(fromId)) engine.adjacency.set(fromId, new Set());
-    if (!engine.adjacency.has(toId)) engine.adjacency.set(toId, new Set());
-    engine.adjacency.get(fromId)!.add(node.id);
-    engine.adjacency.get(toId)!.add(node.id);
-  }
+  linkEdgeAdjacency(engine, node);
 
   // Auto-add to frame if created inside one
   if (node.type !== "edge") {
@@ -47,6 +45,14 @@ export function addNode(engine: SpatialEngine, node: SpatialNode, opts?: { skipH
 
 export function addNodes(engine: SpatialEngine, nodes: SpatialNode[]): void {
   if (engine.readOnly) return;
+  const admitted = nodes.filter(isAdmissibleNode);
+  if (admitted.length !== nodes.length) {
+    warnRefusedEdges(
+      "addNodes",
+      nodes.filter((n) => !isAdmissibleNode(n)).map((n) => (n as { id?: unknown } | null)?.id),
+    );
+    nodes = admitted;
+  }
   if (nodes.length === 0) return;
   if (engine._agentActionDepth === 0) {
     engine._historyCoalesceKey = null;
@@ -56,14 +62,7 @@ export function addNodes(engine: SpatialEngine, nodes: SpatialNode[]): void {
     engine.nodes.set(node.id, node);
     engine.quadTree.insert(node);
 
-    if (node.type === "edge") {
-      const edge = node as import("./types").EdgeNode;
-      const { fromId, toId } = edge.data;
-      if (!engine.adjacency.has(fromId)) engine.adjacency.set(fromId, new Set());
-      if (!engine.adjacency.has(toId)) engine.adjacency.set(toId, new Set());
-      engine.adjacency.get(fromId)!.add(node.id);
-      engine.adjacency.get(toId)!.add(node.id);
-    }
+    linkEdgeAdjacency(engine, node);
   }
   // Auto-add non-edge nodes to frames if created inside them
   const nonEdgeIds = nodes
@@ -81,18 +80,10 @@ export function updateNode(engine: SpatialEngine, id: string, patch: Partial<Spa
   const existing = engine.nodes.get(id);
   if (!existing) return;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updated: any = { ...existing, ...patch };
-  if (
-    patch.data &&
-    typeof patch.data === "object" &&
-    existing.data &&
-    typeof existing.data === "object"
-  ) {
-    updated.data = {
-      ...(existing as { data: Record<string, unknown> }).data,
-      ...(patch as { data: Record<string, unknown> }).data,
-    };
+  const updated = mergeNodePatch(existing, patch);
+  if (!isAdmissibleNode(updated)) {
+    warnRefusedEdges("updateNode", [id]);
+    return;
   }
   engine.nodes.set(id, updated);
 
@@ -155,21 +146,21 @@ export function updateMany(
   if (engine.readOnly) return;
   let changed = false;
   let dataChanged = false;
+  const refused: string[] = [];
   for (const { id, patch } of updates) {
     const existing = engine.nodes.get(id);
     if (!existing) continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updated: any = { ...existing, ...patch };
+    const updated = mergeNodePatch(existing, patch);
+    if (!isAdmissibleNode(updated)) {
+      refused.push(id);
+      continue;
+    }
     if (
       patch.data &&
       typeof patch.data === "object" &&
       existing.data &&
       typeof existing.data === "object"
     ) {
-      updated.data = {
-        ...(existing as { data: Record<string, unknown> }).data,
-        ...(patch as { data: Record<string, unknown> }).data,
-      };
       dataChanged = true;
     }
     engine.nodes.set(id, updated);
@@ -191,6 +182,7 @@ export function updateMany(
 
     changed = true;
   }
+  warnRefusedEdges("updateMany", refused);
   if (changed && dataChanged) engine.refreshSearchIfNeeded();
   if (changed) engine.emit("change");
 }
@@ -290,8 +282,8 @@ export function deleteNode(engine: SpatialEngine, id: string, opts?: { skipHisto
   // Cascade: delete edges connected to this node, removing each deleted edge
   // from the surviving endpoint's adjacency set.
   for (const [edgeId, node] of engine.nodes) {
-    if (node.type === "edge") {
-      const data = node.data as { fromId: string; toId: string };
+    const data = edgeEndpoints(node);
+    if (data) {
       if (data.fromId === id || data.toId === id) {
         const edge = engine.nodes.get(edgeId);
         if (edge) engine.quadTree.remove(edge);
@@ -355,8 +347,8 @@ export function deleteNodes(engine: SpatialEngine, ids: string[]): void {
 
   // Cascade: delete edges referencing deleted nodes
   for (const [edgeId, node] of engine.nodes) {
-    if (node.type === "edge") {
-      const data = node.data as { fromId: string; toId: string };
+    const data = edgeEndpoints(node);
+    if (data) {
       if (deletedSet.has(data.fromId) || deletedSet.has(data.toId)) {
         const edge = engine.nodes.get(edgeId);
         if (edge) engine.quadTree.remove(edge);

@@ -7,6 +7,7 @@ import type { SpatialNode, Viewport } from "./types";
 import { serializeToSBD } from "../serialization/sbd-serializer";
 import { parseSBD } from "../serialization/sbd-parser";
 import type { SpatialEngine } from "./SpatialEngine";
+import { isAdmissibleNode, warnRefusedEdges } from "./edge-data";
 
 export async function toSBD(engine: SpatialEngine): Promise<string> {
   // Reverse frameChildren → childId → frameId so children serialize with
@@ -93,12 +94,33 @@ function sanitizeGroupParent(entries: [string, string][]): Map<string, string> {
   return map;
 }
 
+/** Keep only well-formed `[id, node]` entries from untrusted board JSON.
+ *  Holes and non-entries are skipped, and an edge without endpoint data is
+ *  dropped, since every delete cascade and undo would trip over it later. */
+function sanitizeNodeEntries(entries: unknown): [string, SpatialNode][] {
+  const out: [string, SpatialNode][] = [];
+  if (!Array.isArray(entries)) return out;
+  const refused: string[] = [];
+  for (const entry of entries) {
+    if (!Array.isArray(entry) || entry.length < 2) continue;
+    const [id, node] = entry as [unknown, unknown];
+    if (typeof id !== "string" || node === null || typeof node !== "object") continue;
+    if (!isAdmissibleNode(node)) {
+      refused.push(id);
+      continue;
+    }
+    out.push([id, node]);
+  }
+  warnRefusedEdges("fromJSON", refused);
+  return out;
+}
+
 export function fromJSON(
   engine: SpatialEngine,
   json: { nodes: [string, SpatialNode][]; viewport?: Viewport; groupParent?: [string, string][] },
 ): void {
   engine.history.clear();
-  engine.nodes = new Map(json.nodes);
+  engine.nodes = new Map(sanitizeNodeEntries(json.nodes));
   engine.groupParent = sanitizeGroupParent(json.groupParent ?? []);
   engine.rebuildGroupChildren();
   engine.rebuildQuadTree();

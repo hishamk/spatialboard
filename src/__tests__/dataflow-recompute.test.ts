@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   SpatialEngine,
   NodeTypeRegistry,
@@ -727,6 +727,18 @@ describe("DataFlowEngine malformed edge data", () => {
     return { engine, dfe, feed };
   }
 
+  /** The public update path refuses to strip an edge's endpoints, so a
+   *  malformed edge can only appear by writing the node map directly. The
+   *  data-flow engine must still treat it as no edge. */
+  function plantMalformed(engine: SpatialEngine, id: string, bad: unknown) {
+    const before = engine.nodes.get(id)!;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    engine.updateNode(id, { data: bad } as unknown as Partial<SpatialNode>);
+    warn.mockRestore();
+    expect(engine.nodes.get(id)).toBe(before);
+    engine.nodes.set(id, { ...before, data: bad } as unknown as SpatialNode);
+  }
+
   it.each([
     ["undefined", undefined],
     ["null", null],
@@ -737,7 +749,7 @@ describe("DataFlowEngine malformed edge data", () => {
       await settle();
       expect(dfe.getPortValue("tail", "out")).toBe(2);
 
-      engine.updateNode(feed, { data: bad } as unknown as Partial<SpatialNode>);
+      plantMalformed(engine, feed, bad);
       engine.updateNode("head", { data: { v: 3 } });
       engine.updateNode("mid", { data: { tick: 1 } });
       await settle();
@@ -761,7 +773,7 @@ describe("DataFlowEngine malformed edge data", () => {
       await settle();
       expect(dfe.getPortValue("tail", "out")).toBe(2);
 
-      engine.updateNode(feed, { data: undefined } as unknown as Partial<SpatialNode>);
+      plantMalformed(engine, feed, undefined);
       expect(dfe.getAllPortValues("mid")).toEqual({ in: 100, out: 1 });
 
       // head's async landing walks head's edges, the malformed one included.
@@ -780,17 +792,19 @@ describe("DataFlowEngine malformed edge data", () => {
     expect(dfe.getComputeError("mid")).toBeUndefined();
   });
 
-  it("ignores a data-less edge that a failed add leaves on the board", async () => {
+  it("ignores a data-less edge planted on the board", async () => {
     const { engine, dfe } = chain((_inputs, data) => ({ out: Number(data.v) }));
     const unhandled = await captureUnhandled(async () => {
       dfe.connect();
       await settle();
 
-      // addNode stores the edge before rejecting its missing data, so the
-      // edge stays in the node map; the create event itself never fires.
+      // addNode refuses the edge outright; plant it in the node map instead.
       const bare = { id: "bare", type: "edge", x: 0, y: 0, w: 0, h: 0, z: 1 } as unknown as SpatialNode;
-      expect(() => engine.addNode(bare)).toThrow();
-      expect(engine.nodes.has("bare")).toBe(true);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(() => engine.addNode(bare)).not.toThrow();
+      warn.mockRestore();
+      expect(engine.nodes.has("bare")).toBe(false);
+      engine.nodes.set("bare", bare);
       // A host replaying the event by hand reaches the engine's create handler.
       expect(() => engine.emit("node:create", bare)).not.toThrow();
 
