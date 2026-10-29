@@ -22,6 +22,20 @@ Versioning.
 
 ### Fixed
 
+- A table in a rich-text node can no longer hang the board. A cell's
+  `colspan` or `rowspan`, or the table's `headerRows` or `headerCols`, is
+  stored as written, and the block conversion, the table map and the column
+  group all work once per spanned column or header row, so one cell with
+  `colspan: 1e9` froze the tab for anyone who opened the board. Spans and
+  header counts are now bounded before the editor builds the table: a colspan
+  is at most 1000 and shrinks further only when its row would pass 256
+  columns (each later cell in the row keeps one column), a rowspan reaches at
+  most the last row, and header counts stay within the table. The editor also
+  bounds tables that arrive through pasting or any other transaction, in a
+  step that runs before the table plugin and is kept out of undo history.
+  Column widths are kept to whole pixels, so a stored width can no longer
+  carry CSS into the copied or exported `<col style>`. No cell or text is
+  removed, and a table already within bounds is left as it is.
 - Links in rich-text nodes no longer open with the board as their opener. The
   editor's built-in link click, the link toolbar's Open button and the file
   block's download button all called `window.open` without `noopener`, so the

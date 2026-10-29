@@ -10,6 +10,8 @@ import { RotateHandleIcon } from "../canvas/rotate-handle-glyph";
 import { observeResize } from "../../utils/shared-resize-observer";
 import { applyCornerAspectLock } from "../../interactions/resize-aspect";
 import { safeLinksExtension } from "./blocknote-safe-links";
+import { tableGuardExtension } from "./blocknote-table-guard";
+import { sanitizeTableBlocks } from "./table-guard";
 import { SafeFormattingToolbar, SafeLinkToolbar } from "./SafeBlockNoteToolbars";
 
 // ---------------------------------------------------------------------------
@@ -148,8 +150,12 @@ function BlockNoteBlock({
   // "Cannot read properties of undefined (reading 'localsInner')" during
   // Editor.createView). Blocks are applied after mount via replaceBlocks.
   // Links open without an opener and render with a fixed rel/target
-  // (blocknote-safe-links.ts).
-  const editor = useCreateBlockNote({ schema, extensions: [safeLinksExtension()] });
+  // (blocknote-safe-links.ts); table spans and widths are bounded
+  // (blocknote-table-guard.ts).
+  const editor = useCreateBlockNote({
+    schema,
+    extensions: [safeLinksExtension(), tableGuardExtension()],
+  });
 
   // Ref for the blocks that should be applied after the view mounts
   const pendingBlocksRef = useRef(
@@ -159,9 +165,11 @@ function BlockNoteBlock({
   // Apply initial blocks after BlockNoteView mounts the ProseMirror view.
   // Uses requestAnimationFrame so ProseMirror decorations are fully initialised.
   // Falls back to TipTap setContent(html) if replaceBlocks hits the decoration bug.
+  // Table spans are bounded first: converting blocks allocates per span.
   useEffect(() => {
-    const blocks = pendingBlocksRef.current;
-    if (!blocks) return;
+    const pending = pendingBlocksRef.current;
+    if (!pending) return;
+    const blocks = sanitizeTableBlocks(pending);
     pendingBlocksRef.current = null;
 
     const rafId = requestAnimationFrame(() => {
@@ -318,13 +326,16 @@ function BlockNoteBlock({
         : [{ type: "paragraph" as const, content: [] as [] }];
     const incoming = JSON.stringify(blocksToApply);
     if (incoming === lastSyncedBlocksJsonRef.current) return;
+    // The change check above uses the blocks as received; the editor gets
+    // them with table spans bounded.
+    const safeBlocks = sanitizeTableBlocks(blocksToApply);
 
     isApplyingRemoteRef.current = true;
     try {
-      editor.replaceBlocks(editor.document, blocksToApply);
+      editor.replaceBlocks(editor.document, safeBlocks);
     } catch {
       try {
-        const html = editor.blocksToHTMLLossy(blocksToApply);
+        const html = editor.blocksToHTMLLossy(safeBlocks);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (editor as any)._tiptapEditor.commands.setContent(html);
       } catch {
