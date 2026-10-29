@@ -7,13 +7,17 @@
 // as long as a span or a header count. One cell with `colspan: 1e9` therefore
 // hangs the editor before anything is shown.
 //
-// These rules bound the values; they never remove a cell or any text:
+// These rules bound the values for the table as a whole; they never remove a
+// cell or any text. A row's width counts the columns that rowspans of earlier
+// rows carry into it, as the table map does, so a staircase of wide cells
+// with long rowspans cannot widen the table row after row:
 // - a colspan is an integer in [1, MAX_COLSPAN], and shrinks further only when
 //   the row would pass MAX_TABLE_COLUMNS: each cell may span the columns the
-//   cap leaves after the cells before it and one column for every cell after
-//   it (a row of more than MAX_TABLE_COLUMNS single-column cells is kept);
+//   cap leaves after the carried columns, the cells before it and one column
+//   for every cell after it (a row of more than MAX_TABLE_COLUMNS
+//   single-column cells is kept);
 // - a rowspan is an integer from 1 to the rows left in the table, this row
-//   included;
+//   included, cut short before a row it would leave without room;
 // - a colwidth is an array of whole pixel widths no longer than the cell's
 //   colspan (0 or a missing entry means "no width"); anything else is null.
 // Values already within bounds are kept as they are, so a table that needs no
@@ -21,8 +25,11 @@
 //
 // Plain functions only: no React, no editor imports.
 
-/** Most columns a table row may reach through its spans. */
-export const MAX_TABLE_COLUMNS = 256;
+/**
+ * Most columns a table row may reach, the columns carried down by earlier
+ * rows' rowspans included (the table map's width).
+ */
+export const MAX_TABLE_COLUMNS = 512;
 /** Upper bound for a single colspan. */
 export const MAX_COLSPAN = 1_000;
 /** Upper bound for one column width in pixels. */
@@ -99,33 +106,43 @@ export function boundColwidth(value: unknown, colspan: number): unknown {
 }
 
 /**
- * The bounded spans of one row's cells, in order. `cells` holds each cell's
- * attributes, or null for a row child that is not a cell (it takes no
- * column and is left alone). `rowsLeft` counts this row and the rows after it.
+ * The bounded spans of every cell of a table given as rows of cell
+ * attributes (`null` entries are row children that are not cells: they take
+ * no column and are left alone). A row's width is its cells' colspans plus
+ * the columns that cells of earlier rows carry into it through their
+ * rowspans, as the table map counts it:
+ * - colspan: an integer in [1, MAX_COLSPAN] that shrinks further only when
+ *   the row would pass MAX_TABLE_COLUMNS: a cell may span the columns the cap
+ *   leaves after the carried columns, the cells before it and one column for
+ *   every cell after it;
+ * - rowspan: an integer from 1 to the rows left, cut short before a row the
+ *   cell's columns would leave without one column for each of its own cells;
+ * - colwidth: see `boundColwidth`.
+ * No row passes MAX_TABLE_COLUMNS unless it has more cells than that, and no
+ * cell is ever removed. A table already within bounds keeps every value.
  */
-export function boundRow(cells: ReadonlyArray<SpanAttrs | null>, rowsLeft: number): Array<CellSpans | null> {
-  let after = 0;
-  for (const c of cells) if (c) after++;
-  const out: Array<CellSpans | null> = [];
-  let used = 0;
-  for (const attrs of cells) {
-    if (!attrs) {
-      out.push(null);
-      continue;
-    }
-    after--;
-    const room = Math.max(1, MAX_TABLE_COLUMNS - used - after);
-    const colspan = Math.min(clamp(spanInt(attrs.colspan), 1, MAX_COLSPAN), room);
-    const rowspan = clamp(spanInt(attrs.rowspan), 1, Math.max(1, rowsLeft));
-    used += colspan;
-    out.push({ colspan, rowspan, colwidth: boundColwidth(attrs.colwidth, colspan) });
-  }
-  return out;
-}
-
-/** The bounded spans of every cell of a table given as rows of cell attributes. */
 export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
-  return rows.map((cells, i) => boundRow(cells, rows.length - i));
+  const height = rows.length;
+  const cellCount = rows.map((cells) => cells.filter((c) => c).length);
+  const carried: number[] = rows.map(() => 0);
+  return rows.map((cells, r) => {
+    let after = cellCount[r];
+    let used = carried[r];
+    return cells.map((attrs) => {
+      if (!attrs) return null;
+      after--;
+      const room = Math.max(1, MAX_TABLE_COLUMNS - used - after);
+      const colspan = Math.min(clamp(spanInt(attrs.colspan), 1, MAX_COLSPAN), room);
+      const wanted = clamp(spanInt(attrs.rowspan), 1, height - r);
+      let rowspan = 1;
+      while (rowspan < wanted && carried[r + rowspan] + colspan + cellCount[r + rowspan] <= MAX_TABLE_COLUMNS) {
+        carried[r + rowspan] += colspan;
+        rowspan++;
+      }
+      used += colspan;
+      return { colspan, rowspan, colwidth: boundColwidth(attrs.colwidth, colspan) };
+    });
+  });
 }
 
 /**
@@ -138,20 +155,21 @@ function spansChanged(attrs: SpanAttrs, spans: CellSpans): boolean {
 }
 
 /**
- * For each cell of one row, the cell's attributes with bounded spans and
- * width, or null when they are already within bounds (and for `null`
- * entries, row children that are not cells).
+ * For each cell of a table given as rows of cell attributes, the cell's
+ * attributes with bounded spans and width (`boundTableSpans`), or null when
+ * they are already within bounds (and for `null` entries).
  */
 export function boundCellAttrs(
-  cells: ReadonlyArray<SpanAttrs | null>,
-  rowsLeft: number,
-): Array<Record<string, unknown> | null> {
-  const spans = boundRow(cells, rowsLeft);
-  return cells.map((attrs, i) => {
-    const s = spans[i];
-    if (!attrs || !s || !spansChanged(attrs, s)) return null;
-    return { ...attrs, colspan: s.colspan, rowspan: s.rowspan, colwidth: s.colwidth };
-  });
+  rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>,
+): Array<Array<Record<string, unknown> | null>> {
+  const spans = boundTableSpans(rows);
+  return rows.map((cells, r) =>
+    cells.map((attrs, i) => {
+      const s = spans[r][i];
+      if (!attrs || !s || !spansChanged(attrs, s)) return null;
+      return { ...attrs, colspan: s.colspan, rowspan: s.rowspan, colwidth: s.colwidth };
+    }),
+  );
 }
 
 type Json = Record<string, unknown>;
@@ -160,33 +178,34 @@ function isObject(value: unknown): value is Json {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isPropsCell(cell: unknown): cell is Json & { props: Json } {
+  return isObject(cell) && cell.type === "tableCell" && isObject(cell.props);
+}
+
 function boundTableContent(content: Json): Json {
   const rows = content.rows;
   if (!Array.isArray(rows)) return content;
-  let changed = false;
+  const cellsOf = (row: unknown): unknown[] => (isObject(row) && Array.isArray(row.cells) ? row.cells : []);
   let maxCells = 0;
-  const nextRows = rows.map((row: unknown, rowIndex: number) => {
-    if (!isObject(row) || !Array.isArray(row.cells)) return row;
-    const cells = row.cells as unknown[];
-    maxCells = Math.max(maxCells, cells.length);
-    // Cells without props (and legacy string or inline-array cells) span one column.
-    const attrs = cells.map((cell): SpanAttrs => {
-      if (isObject(cell) && cell.type === "tableCell" && isObject(cell.props)) return cell.props as SpanAttrs;
-      return {};
-    });
-    const bounded = boundCellAttrs(attrs, rows.length - rowIndex);
-    if (bounded.every((a) => !a)) return row;
-    const nextCells = cells.map((cell, i) => {
-      const next = bounded[i];
-      if (!next || !isObject(cell) || !isObject(cell.props)) return cell;
+  for (const row of rows) maxCells = Math.max(maxCells, cellsOf(row).length);
+  // Cells without props (and legacy string or inline-array cells) span one column.
+  const bounded = boundCellAttrs(
+    rows.map((row: unknown) => cellsOf(row).map((cell): SpanAttrs => (isPropsCell(cell) ? (cell.props as SpanAttrs) : {}))),
+  );
+  let changed = false;
+  const nextRows = rows.map((row: unknown, r: number) => {
+    if (bounded[r].every((a) => !a)) return row;
+    changed = true;
+    const cells = cellsOf(row).map((cell, i) => {
+      const next = bounded[r][i];
+      if (!next || !isPropsCell(cell)) return cell;
       const props: Json = { ...next };
       if (cell.props.colspan === undefined && props.colspan === 1) delete props.colspan;
       if (cell.props.rowspan === undefined && props.rowspan === 1) delete props.rowspan;
       if (props.colwidth === undefined) delete props.colwidth;
       return { ...cell, props };
     });
-    changed = true;
-    return { ...row, cells: nextCells };
+    return { ...(row as Json), cells };
   });
   const next: Json = changed ? { ...content, rows: nextRows } : { ...content };
   let headerChanged = false;

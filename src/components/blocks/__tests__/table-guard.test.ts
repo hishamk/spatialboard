@@ -10,13 +10,14 @@ import {
   MAX_TABLE_COLUMNS,
   type SpanAttrs,
 } from "../table-guard";
-import { boundSlice, tableGuardExtension, tableGuardPluginKey } from "../blocknote-table-guard";
+import { boundSlice, tableGuardExtension, TABLE_SPAN_GUARD_META } from "../blocknote-table-guard";
 
 // Span rule vectors: rows of cell attributes (null = a row child that is not
 // a cell) and the bounded [colspan, rowspan, colwidth] of each cell.
+const cellRow = (n: number, colspan = 1) => Array.from({ length: n }, () => ({ colspan, rowspan: 1, colwidth: null }));
 const SPAN_VECTORS = [
-  { name: "colspan 1e9", rows: [[{ colspan: 1e9, rowspan: 1, colwidth: null }]], expect: [[[256, 1, null]]] },
-  { name: "colspan \"1e9\"", rows: [[{ colspan: "1e9", rowspan: 1, colwidth: null }]], expect: [[[256, 1, null]]] },
+  { name: "colspan 1e9", rows: [[{ colspan: 1e9, rowspan: 1, colwidth: null }]], expect: [[[512, 1, null]]] },
+  { name: "colspan \"1e9\"", rows: [[{ colspan: "1e9", rowspan: 1, colwidth: null }]], expect: [[[512, 1, null]]] },
   { name: "colspan -3", rows: [[{ colspan: -3, rowspan: 1, colwidth: null }]], expect: [[[1, 1, null]]] },
   { name: "colspan 2.4", rows: [[{ colspan: 2.4, rowspan: 1, colwidth: null }]], expect: [[[2, 1, null]]] },
   { name: "colspan null", rows: [[{ colspan: null, rowspan: 1, colwidth: null }]], expect: [[[1, 1, null]]] },
@@ -28,7 +29,7 @@ const SPAN_VECTORS = [
   {
     name: "three cells of colspan 200 share the cap",
     rows: [[{ colspan: 200, rowspan: 1, colwidth: null }, { colspan: 200, rowspan: 1, colwidth: null }, { colspan: 200, rowspan: 1, colwidth: null }]],
-    expect: [[[200, 1, null], [55, 1, null], [1, 1, null]]],
+    expect: [[[200, 1, null], [200, 1, null], [112, 1, null]]],
   },
   {
     name: "rowspan beyond the last row",
@@ -45,7 +46,7 @@ const SPAN_VECTORS = [
   { name: "colwidth string", rows: [[{ colspan: 1, rowspan: 1, colwidth: "100" }]], expect: [[[1, 1, null]]] },
   { name: "colwidth longer than the span", rows: [[{ colspan: 1, rowspan: 1, colwidth: [100, 200, 300] }]], expect: [[[1, 1, [100]]]] },
   { name: "colwidth entries out of range", rows: [[{ colspan: 4, rowspan: 1, colwidth: [-5, 2.6, 1e9, null] }]], expect: [[[4, 1, [0, 3, 100000, null]]]] },
-  { name: "colwidth kept under a shrunk span", rows: [[{ colspan: 1e9, rowspan: 1, colwidth: [10, 20, 30] }]], expect: [[[256, 1, [10, 20, 30]]]] },
+  { name: "colwidth kept under a shrunk span", rows: [[{ colspan: 1e9, rowspan: 1, colwidth: [10, 20, 30] }]], expect: [[[512, 1, [10, 20, 30]]]] },
   {
     name: "a row child that is not a cell takes no column",
     rows: [[{ colspan: 2, rowspan: 1, colwidth: null }, null, { colspan: 3, rowspan: 1, colwidth: null }]],
@@ -58,13 +59,33 @@ const SPAN_VECTORS = [
   },
   {
     name: "500 cells of colspan 1000",
-    rows: [Array.from({ length: 500 }, () => ({ colspan: 1000, rowspan: 1, colwidth: null }))],
-    expect: [Array.from({ length: 500 }, () => [1, 1, null])],
+    rows: [cellRow(500, 1000)],
+    expect: [[[13, 1, null], ...Array.from({ length: 499 }, () => [1, 1, null])]],
   },
   {
-    name: "a row of 300 single-column cells is kept",
-    rows: [Array.from({ length: 300 }, () => ({ colspan: 1, rowspan: 1, colwidth: null }))],
-    expect: [Array.from({ length: 300 }, () => [1, 1, null])],
+    name: "a row of 600 single-column cells is kept",
+    rows: [cellRow(600)],
+    expect: [Array.from({ length: 600 }, () => [1, 1, null])],
+  },
+  {
+    name: "a 300-column table with a colspan-2 header is kept",
+    rows: [[{ colspan: 2, rowspan: 1, colwidth: null }, ...cellRow(298)], cellRow(300)],
+    expect: [[[2, 1, null], ...Array.from({ length: 298 }, () => [1, 1, null])], Array.from({ length: 300 }, () => [1, 1, null])],
+  },
+  {
+    name: "carried columns count against the cap",
+    rows: [[{ colspan: 300, rowspan: 2, colwidth: null }], [{ colspan: 300, rowspan: 1, colwidth: null }]],
+    expect: [[[300, 2, null]], [[212, 1, null]]],
+  },
+  {
+    name: "a rowspan stops before a row it would leave without room",
+    rows: [[{ colspan: 500, rowspan: 3, colwidth: null }], [{ colspan: 1, rowspan: 1, colwidth: null }], cellRow(20)],
+    expect: [[[500, 2, null]], [[1, 1, null]], Array.from({ length: 20 }, () => [1, 1, null])],
+  },
+  {
+    name: "a staircase of 12 rows stays within the cap",
+    rows: Array.from({ length: 12 }, (_, r) => [{ colspan: 256, rowspan: 12 - r, colwidth: null }]),
+    expect: Array.from({ length: 12 }, (_, r) => [[256, r === 0 ? 12 : 1, null]]),
   },
 ];
 
@@ -83,10 +104,8 @@ describe("span rules", () => {
       [{ colspan: 1, rowspan: 1, colwidth: null }, { colspan: 1, rowspan: 1, colwidth: null }, { colspan: 1, rowspan: 1, colwidth: null }],
     ];
     const spans = boundTableSpans(rows);
-    rows.forEach((cells, r) => {
-      expect(boundCellAttrs(cells, rows.length - r)).toEqual(cells.map(() => null));
-      cells.forEach((attrs, c) => expect(spans[r][c]!.colwidth).toBe(attrs.colwidth));
-    });
+    expect(boundCellAttrs(rows)).toEqual(rows.map((cells) => cells.map(() => null)));
+    rows.forEach((cells, r) => cells.forEach((attrs, c) => expect(spans[r][c]!.colwidth).toBe(attrs.colwidth)));
   });
 });
 
@@ -108,7 +127,7 @@ describe("sanitizeTableBlocks", () => {
     expect(out.content.headerRows).toBe(2);
     expect(out.content.headerCols).toBe(2);
     expect(out.content.columnWidths).toEqual([undefined, 120, undefined, 3]);
-    expect(out.content.rows[0].cells[0].props).toEqual({ colspan: 255, rowspan: 2 });
+    expect(out.content.rows[0].cells[0].props).toEqual({ colspan: 511, rowspan: 1 });
     expect(out.content.rows[0].cells[1]).toBe(hostile.content.rows[0].cells[1]);
     expect(out.content.rows[1]).toBe(hostile.content.rows[1]);
     expect(out.content.rows[0].cells[0].content).toEqual(["a"]);
@@ -208,7 +227,7 @@ describe("table guard in the rich-text editor", () => {
     const { state } = guardedState(true);
     const block = state.schema.nodeFromJSON(pmTable([[{ colspan: 1e9 }]]));
     const tr = state.tr.replaceWith(1, 1 + state.doc.firstChild!.content.size, block);
-    const guard = state.applyTransaction(tr).transactions.find((t) => t.getMeta(tableGuardPluginKey));
+    const guard = state.applyTransaction(tr).transactions.find((t) => t.getMeta(TABLE_SPAN_GUARD_META));
     expect(guard?.getMeta("addToHistory")).toBe(false);
   });
 
@@ -217,7 +236,7 @@ describe("table guard in the rich-text editor", () => {
     expect(ms).toBeLessThan(1000);
     expect(table.firstChild!.firstChild!.attrs.colspan).toBe(MAX_TABLE_COLUMNS);
     expect(table.firstChild!.firstChild!.attrs.colwidth).toEqual([0]);
-    expect(TableMap.get(table).width).toBeLessThanOrEqual(2 * MAX_TABLE_COLUMNS);
+    expect(TableMap.get(table).width).toBeLessThanOrEqual(MAX_TABLE_COLUMNS);
   });
 
   it("bounds a wide spanned row and keeps every cell and its text", () => {
@@ -226,14 +245,32 @@ describe("table guard in the rich-text editor", () => {
     // Includes the table plugin padding the second row to 500 cells.
     expect(ms).toBeLessThan(2000);
     expect(table.firstChild!.childCount).toBe(500);
-    expect(rowWidth(table.firstChild!)).toBe(500);
-    expect(TableMap.get(table).width).toBeLessThanOrEqual(2 * MAX_TABLE_COLUMNS);
+    expect(rowWidth(table.firstChild!)).toBe(MAX_TABLE_COLUMNS);
+    expect(TableMap.get(table).width).toBeLessThanOrEqual(MAX_TABLE_COLUMNS);
     expect(table.firstChild!.child(499).textContent).toBe("c499");
+  });
+
+  it("bounds a staircase of rowspans as a whole table", () => {
+    const stairs = Array.from({ length: 12 }, (_, r) => [{ colspan: 256, rowspan: 12 - r }]);
+    const { ms, table } = applyTable(stairs);
+    expect(ms).toBeLessThan(1000);
+    expect(TableMap.get(table).width).toBeLessThanOrEqual(MAX_TABLE_COLUMNS);
+    expect(table.childCount).toBe(12);
+  });
+
+  it("leaves a 300-column table with a colspan-2 header as it is", () => {
+    const { state } = guardedState(true);
+    const header = [{ colspan: 2 }, ...Array.from({ length: 298 }, () => ({}))];
+    const body = Array.from({ length: 300 }, () => ({}));
+    const block = state.schema.nodeFromJSON(pmTable([header, body]));
+    const tr = state.tr.replaceWith(1, 1 + state.doc.firstChild!.content.size, block);
+    const { transactions } = state.applyTransaction(tr);
+    expect(transactions.some((t) => t.getMeta(TABLE_SPAN_GUARD_META))).toBe(false);
   });
 
   it("bounds a moderate span (bite case)", () => {
     const { table } = applyTable([[{ colspan: 5000 }], [{ colspan: 1 }]]);
-    expect(TableMap.get(table).width).toBeLessThanOrEqual(2 * MAX_TABLE_COLUMNS);
+    expect(TableMap.get(table).width).toBeLessThanOrEqual(MAX_TABLE_COLUMNS);
   });
 
   it("leaves a clean table alone", () => {
@@ -243,7 +280,7 @@ describe("table guard in the rich-text editor", () => {
     );
     const tr = state.tr.replaceWith(1, 1 + state.doc.firstChild!.content.size, block);
     const { transactions } = state.applyTransaction(tr);
-    expect(transactions.some((t) => t.getMeta(tableGuardPluginKey))).toBe(false);
+    expect(transactions.some((t) => t.getMeta(TABLE_SPAN_GUARD_META))).toBe(false);
   });
 
   it("bounds pasted tables before the table plugin's paste handler pads them", () => {

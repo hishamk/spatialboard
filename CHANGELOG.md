@@ -28,9 +28,11 @@ Versioning.
   group all work once per spanned column or header row, so one cell with
   `colspan: 1e9` froze the tab for anyone who opened the board. Spans and
   header counts are now bounded before the editor builds the table: a colspan
-  is at most 1000 and shrinks further only when its row would pass 256
-  columns (each later cell in the row keeps one column), a rowspan reaches at
-  most the last row, and header counts stay within the table. The editor also
+  is at most 1000 and shrinks further only when its row would pass 512
+  columns, counting the columns that rowspans of earlier rows carry into it
+  (each later cell in the row keeps one column), a rowspan reaches at most the
+  last row and stops before a row it would leave without room, and header
+  counts stay within the table. The editor also
   bounds tables that arrive through pasting or any other transaction, in a
   step that runs before the table plugin and is kept out of undo history.
   Column widths are kept to whole pixels, so a stored width can no longer

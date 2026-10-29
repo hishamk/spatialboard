@@ -26,40 +26,48 @@ function isCell(node: PMNode): boolean {
   return !node.isText && /cell/.test(tableRole(node));
 }
 
-/**
- * Sets bounded spans on the cells of the table at `pos` that need them.
- * Returns true when it changed anything.
- */
+/** Sets bounded spans on the cells of the table at `pos` that need them; true when it changed any. */
 function boundTable(tr: Transaction, table: PMNode, pos: number): boolean {
-  let changed = false;
-  const rowCount = table.childCount;
-  table.forEach((row, rowOffset, rowIndex) => {
+  const rows: Array<Array<SpanAttrs | null>> = [];
+  const positions: number[][] = [];
+  table.forEach((row, rowOffset) => {
     const cells: Array<SpanAttrs | null> = [];
-    const offsets: number[] = [];
+    const at: number[] = [];
     row.forEach((cell, offset) => {
       cells.push(isCell(cell) ? (cell.attrs as SpanAttrs) : null);
-      offsets.push(offset);
+      at.push(pos + 1 + rowOffset + 1 + offset);
     });
-    boundCellAttrs(cells, rowCount - rowIndex).forEach((attrs, i) => {
-      if (!attrs) return;
-      tr.setNodeMarkup(pos + 1 + rowOffset + 1 + offsets[i], null, attrs);
-      changed = true;
-    });
+    rows.push(cells);
+    positions.push(at);
   });
+  let changed = false;
+  boundCellAttrs(rows).forEach((cells, r) =>
+    cells.forEach((attrs, i) => {
+      if (!attrs) return;
+      tr.setNodeMarkup(positions[r][i], null, attrs);
+      changed = true;
+    }),
+  );
   return changed;
 }
 
-/** `row` with its cells' spans bounded, or `row` itself when they already are. */
-function boundRowNode(row: PMNode, rowsLeft: number): PMNode {
-  const cells: Array<SpanAttrs | null> = [];
-  row.forEach((cell) => cells.push(isCell(cell) ? (cell.attrs as SpanAttrs) : null));
-  let content = row.content;
-  boundCellAttrs(cells, rowsLeft).forEach((attrs, i) => {
-    if (!attrs) return;
-    const cell = row.child(i);
-    content = content.replaceChild(i, cell.type.create(attrs, cell.content, cell.marks));
+/** `rows` (a table's body, or rows cut from one) with their cells' spans bounded; unchanged rows are kept. */
+function boundRows(rows: PMNode[]): PMNode[] {
+  const attrs = rows.map((row) => {
+    const cells: Array<SpanAttrs | null> = [];
+    row.forEach((cell) => cells.push(isCell(cell) ? (cell.attrs as SpanAttrs) : null));
+    return cells;
   });
-  return content === row.content ? row : row.copy(content);
+  return boundCellAttrs(attrs).map((cells, r) => {
+    const row = rows[r];
+    let content = row.content;
+    cells.forEach((next, i) => {
+      if (!next) return;
+      const cell = row.child(i);
+      content = content.replaceChild(i, cell.type.create(next, cell.content, cell.marks));
+    });
+    return content === row.content ? row : row.copy(content);
+  });
 }
 
 /**
@@ -81,13 +89,12 @@ function boundFragment(fragment: Fragment, top: boolean): Fragment {
   });
   const roles = children.map(tableRole);
   if (children.length > 0 && roles.every((r) => r === "row")) {
-    children.forEach((row, i) => {
-      const next = boundRowNode(row, children.length - i);
-      if (next !== row) changed = true;
-      children[i] = next;
+    boundRows(children).forEach((row, i) => {
+      if (row !== children[i]) changed = true;
+      children[i] = row;
     });
   } else if (top && children.length > 0 && roles.every((r) => /cell/.test(r))) {
-    boundCellAttrs(children.map((c) => c.attrs as SpanAttrs), 1).forEach((attrs, i) => {
+    boundCellAttrs([children.map((c) => c.attrs as SpanAttrs)])[0].forEach((attrs, i) => {
       if (!attrs) return;
       const cell = children[i];
       children[i] = cell.type.create(attrs, cell.content, cell.marks);
@@ -131,6 +138,12 @@ function changedDescendants(old: PMNode, cur: PMNode, offset: number, f: (node: 
   }
 }
 
+/**
+ * Transaction meta naming the guard"s correction (a plain string, so a host
+ * can recognise it whichever copy of the guard made it).
+ */
+export const TABLE_SPAN_GUARD_META = "tableSpanGuard";
+
 export const tableGuardPluginKey = new PluginKey("tableSpanGuard");
 
 /** A transaction bounding the spans of every table `newState` changed, or null. */
@@ -141,7 +154,7 @@ export function boundTablesTransaction(oldState: EditorState, newState: EditorSt
     if (tableRole(node) === "table" && boundTable(tr, node, pos)) changed = true;
   });
   if (!changed) return null;
-  return tr.setMeta("addToHistory", false).setMeta(tableGuardPluginKey, true);
+  return tr.setMeta("addToHistory", false).setMeta(TABLE_SPAN_GUARD_META, true);
 }
 
 /** The ProseMirror plugin: bounds table spans after every document change. */
