@@ -139,8 +139,9 @@ function changedDescendants(old: PMNode, cur: PMNode, offset: number, f: (node: 
 }
 
 /**
- * Transaction meta naming the guard"s correction (a plain string, so a host
- * can recognise it whichever copy of the guard made it).
+ * Transaction meta naming the guard's correction: a plain string, so a host
+ * can recognise the correction whichever copy of the guard made it. Matches
+ * the other copies.
  */
 export const TABLE_SPAN_GUARD_META = "tableSpanGuard";
 
