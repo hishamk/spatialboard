@@ -16,11 +16,55 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> packing"
-TARBALL="$(npm pack --silent | tail -1)"   # runs `prepare`, which builds dist/
+# npm writes a debug log for every command under its cache; on a failure,
+# print the tail of the newest one so the cause shows in the output. The
+# directory is read once here: asking npm for it later would write a newer
+# log of its own.
+NPM_LOGS="$(npm config get cache)/_logs"
+npm_log_tail() {
+  local f log=""
+  for f in "$NPM_LOGS"/*-debug-0.log; do
+    [ -e "$f" ] || continue
+    if [ -z "$log" ] || [ "$f" -nt "$log" ]; then log="$f"; fi
+  done
+  if [ -n "$log" ]; then
+    echo "--- last lines of $log" >&2
+    tail -n 80 "$log" >&2
+  fi
+}
 
+run_npm() {
+  local status=0
+  npm "$@" || status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "npm $1 failed with exit code $status" >&2
+    npm_log_tail
+    exit "$status"
+  fi
+}
+
+PACK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sb-pack.XXXXXX")"
 APP="$(mktemp -d "${TMPDIR:-/tmp}/sb-consumer.XXXXXX")"
-trap 'rm -rf "$APP"; rm -f "$ROOT/$TARBALL"' EXIT
+trap 'rm -rf "$APP" "$PACK_DIR"' EXIT
+
+echo "==> packing"
+run_npm pack --pack-destination "$PACK_DIR"   # runs `prepare`, which builds dist/
+
+shopt -s nullglob
+TARBALLS=("$PACK_DIR"/*.tgz)
+shopt -u nullglob
+if [ "${#TARBALLS[@]}" -ne 1 ]; then
+  echo "expected one tarball in $PACK_DIR, found ${#TARBALLS[@]}" >&2
+  exit 1
+fi
+TARBALL="${TARBALLS[0]}"
+# `prepare` skips the build when vite is missing and packs whatever dist/
+# holds, so check the tarball carries the built entry.
+if ! tar -tzf "$TARBALL" | grep -Fx 'package/dist/index.js' > /dev/null; then
+  echo "$TARBALL has no package/dist/index.js" >&2
+  exit 1
+fi
+echo "    $(basename "$TARBALL")"
 
 echo "==> scaffolding consumer app in $APP"
 mkdir -p "$APP/src"
@@ -99,8 +143,10 @@ EOF
 
 cd "$APP"
 echo "==> installing tarball + peers"
-npm install --no-audit --no-fund --silent "$ROOT/$TARBALL" react@^19 react-dom@^19
-npm install --no-audit --no-fund --silent -D vite @vitejs/plugin-react typescript "@types/react@^19" "@types/react-dom@^19"
+run_npm install --no-audit --no-fund "$TARBALL" react@^19 react-dom@^19
+
+echo "==> installing build toolchain"
+run_npm install --no-audit --no-fund -D vite @vitejs/plugin-react typescript "@types/react@^19" "@types/react-dom@^19"
 
 echo "==> typecheck"
 npx tsc --noEmit
