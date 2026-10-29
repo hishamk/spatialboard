@@ -31,6 +31,25 @@ export function safeLinkHref(href: unknown, base: string): string | null {
   return ALLOWED_PROTOCOLS.has(url.protocol) ? url.href : null;
 }
 
+const DOWNLOAD_FALLBACK_PROTOCOLS = new Set(["http:", "https:", "blob:"]);
+
+/**
+ * The URL an image download may open in a new tab when fetching the image
+ * failed: `src` resolved against `base` when it is an http, https or blob
+ * URL, otherwise null. An image node's `src` is board data like any link, so
+ * a `javascript:` or `data:text/html` source must never reach `window.open`.
+ */
+export function safeDownloadFallbackUrl(src: unknown, base: string): string | null {
+  if (typeof src !== "string" || src.trim() === "") return null;
+  let url: URL;
+  try {
+    url = new URL(src, base);
+  } catch {
+    return null;
+  }
+  return DOWNLOAD_FALLBACK_PROTOCOLS.has(url.protocol) ? url.href : null;
+}
+
 /** What opening a link needs from `window`. */
 export interface LinkWindow {
   open(url: string, target: string, features: string): unknown;

@@ -6,6 +6,7 @@ import type { ContextMenuSection } from "../../overlays/ContextMenu";
 import { SB_ALIGN_MENU_ICONS } from "../../overlays/context-menu-align-icons";
 import { getClosestEdgeHit, hitTestAllEdges } from "../../../engine/edge-geometry";
 import { pasteFromSystemClipboard, copyToSystemClipboard } from "../canvas-clipboard";
+import { safeDownloadFallbackUrl } from "../../blocks/safe-links";
 
 const MIME_EXT: Record<string, string> = {
   "image/png": "png",
@@ -18,7 +19,8 @@ const MIME_EXT: Record<string, string> = {
 
 /** Save an image node's source to disk. Data URIs download directly; remote
  *  URLs are fetched to a blob first (cross-origin failures fall back to
- *  opening the image in a new tab, where the browser can save it).
+ *  opening the image in a new tab, where the browser can save it). The
+ *  fallback opens only http, https and blob URLs, without an opener.
  *  Exported so the console chrome's SelectionActionBar offers the same
  *  action as this context menu. */
 export async function downloadImageNode(node: ImageNode): Promise<void> {
@@ -47,7 +49,8 @@ export async function downloadImageNode(node: ImageNode): Promise<void> {
     a.click();
     document.body.removeChild(a);
   } catch {
-    window.open(src, "_blank", "noopener");
+    const fallback = safeDownloadFallbackUrl(src, window.location.href);
+    if (fallback) window.open(fallback, "_blank", "noopener,noreferrer");
   } finally {
     if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl!), 1000);
   }

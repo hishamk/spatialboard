@@ -36,6 +36,10 @@ Versioning.
   Column widths are kept to whole pixels, so a stored width can no longer
   carry CSS into the copied or exported `<col style>`. No cell or text is
   removed, and a table already within bounds is left as it is.
+- Downloading an image whose source cannot be fetched now opens the image in a
+  new tab only for http, https and blob URLs, with `noopener,noreferrer`. The
+  fallback passed any source to `window.open`, so an image node with a
+  `javascript:` or `data:` source reached it when its download failed.
 - Links in rich-text nodes no longer open with the board as their opener. The
   editor's built-in link click, the link toolbar's Open button and the file
   block's download button all called `window.open` without `noopener`, so the
