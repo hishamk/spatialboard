@@ -25,7 +25,9 @@ npm_log_tail() {
   local f log=""
   for f in "$NPM_LOGS"/*-debug-0.log; do
     [ -e "$f" ] || continue
-    if [ -z "$log" ] || [ "$f" -nt "$log" ]; then log="$f"; fi
+    # The glob is in name order, and npm names logs by time, so a tie in
+    # modification time (bash 3.2 compares whole seconds) keeps the later one.
+    if [ -z "$log" ] || ! [ "$log" -nt "$f" ]; then log="$f"; fi
   done
   if [ -n "$log" ]; then
     echo "--- last lines of $log" >&2
@@ -147,9 +149,12 @@ run_npm install --no-audit --no-fund "$TARBALL" react@^19 react-dom@^19
 
 # The build toolchain is pinned by major; the React peers above are under test
 # and stay open. The npm 10.8 bundled with Node 20 crashes installing vite 8,
-# whose optional peer chain reaches vitest 4.1.12's contradictory peers.
+# whose optional peer chain reaches vitest 4.1.12's contradictory peers. No
+# lockfile pins this tree, so its packages' install scripts do not run: the
+# smoke needs none of them (esbuild finds its platform binary without its
+# postinstall).
 echo "==> installing build toolchain"
-run_npm install --no-audit --no-fund -D vite@^7 @vitejs/plugin-react@^5 typescript@^7 "@types/react@^19" "@types/react-dom@^19"
+run_npm install --no-audit --no-fund --ignore-scripts -D vite@^7 @vitejs/plugin-react@^5 typescript@^7 "@types/react@^19" "@types/react-dom@^19"
 
 echo "==> typecheck"
 npx tsc --noEmit
