@@ -32,8 +32,14 @@ Versioning.
   columns, counting the columns that rowspans of earlier rows carry into it
   (each later cell in the row keeps one column), a rowspan reaches at most the
   last row and stops before a row it would leave without room, and header
-  counts stay within the table. The editor also
-  bounds tables that arrive through pasting or any other transaction, in a
+  counts stay within the table. Spans are laid out the way the table is
+  built, each cell at the first column no rowspan from above covers: a cell
+  that ran into such a column made the table plugin pad the table over and
+  over (four cells grew to tens of thousands). A table that would be padded
+  with more than 4,096 cells to even out its rows gets a lower column cap: a
+  wide header over hundreds of one-cell rows was padded into a huge table on
+  open.
+  The editor also bounds tables that arrive through pasting or any other transaction, in a
   step that runs before the table plugin and is kept out of undo history.
   Column widths are kept to whole pixels, so a stored width can no longer
   carry CSS into the copied or exported `<col style>`. No cell or text is

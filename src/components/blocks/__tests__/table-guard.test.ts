@@ -87,6 +87,24 @@ const SPAN_VECTORS = [
     rows: Array.from({ length: 12 }, (_, r) => [{ colspan: 256, rowspan: 12 - r, colwidth: null }]),
     expect: Array.from({ length: 12 }, (_, r) => [[256, r === 0 ? 12 : 1, null]]),
   },
+  {
+    name: "a cell that would run into a column covered from above is cut to the free columns",
+    rows: [
+      [{ colspan: 3, rowspan: 1, colwidth: null }, { colspan: 300, rowspan: 2, colwidth: null }],
+      [{ colspan: 2, rowspan: 1, colwidth: null }, { colspan: 210, rowspan: 1, colwidth: null }],
+    ],
+    expect: [[[3, 1, null], [300, 2, null]], [[2, 1, null], [1, 1, null]]],
+  },
+  {
+    name: "a one-column gap before a covered block takes one column",
+    rows: [[{ colspan: 1, rowspan: 1, colwidth: null }, { colspan: 256, rowspan: 2, colwidth: null }], [{ colspan: 256, rowspan: 1, colwidth: null }]],
+    expect: [[[1, 1, null], [256, 2, null]], [[1, 1, null]]],
+  },
+  ...[40, 200, 2000].map((height) => ({
+    name: `a ${height}-row table under a 512-column header is padded with at most 4096 cells`,
+    rows: [[{ colspan: 512, rowspan: 1, colwidth: null }], ...Array.from({ length: height - 1 }, () => cellRow(1))],
+    expect: [[[Math.floor(4096 / (height - 1)) + 1, 1, null]], ...Array.from({ length: height - 1 }, () => [[1, 1, null]])],
+  })),
 ];
 
 const tuples = (rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>) =>
@@ -256,6 +274,20 @@ describe("table guard in the rich-text editor", () => {
     expect(ms).toBeLessThan(1000);
     expect(TableMap.get(table).width).toBeLessThanOrEqual(MAX_TABLE_COLUMNS);
     expect(table.childCount).toBe(12);
+  });
+
+  it("lays out a cell that would run into a covered column without collisions", () => {
+    const { ms, table } = applyTable([[{ colspan: 3 }, { colspan: 300, rowspan: 2 }], [{ colspan: 2 }, { colspan: 210 }]]);
+    const map = TableMap.get(table);
+    expect(ms).toBeLessThan(1000);
+    expect([map.width, map.problems ?? []]).toEqual([303, []]);
+  });
+
+  it.each([40, 200])("pads a %i-row table under a wide header with at most 4096 cells", (height) => {
+    const { ms, table } = applyTable([[{ colspan: 512 }], ...Array.from({ length: height - 1 }, () => [{}])]);
+    const map = TableMap.get(table);
+    expect(ms).toBeLessThan(1000);
+    expect(map.width * map.height - (map.width + height - 1)).toBeLessThanOrEqual(4096);
   });
 
   it("leaves a 300-column table with a colspan-2 header as it is", () => {

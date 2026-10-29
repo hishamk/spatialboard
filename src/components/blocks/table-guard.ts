@@ -8,14 +8,18 @@
 // hangs the editor before anything is shown.
 //
 // These rules bound the values for the table as a whole; they never remove a
-// cell or any text. A row's width counts the columns that rowspans of earlier
-// rows carry into it, as the table map does, so a staircase of wide cells
-// with long rowspans cannot widen the table row after row:
-// - a colspan is an integer in [1, MAX_COLSPAN], and shrinks further only when
-//   the row would pass MAX_TABLE_COLUMNS: each cell may span the columns the
-//   cap leaves after the carried columns, the cells before it and one column
-//   for every cell after it (a row of more than MAX_TABLE_COLUMNS
-//   single-column cells is kept);
+// cell or any text. The table is laid out the way the table map lays it out
+// (each cell at the first column of its row that no rowspan from above still
+// covers), so that what the rules allow is what the table plugin builds:
+// - a colspan is an integer in [1, MAX_COLSPAN], cut to the free columns at
+//   the cell's place (running into a column covered from above makes the
+//   table plugin's fix-up pad the table over and over), and shrinks further
+//   only when the row, counting the columns rowspans carry into it, would
+//   pass the column cap: each cell keeps one column for every cell after it
+//   (a row of more than MAX_TABLE_COLUMNS single-column cells is kept);
+// - the column cap is MAX_TABLE_COLUMNS, lowered for a table whose rows the
+//   table plugin would pad with more than MAX_TABLE_PADDING cells (one wide
+//   header over many one-cell rows);
 // - a rowspan is an integer from 1 to the rows left in the table, this row
 //   included, cut short before a row it would leave without room;
 // - a colwidth is an array of whole pixel widths no longer than the cell's
@@ -30,6 +34,12 @@
  * rows' rowspans included (the table map's width).
  */
 export const MAX_TABLE_COLUMNS = 512;
+/**
+ * Most cells the table plugin may add to fill a table's rows to its width (a
+ * wide header over a long one-cell column is padded into a huge table): a
+ * table that would need more gets a lower column cap.
+ */
+export const MAX_TABLE_PADDING = 4096;
 /** Upper bound for a single colspan. */
 export const MAX_COLSPAN = 1_000;
 /** Upper bound for one column width in pixels. */
@@ -106,43 +116,91 @@ export function boundColwidth(value: unknown, colspan: number): unknown {
 }
 
 /**
- * The bounded spans of every cell of a table given as rows of cell
- * attributes (`null` entries are row children that are not cells: they take
- * no column and are left alone). A row's width is its cells' colspans plus
- * the columns that cells of earlier rows carry into it through their
- * rowspans, as the table map counts it:
- * - colspan: an integer in [1, MAX_COLSPAN] that shrinks further only when
- *   the row would pass MAX_TABLE_COLUMNS: a cell may span the columns the cap
- *   leaves after the carried columns, the cells before it and one column for
- *   every cell after it;
+ * The table laid out the way the table map lays it out, with spans bounded by
+ * `cap`: row by row, each cell goes to the first column of its row that no
+ * cell above still covers through its rowspan, and covers its colspan from
+ * there.
+ * - colspan: an integer in [1, MAX_COLSPAN], cut to the free columns at the
+ *   cell's place (a cell that ran into a column covered from above is what
+ *   makes the table plugin's fix-up pad the table again and again), and to the
+ *   columns `cap` leaves after the columns rowspans carry into the row, the
+ *   cells before it and one column for every cell after it;
  * - rowspan: an integer from 1 to the rows left, cut short before a row the
  *   cell's columns would leave without one column for each of its own cells;
  * - colwidth: see `boundColwidth`.
- * No row passes MAX_TABLE_COLUMNS unless it has more cells than that, and no
- * cell is ever removed. A table already within bounds keeps every value.
+ * `width` is the table map's width (the widest row, carried columns
+ * included) and `padding` the cells the table plugin adds to fill every row
+ * to it.
  */
-export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
+function layoutTable(
+  rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>,
+  cap: number,
+): { spans: Array<Array<CellSpans | null>>; width: number; padding: number } {
   const height = rows.length;
   const cellCount = rows.map((cells) => cells.filter((c) => c).length);
   const carried: number[] = rows.map(() => 0);
-  return rows.map((cells, r) => {
+  const covered: Array<Array<[number, number]>> = rows.map(() => []);
+  let width = 0;
+  let area = 0;
+  const spans = rows.map((cells, r) => {
+    const blocks = covered[r].sort((a, b) => a[0] - b[0]);
+    let next = 0;
+    let col = 0;
     let after = cellCount[r];
     let used = carried[r];
-    return cells.map((attrs) => {
+    const out = cells.map((attrs) => {
       if (!attrs) return null;
       after--;
-      const room = Math.max(1, MAX_TABLE_COLUMNS - used - after);
-      const colspan = Math.min(clamp(spanInt(attrs.colspan), 1, MAX_COLSPAN), room);
+      while (next < blocks.length && blocks[next][0] <= col) col = Math.max(col, blocks[next++][1]);
+      const free = next < blocks.length ? blocks[next][0] - col : Infinity;
+      const room = Math.max(1, cap - used - after);
+      const colspan = Math.min(clamp(spanInt(attrs.colspan), 1, MAX_COLSPAN), room, free);
       const wanted = clamp(spanInt(attrs.rowspan), 1, height - r);
       let rowspan = 1;
-      while (rowspan < wanted && carried[r + rowspan] + colspan + cellCount[r + rowspan] <= MAX_TABLE_COLUMNS) {
+      while (rowspan < wanted && carried[r + rowspan] + colspan + cellCount[r + rowspan] <= cap) {
         carried[r + rowspan] += colspan;
+        covered[r + rowspan].push([col, col + colspan]);
         rowspan++;
       }
       used += colspan;
+      col += colspan;
+      area += colspan * rowspan;
       return { colspan, rowspan, colwidth: boundColwidth(attrs.colwidth, colspan) };
     });
+    width = Math.max(width, used);
+    return out;
   });
+  return { spans, width, padding: height * width - area };
+}
+
+/**
+ * The bounded spans of every cell of a table given as rows of cell
+ * attributes (`null` entries are row children that are not cells: they take
+ * no column and are left alone), laid out as `layoutTable` describes. The
+ * cap is MAX_TABLE_COLUMNS, lowered to the largest cap under which the table
+ * plugin adds at most MAX_TABLE_PADDING cells to fill the rows; when even the
+ * narrowest layout needs more (the rows' own cells are that uneven), the
+ * width cap alone applies. No cell is ever removed, and a table already within
+ * bounds keeps every value.
+ */
+export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
+  const widest = layoutTable(rows, MAX_TABLE_COLUMNS);
+  if (widest.padding <= MAX_TABLE_PADDING) return widest.spans;
+  let best = layoutTable(rows, 1);
+  if (best.padding > MAX_TABLE_PADDING) return widest.spans;
+  let lo = 1;
+  let hi = MAX_TABLE_COLUMNS - 1;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const attempt = layoutTable(rows, mid);
+    if (attempt.padding <= MAX_TABLE_PADDING) {
+      lo = mid;
+      best = attempt;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best.spans;
 }
 
 /**
