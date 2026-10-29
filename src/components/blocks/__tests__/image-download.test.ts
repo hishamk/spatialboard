@@ -28,6 +28,10 @@ describe("safeDownloadFallbackUrl", () => {
     "",
     "   ",
     "http://[::1",
+    "blob:javascript:alert(1)",
+    "blob:null/0b1c",
+    "blob:https://other.example/0b1c",
+    "blob:data:text/html,x",
   ])("refuses %j", (src) => {
     expect(safeDownloadFallbackUrl(src, BASE)).toBeNull();
   });
