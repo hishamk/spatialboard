@@ -177,10 +177,11 @@ function layoutTable(
  * The bounded spans of every cell of a table given as rows of cell
  * attributes (`null` entries are row children that are not cells: they take
  * no column and are left alone), laid out as `layoutTable` describes. The
- * cap is MAX_TABLE_COLUMNS, lowered to the largest cap under which the table
- * plugin adds at most MAX_TABLE_PADDING cells to fill the rows; when even the
- * narrowest layout needs more (the rows' own cells are that uneven), the
- * width cap alone applies. No cell is ever removed, and a table already within
+ * cap is MAX_TABLE_COLUMNS, or when the table plugin would add more than
+ * MAX_TABLE_PADDING cells to fill the rows, a lower cap, found by binary
+ * search, that keeps the padding within that bound; when even the narrowest
+ * layout needs more (the rows' own cells are that uneven), the width cap
+ * alone applies. No cell is ever removed, and a table already within
  * bounds keeps every value.
  */
 export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
