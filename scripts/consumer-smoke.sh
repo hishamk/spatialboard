@@ -145,8 +145,11 @@ cd "$APP"
 echo "==> installing tarball + peers"
 run_npm install --no-audit --no-fund "$TARBALL" react@^19 react-dom@^19
 
+# The build toolchain is pinned by major; the React peers above are under test
+# and stay open. The npm 10.8 bundled with Node 20 crashes installing vite 8,
+# whose optional peer chain reaches vitest 4.1.12's contradictory peers.
 echo "==> installing build toolchain"
-run_npm install --no-audit --no-fund -D vite @vitejs/plugin-react typescript "@types/react@^19" "@types/react-dom@^19"
+run_npm install --no-audit --no-fund -D vite@^7 @vitejs/plugin-react@^5 typescript@^7 "@types/react@^19" "@types/react-dom@^19"
 
 echo "==> typecheck"
 npx tsc --noEmit
