@@ -36,8 +36,8 @@ const DOWNLOAD_FALLBACK_PROTOCOLS = new Set(["http:", "https:", "blob:"]);
 /**
  * The URL an image download may open in a new tab when fetching the image
  * failed: `src` resolved against `base` when it is an http or https URL, or a
- * blob URL of `base`'s own origin (the only blobs this page can have made),
- * otherwise null. An image node's `src` is board data like any link, so a
+ * blob URL of `base`'s own origin (the only blobs this page can have made;
+ * none on a page whose origin is opaque), otherwise null. An image node's `src` is board data like any link, so a
  * `javascript:` or `data:text/html` source, or a blob URL wrapping one, must
  * never reach `window.open`.
  */
@@ -50,7 +50,12 @@ export function safeDownloadFallbackUrl(src: unknown, base: string): string | nu
     return null;
   }
   if (!DOWNLOAD_FALLBACK_PROTOCOLS.has(url.protocol)) return null;
-  if (url.protocol === "blob:" && url.origin !== new URL(base).origin) return null;
+  if (url.protocol === "blob:") {
+    // A page with an opaque origin ("null": about:srcdoc, file:, data:) cannot
+    // tell its own blobs from a blob URL wrapping a script, so it opens none.
+    const origin = new URL(base).origin;
+    if (origin === "null" || url.origin !== origin) return null;
+  }
   return url.href;
 }
 

@@ -46,7 +46,8 @@ Versioning.
   removed, and a table already within bounds is left as it is.
 - Downloading an image whose source cannot be fetched now opens the image in a
   new tab only for http and https URLs and blob URLs of the board's own
-  origin, with `noopener,noreferrer`. The
+  origin (none when the board's page has an opaque origin), with
+  `noopener,noreferrer`. The
   fallback passed any source to `window.open`, so an image node with a
   `javascript:` or `data:` source reached it when its download failed.
 - Links in rich-text nodes no longer open with the board as their opener. The

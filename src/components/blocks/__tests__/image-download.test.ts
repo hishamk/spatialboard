@@ -36,6 +36,12 @@ describe("safeDownloadFallbackUrl", () => {
     expect(safeDownloadFallbackUrl(src, BASE)).toBeNull();
   });
 
+  it.each(["about:srcdoc", "file:///board.html", "data:text/html,board"])("opens no blob URL on a page at %s", (base) => {
+    for (const src of ["blob:javascript:alert(1)", "blob:data:text/html,x", "blob:null/0b1c"]) {
+      expect(safeDownloadFallbackUrl(src, base)).toBeNull();
+    }
+  });
+
   it.each([null, undefined, 42, {}, ["https://cdn.example/a.png"]])("refuses the non-string %j", (src) => {
     expect(safeDownloadFallbackUrl(src, BASE)).toBeNull();
   });
