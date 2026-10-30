@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BlockNoteEditor } from "@blocknote/core";
-import { EditorState } from "@tiptap/pm/state";
+import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { TableMap, __pastedCells } from "@tiptap/pm/tables";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import {
@@ -313,6 +313,45 @@ describe("table guard in the rich-text editor", () => {
     const tr = state.tr.replaceWith(1, 1 + state.doc.firstChild!.content.size, block);
     const { transactions } = state.applyTransaction(tr);
     expect(transactions.some((t) => t.getMeta(TABLE_SPAN_GUARD_META))).toBe(false);
+  });
+
+  it("corrects thousands of cells in one step and keeps every row", () => {
+    const { state } = guardedState(true);
+    const rows = Array.from({ length: 6000 }, () => [{ colwidth: ["5"] }]);
+    const block = state.schema.nodeFromJSON(pmTable(rows));
+    const tr = state.tr.replaceWith(1, 1 + state.doc.firstChild!.content.size, block);
+    const { state: next, transactions } = state.applyTransaction(tr);
+    const guard = transactions.find((t) => t.getMeta(TABLE_SPAN_GUARD_META));
+    expect(guard?.steps.length).toBe(1);
+    let table: PMNode | null = null;
+    next.doc.descendants((node) => {
+      if (node.type.name === "table") table = node;
+      return !table;
+    });
+    expect(table!.childCount).toBe(6000);
+    let numeric = 0;
+    table!.forEach((row) => (numeric += row.firstChild!.attrs.colwidth?.every((w: unknown) => typeof w === "number") ? 1 : 0));
+    expect(numeric).toBe(6000);
+    expect(table!.lastChild!.textContent).toBe("c0");
+  });
+
+  it("keeps a selection inside a corrected table where it was", () => {
+    const { state: base, plugins } = guardedState(true);
+    const block = base.schema.nodeFromJSON(pmTable([[{}, {}], [{}, {}]]));
+    const doc = base.doc.replace(1, 1 + base.doc.firstChild!.content.size, new Slice(Fragment.from(block), 0, 0));
+    let state = EditorState.create({ doc, plugins });
+    const texts: number[] = [];
+    const cells: number[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.isText) texts.push(pos);
+      if (node.type.name === "tableCell") cells.push(pos);
+    });
+    const caret = texts[texts.length - 1] + 1;
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, caret)));
+    const raw = state.tr.setNodeMarkup(cells[0], null, { ...state.doc.nodeAt(cells[0])!.attrs, colspan: 1e9 });
+    const { state: next, transactions } = state.applyTransaction(raw);
+    expect(transactions.some((t) => t.getMeta(TABLE_SPAN_GUARD_META))).toBe(true);
+    expect([next.selection.from, next.selection.to]).toEqual([caret, caret]);
   });
 
   it("bounds pasted tables before the table plugin's paste handler pads them", () => {

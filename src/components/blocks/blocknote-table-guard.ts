@@ -16,6 +16,7 @@ import { createExtension } from "@blocknote/core";
 import { Extension } from "@tiptap/core";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { StepMap } from "@tiptap/pm/transform";
 import { boundCellAttrs, type SpanAttrs } from "./table-guard";
 
 function tableRole(node: PMNode): string {
@@ -26,29 +27,18 @@ function isCell(node: PMNode): boolean {
   return !node.isText && /cell/.test(tableRole(node));
 }
 
-/** Sets bounded spans on the cells of the table at `pos` that need them; true when it changed any. */
+/**
+ * Bounds the spans of the table at `pos` in one step that replaces the table,
+ * keeping its unchanged rows: a step per cell would make every later plugin
+ * pay for each of thousands of corrected cells. True when it changed any.
+ */
 function boundTable(tr: Transaction, table: PMNode, pos: number): boolean {
-  const rows: Array<Array<SpanAttrs | null>> = [];
-  const positions: number[][] = [];
-  table.forEach((row, rowOffset) => {
-    const cells: Array<SpanAttrs | null> = [];
-    const at: number[] = [];
-    row.forEach((cell, offset) => {
-      cells.push(isCell(cell) ? (cell.attrs as SpanAttrs) : null);
-      at.push(pos + 1 + rowOffset + 1 + offset);
-    });
-    rows.push(cells);
-    positions.push(at);
-  });
-  let changed = false;
-  boundCellAttrs(rows).forEach((cells, r) =>
-    cells.forEach((attrs, i) => {
-      if (!attrs) return;
-      tr.setNodeMarkup(positions[r][i], null, attrs);
-      changed = true;
-    }),
-  );
-  return changed;
+  const rows: PMNode[] = [];
+  table.forEach((row) => rows.push(row));
+  const bounded = boundRows(rows);
+  if (bounded.every((row, i) => row === rows[i])) return false;
+  tr.replaceWith(pos, pos + table.nodeSize, table.copy(Fragment.from(bounded)));
+  return true;
 }
 
 /** `rows` (a table's body, or rows cut from one) with their cells' spans bounded; unchanged rows are kept. */
@@ -60,13 +50,13 @@ function boundRows(rows: PMNode[]): PMNode[] {
   });
   return boundCellAttrs(attrs).map((cells, r) => {
     const row = rows[r];
-    let content = row.content;
-    cells.forEach((next, i) => {
-      if (!next) return;
-      const cell = row.child(i);
-      content = content.replaceChild(i, cell.type.create(next, cell.content, cell.marks));
+    if (cells.every((next) => !next)) return row;
+    const children: PMNode[] = [];
+    row.forEach((cell, _offset, i) => {
+      const next = cells[i];
+      children.push(next ? cell.type.create(next, cell.content, cell.marks) : cell);
     });
-    return content === row.content ? row : row.copy(content);
+    return row.copy(Fragment.from(children));
   });
 }
 
@@ -151,6 +141,10 @@ export function boundTablesTransaction(oldState: EditorState, newState: EditorSt
     if (tableRole(node) === "table" && boundTable(tr, node, pos)) changed = true;
   });
   if (!changed) return null;
+  // Only attributes changed, so every position is where it was; the table
+  // replacement alone would move a selection inside a table past it.
+  const selection = newState.selection.map(tr.doc, StepMap.empty);
+  if (!tr.selection.eq(selection)) tr.setSelection(selection).setStoredMarks(newState.storedMarks);
   return tr.setMeta("addToHistory", false).setMeta(TABLE_SPAN_GUARD_META, true);
 }
 
