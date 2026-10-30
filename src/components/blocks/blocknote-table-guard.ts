@@ -144,7 +144,7 @@ export function boundTablesTransaction(oldState: EditorState, newState: EditorSt
   // Only attributes changed, so every position is where it was; the table
   // replacement alone would move a selection inside a table past it.
   const selection = newState.selection.map(tr.doc, StepMap.empty);
-  if (!tr.selection.eq(selection)) tr.setSelection(selection).setStoredMarks(newState.storedMarks);
+  if (!tr.selection.eq(selection)) tr.setSelection(selection);
   return tr.setMeta("addToHistory", false).setMeta(TABLE_SPAN_GUARD_META, true);
 }
 
