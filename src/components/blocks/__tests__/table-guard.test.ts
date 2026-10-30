@@ -105,6 +105,16 @@ const SPAN_VECTORS = [
     rows: [[{ colspan: 512, rowspan: 1, colwidth: null }], ...Array.from({ length: height - 1 }, () => cellRow(1))],
     expect: [[[Math.floor(4096 / (height - 1)) + 1, 1, null]], ...Array.from({ length: height - 1 }, () => [[1, 1, null]])],
   })),
+  ...[455, 456].map((height) => ({
+    name: `a ${height}-row column under a 503-column cell and 9 cells takes the narrowest layout`,
+    rows: [[{ colspan: 503, rowspan: 1, colwidth: null }, ...cellRow(9)], ...Array.from({ length: height }, () => cellRow(1))],
+    expect: [cellRow(10).map(() => [1, 1, null]), ...Array.from({ length: height }, () => [[1, 1, null]])],
+  })),
+  {
+    name: `a 512-column cell over 4097 rows without cells takes the narrowest layout`,
+    rows: [[{ colspan: 512, rowspan: 1, colwidth: null }], ...Array.from({ length: 4097 }, () => [])],
+    expect: [[[1, 1, null]], ...Array.from({ length: 4097 }, () => [])],
+  },
 ];
 
 const tuples = (rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>) =>
@@ -333,6 +343,19 @@ describe("table guard in the rich-text editor", () => {
     table!.forEach((row) => (numeric += row.firstChild!.attrs.colwidth?.every((w: unknown) => typeof w === "number") ? 1 : 0));
     expect(numeric).toBe(6000);
     expect(table!.lastChild!.textContent).toBe("c0");
+  });
+
+  it.each([
+    ["a 456-row column under a 503-column cell", [[{ colspan: 503 }, ...Array.from({ length: 9 }, () => ({}))], ...Array.from({ length: 456 }, () => [{}])], 457 * 10],
+    ["a 512-column cell over 4097 rows without cells", [[{ colspan: 512 }], ...Array.from({ length: 4097 }, () => [])], 4098],
+  ] as Array<[string, Array<Array<Record<string, unknown>>>, number]>)("takes the narrowest layout when no cap meets the padding bound: %s", (_name, rows, most) => {
+    const cpu = process.cpuUsage();
+    const { table } = applyTable(rows);
+    const { user, system } = process.cpuUsage(cpu);
+    let cells = 0;
+    table.forEach((row) => (cells += row.childCount));
+    expect(cells).toBeLessThanOrEqual(most);
+    expect((user + system) / 1000).toBeLessThan(10000);
   });
 
   it("keeps a selection inside a corrected table where it was", () => {

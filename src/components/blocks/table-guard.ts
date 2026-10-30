@@ -180,15 +180,15 @@ function layoutTable(
  * cap is MAX_TABLE_COLUMNS, or when the table plugin would add more than
  * MAX_TABLE_PADDING cells to fill the rows, a lower cap, found by binary
  * search, that keeps the padding within that bound; when even the narrowest
- * layout needs more (the rows' own cells are that uneven), the width cap
- * alone applies. No cell is ever removed, and a table already within
- * bounds keeps every value.
+ * layout (cap 1) needs more, it applies unless the widest pads no more. No
+ * cell is ever removed, and a table already within bounds keeps every
+ * value.
  */
 export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
   const widest = layoutTable(rows, MAX_TABLE_COLUMNS);
   if (widest.padding <= MAX_TABLE_PADDING) return widest.spans;
   let best = layoutTable(rows, 1);
-  if (best.padding > MAX_TABLE_PADDING) return widest.spans;
+  if (best.padding > MAX_TABLE_PADDING) return (best.padding < widest.padding ? best : widest).spans;
   let lo = 1;
   let hi = MAX_TABLE_COLUMNS - 1;
   while (lo < hi) {
