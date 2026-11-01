@@ -391,13 +391,15 @@ export class SpatialEngine {
    * no operation records an undo step, `canUndo()`/`canRedo()` are false and
    * `undo()`/`redo()` do nothing, unless the host routes them to its own undo
    * manager with `setCollabUndoHandler`. Turning it off resumes local history
-   * from an empty stack.
+   * from an empty stack. Emits `history`, since what `canUndo()` reads
+   * changes with the mode.
    */
   setCollabMode(enabled: boolean): void {
     this._collabMode = enabled;
     this._historyCoalesceKey = null;
     if (enabled) this.history.clear();
     this.history.setSuspended(enabled);
+    this.emit("history");
   }
 
   /** Whether the engine is in collaborative mode. */
@@ -410,7 +412,10 @@ export class SpatialEngine {
    * `canUndo()`/`canRedo()`) to a host undo manager while collaborative mode
    * is on. Ignored while collab mode is off and on a read-only board. Pass
    * `null` to remove it.
-   * Emits `history` so undo/redo chrome re-reads its state.
+   * Emits `history` so undo/redo chrome re-reads its state; so does every
+   * undo or redo the handler performs. The handler must not call
+   * `engine.undo()`/`engine.redo()` itself: the engine calls into it, and
+   * calling back recurses.
    */
   setCollabUndoHandler(handler: CollabUndoHandler | null): void {
     this._collabUndoHandler = handler;

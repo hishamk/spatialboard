@@ -249,6 +249,22 @@ describe("collab undo handler", () => {
     engine.setCollabUndoHandler(null);
     expect(history).toBe(3);
   });
+
+  it("switching collab mode and undoing through the handler emit history", () => {
+    const { engine } = board();
+    engine.setCollabUndoHandler(recordingHandler().handler);
+    let history = 0;
+    engine.on("history", () => history++);
+
+    engine.setCollabMode(true);
+    expect(history).toBe(1);
+    engine.undo();
+    expect(history).toBe(2);
+    engine.redo();
+    expect(history).toBe(3);
+    engine.setCollabMode(false);
+    expect(history).toBe(4);
+  });
 });
 
 describe("fan-out pick", () => {

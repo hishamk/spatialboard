@@ -172,6 +172,46 @@ function describeGesture(g: Gesture | null, prev: Gesture | null): PresenceField
 /** How long a finished stroke or shape preview may wait for its node. */
 export const LINGER_MS = 1000;
 
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
+const isNum = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+const isStr = (v: unknown) => typeof v === "string";
+const isPoints = (v: unknown) => Array.isArray(v) && v.every((p) => Array.isArray(p) && p.every(isNum));
+const nums = (o: Obj, ...keys: string[]) => keys.every((k) => isNum(o[k]));
+
+/** Per gesture kind, the fields its preview reads, and their shapes. */
+const GESTURES: Record<string, (g: Obj) => boolean> = {
+  draw: (g) => isObj(g.stroke) && isPoints(g.stroke.points) && isStr(g.stroke.color) && isNum(g.stroke.width),
+  shape: (g) =>
+    isObj(g.preview) && nums(g.preview, "startX", "startY", "endX", "endY", "strokeWidth") &&
+    isStr(g.preview.shapeType) && isStr(g.preview.stroke),
+  edge: (g) => isObj(g.preview) && isStr(g.preview.fromNodeId) && nums(g.preview, "cursorX", "cursorY"),
+  rectDrag: (g) => isObj(g.preview) && isStr(g.preview.kind) && nums(g.preview, "startX", "startY", "endX", "endY"),
+  eraser: (g) =>
+    isObj(g.preview) && Array.isArray(g.preview.markedIds) && g.preview.markedIds.every(isStr) &&
+    (g.preview.trail === undefined || isPoints(g.preview.trail)),
+  laser: (g) => isPoints(g.trail),
+};
+
+/**
+ * A peer's awareness state is as untrusted as its document records: one
+ * wrong-typed field (a `selection` that is not a list) would throw inside a
+ * preview and take the page down. This keeps the state's shape and drops
+ * any field that fails, rather than the whole state. It checks shape, not
+ * every value a renderer might read.
+ */
+export function asPresence(s: unknown): Presence | null {
+  if (!isObj(s) || !isObj(s.user) || !isStr(s.user.name) || !isStr(s.user.color)) return null;
+  const c = s.cursor;
+  const g = s.gesture;
+  return {
+    user: s.user as PresenceUser,
+    cursor: isObj(c) && nums(c, "x", "y") ? { x: c.x as number, y: c.y as number } : null,
+    gesture: isObj(g) && isStr(g.kind) && Object.hasOwn(GESTURES, g.kind) && GESTURES[g.kind](g) ? (g as Gesture) : null,
+    selection: Array.isArray(s.selection) && s.selection.every(isStr) ? (s.selection as string[]) : [],
+  };
+}
+
 export type RemotePresence = {
   /** Other clients' states (never this peer's own). */
   states(): Array<[number, Presence]>;
@@ -205,7 +245,7 @@ export function trackRemotePresence(awareness: Awareness): RemotePresence {
     const now = Date.now();
     const states = awareness.getStates();
     for (const [id, prev] of lastGesture) {
-      const next = (states.get(id) as Presence | undefined)?.gesture ?? null;
+      const next = asPresence(states.get(id))?.gesture ?? null;
       if (prev && (prev.kind === "draw" || prev.kind === "shape") && next?.kind !== prev.kind) {
         lingering.set(id, { gesture: prev, until: now + LINGER_MS });
         const t = setTimeout(() => {
@@ -223,15 +263,21 @@ export function trackRemotePresence(awareness: Awareness): RemotePresence {
     }
     lastGesture.clear();
     for (const [id, s] of states) {
-      if (id !== awareness.clientID) lastGesture.set(id, (s as Presence).gesture ?? null);
+      if (id !== awareness.clientID) lastGesture.set(id, asPresence(s)?.gesture ?? null);
     }
     bump();
   };
   awareness.on("change", onChange);
 
   return {
-    states: () =>
-      [...awareness.getStates()].filter(([id]) => id !== awareness.clientID) as Array<[number, Presence]>,
+    states: () => {
+      const out: Array<[number, Presence]> = [];
+      for (const [id, s] of awareness.getStates()) {
+        const p = id === awareness.clientID ? null : asPresence(s);
+        if (p) out.push([id, p]);
+      }
+      return out;
+    },
     lingering: (id) => lingering.get(id)?.gesture ?? null,
     subscribe(cb) {
       listeners.add(cb);

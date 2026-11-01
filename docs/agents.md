@@ -57,6 +57,10 @@ try {
 (`beginAgentAction` self-heals with a timeout in case a remote caller crashes
 between begin and end.)
 
+In collaborative mode the host owns undo, so the step boundary is the
+host's to honour: keep its undo step open while `engine.isInAgentAction` is
+true (the collaboration example does this with a Yjs undo manager).
+
 ## Tool schemas / MCP
 
 `engine.getNodeTypeCatalog()` returns a JSON-safe catalog of every registered

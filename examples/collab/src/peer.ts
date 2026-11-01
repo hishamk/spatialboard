@@ -5,6 +5,7 @@ import { buildSeedUpdate } from "./seed";
 import { bindEngineToDoc, recordToYMap, SB_META, type AppliedResult, type NodeWrite, type WriteMeta } from "./collab/binding";
 import { bindUndo } from "./collab/undo";
 import {
+  asPresence,
   bindPresence,
   describePresenceChange,
   trackRemotePresence,
@@ -185,7 +186,7 @@ export function createPeer(
 
   let lastSentPresence: Presence | null = null;
   const sendAwareness = (to?: string, scope: "all" | "tabs" = "all", heartbeat = false) => {
-    const state = awareness.getLocalState() as Presence | null;
+    const state = asPresence(awareness.getLocalState());
     const fields: PresenceField[] = heartbeat ? [{ field: "heartbeat" }] : describePresenceChange(lastSentPresence, state);
     if (online) lastSentPresence = state;
     send(
@@ -295,8 +296,8 @@ export function createPeer(
     const fields: PresenceField[] = [];
     for (const { clientID, state } of entries) {
       if (clientID === awareness.clientID) continue;
-      const prev = awareness.getStates().get(clientID) as Presence | undefined;
-      fields.push(...describePresenceChange(prev, state as Presence | null));
+      const prev = asPresence(awareness.getStates().get(clientID)) ?? undefined;
+      fields.push(...describePresenceChange(prev, asPresence(state)));
       if (state) known.add(clientID);
       else known.delete(clientID);
     }

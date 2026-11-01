@@ -69,10 +69,11 @@ and the file to copy.
    flushed as the gesture ends, still lands in the drag's step. Any other
    single edit is a step of its own. After a text session or an agent action
    ends, the next edit starts a new step. So a drag is one step, a typed
-   sentence is one step and a create is one step. `engine.setCollabUndoHandler(...)` points the board's
-   own undo/redo buttons and Cmd/Ctrl+Z at it, and
-   `engine.notifyHistoryChange()` refreshes the buttons after each undo or redo
-   and whenever the stacks change. Undo reverts this peer's own change on every
+   sentence is one step and a create is one step.
+   `engine.setCollabUndoHandler(...)` points the board's own undo/redo buttons
+   and Cmd/Ctrl+Z at it. The engine refreshes the buttons after each undo or
+   redo, and `engine.notifyHistoryChange()` refreshes them when a step is
+   added. Undo reverts this peer's own change on every
    board: it puts back the fields this peer changed, even if a peer has written
    the same field since, and leaves fields only the other peer touched alone.
    Undoing a delete restores the node as it was when it was deleted. Redo is
@@ -117,7 +118,11 @@ cursor is in canvas coordinates, so it lands on the same spot of the other
 board whatever its pan and zoom. Local changes are sent at most every 50 ms;
 a gesture ending and a selection change go out at once. Every awareness
 message carries the whole state, which is why a long live stroke shows up in
-the traffic panel as a growing byte count.
+the traffic panel as a growing byte count. A peer's awareness state is no
+more trusted than its document records: `asPresence` in
+[`src/collab/presence.ts`](src/collab/presence.ts) checks its shape before
+anything renders it and drops a field that fails, since one wrong-typed field
+would throw inside a preview.
 
 | Engine event | Rendered on the other board by |
 |---|---|
@@ -157,7 +162,9 @@ node exists on the board (or a second passes), so it never flashes twice.
   was deleted). Do the same after your own writes: a local frame drag only
   re-parents the nodes it moved, so without it the peer that moved or
   deleted a frame and the peers that received it disagree about what is
-  inside.
+  inside. Rebuild at the end of every local gesture as well: a frame resize
+  adopts the nodes it covers when the pointer comes up, after its last write,
+  so no write carries it.
 - **Skip your own origin, nothing else.** Undo/redo and the seed are not local
   engine writes; they must flow into the engine through the inbound path, or
   undo changes the document but not the board.

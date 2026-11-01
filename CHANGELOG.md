@@ -16,9 +16,11 @@ Versioning.
   instead of doing nothing, so a host undo manager drives the board's own
   undo affordances. The handler is ignored while collaborative mode is off
   and on read-only boards. `notifyHistoryChange()` emits `history` so the
-  undo and redo buttons re-read their state when the host's stacks change,
-  and `setReadOnly()` now emits `history` when the mode changes, so the
-  buttons follow it too.
+  undo and redo buttons re-read their state when the host's stacks change.
+  An undo or redo through the handler emits `history` too, and
+  `setCollabMode()` and `setReadOnly()` now emit it when they change what
+  `canUndo()` reads, so the buttons follow them. The handler must not call
+  `engine.undo()`/`engine.redo()` itself.
 - Collaboration example (`examples/collab`): two peers on one page, each with
   its own board, Yjs document and awareness, joined by a simulated network
   with adjustable latency and per-peer offline switches. Edits made offline

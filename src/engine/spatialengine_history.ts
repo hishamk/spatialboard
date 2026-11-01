@@ -28,6 +28,7 @@ export function undo(engine: SpatialEngine): void {
   const handler = collabHandler(engine);
   if (handler) {
     handler.undo();
+    engine.emit("history");
     return;
   }
   const restored = engine.history.undo(engine.nodes, engine.groupParent);
@@ -52,6 +53,7 @@ export function redo(engine: SpatialEngine): void {
   const handler = collabHandler(engine);
   if (handler) {
     handler.redo();
+    engine.emit("history");
     return;
   }
   const restored = engine.history.redo(engine.nodes, engine.groupParent);

@@ -33,23 +33,16 @@ export function bindUndo(engine: SpatialEngine, doc: Y.Doc, localOrigin: object)
   });
 
   // The board's undo/redo buttons and Cmd/Ctrl+Z call these while collab
-  // mode is on. The buttons refresh after every call: an undo with nothing
-  // left to change pops its item without a `stack-item-popped`.
-  const refresh = () => engine.notifyHistoryChange();
+  // mode is on, and the engine refreshes the buttons after each call.
   engine.setCollabUndoHandler({
-    undo: () => {
-      manager.undo();
-      refresh();
-    },
-    redo: () => {
-      manager.redo();
-      refresh();
-    },
+    undo: () => manager.undo(),
+    redo: () => manager.redo(),
     canUndo: () => manager.canUndo(),
     canRedo: () => manager.canRedo(),
   });
 
-  // Pops happen only inside undo()/redo() above, which refresh already.
+  // A new step (a local edit) changes the stacks outside those calls.
+  const refresh = () => engine.notifyHistoryChange();
   manager.on("stack-item-added", refresh);
   manager.on("stack-cleared", refresh);
 

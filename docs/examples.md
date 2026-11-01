@@ -118,7 +118,9 @@ nodes.observeDeep((events, tr) => {
   // Frame membership comes from geometry, by one rule for every write: remote
   // ops leave it alone, and a local drag only re-parents what it moved.
   // rebuildFrameChildren() when a frame changed or anything was deleted,
-  // otherwise updateFrameMembership(ids).
+  // otherwise updateFrameMembership(ids). Rebuild at every local gesture end
+  // too: a frame resize adopts nodes when the pointer comes up, after its
+  // last write.
   if (tr.origin === localOrigin) return syncFrames(ids); // already on the board
   applying = true; // the engine's own `change` handler returns while this is set
   for (const id of ids) {
@@ -137,14 +139,13 @@ nodes.observeDeep((events, tr) => {
   applying = false;
 });
 
-// The board's own undo buttons and shortcuts drive the manager.
-const refresh = () => engine.notifyHistoryChange();
+// The board's own undo buttons and shortcuts drive the manager; the engine
+// refreshes the buttons after each call, the host when a step is added.
 engine.setCollabUndoHandler({
-  undo: () => { undo.undo(); refresh(); },
-  redo: () => { undo.redo(); refresh(); },
+  undo: () => undo.undo(), redo: () => undo.redo(),
   canUndo: () => undo.canUndo(), canRedo: () => undo.canRedo(),
 });
-undo.on("stack-item-added", refresh);
+undo.on("stack-item-added", () => engine.notifyHistoryChange());
 ```
 
 Take a peer offline, edit both boards and bring it back: the two exchange state
