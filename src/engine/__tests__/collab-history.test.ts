@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SpatialEngine } from "../SpatialEngine";
+import { SpatialEngine, type CollabUndoHandler } from "../SpatialEngine";
 import type { SpatialNode } from "../types";
 import { raiseFanPick } from "../../components/chrome/group-fan";
 
@@ -122,6 +122,132 @@ describe("leaving collab mode restores local history", () => {
     expect(engine.canRedo()).toBe(true);
     engine.redo();
     expect(engine.getNode(a)!.x).toBe(30);
+  });
+});
+
+/*
+ * A host that owns undo in collab mode (e.g. a CRDT undo manager) routes the
+ * board's undo/redo to itself through `setCollabUndoHandler`.
+ */
+function recordingHandler(state = { canUndo: true, canRedo: false }) {
+  const calls: string[] = [];
+  const handler: CollabUndoHandler = {
+    undo: () => calls.push("undo"),
+    redo: () => calls.push("redo"),
+    canUndo: () => state.canUndo,
+    canRedo: () => state.canRedo,
+  };
+  return { handler, calls, state };
+}
+
+describe("collab undo handler", () => {
+  it("in collab mode undo/redo call the handler and canUndo/canRedo reflect it", () => {
+    const { engine, a } = board();
+    engine.setCollabMode(true);
+    const { handler, calls, state } = recordingHandler();
+    engine.setCollabUndoHandler(handler);
+    engine.updateNodeWithHistory(a, { x: 10 });
+
+    let replaced = 0;
+    engine.on("graph:replaced", () => replaced++);
+    const before = snapshot(engine);
+
+    expect(engine.canUndo()).toBe(true);
+    expect(engine.canRedo()).toBe(false);
+    state.canUndo = false;
+    state.canRedo = true;
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.canRedo()).toBe(true);
+
+    engine.undo();
+    engine.redo();
+    expect(calls).toEqual(["undo", "redo"]);
+    expect(replaced).toBe(0);
+    expect(snapshot(engine)).toBe(before);
+  });
+
+  it("with collab mode off the handler is ignored and local history is used", () => {
+    const { engine, a } = board();
+    const { handler, calls } = recordingHandler({ canUndo: false, canRedo: true });
+    engine.setCollabUndoHandler(handler);
+    engine.updateNodeWithHistory(a, { x: 10 });
+
+    expect(engine.canUndo()).toBe(true);
+    expect(engine.canRedo()).toBe(false);
+    engine.undo();
+    expect(engine.getNode(a)!.x).toBe(0);
+    engine.redo();
+    expect(engine.getNode(a)!.x).toBe(10);
+    expect(calls).toEqual([]);
+  });
+
+  it("leaving collab mode stops consulting the handler", () => {
+    const { engine } = board();
+    engine.setCollabMode(true);
+    const { handler, calls } = recordingHandler();
+    engine.setCollabUndoHandler(handler);
+    engine.setCollabMode(false);
+
+    expect(engine.canUndo()).toBe(false);
+    engine.undo();
+    expect(calls).toEqual([]);
+  });
+
+  it("read-only boards never call the handler and report nothing to undo", () => {
+    const { engine } = board();
+    engine.setCollabMode(true);
+    const { handler, calls } = recordingHandler({ canUndo: true, canRedo: true });
+    engine.setCollabUndoHandler(handler);
+    engine.setReadOnly(true);
+
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.canRedo()).toBe(false);
+    engine.undo();
+    engine.redo();
+    expect(calls).toEqual([]);
+
+    engine.setReadOnly(false);
+    expect(engine.canUndo()).toBe(true);
+    expect(engine.canRedo()).toBe(true);
+  });
+
+  it("clearing the handler restores the collab-mode no-op", () => {
+    const { engine } = board();
+    engine.setCollabMode(true);
+    const { handler, calls } = recordingHandler({ canUndo: true, canRedo: true });
+    engine.setCollabUndoHandler(handler);
+    engine.setCollabUndoHandler(null);
+
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.canRedo()).toBe(false);
+    engine.undo();
+    engine.redo();
+    expect(calls).toEqual([]);
+  });
+
+  it("toggling read-only emits history so undo chrome re-reads canUndo", () => {
+    const { engine } = board();
+    let history = 0;
+    engine.on("history", () => history++);
+    engine.setReadOnly(true);
+    expect(history).toBe(1);
+    engine.setReadOnly(true);
+    expect(history).toBe(1);
+    engine.setReadOnly(false);
+    expect(history).toBe(2);
+  });
+
+  it("setCollabUndoHandler and notifyHistoryChange each emit history", () => {
+    const { engine } = board();
+    let history = 0;
+    engine.on("history", () => history++);
+
+    engine.setCollabUndoHandler(recordingHandler().handler);
+    expect(history).toBe(1);
+    engine.notifyHistoryChange();
+    expect(history).toBe(2);
+    engine.setCollabUndoHandler(null);
+    expect(history).toBe(3);
   });
 });
 

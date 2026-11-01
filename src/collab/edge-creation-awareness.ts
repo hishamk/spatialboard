@@ -2,7 +2,7 @@ import type { EdgeType, HandleSide, SpatialNode, StrokeStyle } from "../engine/t
 import type { PortDirection } from "../engine/data-flow-types";
 
 /**
- * Serializable edge-drag preview for Yjs awareness (remote parity with SVGLayer).
+ * Serializable edge-drag preview for a host's presence channel (e.g. Yjs awareness) (remote parity with SVGLayer).
  */
 export interface EdgeCreationAwareness {
   fromNodeId: string;

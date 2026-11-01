@@ -1,0 +1,27 @@
+{
+  "name": "spatialboard-example-collab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "SpatialBoard example — two peers kept in sync with Yjs over a simulated network.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lib0": "^0.2.117",
+    "spatialboard": "file:../../",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.29"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5",
+    "vite": "^5"
+  }
+}

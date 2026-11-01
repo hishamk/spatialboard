@@ -12,6 +12,7 @@
 export { SpatialEngine } from "./engine/SpatialEngine";
 export type {
   BoardBackground,
+  CollabUndoHandler,
   SelectionAlignMode,
   SelectionDistributeAxis,
   SpatialSearchField,

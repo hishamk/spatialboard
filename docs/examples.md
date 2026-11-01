@@ -1,9 +1,9 @@
 # Examples, simplest to most complex
 
 A guided path from a one-liner to the full playground. The runnable apps live in
-[`examples/`](../examples/) — each is a self-contained Vite + React project that
-persists to `localStorage` and works offline (PWA), so you can install any of them
-to your home screen. All four are hosted live at
+[`examples/`](../examples/) — each is a self-contained Vite + React project. All but
+the collaboration example persist to `localStorage` and work offline (PWA), so you
+can install them to your home screen. All six are hosted live at
 [spatialboard.hishamkhalifa.com](https://spatialboard.hishamkhalifa.com), or run
 one from the package root:
 
@@ -12,6 +12,8 @@ npm install
 npm run dev             # examples/basic
 npm run dev:rich-text   # examples/rich-text
 npm run dev:custom      # examples/custom-nodes
+npm run dev:video       # examples/video-notes
+npm run dev:collab      # examples/collab
 npm run dev:app         # examples/dev-app (the kitchen sink)
 ```
 
@@ -70,7 +72,89 @@ The example wires **Number × Number → Multiply → Gauge**: click −/+ on a 
 the product and gauge update live. See [custom-nodes.md](custom-nodes.md) and
 [data-flow.md](data-flow.md) for the machinery.
 
-## 4. The full playground — [`examples/dev-app`](../examples/dev-app)
+## 4. Video notes — [`examples/video-notes`](../examples/video-notes)
+
+The `youtube` node ships in `coreBoardNodes`: press Y and paste a YouTube URL. The
+board pins three talks and annotates them with ink, stickies and watch-order
+edges, each talk in a frame so Present steps through them as slides.
+
+## 5. Collaboration (Yjs) — [`examples/collab`](../examples/collab)
+
+Two peers side by side, each with its own engine, `Y.Doc` and y-protocols
+`Awareness`, joined by a simulated network
+([live](https://spatialboard.hishamkhalifa.com/collab/)). The core of the binding:
+
+```ts
+engine.setCollabMode(true);
+
+// Undo: only this peer's writes, with explicit step boundaries.
+const undo = new Y.UndoManager(nodes, {
+  trackedOrigins: new Set([localOrigin]),
+  captureTimeout: Number.MAX_SAFE_INTEGER, // steps end only on stopCapturing()
+  ignoreRemoteMapChanges: true, // undoing a delete restores the whole node
+});
+
+// Out: every local edit ends in `change`. One microtask later, one
+// transaction writes only what differs between the board and the document
+// (just the dragged nodes while a gesture is active; everything on gesture:end).
+let queued = false;
+const flushSoon = () => {
+  if (applying || queued) return;
+  queued = true;
+  queueMicrotask(() => {
+    queued = false;
+    doc.transact(() => writeDiffs(engine, nodes), localOrigin);
+    // One action, one step. The example also holds the step open through a
+    // text edit or an agent action, deciding per batch at its first event.
+    if (!engine.gestureActive) undo.stopCapturing();
+  });
+};
+engine.on("change", flushSoon);
+engine.on("gesture:end", flushSoon);
+
+// In: everything not written by this binding (peers, undo, the seed).
+nodes.observeDeep((events, tr) => {
+  const ids = changedNodeIds(events);
+  // Frame membership comes from geometry, by one rule for every write: remote
+  // ops leave it alone, and a local drag only re-parents what it moved.
+  // rebuildFrameChildren() when a frame changed or anything was deleted,
+  // otherwise updateFrameMembership(ids).
+  if (tr.origin === localOrigin) return syncFrames(ids); // already on the board
+  applying = true; // the engine's own `change` handler returns while this is set
+  for (const id of ids) {
+    const rec = nodes.get(id)?.toJSON();
+    if (rec?.type === "edge") continue; // edges wait for their endpoints, below
+    if (!rec) engine.deleteRemoteNode(id);
+    else if (!isValid(rec)) refuse(id); // never trust a peer's record
+    else if (engine.getNode(id)) engine.applyRemoteNodeUpdate(id, replacePatch(engine.getNode(id), rec));
+    else engine.addRemoteNode(rec);
+  }
+  // One pass over the edges: shown when both endpoints are on the board,
+  // otherwise hidden and kept (never deleted) until they are.
+  settleEdges();
+  syncFrames(ids);
+  engine.notifyChange();
+  applying = false;
+});
+
+// The board's own undo buttons and shortcuts drive the manager.
+const refresh = () => engine.notifyHistoryChange();
+engine.setCollabUndoHandler({
+  undo: () => { undo.undo(); refresh(); },
+  redo: () => { undo.redo(); refresh(); },
+  canUndo: () => undo.canUndo(), canRedo: () => undo.canRedo(),
+});
+undo.on("stack-item-added", refresh);
+```
+
+Take a peer offline, edit both boards and bring it back: the two exchange state
+vectors and merge. The traffic panel shows every message as it crosses.
+[`examples/collab/README.md`](../examples/collab/README.md) has the full event →
+Yjs mapping, the undo step rules, record validation, the presence wiring and
+the pitfalls. This example keeps nothing
+between visits.
+
+## 6. The full playground — [`examples/dev-app`](../examples/dev-app)
 
 The kitchen sink: ~40 custom node types, Mermaid import, Excalidraw library import,
 presentations, search, themes, localization, and debug boards.
@@ -86,6 +170,8 @@ host wires props, custom nodes, localization, and fonts together.
   with no React, no CSS, no heavy peers.
 - **Agents**: point an LLM at `getAgentStateMarkdown()` and the `create*` API
   ([agents.md](agents.md)).
-- **Collaboration**: mirror engine events into your transport and apply remote ops
-  (`addRemoteNode` / `applyRemoteNodeUpdate` / `deleteRemoteNode`); render the
-  `Remote*Preview` components for live gesture awareness.
+- **Collaboration**: see [section 5](#5-collaboration-yjs--examplescollab) for a
+  worked Yjs host. The same pattern fits any transport: on `change`, sync what
+  differs out; apply peers' changes with the remote ops (`addRemoteNode` /
+  `applyRemoteNodeUpdate` / `deleteRemoteNode`), and render the `Remote*Preview`
+  components for live gestures.

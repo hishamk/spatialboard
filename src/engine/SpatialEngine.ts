@@ -103,6 +103,18 @@ export interface AlignGuide {
 }
 
 
+/**
+ * Host-owned undo/redo for collaborative mode. While collab mode is on and a
+ * handler is set, the board's undo/redo buttons and shortcuts call it instead
+ * of the (suspended) local history.
+ */
+export interface CollabUndoHandler {
+  undo(): void;
+  redo(): void;
+  canUndo(): boolean;
+  canRedo(): boolean;
+}
+
 export type SpatialSearchField = "text" | "label" | "content";
 
 export interface SpatialSearchMatch {
@@ -280,6 +292,8 @@ export class SpatialEngine {
   private listeners: { [K in keyof EventMap]?: Set<(...args: any[]) => void> } = {};
   /** @internal */ _suppressEvents = false;
   /** @internal */ _collabMode = false;
+  /** Consulted by undo/redo/canUndo/canRedo only while `_collabMode` is on. */
+  /** @internal */ _collabUndoHandler: CollabUndoHandler | null = null;
   /** Ids of remote records `addRemoteNode` refused (see `getRefusedRemoteIds`). */
   /** @internal */ _refusedRemoteIds = new Set<string>();
   /** When > 0, `addNode`/`addNodes` skip their own history snapshot push
@@ -375,8 +389,9 @@ export class SpatialEngine {
    * board as it was before any peer's later edits, so restoring one would
    * revert those edits once the host syncs the result. While the mode is on,
    * no operation records an undo step, `canUndo()`/`canRedo()` are false and
-   * `undo()`/`redo()` do nothing. Turning it off resumes local history from
-   * an empty stack.
+   * `undo()`/`redo()` do nothing, unless the host routes them to its own undo
+   * manager with `setCollabUndoHandler`. Turning it off resumes local history
+   * from an empty stack.
    */
   setCollabMode(enabled: boolean): void {
     this._collabMode = enabled;
@@ -390,9 +405,30 @@ export class SpatialEngine {
     return this._collabMode;
   }
 
+  /**
+   * Route the board's undo/redo (buttons, shortcuts, `undo()`/`redo()`,
+   * `canUndo()`/`canRedo()`) to a host undo manager while collaborative mode
+   * is on. Ignored while collab mode is off and on a read-only board. Pass
+   * `null` to remove it.
+   * Emits `history` so undo/redo chrome re-reads its state.
+   */
+  setCollabUndoHandler(handler: CollabUndoHandler | null): void {
+    this._collabUndoHandler = handler;
+    this.emit("history");
+  }
+
+  /** Emit `history` so undo/redo chrome re-reads `canUndo()`/`canRedo()`.
+   *  Hosts call this when their own undo stacks change. */
+  notifyHistoryChange(): void {
+    this.emit("history");
+  }
+
   /** Toggle read-only mode. See `readOnly` field for semantics. */
   setReadOnly(value: boolean): void {
+    const changed = this.readOnly !== value;
     this.readOnly = value;
+    // Undo/redo availability depends on it (see `setCollabUndoHandler`).
+    if (changed) this.emit("history");
   }
 
   /** Register a node type as a container (frame-like behavior). */

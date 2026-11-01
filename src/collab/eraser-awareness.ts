@@ -1,5 +1,5 @@
 /**
- * Live eraser drag for Yjs awareness — trail + IDs marked for deletion (matches local SVGLayer + DOM dim).
+ * Live eraser drag for a host's presence channel (e.g. Yjs awareness) — trail + IDs marked for deletion (matches local SVGLayer + DOM dim).
  */
 export interface EraserAwareness {
   /** Canvas points with Date.now() ms timestamps (wall clock — comparable across peers; not performance.now()). */

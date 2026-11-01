@@ -1,0 +1,734 @@
+/* Page chrome around the two boards. The palette follows the examples index:
+   warm paper, near-black ink, one amber accent. Peer colors only ever mark
+   identity (who did it), never state. */
+
+:root {
+  --bg: #f7f6f3;
+  --bg-sunk: #efede8;
+  --surface: #fdfcfa;
+  --fg: #17181c;
+  --muted: #6c6f76;
+  --faint: #9a9da4;
+  --rule: #e2ded6;
+  --rule-strong: #cfcac0;
+  --accent: #d97706;
+  --peer-a: #c2410c;
+  --peer-b: #1d4ed8;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+/* ── Page header ─────────────────────────────────────────────────────── */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding: 10px 18px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+  min-width: 0;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+}
+
+.title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.netbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-left: auto;
+}
+
+.latency {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.latency input[type="range"] {
+  width: 148px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.latency output {
+  min-width: 4.4em;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.quiet-btn {
+  appearance: none;
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.quiet-btn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.quiet-btn:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.text-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 3px 2px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.text-btn:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+/* ── Switch ─────────────────────────────────────────────────────────── */
+
+.switch {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 15px;
+  border-radius: 8px;
+  background: var(--rule-strong);
+  transition: background 0.15s ease;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(23, 24, 28, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.switch[aria-checked="true"] .switch-track {
+  background: var(--fg);
+}
+
+.switch[aria-checked="true"] .switch-track::after {
+  transform: translateX(11px);
+}
+
+.switch[aria-checked="false"] .switch-label {
+  color: var(--muted);
+}
+
+/* ── Menus (Experiments, Examples) ──────────────────────────────────── */
+
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu > summary {
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu > summary::after {
+  content: " ▾";
+  font-size: 11px;
+}
+
+.menu[open] > summary,
+.menu > summary:hover {
+  color: var(--fg);
+}
+
+.menu-panel {
+  position: absolute;
+  z-index: 1100;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 270px;
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(23, 24, 28, 0.1);
+}
+
+.menu-panel p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.demos-panel {
+  width: 190px;
+  padding: 6px 0;
+}
+
+.demos-item {
+  display: block;
+  padding: 5px 14px;
+  color: var(--fg);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+a.demos-item:hover {
+  background: var(--bg-sunk);
+}
+
+.demos-item.is-current {
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.demos-rule {
+  display: block;
+  height: 1px;
+  margin: 5px 0;
+  background: var(--rule);
+}
+
+/* ── Peers and the wire between them ────────────────────────────────── */
+
+.peers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  min-height: 42px;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.peer-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+
+.peer-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--peer);
+}
+
+.peer-stats {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.peer-stats b {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.pane-board {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  /* Each board's floating panels stay inside its own pane. */
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The gutter between the panes stands for the network: a live line while
+   both peers are online, broken while either one is offline. */
+.wire {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  background: var(--bg-sunk);
+}
+
+.wire::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1.5px solid var(--accent);
+  opacity: 0.55;
+}
+
+.wire[data-state="broken"]::before {
+  border-left-style: dashed;
+  border-left-color: var(--faint);
+  opacity: 0.7;
+}
+
+.wire-label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  background: var(--bg-sunk);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.wire-label strong {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wire-arrow {
+  color: var(--faint);
+}
+
+.wire-arrow-down,
+.wire-arrow-up {
+  display: none;
+}
+
+.wire[data-state="broken"] .wire-label strong {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Traffic panel ──────────────────────────────────────────────────── */
+
+.traffic {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.traffic-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  min-height: 40px;
+  padding: 6px 18px;
+}
+
+.traffic-head h2 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.006em;
+}
+
+.filters {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--bg-sunk);
+}
+
+.filter {
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 5px;
+  padding: 1px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.filter[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--rule);
+  color: var(--fg);
+}
+
+.traffic-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.traffic-toggle {
+  margin-left: auto;
+}
+
+.traffic-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  height: min(168px, 22vh);
+  border-top: 1px solid var(--rule);
+}
+
+.traffic-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.traffic-col + .traffic-col {
+  border-left: 1px solid var(--rule);
+}
+
+.traffic-col-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 5px 18px 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.traffic-totals {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* time · direction · counterpart · kind · size · detail */
+.traffic-row {
+  display: grid;
+  grid-template-columns: 7.4em 1.4em 8.6em 9.4em 5.2em minmax(0, 1fr);
+  gap: 0 10px;
+  padding: 2px 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.traffic-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.traffic-row[data-channel="presence"] {
+  color: var(--muted);
+}
+
+.traffic-row[data-status="local only (offline)"],
+.traffic-row[data-status="dropped (malformed)"] {
+  color: var(--faint);
+}
+
+.traffic-dir {
+  color: var(--faint);
+}
+
+.traffic-count {
+  color: var(--muted);
+}
+
+.traffic-paused {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.traffic-rows {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 3px 0 6px;
+}
+
+.traffic-empty {
+  max-width: 34em;
+  padding: 16px 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.traffic-empty strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* ── Remote presence over a board ───────────────────────────────────── */
+
+.presence-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.presence-vp {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.presence-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+}
+
+.remote-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  will-change: transform;
+}
+
+.remote-cursor svg {
+  display: block;
+  filter: drop-shadow(0 1px 1px rgba(23, 24, 28, 0.25));
+}
+
+.remote-cursor-label {
+  margin-top: 13px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* ── Things to try ──────────────────────────────────────────────────── */
+
+.try-panel {
+  width: 300px;
+}
+
+.try-panel ul {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.try-panel li + li {
+  margin-top: 5px;
+}
+
+/* ── Narrow: peers stack, the wire runs across ──────────────────────── */
+
+@media (max-width: 899px) {
+  .topbar {
+    padding: 8px 14px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    gap: 8px 18px;
+  }
+
+  .netbar {
+    margin-left: 0;
+    gap: 8px 18px;
+  }
+
+  .latency input[type="range"] {
+    width: 110px;
+  }
+
+  .peers {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 30px minmax(0, 1fr);
+  }
+
+  .pane-head {
+    min-height: 38px;
+    padding: 5px 14px;
+  }
+
+  .wire {
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .wire::before {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    border-left: none;
+    border-top: 1.5px solid var(--accent);
+  }
+
+  .wire[data-state="broken"]::before {
+    border-left: none;
+    border-top-style: dashed;
+    border-top-color: var(--faint);
+  }
+
+  .wire-label {
+    flex-direction: row;
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .wire-arrow-right,
+  .wire-arrow-left {
+    display: none;
+  }
+
+  .wire-arrow-down,
+  .wire-arrow-up {
+    display: inline;
+  }
+
+  .traffic-head {
+    padding: 6px 14px;
+  }
+
+  .traffic-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    height: min(240px, 36vh);
+  }
+
+  .traffic-col + .traffic-col {
+    border-left: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .traffic-col-head {
+    padding: 6px 14px 4px;
+  }
+
+  .traffic-row {
+    grid-template-columns: 7.4em 1.4em 8.6em 9.4em 5.2em minmax(12em, 1fr);
+    padding: 2px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-track,
+  .switch-track::after,
+  .quiet-btn {
+    transition: none;
+  }
+}

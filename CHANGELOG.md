@@ -7,6 +7,27 @@ Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `setCollabUndoHandler(handler)` and `notifyHistoryChange()` on
+  `SpatialEngine`, plus the `CollabUndoHandler` type. While collaborative mode
+  is on, the board's undo and redo buttons, Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z,
+  and `undo()`/`redo()`/`canUndo()`/`canRedo()` go to the host's handler
+  instead of doing nothing, so a host undo manager drives the board's own
+  undo affordances. The handler is ignored while collaborative mode is off
+  and on read-only boards. `notifyHistoryChange()` emits `history` so the
+  undo and redo buttons re-read their state when the host's stacks change,
+  and `setReadOnly()` now emits `history` when the mode changes, so the
+  buttons follow it too.
+- Collaboration example (`examples/collab`): two peers on one page, each with
+  its own board, Yjs document and awareness, joined by a simulated network
+  with adjustable latency and per-peer offline switches. Edits made offline
+  merge on reconnect through a state-vector handshake, each peer's undo
+  reverts only its own changes, live gestures render on the other board, and
+  a switch extends the network to other open tabs. A traffic panel lists
+  every message each peer sends and receives, with its size and what it did
+  to the board. Unlike the other examples it keeps nothing between visits.
+
 ### Changed
 
 - Collaborative mode now records no local undo steps at all. `setCollabMode`

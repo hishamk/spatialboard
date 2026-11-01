@@ -62,7 +62,7 @@ read and write.
   animated transitions (pan, fade, dissolve, zoom, fold, 3D cube). One call:
   `engine.enterPresentation()`.
 - **Collaboration-ready** — transport-agnostic remote ops and live gesture
-  awareness; wire it to any sync layer or CRDT. Storage stays your business.
+  events; wire it to any sync layer or CRDT. Storage stays your business.
 - **AI-native** — budgeted board snapshots for LLM context, a programmatic
   drawing API, and SBD: a markdown-compatible board format that models both
   read and write.
@@ -153,11 +153,17 @@ call — `engine.enterPresentation()`.
 </p>
 
 **A collaborative canvas.** The engine exposes remote-op methods
-(`addRemoteNode`, `applyRemoteNodeUpdate`, `deleteRemoteNode`) and broadcasts
-gesture awareness (live stroke, shape, drag, eraser, and laser previews) so
-you can wire it to any transport or CRDT. Storage is deliberately not
-SpatialBoard's business — serialize with `toSBD()`/`toJSON()` and persist
-however you like.
+(`addRemoteNode`, `applyRemoteNodeUpdate`, `deleteRemoteNode`) for applying a
+peer's changes without echoing them back, and emits live gesture events for
+freehand strokes, shapes, connectors, rectangle drags, the eraser, the laser
+and selection, so you can wire it to any transport or CRDT. The exported
+`Remote*Preview` components render four of those for a peer (connector,
+rectangle drag, eraser, selection); stroke, shape and laser previews are left
+to the host. [`examples/collab`](examples/collab)
+([live](https://spatialboard.hishamkhalifa.com/collab/)) is a worked Yjs host:
+two peers, a simulated network, offline merge, per-peer undo and every message
+shown as it crosses. Storage is deliberately not SpatialBoard's business —
+serialize with `toSBD()`/`toJSON()` and persist however you like.
 
 **An AI-native surface.** `getAgentState()` returns a structured, budgeted
 snapshot for LLM context (`getAgentStateMarkdown()` for prompts); a
@@ -233,10 +239,11 @@ returns `{ nodes, meta, warnings }`). Spec in [sbd-spec.md](sbd-spec.md).
 
 ## Examples
 
-Four runnable apps — three focused tiers plus the kitchen sink, all hosted
-live at
+Six runnable apps, all hosted live at
 [spatialboard.hishamkhalifa.com](https://spatialboard.hishamkhalifa.com). All
-are self-contained, persist to localStorage, and work offline (PWA):
+are self-contained. All but the collaboration example persist to localStorage
+and work offline (PWA); the collaboration example keeps its documents in
+memory, so a reload starts it fresh:
 
 - **`examples/basic`**
   ([live](https://spatialboard.hishamkhalifa.com/basic/)) — the slim core
@@ -248,6 +255,14 @@ are self-contained, persist to localStorage, and work offline (PWA):
   ([live](https://spatialboard.hishamkhalifa.com/custom-nodes/)) — three
   custom node types wired as a live data-flow graph
   (Number × Number → Multiply → Gauge).
+- **`examples/video-notes`**
+  ([live](https://spatialboard.hishamkhalifa.com/video-notes/)) — YouTube
+  nodes annotated with ink, stickies and watch-order arrows.
+- **`examples/collab`**
+  ([live](https://spatialboard.hishamkhalifa.com/collab/)) — two peers kept
+  in sync with Yjs over a simulated network: latency, offline edits that
+  merge on reconnect, presence, per-peer undo, optional sync across tabs, and
+  a traffic panel showing every message.
 - **`examples/dev-app`**
   ([live](https://spatialboard.hishamkhalifa.com/dev-app/)) — the development
   playground: every feature and ~40 custom node types. Every board pictured
@@ -261,6 +276,8 @@ npm install
 npm run dev            # examples/basic
 npm run dev:rich-text  # examples/rich-text
 npm run dev:custom     # examples/custom-nodes
+npm run dev:video      # examples/video-notes
+npm run dev:collab     # examples/collab
 npm run dev:app        # examples/dev-app
 ```
 
@@ -290,14 +307,12 @@ the order is wrong:
 2. **MCP server.** SBD and `getAgentStateMarkdown()` already give models a
    way to read and write boards; an MCP server would make that a standard
    plug instead of a bring-your-own-glue exercise.
-3. **CRDT collaboration example.** The engine is transport-agnostic by
-   design, but "wire it to any CRDT" deserves a worked end-to-end example.
 
 ## Development
 
 ```bash
 npm install
-npm run dev        # examples/basic (or dev:rich-text / dev:custom / dev:app)
+npm run dev        # examples/basic (or dev:rich-text / dev:custom / dev:video / dev:collab / dev:app)
 npm run typecheck
 npm run test
 npm run build      # dist/ (generated; not committed)

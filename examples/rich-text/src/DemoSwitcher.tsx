@@ -15,6 +15,7 @@ const DEMOS = [
   { slug: "rich-text", name: "Rich text", href: "/rich-text/" },
   { slug: "custom-nodes", name: "Custom nodes", href: "/custom-nodes/" },
   { slug: "video-notes", name: "Video notes", href: "/video-notes/" },
+  { slug: "collab", name: "Collaboration", href: "/collab/" },
   { slug: "dev-app", name: "Playground", href: "/dev-app/" },
 ];
 
