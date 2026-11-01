@@ -7,6 +7,8 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
 ### Added
 
 - `setCollabUndoHandler(handler)` and `notifyHistoryChange()` on
