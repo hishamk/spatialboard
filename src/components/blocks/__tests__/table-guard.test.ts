@@ -7,7 +7,9 @@ import {
   boundTableSpans,
   sanitizeTableBlocks,
   boundCellAttrs,
+  layoutTable,
   MAX_TABLE_COLUMNS,
+  MAX_TABLE_PADDING,
   type SpanAttrs,
 } from "../table-guard";
 import { boundSlice, tableGuardExtension, TABLE_SPAN_GUARD_META } from "../blocknote-table-guard";
@@ -120,6 +122,11 @@ const SPAN_VECTORS = [
     rows: [cellRow(w).map((c) => ({ ...c, rowspan: h })), ...Array.from({ length: h - 2 }, () => []), [{ colspan: 512, rowspan: 1, colwidth: null }]],
     expect: [cellRow(w).map(() => [1, h, null]), ...Array.from({ length: h - 2 }, () => []), [[last, 1, null]]],
   })),
+  ...[[400, 266], [1100, 259]].map(([h, last]) => ({
+    name: `a gate of 255 cells over a 256-column cell spanning ${h - 2} rows keeps the rowspan`,
+    rows: [cellRow(255), [{ colspan: 256, rowspan: h - 2, colwidth: null }], cellRow(1), ...Array.from({ length: h - 4 }, () => []), [{ colspan: 1000, rowspan: 1, colwidth: null }]],
+    expect: [cellRow(255).map(() => [1, 1, null]), [[256, h - 2, null]], [[1, 1, null]], ...Array.from({ length: h - 4 }, () => []), [[last, 1, null]]],
+  })),
 ];
 
 const tuples = (rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>) =>
@@ -140,6 +147,46 @@ describe("span rules", () => {
     expect(boundCellAttrs(rows)).toEqual(rows.map((cells) => cells.map(() => null)));
     rows.forEach((cells, r) => cells.forEach((attrs, c) => expect(spans[r][c]!.colwidth).toBe(attrs.colwidth)));
   });
+
+  it("meets the padding bound whenever some column cap does (seeded fuzz against every cap)", () => {
+    let seed = 0x1d872b41;
+    const rand = (n: number) => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return seed % n;
+    };
+    const pick = <T,>(values: T[]): T => values[rand(values.length)];
+    const fuzzTable = (): SpanAttrs[][] => {
+      const height = 12 + rand(49);
+      const kind = rand(3);
+      const cell = (attrs: Partial<SpanAttrs> = {}): SpanAttrs => ({ colspan: 1, rowspan: 1, colwidth: null, ...attrs });
+      const tail = (rows: SpanAttrs[][]) => {
+        while (rows.length < height - 1) rows.push(pick([[], [], [cell()]]));
+        rows.push([cell({ colspan: pick([512, 1000, 1 + rand(600)]) })]);
+        return rows;
+      };
+      // A gate: plain cells over a wide cell spanning most rows, a cell under it.
+      if (kind === 0) return tail([Array.from({ length: 1 + rand(400) }, () => cell()), [cell({ colspan: 1 + rand(500), rowspan: height - 2 })], [cell()]]);
+      // A fan: cells spanning (nearly) every row over short rows.
+      if (kind === 1) return tail([Array.from({ length: 2 + rand(300) }, () => cell({ rowspan: pick([height, height - 1, 1 + rand(height)]) }))]);
+      return Array.from({ length: height }, () =>
+        Array.from({ length: pick([0, 0, 1, 1, 2, 3, rand(40), rand(400)]) }, () =>
+          cell({ colspan: pick([1, 1, 2, 100, 256, 300, 512, 1000]), rowspan: pick([1, 1, 2, height, 1e9]) }),
+        ),
+      );
+    };
+    let meetable = 0;
+    for (let t = 0; t < 150; t++) {
+      const rows = fuzzTable();
+      if (layoutTable(rows, MAX_TABLE_COLUMNS).padding <= MAX_TABLE_PADDING) continue;
+      let any = false;
+      for (let cap = 1; cap < MAX_TABLE_COLUMNS && !any; cap++) any = layoutTable(rows, cap).padding <= MAX_TABLE_PADDING;
+      if (!any) continue;
+      meetable++;
+      const padding = layoutTable(boundTableSpans(rows) as SpanAttrs[][], MAX_TABLE_COLUMNS).padding;
+      expect(padding, `fuzz table ${t}`).toBeLessThanOrEqual(MAX_TABLE_PADDING);
+    }
+    expect(meetable).toBeGreaterThanOrEqual(20);
+  }, 60_000);
 });
 
 const cell = (text: string, props: Record<string, unknown> = {}) => ({ type: "tableCell", content: [text], props });
@@ -377,6 +424,19 @@ describe("table guard in the rich-text editor", () => {
     table.firstChild!.forEach((cell) => (kept += cell.attrs.rowspan === h ? 1 : 0));
     expect(kept).toBe(w);
     expect((user + system) / 1000).toBeLessThan(10000);
+  }, 30_000);
+
+  it("keeps the rowspan of a gate: plain cells over a wide cell spanning a tall table", () => {
+    // The cap that keeps the rowspan over the row under it is the columns
+    // carried in, the cell's colspan and that row's own cells: neither 1 nor
+    // any row's cell count.
+    const h = 300;
+    const rows = [Array.from({ length: 255 }, () => ({})), [{ colspan: 256, rowspan: h - 2 }], [{}], ...Array.from({ length: h - 4 }, () => [{}]), [{ colspan: 1000 }]];
+    const { table } = applyTable(rows);
+    let cells = 0;
+    table.forEach((row) => (cells += row.childCount));
+    expect(cells).toBeLessThanOrEqual(255 + h - 1 + 4096);
+    expect(table.child(1).firstChild!.attrs.rowspan).toBe(h - 2);
   }, 30_000);
 
   it("keeps a selection inside a corrected table where it was", () => {

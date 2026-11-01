@@ -129,19 +129,24 @@ export function boundColwidth(value: unknown, colspan: number): unknown {
  *   cell's columns would leave without one column for each of its own cells;
  * - colwidth: see `boundColwidth`.
  * `width` is the table map's width (the widest row, carried columns
- * included) and `padding` the cells the table plugin adds to fill every row
- * to it.
+ * included), `padding` the cells the table plugin adds to fill every row to
+ * it, and `work` the cells and covered rows the layout visited. `kept`, when
+ * given, collects for each cell whose rowspan is kept in full the largest
+ * sum the keep test compared with the cap, with the largest area a rowspan
+ * kept at that sum covers.
  */
-function layoutTable(
+export function layoutTable(
   rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>,
   cap: number,
-): { spans: Array<Array<CellSpans | null>>; width: number; padding: number } {
+  kept?: Map<number, number>,
+): { spans: Array<Array<CellSpans | null>>; width: number; padding: number; work: number } {
   const height = rows.length;
   const cellCount = rows.map((cells) => cells.filter((c) => c).length);
   const carried: number[] = rows.map(() => 0);
   const covered: Array<Array<[number, number]>> = rows.map(() => []);
   let width = 0;
   let area = 0;
+  let work = 0;
   const spans = rows.map((cells, r) => {
     const blocks = covered[r].sort((a, b) => a[0] - b[0]);
     let next = 0;
@@ -151,17 +156,24 @@ function layoutTable(
     const out = cells.map((attrs) => {
       if (!attrs) return null;
       after--;
+      work++;
       while (next < blocks.length && blocks[next][0] <= col) col = Math.max(col, blocks[next++][1]);
       const free = next < blocks.length ? blocks[next][0] - col : Infinity;
       const room = Math.max(1, cap - used - after);
       const colspan = Math.min(clamp(spanInt(attrs.colspan), 1, MAX_COLSPAN), room, free);
       const wanted = clamp(spanInt(attrs.rowspan), 1, height - r);
       let rowspan = 1;
-      while (rowspan < wanted && carried[r + rowspan] + colspan + cellCount[r + rowspan] <= cap) {
+      let need = 0;
+      while (rowspan < wanted) {
+        const keepAt = carried[r + rowspan] + colspan + cellCount[r + rowspan];
+        if (keepAt > cap) break;
+        need = Math.max(need, keepAt);
         carried[r + rowspan] += colspan;
         covered[r + rowspan].push([col, col + colspan]);
         rowspan++;
+        work++;
       }
+      if (kept && rowspan > 1 && rowspan === wanted) kept.set(need, Math.max(kept.get(need) ?? 0, colspan * (rowspan - 1)));
       used += colspan;
       col += colspan;
       area += colspan * rowspan;
@@ -170,7 +182,70 @@ function layoutTable(
     width = Math.max(width, used);
     return out;
   });
-  return { spans, width, padding: height * width - area };
+  return { spans, width, padding: height * width - area, work };
+}
+
+/** `spans` and `other` give every cell the same spans and widths. */
+function sameSpans(spans: Array<Array<CellSpans | null>>, other: Array<Array<CellSpans | null>>): boolean {
+  return spans.every((cells, r) =>
+    cells.every((s, i) => {
+      const o = other[r][i];
+      return s === o || (s !== null && o !== null && s.colspan === o.colspan && s.rowspan === o.rowspan && s.colwidth === o.colwidth);
+    }),
+  );
+}
+
+/**
+ * The candidate search `boundTableSpans` describes, once over `rows`; `settled`
+ * when the widest layout already keeps the padding within the bound (bounding
+ * that layout again returns it as it is).
+ */
+function searchSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): { spans: Array<Array<CellSpans | null>>; settled: boolean } {
+  const kept = new Map<number, number>();
+  const widest = layoutTable(rows, MAX_TABLE_COLUMNS, kept);
+  if (widest.padding <= MAX_TABLE_PADDING) return { spans: widest.spans, settled: true };
+  const counts = new Set<number>([1]);
+  for (const cells of rows) counts.add(clamp(cells.filter((c) => c).length, 1, MAX_TABLE_COLUMNS - 1));
+  const candidates = new Set(counts);
+  for (const need of kept.keys()) if (need < MAX_TABLE_COLUMNS) candidates.add(need);
+  const ascending = [...candidates].sort((a, b) => a - b);
+  // The layout at `cap`, raised by a binary search up to the next candidate.
+  const raise = (cap: number, found: ReturnType<typeof layoutTable>) => {
+    let best = found;
+    let lo = cap;
+    let hi = (ascending.find((c) => c > cap) ?? MAX_TABLE_COLUMNS) - 1;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      const attempt = layoutTable(rows, mid);
+      if (attempt.padding <= MAX_TABLE_PADDING) {
+        lo = mid;
+        best = attempt;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return { cap: lo, layout: best };
+  };
+  let least = widest;
+  let met: { cap: number; layout: ReturnType<typeof layoutTable> } | null = null;
+  for (const cap of [...counts].sort((a, b) => b - a)) {
+    const found = layoutTable(rows, cap);
+    if (found.padding <= MAX_TABLE_PADDING) {
+      met = raise(cap, found);
+      break;
+    }
+    if (found.padding < least.padding) least = found;
+  }
+  let budget = 2 * widest.work;
+  for (const [need] of [...kept].sort((a, b) => b[1] - a[1] || b[0] - a[0])) {
+    if (budget <= 0) break;
+    if (need >= MAX_TABLE_COLUMNS || need <= (met ? met.cap : 0)) continue;
+    const found = layoutTable(rows, need);
+    budget -= found.work;
+    if (found.padding <= MAX_TABLE_PADDING) met = raise(need, found);
+    else if (!met && found.padding < least.padding) least = found;
+  }
+  return { spans: (met ? met.layout : least).spans, settled: false };
 }
 
 /**
@@ -180,57 +255,36 @@ function layoutTable(
  * cap is MAX_TABLE_COLUMNS unless the table plugin would then add more than
  * MAX_TABLE_PADDING cells to fill the rows. The padding is not monotone in
  * the cap (a low cap cuts rowspans, and the rows it leaves short are
- * padded), so the caps tried are candidates rather than a search by
- * halving: a rowspan is cut where a row it covers reaches the cap with its
- * own cells, so the caps at which rowspans over a row start to be kept are
- * the rows' cell counts. The candidates are 1 and every row's cell count, in
- * descending order; the first that keeps the padding within the bound is
- * raised by a binary search up to the next candidate (keeping the most of
- * the written spans). When none does, the candidate with the least padding
- * (the widest on a tie) is laid out again the same way until no candidate
- * pads less, so bounding the result again changes nothing; each round
+ * padded), so the caps tried are candidates rather than a search by halving.
+ * `layoutTable` keeps a rowspan over a row while the columns already carried
+ * into that row, the cell's colspan and the row's own cells fit the cap; the
+ * candidates are:
+ * - 1 and the number of cells of each row, tried from the largest down;
+ * - for each cell whose rowspan the widest layout keeps in full, the largest
+ *   such sum over the rows it covers (the least cap at which it is still
+ *   kept in full there), tried from the cell covering the most area down,
+ *   within a budget of twice the work of the widest layout, and only above
+ *   the cap the first group found.
+ * The largest candidate that keeps the padding within the bound is raised by
+ * a binary search up to the next candidate (keeping the most of the written
+ * spans). When none does, the candidate with the least padding (the widest
+ * on a tie) applies. The search is repeated on its own result until it
+ * changes nothing, so bounding the result again changes nothing; each round
  * lowers the padding. The result never pads more than the widest or the
- * narrowest layout. The candidates are not every cap where the layout
- * changes (trying all 512 costs seconds on large tables), so a table whose
- * rowspans fit only at a cap between two candidates can pad more than its
- * best cap would. There are at most MAX_TABLE_COLUMNS candidates, and no
- * more distinct cell counts than the square root of twice the cells. No cell
- * is ever removed, and a table already within bounds keeps every value.
+ * narrowest layout. The budget keeps the cost near that of the first group
+ * alone; past it, a cap the second group would have found is not tried, and
+ * a table can pad more than its best cap would. No cell is ever removed, and
+ * a table already within bounds keeps every value.
  */
 export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
-  const counts = new Set<number>([1]);
-  for (const cells of rows) counts.add(clamp(cells.filter((c) => c).length, 1, MAX_TABLE_COLUMNS - 1));
-  const caps = [...counts].sort((a, b) => b - a);
-  let current: ReadonlyArray<ReadonlyArray<SpanAttrs | null>> = rows;
-  let laidOut = false;
-  for (;;) {
-    const widest = layoutTable(current, MAX_TABLE_COLUMNS);
-    if (widest.padding <= MAX_TABLE_PADDING) return widest.spans;
-    let least = widest;
-    for (let i = 0; i < caps.length; i++) {
-      const found = layoutTable(current, caps[i]);
-      if (found.padding <= MAX_TABLE_PADDING) {
-        let best = found;
-        let lo = caps[i];
-        let hi = (i === 0 ? MAX_TABLE_COLUMNS : caps[i - 1]) - 1;
-        while (lo < hi) {
-          const mid = Math.ceil((lo + hi) / 2);
-          const attempt = layoutTable(current, mid);
-          if (attempt.padding <= MAX_TABLE_PADDING) {
-            lo = mid;
-            best = attempt;
-          } else {
-            hi = mid - 1;
-          }
-        }
-        return best.spans;
-      }
-      if (found.padding < least.padding) least = found;
-    }
-    if (least === widest && laidOut) return widest.spans;
-    current = least.spans;
-    laidOut = true;
+  let { spans, settled } = searchSpans(rows);
+  for (let round = 0; !settled && round < 8; round++) {
+    const again = searchSpans(spans);
+    if (sameSpans(again.spans, spans)) break;
+    spans = again.spans;
+    settled = again.settled;
   }
+  return spans;
 }
 
 /**
