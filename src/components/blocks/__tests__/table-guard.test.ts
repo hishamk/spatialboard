@@ -115,6 +115,11 @@ const SPAN_VECTORS = [
     rows: [[{ colspan: 512, rowspan: 1, colwidth: null }], ...Array.from({ length: 4097 }, () => [])],
     expect: [[[1, 1, null]], ...Array.from({ length: 4097 }, () => [])],
   },
+  ...[[100, 1000, 4], [230, 700, 5]].map(([w, h, last]) => ({
+    name: `a fan of ${w} cells spanning ${h} rows over rows without cells keeps every rowspan`,
+    rows: [cellRow(w).map((c) => ({ ...c, rowspan: h })), ...Array.from({ length: h - 2 }, () => []), [{ colspan: 512, rowspan: 1, colwidth: null }]],
+    expect: [cellRow(w).map(() => [1, h, null]), ...Array.from({ length: h - 2 }, () => []), [[last, 1, null]]],
+  })),
 ];
 
 const tuples = (rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>) =>
@@ -353,7 +358,26 @@ describe("table guard in the rich-text editor", () => {
     let cells = 0;
     table.forEach((row) => (cells += row.childCount));
     expect(cells).toBeLessThanOrEqual(most);
-  });
+    // The table plugin pads each short row in a step of its own: seconds on a
+    // loaded machine.
+  }, 30_000);
+
+  it("keeps every rowspan of a fan of cells spanning a tall table", () => {
+    // The padding is not monotone in the column cap: cap 1 cuts every
+    // rowspan and pads the rows it leaves short.
+    const [w, h] = [100, 1000];
+    const rows = [Array.from({ length: w }, () => ({ rowspan: h })), ...Array.from({ length: h - 2 }, () => [{}]), [{ colspan: 512 }]];
+    const cpu = process.cpuUsage();
+    const { table } = applyTable(rows);
+    const { user, system } = process.cpuUsage(cpu);
+    let cells = 0;
+    table.forEach((row) => (cells += row.childCount));
+    expect(cells).toBeLessThanOrEqual(w * h + 4096);
+    let kept = 0;
+    table.firstChild!.forEach((cell) => (kept += cell.attrs.rowspan === h ? 1 : 0));
+    expect(kept).toBe(w);
+    expect((user + system) / 1000).toBeLessThan(10000);
+  }, 30_000);
 
   it("keeps a selection inside a corrected table where it was", () => {
     const { state: base, plugins } = guardedState(true);

@@ -177,31 +177,60 @@ function layoutTable(
  * The bounded spans of every cell of a table given as rows of cell
  * attributes (`null` entries are row children that are not cells: they take
  * no column and are left alone), laid out as `layoutTable` describes. The
- * cap is MAX_TABLE_COLUMNS, or when the table plugin would add more than
- * MAX_TABLE_PADDING cells to fill the rows, a lower cap, found by binary
- * search, that keeps the padding within that bound; when even the narrowest
- * layout (cap 1) needs more, it applies unless the widest pads no more. No
- * cell is ever removed, and a table already within bounds keeps every
- * value.
+ * cap is MAX_TABLE_COLUMNS unless the table plugin would then add more than
+ * MAX_TABLE_PADDING cells to fill the rows. The padding is not monotone in
+ * the cap (a low cap cuts rowspans, and the rows it leaves short are
+ * padded), so the caps tried are candidates rather than a search by
+ * halving: a rowspan is cut where a row it covers reaches the cap with its
+ * own cells, so the caps at which rowspans over a row start to be kept are
+ * the rows' cell counts. The candidates are 1 and every row's cell count, in
+ * descending order; the first that keeps the padding within the bound is
+ * raised by a binary search up to the next candidate (keeping the most of
+ * the written spans). When none does, the candidate with the least padding
+ * (the widest on a tie) is laid out again the same way until no candidate
+ * pads less, so bounding the result again changes nothing; each round
+ * lowers the padding. The result never pads more than the widest or the
+ * narrowest layout. The candidates are not every cap where the layout
+ * changes (trying all 512 costs seconds on large tables), so a table whose
+ * rowspans fit only at a cap between two candidates can pad more than its
+ * best cap would. There are at most MAX_TABLE_COLUMNS candidates, and no
+ * more distinct cell counts than the square root of twice the cells. No cell
+ * is ever removed, and a table already within bounds keeps every value.
  */
 export function boundTableSpans(rows: ReadonlyArray<ReadonlyArray<SpanAttrs | null>>): Array<Array<CellSpans | null>> {
-  const widest = layoutTable(rows, MAX_TABLE_COLUMNS);
-  if (widest.padding <= MAX_TABLE_PADDING) return widest.spans;
-  let best = layoutTable(rows, 1);
-  if (best.padding > MAX_TABLE_PADDING) return (best.padding < widest.padding ? best : widest).spans;
-  let lo = 1;
-  let hi = MAX_TABLE_COLUMNS - 1;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    const attempt = layoutTable(rows, mid);
-    if (attempt.padding <= MAX_TABLE_PADDING) {
-      lo = mid;
-      best = attempt;
-    } else {
-      hi = mid - 1;
+  const counts = new Set<number>([1]);
+  for (const cells of rows) counts.add(clamp(cells.filter((c) => c).length, 1, MAX_TABLE_COLUMNS - 1));
+  const caps = [...counts].sort((a, b) => b - a);
+  let current: ReadonlyArray<ReadonlyArray<SpanAttrs | null>> = rows;
+  let laidOut = false;
+  for (;;) {
+    const widest = layoutTable(current, MAX_TABLE_COLUMNS);
+    if (widest.padding <= MAX_TABLE_PADDING) return widest.spans;
+    let least = widest;
+    for (let i = 0; i < caps.length; i++) {
+      const found = layoutTable(current, caps[i]);
+      if (found.padding <= MAX_TABLE_PADDING) {
+        let best = found;
+        let lo = caps[i];
+        let hi = (i === 0 ? MAX_TABLE_COLUMNS : caps[i - 1]) - 1;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          const attempt = layoutTable(current, mid);
+          if (attempt.padding <= MAX_TABLE_PADDING) {
+            lo = mid;
+            best = attempt;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        return best.spans;
+      }
+      if (found.padding < least.padding) least = found;
     }
+    if (least === widest && laidOut) return widest.spans;
+    current = least.spans;
+    laidOut = true;
   }
-  return best.spans;
 }
 
 /**
